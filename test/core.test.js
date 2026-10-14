@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
-  decodeGviz, parseTeams, parseSchedule, defaultLineup,
+  decodeGviz, parseTeams, parseSchedule, scheduleDay, defaultLineup,
   selectedPlayers, validateMatch, playerText, viewUrl, pushUrl,
   safeFilename, buildObs, MAP_POOL, VETO_RULES,
   validateVeto, appendVeto, vetoText
@@ -72,6 +72,16 @@ test('Schedule identifies repeat matchups and validates time', () => {
   assert.equal(schedule[0].time, '09:05');
   assert.notEqual(schedule[0].key, schedule[1].key);
   assert.equal(schedule[1].stage, 'Финал');
+});
+
+test('Schedule day comes from the sheet title, not from match rows', () => {
+  assert.equal(scheduleDay([[''], ['Матчи 14 октября 2026'], ['№', 'Начало МСК']]), '14.10');
+  assert.equal(scheduleDay([['Матчи 3 мая'], ['1', '13:00', 'A', 'B']]), '03.05');
+  assert.equal(scheduleDay([['Матчи 15.10']]), '15.10');
+  assert.equal(scheduleDay([['Расписание из таблицы организатора, столбец MSK (GMT +3).']]), '');
+  assert.equal(scheduleDay([['', '13:00', 'Team 4 марта', 'B']]), '');
+  assert.equal(scheduleDay([]), '');
+  assert.equal(scheduleDay([['Расписание: 1 матч в день']]), '');
 });
 
 test('Player output has bold nickname and separate PUSH URL', () => {

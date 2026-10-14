@@ -1,0 +1,12 @@
+# Static site: no build step, the repository root is the site.
+[build]
+  publish = "."
+  command = ""
+
+# Same security headers as server.js (test/server.test.js keeps them in sync).
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

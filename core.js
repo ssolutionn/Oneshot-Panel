@@ -60,6 +60,29 @@ export function parseSchedule(rows) {
   });
 }
 
+const MONTHS = [/^январ/, /^феврал/, /^март/, /^апрел/, /^ма[йя]$/, /^июн/,
+  /^июл/, /^август/, /^сентябр/, /^октябр/, /^ноябр/, /^декабр/];
+
+// Day the schedule sheet is for, from its title ("Матчи 14 октября 2026"
+// or "Матчи 14.10"), as "DD.MM"; '' when the sheet does not say.
+export function scheduleDay(rows) {
+  for (const row of rows.slice(0, 6)) {
+    for (const cell of row) {
+      const text = line(cell).toLowerCase();
+      if (!/матч|расписан|schedule/.test(text)) continue;
+      const word = text.match(/(\d{1,2})\s+([а-яё]+)/);
+      const month = word ? MONTHS.findIndex(m => m.test(word[2])) : -1;
+      const numeric = text.match(/(\d{1,2})\.(\d{1,2})(?!\d)/);
+      const [day, mon] = month >= 0 ? [Number(word[1]), month + 1] :
+        numeric ? [Number(numeric[1]), Number(numeric[2])] : [0, 0];
+      if (day >= 1 && day <= 31 && mon >= 1 && mon <= 12) {
+        return `${String(day).padStart(2, '0')}.${String(mon).padStart(2, '0')}`;
+      }
+    }
+  }
+  return '';
+}
+
 export function defaultLineup(team) {
   return team?.players.filter(p => p.role === 'Основной')
     .slice(0, 5).map(p => p.key) || [];

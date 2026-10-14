@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { createServer } from '../server.js';
 
 test('Static server serves public files and rejects traversal', async () => {
@@ -25,6 +26,23 @@ test('Static server serves public files and rejects traversal', async () => {
     const head = await fetch(base, { method: 'HEAD' });
     assert.equal(head.status, 200);
     assert.equal(await head.text(), '');
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('Netlify serves the same security headers as server.js', async () => {
+  const toml = fs.readFileSync(new URL('../netlify.toml', import.meta.url), 'utf8');
+  const server = createServer();
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const page = await fetch(`http://127.0.0.1:${server.address().port}`);
+    for (const name of [
+      'Content-Security-Policy', 'X-Content-Type-Options', 'Referrer-Policy'
+    ]) {
+      const value = toml.match(new RegExp(`^\\s*${name} = "(.*)"$`, 'm'))?.[1];
+      assert.equal(value, page.headers.get(name), name);
+    }
   } finally {
     await new Promise(resolve => server.close(resolve));
   }

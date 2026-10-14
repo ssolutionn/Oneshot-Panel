@@ -1,5 +1,5 @@
 import {
-  DEFAULT_SOURCE, decodeGviz, parseTeams, parseSchedule,
+  DEFAULT_SOURCE, decodeGviz, parseTeams, parseSchedule, scheduleDay,
   defaultLineup, lineupCandidates, roleSuffix, selectedPlayers,
   validatePlayers, validateMatch, viewUrl, directorUrl,
   observerText, playerText, buildObs, safeFilename, validateMetadata,
@@ -10,6 +10,7 @@ const $ = id => document.getElementById(id);
 const state = {
   teams: [], schedule: [], a: '', b: '', keysA: [], keysB: [],
   matchKey: '', tab: 'observer', lastSync: null, stale: false,
+  scheduleDay: '',
   source: { ...DEFAULT_SOURCE }, template: null, templateError: '',
   veto: { format: 'BO3', first: 0, actions: [], matchKey: '' },
   pending: null
@@ -198,8 +199,14 @@ async function refresh() {
       'Обновлено ' + state.lastSync.toLocaleTimeString('ru-RU', {
         timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit'
       }) + ' МСК';
+    if (schedule.status === 'fulfilled') {
+      state.scheduleDay = scheduleDay(schedule.value);
+    }
+    renderScheduleDay();
     if (schedule.status === 'rejected') {
       showError('Составы загружены. Расписание недоступно — выбери команды, время и стадию вручную.');
+    } else if (state.scheduleDay && state.scheduleDay !== mskToday()) {
+      showError(`Расписание в таблице на ${state.scheduleDay}, а сегодня ${mskToday()} по МСК. Если для нового дня завели новый лист, укажи его GID в «Источник данных».`);
     }
   } catch (error) {
     if (request !== refreshId) return;
@@ -226,6 +233,21 @@ async function refresh() {
       $('refreshBtn').textContent = '↻ Обновить';
     }
   }
+}
+
+function mskToday() {
+  return new Intl.DateTimeFormat('ru-RU', {
+    timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit'
+  }).format(new Date());
+}
+function renderScheduleDay() {
+  $('scheduleLabel').textContent = 'Матч по расписанию' +
+    (state.scheduleDay ? ` · ${state.scheduleDay}` : '');
+}
+// Images come from veto.oneshot.su; if a file is missing, show no broken icon.
+function dropBrokenImage(img) {
+  if (img.complete && !img.naturalWidth) img.remove();
+  else img.addEventListener('error', () => img.remove(), { once: true });
 }
 
 function render() {
@@ -444,6 +466,7 @@ function renderVeto() {
       <span class="map-action">${escapeHtml(label)}</span>
     </button>`;
   }).join('');
+  $('mapGrid').querySelectorAll('img').forEach(dropBrokenImage);
   $('mapGrid').querySelectorAll('[data-map]').forEach(el =>
     el.addEventListener('click', () => {
       if (VETO_RULES[state.veto.format][state.veto.actions.length] === 'pick') {
@@ -468,6 +491,9 @@ function commitVeto(map, side) {
     state.pending = null;
     renderVeto();
     persist();
+    // The map buttons were re-rendered; keep keyboard users on the grid.
+    ($('mapGrid').querySelector('button:not(:disabled)') || $('copyVeto'))
+      .focus({ preventScroll: true });
     if (state.veto.actions.length === 6 && $('autoCopyVeto').checked) {
       copy($('vetoOutput').value);
     }
@@ -616,6 +642,8 @@ $('settingsForm').addEventListener('submit', event => {
     const stored = writeStorage('webcam-desk-source', state.source);
     state.teams = [];
     state.schedule = [];
+    state.scheduleDay = '';
+    renderScheduleDay();
     state.lastSync = null;
     state.a = '';
     state.b = '';
@@ -638,6 +666,7 @@ $('settingsForm').addEventListener('submit', event => {
   }
 });
 
+document.querySelectorAll('.brand img').forEach(dropBrokenImage);
 updateSourceLinks();
 renderOutput();
 renderVeto();

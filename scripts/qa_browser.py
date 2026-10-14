@@ -96,6 +96,13 @@ async def run(args):
         assert await page.title() == "Oneshot webcam panel"
         passed("load rosters, schedule and OBS template")
 
+        await page.wait_for_load_state("networkidle")
+        assert await page.evaluate(
+            "[...document.images].filter(i => i.complete && "
+            "!i.naturalWidth).length"
+        ) == 0
+        passed("missing logo or map images leave no broken icons")
+
         options = await page.locator("#matchSelect option").evaluate_all(
             "els => els.filter(e => e.textContent.includes('6yuBoJlbl') && "
             "e.textContent.includes('HYPERSPIRIT')).map(e => e.value)"
@@ -185,6 +192,9 @@ async def run(args):
             if name in ["Dust2", "Cache"]:
                 assert await page.locator("#sideChoice").is_visible()
                 await page.click("#chooseCT")
+            assert await page.evaluate(
+                "document.activeElement?.matches('#mapGrid button, #copyVeto')"
+            )
         expected = (
             "6yuBoJlbl removed Anubis\n"
             "HYPERSPIRIT removed Nuke\n"
@@ -370,6 +380,29 @@ async def run(args):
         ).inner_text()
         passed("HTML and script payloads render as text")
         await hostile.close()
+
+        old_day = await browser.new_context(timezone_id="Europe/Moscow")
+
+        async def old_schedule(route):
+            body = gviz([
+                ["Матчи 1 января 2020"], ["№", "Начало МСК"],
+                ["1", "16:00", "6yuBoJlbl", "HYPERSPIRIT", "B"],
+            ]) if "gid=1758299905" in route.request.url else roster
+            await route.fulfill(
+                status=200, content_type="application/javascript", body=body
+            )
+
+        await old_day.route("https://docs.google.com/**/gviz/**", old_schedule)
+        old_page = await old_day.new_page()
+        await old_page.goto(args.url)
+        await expect(old_page.locator("#errorBox")).to_contain_text(
+            "Расписание в таблице на 01.01"
+        )
+        await expect(old_page.locator("#scheduleLabel")).to_have_text(
+            "Матч по расписанию · 01.01"
+        )
+        passed("schedule sheet for another day is flagged")
+        await old_day.close()
         await browser.close()
 
     print(
