@@ -545,8 +545,16 @@ function cellText(value) {
   return value == null ? '' : String(value);
 }
 function workbookData(XLSX, workbook) {
-  const rowsOf = name => XLSX.utils.sheet_to_json(workbook.Sheets[name],
-    { header: 1, raw: true, defval: '' }).map(row => row.map(cellText));
+  const rowsOf = name => {
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[name],
+      { header: 1, raw: true, defval: '' }).map(row => row.map(cellText));
+    while (rows.length && rows[rows.length - 1].every(cell => !cell.trim())) rows.pop();
+    return rows.map(row => {
+      let end = row.length;
+      while (end && !row[end - 1].trim()) end--;
+      return row.slice(0, end);
+    });
+  };
   const names = workbook.SheetNames;
   const parses = name => { try { parseTeams(rowsOf(name)); return true; } catch { return false; } };
   const rosterName = names.find(n => n.trim().toLowerCase() === 'все игроки') || names.find(parses);
