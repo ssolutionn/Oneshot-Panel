@@ -681,9 +681,11 @@ if "--snapshot" in sys.argv:
     snapshot_tag = ('<script type="application/json" id="sheetsSnapshot">' +
                     json.dumps(keep, ensure_ascii=False).replace("</", "<\\/") + "</script>\n")
 
-favicon = "data:image/png;base64," + base64.b64encode((ROOT / "assets" / "favicon.png").read_bytes()).decode()
+favicon, favicon_night = ("data:image/png;base64," + base64.b64encode((ROOT / "assets" / name).read_bytes()).decode()
+                           for name in ("favicon.png", "favicon-night.png"))
 page = f'''<title>Oneshot Panel</title>
 <link rel="icon" href="{favicon}">
+<link rel="icon" href="{favicon_night}" media="(prefers-color-scheme: dark)">
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Вебки игроков CyberClash, коллекции сцен OBS и вето для HLTV.">
 <link rel="preconnect" href="https://fonts.googleapis.com">

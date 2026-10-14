@@ -151,8 +151,9 @@ https://cyberclash-webcam-desk.quiet-hen-9825.chatgpt.site/
 
 Логотипы Oneshot (дневной и ночной) — от команды, лежат в
 `assets/oneshot-logo-day.png` и `assets/oneshot-logo-night.png`,
-`assets/favicon.png` и `assets/apple-touch-icon.png` — мишень
-из ночного логотипа на чёрной плашке.
+Иконка вкладки — знак-мишень Oneshot как есть: `assets/favicon.png`
+(чёрная), `assets/favicon-night.png` (белая, для тёмной темы браузера),
+`assets/apple-touch-icon.png` — та же чёрная на белом для экрана телефона.
 
 Карты:
 https://veto.oneshot.su/
