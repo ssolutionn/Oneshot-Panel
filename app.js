@@ -251,6 +251,11 @@ function dropBrokenImage(img) {
 }
 
 function render() {
+  // Roster controls are rebuilt together; preserve the keyboard's position.
+  const active = document.activeElement;
+  const focusId = $('teamGrid').contains(active) ? active.id : '';
+  const focusPlayer = active?.dataset.player;
+  const focusSlot = active?.dataset.slot;
   $('matchSelect').innerHTML =
     '<option value="">Выбери команды вручную</option>' +
     state.schedule.map(m => `<option value="${escapeHtml(m.key)}">${escapeHtml(
@@ -296,7 +301,7 @@ function render() {
               >${escapeHtml(p.nick + roleSuffix(p))}</option>`).join('')}
             </select>
             <span class="player-subline">${player ?
-              escapeHtml(`room: ${player.room} / ${player.role.toLowerCase()}`) :
+              escapeHtml(viewUrl(player)) :
               'Место не заполнено'}</span>
           </div>
           <button class="copy-icon" data-view="${side}" data-slot="${i}"
@@ -305,12 +310,14 @@ function render() {
         </div>`;
       }).join('')}</div>
       <div class="card-actions">
-        <button class="text-button" data-reset="${side}">↻ Порядок из таблицы</button>
+        <button class="text-button team-copy" data-copy-team="${side}"
+          ${validatePlayers(chosen(side)) ? 'disabled' : ''}><span aria-hidden="true">⧉</span> Копировать ссылки команды</button>
         <div class="card-bottom">
-          <button class="text-button" data-copy-team="${side}"
-            ${validatePlayers(chosen(side)) ? 'disabled' : ''}>Игрокам ⧉</button>
-          <a class="text-button" target="_blank" rel="noreferrer"
-            href="${escapeHtml(directorUrl(team))}">Директор</a>
+          <button class="text-button roster-action" data-reset="${side}"
+            title="Восстановить порядок из таблицы" aria-label="Восстановить порядок ${escapeHtml(team.name)}">↻</button>
+          <a class="text-button roster-action" target="_blank" rel="noreferrer"
+            title="Открыть комнату директора" aria-label="Директор ${escapeHtml(team.name)}"
+            href="${escapeHtml(directorUrl(team))}">↗</a>
         </div>
       </div>
     </article>`;
@@ -352,6 +359,10 @@ function render() {
   renderOutput();
   renderVeto();
   persist();
+  const focusTarget = focusId ? document.getElementById(focusId) :
+    ['a', 'b'].includes(focusPlayer) && /^[0-4]$/.test(focusSlot || '') ?
+      $('teamGrid').querySelector(`[data-player="${focusPlayer}"][data-slot="${focusSlot}"]`) : null;
+  focusTarget?.focus({ preventScroll: true });
 }
 
 function renderOutput() {
@@ -456,14 +467,16 @@ function renderVeto() {
         ` · ${teams[1 - action.team]} ${action.side}` : ''}` :
       leftover ? 'DECIDER · was left over' :
       state.pending === map ? 'Выбор стороны…' : 'Выбрать карту';
+    const status = action ? action.type === 'pick' ? '✓ Пик' : '⊘ Бан' :
+      leftover ? '— Решающая' : state.pending === map ? 'Сторона…' : 'Выбрать';
     return `<button
       class="map-card ${action ? action.type : leftover ? 'leftover' : ''}"
       data-map="${map}"
       ${!ready || !!action || finished || !!state.pending ? 'disabled' : ''}
       aria-label="${escapeHtml(map + ': ' + label)}">
-      <img src="/assets/maps/${map}.jpg" alt="" loading="lazy" width="960" height="180">
+      <img src="/assets/maps/${map}.png" alt="" loading="lazy" width="960" height="180">
       <span class="map-name">${map}</span>
-      <span class="map-action">${escapeHtml(label)}</span>
+      <span class="map-action" title="${escapeHtml(label)}">${status}</span>
     </button>`;
   }).join('');
   $('mapGrid').querySelectorAll('img').forEach(dropBrokenImage);

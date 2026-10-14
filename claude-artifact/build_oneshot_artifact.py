@@ -41,23 +41,16 @@ def cut(text, start, end, new):
 
 # ---------- CSS ----------
 css = (ROOT / "style.css").read_text(encoding="utf-8")
-css = replace_once(css, "padding:14px max(24px,calc((100vw - 1232px)/2))",
-                   "padding-block:14px;padding-left:max(24px,calc((100vw - 1232px)/2),env(safe-area-inset-left,0px));"
-                   "padding-right:max(24px,calc((100vw - 1232px)/2),env(safe-area-inset-right,0px))")
-css = replace_once(css, "main{max-width:1280px;margin:auto;padding:0 24px}",
-                   "main{max-width:1280px;margin:auto;padding-block:0;padding-left:max(24px,env(safe-area-inset-left,0px));"
-                   "padding-right:max(24px,env(safe-area-inset-right,0px))}")
-css = replace_once(css, ".site-header{padding:12px 18px;flex-wrap:wrap}",
-                   ".site-header{padding-block:12px;padding-left:max(18px,env(safe-area-inset-left,0px));"
-                   "padding-right:max(18px,env(safe-area-inset-right,0px));flex-wrap:wrap}")
-css = replace_once(css, "main{padding:0 16px}",
-                   "main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}")
-css = replace_once(css, "bottom:24px;left:50%", "bottom:calc(24px + env(safe-area-inset-bottom,0px));left:50%")
+# Safe areas belong to the artifact wrapper; avoid depending on CSS formatting.
+css += ("body{padding-left:env(safe-area-inset-left,0px);"
+        "padding-right:env(safe-area-inset-right,0px)}"
+        ".toast{bottom:calc(24px + env(safe-area-inset-bottom,0px))}"
+        "footer{padding-bottom:max(20px,env(safe-area-inset-bottom,0px))}")
 css += ("#pasteArea{min-height:140px}"
-        ".export-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}"
+        ".artifact-download-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}"
         ".download-note{color:var(--warn-ink)!important;background:var(--warn);border:1px solid var(--warn-line);"
         "border-radius:4px;padding:8px 10px;line-height:1.6}"
-        "@media(max-width:800px){.export-actions .button{flex:1}}"
+        "@media(max-width:800px){.artifact-download-actions .button{flex:1}.artifact-download-actions{grid-column:1/-1}}"
         ".dialog-section{border-top:1px solid var(--line);margin-top:22px}\n")
 
 # ---------- markup ----------
@@ -71,11 +64,12 @@ for logo in ("oneshot-logo-day.png", "oneshot-logo-night.png"):
 # Download: the main button always downloads; access and copy are fallbacks.
 body = replace_once(body, '<p id="filenamePreview"></p>',
                     '<p id="filenamePreview"></p>\n          <p id="downloadNote" class="download-note" role="status" hidden></p>')
-body = replace_once(body, '<button class="button primary" id="downloadBtn" disabled>Скачать JSON</button>',
-                    '<div class="export-actions">'
+download_button = '<button class="button primary" id="downloadBtn" disabled><span aria-hidden="true">↓</span> Скачать JSON для OBS</button>'
+body = replace_once(body, download_button,
+                    '<div class="artifact-download-actions">'
                     '<button class="button" id="downloadAccess" hidden>Разрешить скачивание</button>'
                     '<button class="button" id="copyJsonBtn" hidden>Скопировать JSON</button>'
-                    '<button class="button primary" id="downloadBtn" disabled>Скачать JSON</button></div>')
+                    + download_button + '</div>')
 body = replace_once(body, '<a class="brand" href="/"', '<a class="brand" href="#webcams"')
 settings = '''<dialog id="settingsDialog" aria-labelledby="settingsHeading">
     <form id="settingsForm">
@@ -608,8 +602,20 @@ app = cut(app, "$('vetoReset').addEventListener('click', () => {", "$('vetoForma
 app = replace_once(app, "async function copy(text) {", "async function copy(text, message = 'Скопировано в буфер обмена') {")
 app = replace_once(app, "toast('Скопировано в буфер обмена');", "toast(message);")
 app = replace_once(app, "if (ok) return toast('Скопировано');", "if (ok) return toast(message);")
-app = replace_once(app, "fetch('/assets/obs-template.json')", "fetch('assets/obs-template.json')")
+# Keep the exported artifact self-contained; its URL has no /assets host.
+template_json = (ROOT / "assets" / "obs-template.json").read_text(encoding="utf-8").strip()
+json.loads(template_json)  # Validate without rewriting the canonical template.
+template_json = template_json.replace("</", "<\\/")
+app = replace_once(app, "fetch('/assets/obs-template.json')",
+                   "Promise.resolve({ok:true,json:async()=>(" + template_json + ")})")
 app = replace_once(app, "  pending: null\n};", "  pending: null, cache: null\n};")
+# The artifact has no asset directory; only the artifact embeds these files.
+map_images = {}
+for map_name in ("Ancient", "Anubis", "Cache", "Dust2", "Inferno", "Mirage", "Nuke"):
+    image_file = ROOT / "assets" / "maps" / (map_name + ".png")
+    map_images[map_name] = "data:image/png;base64," + base64.b64encode(image_file.read_bytes()).decode()
+app = replace_once(app, 'src="/assets/maps/${map}.png"', 'src="${ARTIFACT_MAPS[map]}"')
+app = "const ARTIFACT_MAPS = " + json.dumps(map_images) + ";\n" + app
 if not app.rstrip().endswith("refresh();"):
     raise SystemExit("unexpected app.js ending")
 app = app.rstrip()[:-len("refresh();")] + """use('downloads');

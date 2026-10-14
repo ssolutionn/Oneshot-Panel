@@ -11,39 +11,44 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+  <a class="skip-link" href="#webcams">К составам команд</a>
+  <div class="app-shell">
   <header class="site-header">
     <a class="brand" href="/" aria-label="Oneshot webcam panel">
       <img class="logo-day" src="/assets/oneshot-logo-day.png" alt="Oneshot" width="359" height="96">
       <img class="logo-night" src="/assets/oneshot-logo-night.png" alt="Oneshot" width="359" height="96">
       <span class="brand-sub">webcam panel</span>
     </a>
-    <nav aria-label="Разделы панели">
-      <a href="#webcams">Вебки</a>
-      <a href="#veto">Вето</a>
-      <a id="sidebarSource" target="_blank" rel="noreferrer">Таблица</a>
+    <div class="header-actions">
+      <a id="sidebarSource" class="source-link" target="_blank" rel="noreferrer" title="Открыть Google Sheets">
+        <i id="syncDot" aria-hidden="true"></i><span>Google Sheets</span><span class="external-mark" aria-hidden="true">↗</span>
+      </a>
       <button id="themeToggle" class="theme-toggle" type="button">☾ Ночь</button>
-    </nav>
+    </div>
   </header>
+  <nav class="panel-nav" aria-label="Разделы панели">
+    <a href="#match">Матч</a>
+    <a class="active" href="#webcams" aria-current="location">Веб-камеры</a>
+    <a href="#veto">Вето карт</a>
+    <div class="nav-tools">
+      <button id="refreshBtn" class="nav-button" type="button" title="Обновить данные">↻ Обновить</button>
+      <button id="settingsBtn" class="nav-button" type="button">Источник данных</button>
+    </div>
+  </nav>
   <main>
-    <section class="intro" id="webcams">
-      <div>
-        <div class="eyebrow">CYBERCLASH · ЭФИРНАЯ КОМАНДА</div>
-        <h1>Вебки. OBS. Вето.</h1>
-        <p>Выбери матч и составы. Ссылки игрокам, сцены и текст HLTV — в одной панели.</p>
-      </div>
+    <section class="intro" id="webcams" aria-labelledby="workspaceHeading">
+      <h1 id="workspaceHeading" class="visually-hidden">Панель веб-камер ONESHOT</h1>
+      <span class="workspace-label">CYBERCLASH <span aria-hidden="true">/</span> MATCH CONTROL</span>
       <div class="sync-card">
-        <span class="sync-label"><i id="syncDot"></i><span id="syncTitle">Подключаем таблицу</span></span>
+        <span id="syncTitle">Подключаем таблицу</span>
+        <span class="sync-separator" aria-hidden="true">·</span>
         <span id="syncTime">Составы из Google Sheets</span>
-        <div class="sync-actions">
-          <button id="refreshBtn" class="button small">↻ Обновить</button>
-          <button id="settingsBtn" class="button small">Источник данных</button>
-        </div>
       </div>
     </section>
 
     <div id="errorBox" class="error-box" role="alert" hidden></div>
 
-    <section class="match-tools" aria-label="Параметры матча">
+    <section id="match" class="match-tools" aria-label="Параметры матча">
       <label class="match-picker">
         <span class="mini-label" id="scheduleLabel">Матч по расписанию</span>
         <select id="matchSelect"><option value="">Выбери команды вручную</option></select>
@@ -53,46 +58,28 @@
         <span class="mini-label">Стадия</span>
         <input id="matchStage" type="text" placeholder="Например, четвертьфинал" maxlength="100" required>
       </label>
-      <button id="swapBtn" class="button small" disabled>⇄ Поменять стороны</button>
+      <button id="swapBtn" class="button small" disabled><span aria-hidden="true">⇄</span><span class="visually-hidden">Поменять стороны команд</span></button>
     </section>
 
     <section id="teamGrid" class="team-grid" aria-label="Составы двух команд">
       <div class="empty-panel">Загружаем составы…</div>
     </section>
 
-    <section id="exportBar" class="export-bar">
-      <div>
-        <span class="export-icon">↓</span>
-        <div>
-          <h2>Коллекция сцен OBS · 1920×1080</h2>
-          <p id="exportHint">10 вебок, сцены «Игрок 1–10» и «Матрица»</p>
-          <p id="filenamePreview"></p>
-        </div>
+    <section id="exportBar" class="export-bar" aria-label="Экспорт и ссылки">
+      <div class="export-actions">
+        <button class="button primary" id="downloadBtn" disabled><span aria-hidden="true">↓</span> Скачать JSON для OBS</button>
+        <a class="button observer-link" href="#copy"><span aria-hidden="true">↗</span> Ссылки и порядок слотов</a>
+        <span class="canvas-size">1920 × 1080<span>OBS SCENE COLLECTION</span></span>
       </div>
-      <button class="button primary" id="downloadBtn" disabled>Скачать JSON</button>
-    </section>
-
-    <section class="copy-panel" aria-label="Ссылки участникам">
-      <div class="panel-heading">
-        <div><span class="eyebrow">ГОТОВО К ПЕРЕДАЧЕ</span><h2>Скопировал — отправил</h2></div>
-      </div>
-      <div class="copy-tabs" role="tablist" aria-label="Получатель ссылок">
-        <button id="tabObserver" class="tab selected" role="tab" aria-selected="true" aria-controls="outputPanel">Для обсервера <span>ПОРЯДОК</span></button>
-        <button id="tabPlayers" class="tab" role="tab" aria-selected="false" aria-controls="outputPanel" tabindex="-1">Для игроков <span>PUSH</span></button>
-      </div>
-      <div id="outputPanel" role="tabpanel" aria-labelledby="tabObserver">
-        <div class="preview-head">
-          <span id="previewLabel">Порядок слотов 1–10: команда и ник, без ссылок</span>
-          <button id="copyAllBtn" class="button dark small" disabled>Копировать всё</button>
-        </div>
-        <textarea id="output" aria-label="Текст для копирования" readonly placeholder="Сначала выбери две команды"></textarea>
-        <p class="copy-foot" id="copyFoot">Ники, ссылки и JSON используют один порядок слотов.</p>
+      <div class="export-meta">
+        <p id="exportHint">10 вебок, сцены «Игрок 1–10» и «Матрица»</p>
+        <p id="filenamePreview"></p>
       </div>
     </section>
 
     <section id="veto" class="veto-panel" aria-labelledby="vetoHeading">
       <div class="panel-heading">
-        <div><span class="eyebrow">ONESHOT VETO</span><h2 id="vetoHeading">Вето карт</h2></div>
+        <div><span class="eyebrow">MAP VETO</span><h2 id="vetoHeading">Вето карт<span class="heading-note">COUNTER-STRIKE 2</span></h2></div>
         <div class="veto-controls">
           <label>Формат
             <select id="vetoFormat">
@@ -126,12 +113,31 @@
       <p class="copy-foot">На пике выбери стартовую сторону соперника. Смена матча сбрасывает текущее вето.</p>
     </section>
 
+    <section id="copy" class="copy-panel" aria-label="Ссылки участникам">
+      <div class="panel-heading">
+        <div><span class="eyebrow">SHARE THE SETUP</span><h2>Всё готово к отправке</h2></div>
+      </div>
+      <div class="copy-tabs" role="tablist" aria-label="Получатель ссылок">
+        <button id="tabObserver" class="tab selected" role="tab" aria-selected="true" aria-controls="outputPanel">Для обсервера <span>ПОРЯДОК</span></button>
+        <button id="tabPlayers" class="tab" role="tab" aria-selected="false" aria-controls="outputPanel" tabindex="-1">Для игроков <span>PUSH</span></button>
+      </div>
+      <div id="outputPanel" role="tabpanel" aria-labelledby="tabObserver">
+        <div class="preview-head">
+          <span id="previewLabel">Порядок слотов 1–10: команда и ник, без ссылок</span>
+          <button id="copyAllBtn" class="button dark small" disabled>Копировать всё</button>
+        </div>
+        <textarea id="output" aria-label="Текст для копирования" readonly placeholder="Сначала выбери две команды"></textarea>
+        <p class="copy-foot" id="copyFoot">Ники, ссылки и JSON используют один порядок слотов.</p>
+      </div>
+    </section>
+
     <footer>
       Oneshot webcam panel
       <span>Веб-панель CyberClash · данные из Google Sheets</span>
       <a href="https://vdo.ninja/" target="_blank" rel="noreferrer">VDO.Ninja</a>
     </footer>
   </main>
+  </div>
 
   <dialog id="settingsDialog" aria-labelledby="settingsHeading">
     <form id="settingsForm">

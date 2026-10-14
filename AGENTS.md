@@ -9,7 +9,7 @@ Oneshot webcam panel — статическая веб-панель эфирно
 ## Карта файлов
 
 - `index.html` — вся разметка, одна страница.
-- `style.css` — стили, минифицированы: правила идут подряд без переносов.
+- `style.css` — токены тем и читаемые правила оформления панели.
   Цвета только через токены на `:root`. Ночной набор токенов записан
   дважды (в `@media (prefers-color-scheme: dark)` и в
   `:root[data-theme=dark]…,:root[data-mode=dark]`) — меняй оба.
@@ -27,8 +27,8 @@ Oneshot webcam panel — статическая веб-панель эфирно
   `server.js` (тест сверяет, что они совпадают).
 - `assets/` — `obs-template.json` (оригинальный шаблон OBS, не
   переформатировать), `oneshot-logo-day.png` / `oneshot-logo-night.png`,
-  `favicon.png`. Картинок карт `assets/maps/*.jpg` пока нет — это ожидаемо,
-  панель прячет битые картинки.
+  `favicon.png`. Карты `assets/maps/*.png` — локальные миниатюры; происхождение и
+  лицензия в этом каталоге. Панель скрывает битые картинки.
 - `claude-artifact/build_oneshot_artifact.py` — собирает
   `claude-artifact/oneshot-panel.html` (версия для артефакта Claude) из тех
   же файлов с точечными заменами. После правок `index.html`, `app.js`,

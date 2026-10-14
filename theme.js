@@ -24,6 +24,7 @@
     const button = document.getElementById('themeToggle');
     if (!button) return;
     button.textContent = night ? '☀ День' : '☾ Ночь';
+    button.setAttribute('aria-pressed', String(night));
     button.title = night ? 'Включить дневной режим' : 'Включить ночной режим';
   };
 
