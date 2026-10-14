@@ -261,6 +261,11 @@ dialog p.muted { font-size: 11px; }
   .player-row { padding: 14px 0; }
   .player-info select { font-size: 15px; }
 }
+.notice-box details { margin-top: 10px; }
+.notice-box summary { cursor: pointer; font-weight: 600; }
+.notice-box .more { margin-top: 4px; opacity: .85; }
+.team-heading label .ex { letter-spacing: .3px; opacity: .85; }
+.sidebar .nav-link + .nav-link { margin-top: 2px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
@@ -268,7 +273,9 @@ dialog p.muted { font-size: 11px; }
   <a class="brand" id="brandLink" href="#desk" aria-label="Webcam Desk"><span class="brand-mark">W<span>↗</span></span><span>WEBCAM<br><b>DESK</b></span></a>
   <div class="season">CYBERCLASH / SEASON 2</div>
   <div class="nav-active"><span>▦</span> Подготовка матча</div>
-  <a class="nav-link" id="sidebarSource" target="_blank" rel="noreferrer" href="https://docs.google.com/spreadsheets/d/1e__ijBjufD19SWBkSJL177vmmfMh2tdykYQHAS06S8I/edit">↗ Рабочая таблица</a>
+  <a class="nav-link" id="linkTournament" target="_blank" rel="noreferrer" href="https://docs.google.com/spreadsheets/d/1GtwcpVnyxY1YOs6ZTrXwJr5mjZqI0QxjLSKjimn9G2o/edit">↗ Таблица турнира</a>
+  <a class="nav-link" id="linkProduction" target="_blank" rel="noreferrer" href="https://docs.google.com/spreadsheets/d/1e__ijBjufD19SWBkSJL177vmmfMh2tdykYQHAS06S8I/edit">↗ Рабочая таблица</a>
+  <a class="nav-link" target="_blank" rel="noreferrer" href="https://www.hltv.org/events/9459/cis-esports-league-cyberclash-season-2">↗ HLTV</a>
   <div class="sidebar-bottom"><span class="small-dot"></span>Порядок имеет значение<span>Слоты 1–5 / 6–10</span></div>
 </aside>
 
@@ -282,11 +289,11 @@ dialog p.muted { font-size: 11px; }
     <div>
       <div class="eyebrow">ИНСТРУМЕНТ ОБСЕРВЕРА</div>
       <h1>Собери матч.<br><span>Вебки уже на местах.</span></h1>
-      <p>Выбери команды, проверь десять слотов и забирай файл OBS. На замену можно выбрать запасного или тренера.</p>
+      <p>Выбери матч, проверь десять слотов и забирай файл OBS. На замену можно выбрать запасного или тренера.</p>
     </div>
     <div class="sync-card">
       <span class="sync-label"><i id="syncDot"></i><span id="syncTitle">Загружаем составы…</span></span>
-      <span class="sync-meta" id="syncTime">Таблица «CyberClash S2 вебки»</span>
+      <span class="sync-meta" id="syncTime">Таблица турнира CyberClash Season 2</span>
       <button id="refreshBtn" class="button small" type="button">↻ Обновить составы</button>
     </div>
   </section>
@@ -296,7 +303,7 @@ dialog p.muted { font-size: 11px; }
 
   <section class="match-tools">
     <div>
-      <label class="mini-label" for="matchSelect" id="matchLabel">МАТЧ ПО РАСПИСАНИЮ</label>
+      <label class="mini-label" for="matchSelect" id="matchLabel">РАСПИСАНИЕ</label>
       <select id="matchSelect"><option value="">Выбери команды вручную</option></select>
     </div>
     <button id="swapBtn" class="button small" type="button">⇄ Поменять стороны</button>
@@ -304,7 +311,7 @@ dialog p.muted { font-size: 11px; }
   </section>
 
   <section id="teamGrid" class="team-grid" aria-label="Составы двух команд">
-    <div class="empty-panel"><b>Загружаем составы</b>Берём данные из рабочей таблицы CyberClash.</div>
+    <div class="empty-panel"><b>Загружаем составы</b>Берём данные из таблицы турнира CyberClash.</div>
   </section>
 
   <section class="export-bar">
@@ -323,19 +330,21 @@ dialog p.muted { font-size: 11px; }
     <p class="copy-foot" id="copyFoot">Имена, ссылки и JSON используют один и тот же порядок десяти слотов.</p>
   </section>
 
-  <footer>Webcam Desk <span>Составы и комнаты — из рабочей таблицы. JSON — по вашему шаблону OBS.</span><a href="https://docs.vdo.ninja/" target="_blank" rel="noreferrer">VDO.Ninja ↗</a></footer>
+  <footer>Webcam Desk <span>Составы и расписание — из таблицы турнира, комнаты и ID — из рабочей таблицы. JSON — по вашему шаблону OBS.</span><a href="https://docs.vdo.ninja/" target="_blank" rel="noreferrer">VDO.Ninja ↗</a></footer>
 </main>
 
 <dialog id="settingsDialog" aria-labelledby="settingsTitle">
   <form id="settingsForm" method="dialog">
-    <div class="dialog-head"><h2 id="settingsTitle">Источник составов</h2><button class="icon-button" type="button" id="closeSettings" aria-label="Закрыть">×</button></div>
-    <p>Панель скачивает таблицу через твой Google Drive и сама находит листы «Все игроки», «Матчи» и «Комнаты». Свежие составы сохраняются в панели, их видит вся эфирная команда.</p>
-    <label for="sourceUrl">Ссылка на Google Sheets<input id="sourceUrl" type="url" required placeholder="https://docs.google.com/spreadsheets/d/…"></label>
-    <p class="muted">Нужны колонки: ID, команда, слот, ник, ID потока, room, PUSH, VIEW, роль. Порядок строк сохраняется.</p>
-    <div class="dialog-actions"><button type="button" class="button" id="resetSource">Исходная таблица</button><button type="submit" class="button primary" id="connectBtn">Подключить</button></div>
+    <div class="dialog-head"><h2 id="settingsTitle">Источники данных</h2><button class="icon-button" type="button" id="closeSettings" aria-label="Закрыть">×</button></div>
+    <p>Панель скачивает обе таблицы через твой Google Drive. Свежая версия сохраняется в панели, её видит вся эфирная команда.</p>
+    <label for="tournamentUrl">Таблица турнира: составы и расписание<input id="tournamentUrl" type="url" required placeholder="https://docs.google.com/spreadsheets/d/…"></label>
+    <p class="muted">Листы «Teams (…)» с блоками команд (Player #, Nickname, HLTV Profile) и «Schedule (…)» с колонками Date, MSK, Team 1, Team 2. Таблицы групп из «Group Stage» используются для проверки.</p>
+    <label for="productionUrl">Рабочая таблица: room и ID потоков<input id="productionUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/…"></label>
+    <p class="muted">Листы «Комнаты» и «Все игроки». Если команды там нет, панель предложит room сама и отметит его как несогласованный.</p>
+    <div class="dialog-actions"><button type="button" class="button" id="resetSource">Исходные таблицы</button><button type="submit" class="button primary" id="connectBtn">Подключить</button></div>
     <div class="dialog-section">
       <label for="pasteArea">Нет доступа к Google Drive? Вставь лист вручную
-        <textarea id="pasteArea" spellcheck="false" placeholder="В таблице открой лист «Все игроки», выдели всё (Ctrl+A), скопируй (Ctrl+C) и вставь сюда. Так же можно вставить лист «Матчи» или «Комнаты»."></textarea>
+        <textarea id="pasteArea" spellcheck="false" placeholder="Открой лист с составами («Teams (Group Stage)» или «Все игроки»), выдели всё (Ctrl+A), скопируй (Ctrl+C) и вставь сюда. Так же можно вставить лист расписания или «Комнаты»."></textarea>
       </label>
       <div class="dialog-actions"><span></span><button type="button" class="button" id="pasteBtn">Загрузить вставленное</button></div>
     </div>
@@ -348,19 +357,24 @@ dialog p.muted { font-size: 11px; }
 (function () {
   'use strict';
 
-  const DEFAULT_SOURCE = { id: '1e__ijBjufD19SWBkSJL177vmmfMh2tdykYQHAS06S8I', title: 'CyberClash S2 вебки' };
+  const DEFAULT_SOURCES = {
+    tournament: { id: '1GtwcpVnyxY1YOs6ZTrXwJr5mjZqI0QxjLSKjimn9G2o', title: 'CyberClash Season 2 | Spreadsheet' },
+    production: { id: '1e__ijBjufD19SWBkSJL177vmmfMh2tdykYQHAS06S8I', title: 'CyberClash S2 вебки' }
+  };
   const DRIVE = 'Google Drive';
   const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   const SHEETJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.mini.min.js';
   const ROSTER_PATH = 'desk/roster';
   const LOCAL_KEY = 'webcam-desk-ui';
   const ROLES = ['Основной', 'Запасной', 'Тренер'];
+  const MONTHS = { january: 1, february: 2, march: 3, april: 4, may: 5, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12, январ: 1, феврал: 2, март: 3, апрел: 4, ма: 5, июн: 6, июл: 7, август: 8, сентябр: 9, октябр: 10, ноябр: 11, декабр: 12 };
+  const PREP_GRACE_MIN = 45;
 
   const $ = id => document.getElementById(id);
   const state = {
-    teams: [], schedule: [], rooms: {}, warnings: [], scheduleLabel: '',
-    a: '', b: '', keysA: [], keysB: [], tab: 'observer',
-    syncedAt: 0, origin: '', source: { ...DEFAULT_SOURCE }, template: null, stale: false
+    teams: [], schedule: [], rooms: {}, warnings: [], notes: [],
+    a: '', b: '', keysA: [], keysB: [], matchKey: '', tab: 'observer',
+    syncedAt: 0, origin: '', sources: JSON.parse(JSON.stringify(DEFAULT_SOURCES)), template: null, stale: false
   };
   let loading = false, toastTimer = 0, dbReadOnly = false;
 
@@ -378,23 +392,166 @@ dialog p.muted { font-size: 11px; }
 
   /* ---------- small helpers ---------- */
   const str = v => (v == null ? '' : String(v).trim());
+  const norm = v => str(v).replace(/\s+/g, ' ').toLowerCase();
   const pad = n => String(n).padStart(2, '0');
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
-  function mskDay(d) { return d.toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit' }); }
+  function mskParts(d) {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d).map(x => [x.type, x.value]));
+    return { y: +p.year, m: +p.month, d: +p.day, h: +p.hour, min: +p.minute };
+  }
+  function mskISO(d) { const p = mskParts(d); return `${p.y}-${pad(p.m)}-${pad(p.d)}`; }
+  const dayLabel = iso => iso ? iso.slice(8, 10) + '.' + iso.slice(5, 7) : '';
   function mskStamp(ts) {
-    const d = new Date(ts);
-    const time = d.toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' });
-    return (mskDay(d) === mskDay(new Date()) ? '' : mskDay(d) + ', ') + time + ' МСК';
+    const d = new Date(ts), p = mskParts(d);
+    return (mskISO(d) === mskISO(new Date()) ? '' : `${pad(p.d)}.${pad(p.m)}, `) + `${pad(p.h)}:${pad(p.min)} МСК`;
+  }
+  function matchEpoch(m) {
+    if (!m.date || !m.time) return NaN;
+    const [y, mo, d] = m.date.split('-').map(Number), [h, mi] = m.time.split(':').map(Number);
+    return Date.UTC(y, mo - 1, d, h - 3, mi);
   }
   function plural(n, one, few, many) {
     const m10 = n % 10, m100 = n % 100;
     return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many;
   }
+  function slug(s) {
+    return str(s).normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '') || 'team';
+  }
+  function minutesOf(v) {
+    if (typeof v === 'number' && isFinite(v)) return Math.round((v - Math.floor(v)) * 1440) % 1440;
+    const m = str(v).match(/^(\d{1,2}):(\d{2})/);
+    return m ? (+m[1]) * 60 + (+m[2]) : null;
+  }
+  const hhmm = mins => pad(Math.floor(((mins % 1440) + 1440) % 1440 / 60)) + ':' + pad(((mins % 60) + 60) % 60);
+  function parseDay(v, year) {
+    if (typeof v === 'number' && v > 20000) { const d = new Date(Math.round((v - 25569) * 864e5)); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`; }
+    const s = norm(v);
+    let m = s.match(/^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?$/);
+    if (m) return `${m[3] ? (m[3].length === 2 ? '20' + m[3] : m[3]) : year}-${pad(m[2])}-${pad(m[1])}`;
+    const num = s.match(/\d{1,2}/), word = s.match(/[a-zа-яё]+/);
+    if (!num || !word) return '';
+    const key = Object.keys(MONTHS).find(k => word[0].startsWith(k));
+    return key ? `${year}-${pad(MONTHS[key])}-${pad(num[0])}` : '';
+  }
+  function tzOffset(label) {
+    const s = norm(label);
+    const m = s.match(/gmt\s*([+-])\s*(\d{1,2})/);
+    if (m) return (m[1] === '-' ? -1 : 1) * Number(m[2]);
+    if (/^(gmt|utc)\b/.test(s)) return 0;
+    if (/^cest\b/.test(s)) return 2;
+    if (/^cet\b/.test(s)) return 1;
+    if (/^(msk|мск)\b/.test(s) || /\b(msk|мск)\b/.test(s)) return 3;
+    return null;
+  }
+  function findHeader(rows, test, limit) {
+    for (let i = 0; i < Math.min(rows.length, limit || 40); i++) if (test((rows[i] || []).map(norm))) return i;
+    return -1;
+  }
 
-  /* ---------- roster parsing (same columns as the original desk) ---------- */
+  /* ---------- tournament sheet (organizer) ---------- */
+  function teamNames(raw) {
+    const full = str(raw).replace(/\s*#\d+\s*VRS.*$/i, '').trim();
+    const ex = [...full.matchAll(/\(ex-([^)]+)\)/gi)].map(m => m[1].trim());
+    const name = full.replace(/\s*\(ex-[^)]*\)/gi, '').trim() || full;
+    return { name, full, aliases: [...new Set([full, name, ...ex].filter(Boolean))] };
+  }
+  function parseOrganizerTeams(rows) {
+    const teams = [], notes = [];
+    for (let r = 0; r + 1 < rows.length; r++) {
+      const row = rows[r] || [], next = rows[r + 1] || [];
+      for (let c = 1; c < row.length; c++) {
+        if (!str(row[c]) || norm(next[c]) !== 'nickname' || !/^player/.test(norm(next[c - 1]))) continue;
+        const team = { ...teamNames(row[c]), room: '', players: [] };
+        let subs = 0, coaches = 0, blank = 0;
+        for (let k = r + 2; k < rows.length; k++) {
+          const rr = rows[k] || [];
+          if (/^player/.test(norm(rr[c - 1]))) break;
+          const slotRaw = rr[c - 1], nickRaw = rr[c];
+          const slot = typeof slotRaw === 'number' ? String(slotRaw) : str(slotRaw).toUpperCase();
+          const nick = str(nickRaw);
+          if (!slot && !nick) { if (++blank > 1 || team.players.length) break; continue; }
+          if (!nick) continue;
+          let role, key;
+          if (/^[1-9]$/.test(slot)) { role = 'Основной'; key = slot; }
+          else if (slot === 'C') { role = 'Тренер'; coaches++; key = coaches > 1 ? 'C' + coaches : 'C'; }
+          else if (slot === 'S') { role = 'Запасной'; subs++; key = 'S' + subs; }
+          else continue;
+          if (typeof nickRaw === 'string' && nickRaw !== nick) notes.push(`${team.name}: у ника «${nick}» в таблице турнира лишние пробелы или табуляция по краям. Панель их обрезает, но в других местах (OBS, HUD) проверь вручную.`);
+          const hltv = str(rr[c + 4]);
+          team.players.push({ key: team.name + '|' + key, slot: key, nick, id: '', room: '', role, hltv: /^https?:\/\//.test(hltv) ? hltv : '' });
+        }
+        if (team.players.length) teams.push(team);
+      }
+    }
+    return { teams, notes };
+  }
+  function parseOrganizerSchedule(rows, sheetName, year) {
+    const h = findHeader(rows, cells => cells.includes('team 1') && cells.includes('team 2'));
+    if (h < 0) return null;
+    const head = rows[h].map(norm);
+    const idx = re => head.findIndex(c => re.test(c));
+    const cNum = idx(/^match/), cStage = idx(/^stage/), cDate = idx(/^date/), cT1 = head.indexOf('team 1'), cT2 = head.indexOf('team 2');
+    const cScore = head.findIndex(c => c === 'score');
+    const tz = head.map((c, i) => ({ i, off: tzOffset(c), label: str(rows[h][i]).split(/\s|\(/)[0] })).filter(x => x.off !== null);
+    const msk = tz.find(x => x.off === 3) || tz[0];
+    const matches = [], tzIssues = [];
+    for (const v of rows.slice(h + 1)) {
+      const stage = str(v[cStage]), date = parseDay(v[cDate], year);
+      if (!stage && !date) continue;
+      const mins = msk ? minutesOf(v[msk.i]) : null;
+      if (!date || mins == null) continue;
+      const time = hhmm(mins + (3 - msk.off) * 60);
+      const utc = tz.map(x => { const t = minutesOf(v[x.i]); return t == null ? null : { label: x.label, utc: t - x.off * 60 }; }).filter(Boolean);
+      for (const x of utc) {
+        const diff = ((x.utc - (mins - msk.off * 60)) % 1440 + 1440) % 1440;
+        if (diff && x.label !== msk.label) tzIssues.push({ label: x.label, diff: diff > 720 ? diff - 1440 : diff, stage });
+      }
+      const code = (stage.match(/\b([A-H])([1-9])\s*$/i) || [])[0] || '';
+      const s1 = cScore >= 0 ? v[cScore] : '', s2 = cT2 > 0 ? v[cT2 - 1] : '';
+      matches.push({
+        n: str(v[cNum]).replace(/\.0$/, ''), stage, code: code.toUpperCase(), group: code ? code[0].toUpperCase() : '',
+        date, time, team1: str(v[cT1]), team2: str(v[cT2]),
+        s1: typeof s1 === 'number' ? s1 : str(s1), s2: typeof s2 === 'number' ? s2 : str(s2), sheet: sheetName
+      });
+    }
+    const warn = [];
+    const byLabel = {};
+    for (const t of tzIssues) (byLabel[t.label] = byLabel[t.label] || []).push(t);
+    for (const [label, list] of Object.entries(byLabel)) {
+      const d = list[0].diff, hours = Math.abs(d) / 60;
+      warn.push(`«${sheetName}»: время в колонке ${label} расходится с МСК на ${hours % 1 ? hours.toFixed(1) : hours} ч у ${list.length} ${plural(list.length, 'матча', 'матчей', 'матчей')} (например, ${list[0].stage}). Панель берёт время МСК — уточни у организатора, какое верное.`);
+    }
+    return { matches, warn };
+  }
+  function parseGroupStage(rows, year) {
+    const groups = {}, slots = {};
+    rows.forEach((row, r) => (row || []).forEach((cell, c) => {
+      const g = norm(cell).match(/standings\s*group\s*([a-h])/);
+      if (g) {
+        const names = [];
+        for (let k = r + 1; k < Math.min(rows.length, r + 12); k++) {
+          const rr = rows[k] || [], mark = str(rr[c]);
+          if (/standings/i.test(mark)) break;
+          if (/^#\d+$/.test(mark) && str(rr[c + 1])) names.push(str(rr[c + 1]));
+        }
+        if (names.length) groups[g[1].toUpperCase()] = names;
+      }
+      const code = str(cell).toUpperCase();
+      if (/^[A-H][1-9]$/.test(code)) {
+        const t = str(row[c + 1]).match(/^(.+?),?\s+(\d{1,2}:\d{2})\s*([a-zа-я]+)/i);
+        if (t) {
+          const off = tzOffset(t[3]), mins = minutesOf(t[2]), date = parseDay(t[1], year);
+          if (off !== null && mins !== null && date) slots[code] = { date, time: hhmm(mins + (3 - off) * 60), raw: str(row[c + 1]) };
+        }
+      }
+    }));
+    return { groups, slots };
+  }
+
+  /* ---------- production sheet (rooms + stream IDs) ---------- */
   function parseTeams(rows) {
     const teams = [], byName = new Map(), warnings = [];
     rows.forEach((raw, r) => {
@@ -403,117 +560,154 @@ dialog p.muted { font-size: 11px; }
       const name = v[1], nick = v[3], id = v[4] || nick, room = v[5];
       if (!room) { warnings.push(`${name}: у ${nick} не указан room — строка ${r + 1} пропущена.`); return; }
       let team = byName.get(name);
-      if (!team) { team = { name, room, players: [] }; teams.push(team); byName.set(name, team); }
+      if (!team) { team = { name, full: name, aliases: [name], room, players: [] }; teams.push(team); byName.set(name, team); }
       if (team.players.some(p => p.key === v[0])) { warnings.push(`Повтор ID «${v[0]}» в строке ${r + 1} — строка пропущена.`); return; }
-      team.players.push({ key: v[0], slot: v[2], nick, id, room, role: v[8] });
+      team.players.push({ key: v[0], slot: v[2], nick, id, room, role: v[8], hltv: '' });
     });
-    if (!teams.length) throw new Error('На этом листе не найден состав. Нужен лист «Все игроки» с колонками ID, команда, слот, ник, ID потока, room и роль.');
-    for (const t of teams) {
-      const mains = t.players.filter(p => p.role === 'Основной').length;
-      if (mains < 5) warnings.push(`${t.name}: основных игроков ${mains} из 5.`);
-      const seen = new Map();
-      for (const p of t.players) {
-        const k = p.id.toLowerCase();
-        if (seen.has(k)) warnings.push(`${t.name}: у ${seen.get(k)} и ${p.nick} одинаковый ID потока «${p.id}» — в одной комнате VDO.Ninja они перебьют друг друга.`);
-        else seen.set(k, p.nick);
-      }
-    }
+    if (!teams.length) throw new Error('На этом листе не найден состав.');
     return { teams, warnings };
   }
-
-  function timeText(v) {
-    if (typeof v === 'number' && isFinite(v)) {
-      const m = Math.round((v - Math.floor(v)) * 1440) % 1440;
-      return pad(Math.floor(m / 60)) + ':' + pad(m % 60);
-    }
-    const m = str(v).match(/^(\d{1,2}):(\d{2})/);
-    return m ? pad(m[1]) + ':' + m[2] : '';
-  }
-  function findHeader(rows, need) {
-    for (let i = 0; i < Math.min(rows.length, 40); i++) {
-      const cells = (rows[i] || []).map(str);
-      if (need.every(n => cells.includes(n))) return i;
-    }
-    return -1;
-  }
-  function parseScheduleRows(rows) {
-    const h = findHeader(rows, ['Команда 1', 'Команда 2']);
-    if (h < 0) return null;
-    const head = rows[h].map(str);
-    const col = (re, fallback) => { const i = head.findIndex(c => re.test(c)); return i < 0 ? fallback : i; };
-    const ct = col(/начало|время|мск|msk/i, 1), c1 = head.indexOf('Команда 1'), c2 = head.indexOf('Команда 2'), cg = col(/^группа/i, -1);
-    return rows.slice(h + 1)
-      .map(v => ({ time: timeText(v[ct]), team1: str(v[c1]), team2: str(v[c2]), group: cg >= 0 ? str(v[cg]) : '' }))
-      .filter(m => m.team1 && m.team2 && /^\d{2}:\d{2}$/.test(m.time))
-      .map(m => ({ ...m, key: m.team1 + '|' + m.team2 }));
-  }
   function parseRoomsRows(rows) {
-    const h = findHeader(rows, ['Команда', 'room', 'Основание']);
+    const h = findHeader(rows, cells => cells.includes('команда') && cells.includes('room'));
     if (h < 0) return null;
-    const head = rows[h].map(str);
-    const ci = head.indexOf('Команда'), cr = head.indexOf('room'), cb = head.indexOf('Основание'), cn = head.indexOf('Примечание');
+    const head = rows[h].map(norm);
+    const ci = head.indexOf('команда'), cr = head.indexOf('room'), cb = head.indexOf('основание'), cn = head.indexOf('примечание');
     const out = {};
     for (const v of rows.slice(h + 1)) {
       const team = str(v[ci]);
-      if (!team) continue;
-      const basis = str(v[cb]), note = cn >= 0 ? str(v[cn]) : '';
+      if (!team || !str(v[cr])) continue;
+      const basis = cb >= 0 ? str(v[cb]) : '', note = cn >= 0 ? str(v[cn]) : '';
       out[team] = { room: str(v[cr]), basis, note, pending: /предлож/i.test(basis) || /согласовать/i.test(note) };
     }
     return out;
   }
-  function crossCheck(roster) {
-    const names = new Set(roster.teams.map(t => t.name));
-    const extra = [];
-    for (const t of roster.teams) {
-      const r = roster.rooms[t.name];
-      if (r && r.room && r.room !== t.room) extra.push(`${t.name}: room в составах «${t.room}», а в листе «Комнаты» — «${r.room}».`);
+
+  /* ---------- merge + checks ---------- */
+  const findTeam = (teams, name) => { const n = norm(name); return n ? teams.find(t => (t.aliases || [t.name]).some(a => norm(a) === n)) : null; };
+  function buildRoster(org, prod) {
+    const warnings = [], notes = [...org.notes];
+    const teams = org.teams, rooms = {};
+    for (const t of teams) {
+      const prodTeam = prod ? prod.teams.find(p => t.aliases.some(a => norm(a) === norm(p.name))) : null;
+      const roomKey = prod ? Object.keys(prod.rooms).find(n => t.aliases.some(a => norm(a) === norm(n))) : null;
+      const roomInfo = roomKey ? prod.rooms[roomKey] : null;
+      t.room = (roomInfo && roomInfo.room) || (prodTeam && prodTeam.room) || slug(t.name);
+      rooms[t.name] = roomInfo || { room: t.room, basis: prodTeam ? 'Из листа «Все игроки»' : 'Предложен панелью', note: prodTeam ? '' : 'Команды нет в рабочей таблице — согласуй имя комнаты.', pending: !prodTeam };
+      if (prod && !prodTeam) warnings.push(`${t.name}: команды нет в рабочей таблице. Room «${t.room}» придумала панель, ID потоков = ники.`);
+      if (prodTeam && roomInfo && prodTeam.room && prodTeam.room !== roomInfo.room) warnings.push(`${t.name}: в рабочей таблице room «${prodTeam.room}» в «Все игроки» и «${roomInfo.room}» в «Комнатах». Панель берёт «${roomInfo.room}».`);
+      for (const p of t.players) {
+        const pp = prodTeam && prodTeam.players.find(x => norm(x.nick) === norm(p.nick));
+        p.id = (pp && pp.id) || p.nick.replace(/\s+/g, '');
+        p.room = t.room;
+        if (prodTeam && !pp) warnings.push(`${t.name}: ${p.nick} есть в таблице турнира, но нет в рабочей таблице — ID потока взят из ника.`);
+      }
+      if (prodTeam) for (const x of prodTeam.players) if (!t.players.some(p => norm(p.nick) === norm(x.nick))) warnings.push(`${t.name}: в рабочей таблице есть ${x.nick}, которого нет в составах турнира.`);
+      const seen = new Map();
+      for (const p of t.players) {
+        const k = p.id.toLowerCase();
+        if (seen.has(k)) warnings.push(`${t.name}: у ${seen.get(k)} и ${p.nick} одинаковый ID потока «${p.id}».`);
+        else seen.set(k, p.nick);
+      }
+      const mains = t.players.filter(p => p.role === 'Основной').length;
+      if (mains < 5) warnings.push(`${t.name}: основных игроков ${mains} из 5.`);
     }
-    for (const m of roster.schedule) {
-      for (const n of [m.team1, m.team2]) if (!names.has(n)) extra.push(`В расписании (${m.time}) команда «${n}», которой нет в составах.`);
+    if (prod) for (const p of prod.teams) if (!findTeam(teams, p.name)) warnings.push(`В рабочей таблице есть команда «${p.name}», которой нет в таблице турнира.`);
+    return { teams, rooms, warnings, notes };
+  }
+  function attachSchedule(roster, scheduleParts, groupInfo) {
+    const warnings = [];
+    const aliasSeen = new Set(), unknown = new Set();
+    const schedule = [];
+    for (const part of scheduleParts) {
+      warnings.push(...part.warn);
+      for (const m of part.matches) {
+        const out = { ...m };
+        for (const side of ['team1', 'team2']) {
+          const raw = m[side];
+          if (!raw || /^tbd$/i.test(raw)) { out[side] = ''; continue; }
+          const t = findTeam(roster.teams, raw);
+          if (!t) { unknown.add(raw); continue; }
+          if (norm(raw) !== norm(t.name) && norm(raw) !== norm(t.full) && !aliasSeen.has(raw)) { aliasSeen.add(raw); warnings.push(`В расписании команда записана как «${raw}», а в составах — «${t.full}». В панели она идёт как «${t.name}»: проверь, под каким названием её дают в эфир.`); }
+          out[side] = t.name;
+        }
+        out.key = `${out.date}|${out.time}|${out.n || out.stage}`;
+        schedule.push(out);
+      }
     }
-    return extra;
+    for (const u of unknown) warnings.push(`В расписании команда «${u}», которой нет в составах.`);
+    schedule.sort((x, y) => matchEpoch(x) - matchEpoch(y));
+    if (groupInfo) {
+      const groupOf = name => Object.keys(groupInfo.groups).find(g => groupInfo.groups[g].some(n => findTeam(roster.teams, n) && findTeam(roster.teams, n).name === name));
+      for (const m of schedule) {
+        if (!m.group || !m.team1 || !m.team2) continue;
+        const g1 = groupOf(m.team1), g2 = groupOf(m.team2);
+        if (g1 && g2 && (g1 !== m.group || g2 !== m.group)) {
+          warnings.push(`${dayLabel(m.date)} ${m.time} ${m.team1} — ${m.team2}: в расписании это ${m.code} (группа ${m.group}), а по таблицам групп в «Group Stage» обе команды в группе ${g1 === g2 ? g1 : g1 + '/' + g2}. От этого зависят пары следующих раундов.`);
+        }
+      }
+      const timeDiff = [];
+      for (const [code, slot] of Object.entries(groupInfo.slots)) {
+        const m = schedule.find(x => x.code === code);
+        if (m && (m.date !== slot.date || m.time !== slot.time)) timeDiff.push(`${code}: ${dayLabel(slot.date)} ${slot.time} против ${dayLabel(m.date)} ${m.time}`);
+      }
+      if (timeDiff.length) warnings.push(`Время в сетке «Group Stage» не совпадает с расписанием у ${timeDiff.length} ${plural(timeDiff.length, 'матча', 'матчей', 'матчей')} (по МСК, сетка против расписания): ${timeDiff.slice(0, 4).join('; ')}${timeDiff.length > 4 ? ` и ещё ${timeDiff.length - 4}` : ''}. Панель берёт время из расписания.`);
+    }
+    return { schedule, warnings };
   }
 
   function sheetRows(wb, name) {
     const ws = wb.Sheets[name];
     return ws ? window.XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' }) : [];
   }
-  function parseWorkbook(wb) {
+  function parseTournamentWorkbook(wb, year) {
     const names = wb.SheetNames;
+    const byName = new Map();
+    const notes = [];
+    for (const n of names.filter(n => /team/i.test(n))) {
+      const r = parseOrganizerTeams(sheetRows(wb, n));
+      notes.push(...r.notes);
+      for (const t of r.teams) byName.set(t.name, t);
+    }
+    let teams = [...byName.values()];
+    if (!teams.length) {
+      for (const n of names) { const r = parseOrganizerTeams(sheetRows(wb, n)); if (r.teams.length) { teams = r.teams; notes.push(...r.notes); break; } }
+    }
+    if (!teams.length) throw new Error('В таблице турнира не нашлось составов. Нужен лист с блоками команд: строка с названием, ниже «Player #» и «Nickname».');
+    const schedules = names.map(n => parseOrganizerSchedule(sheetRows(wb, n), n, year)).filter(Boolean);
+    const groupSheet = names.find(n => /^group stage$/i.test(n.trim())) || names.find(n => /group/i.test(n) && !/schedule|team/i.test(n));
+    const groupInfo = groupSheet ? parseGroupStage(sheetRows(wb, groupSheet), year) : null;
+    return { teams, notes: [...new Set(notes)], schedules, groupInfo };
+  }
+  function parseProductionWorkbook(wb) {
+    const names = wb.SheetNames;
+    let teams = [], warnings = [];
     const order = names.includes('Все игроки') ? ['Все игроки', ...names.filter(n => n !== 'Все игроки')] : names;
-    let players = null;
-    for (const n of order) { try { players = parseTeams(sheetRows(wb, n)); break; } catch (e) { /* try next sheet */ } }
-    if (!players) throw new Error('В таблице не найден лист с составами. Нужен лист «Все игроки» с колонками ID, команда, слот, ник, ID потока, room и роль.');
-    const scheduleSheets = names.filter(n => findHeader(sheetRows(wb, n), ['Команда 1', 'Команда 2']) >= 0);
-    const today = mskDay(new Date());
-    const scheduleName = scheduleSheets.find(n => n.includes(today)) || scheduleSheets[scheduleSheets.length - 1] || '';
-    const roomsName = names.find(n => /комнат/i.test(n)) || '';
-    const roster = {
-      teams: players.teams,
-      schedule: scheduleName ? parseScheduleRows(sheetRows(wb, scheduleName)) || [] : [],
-      scheduleLabel: scheduleName.replace(/^матчи\s*/i, ''),
-      rooms: roomsName ? parseRoomsRows(sheetRows(wb, roomsName)) || {} : {}
-    };
-    roster.warnings = [...players.warnings, ...crossCheck(roster)];
-    return roster;
+    for (const n of order) { try { const r = parseTeams(sheetRows(wb, n)); teams = r.teams; warnings = r.warnings; break; } catch (e) { /* next */ } }
+    const roomsName = names.find(n => /комнат/i.test(n));
+    return { teams, warnings, rooms: roomsName ? parseRoomsRows(sheetRows(wb, roomsName)) || {} : {} };
   }
 
   function sanitizeRoster(d) {
     if (!d || !Array.isArray(d.teams)) return null;
     const teams = d.teams.filter(t => t && typeof t.name === 'string' && Array.isArray(t.players)).map(t => ({
-      name: str(t.name), room: str(t.room),
-      players: t.players.filter(p => p && p.key).map(p => ({ key: str(p.key), slot: str(p.slot), nick: str(p.nick), id: str(p.id) || str(p.nick), room: str(p.room), role: str(p.role) }))
+      name: str(t.name), full: str(t.full) || str(t.name), room: str(t.room),
+      aliases: Array.isArray(t.aliases) ? t.aliases.map(str).filter(Boolean) : [str(t.name)],
+      players: t.players.filter(p => p && p.key).map(p => ({ key: str(p.key), slot: str(p.slot), nick: str(p.nick), id: str(p.id) || str(p.nick), room: str(p.room), role: str(p.role), hltv: /^https:\/\/www\.hltv\.org\//.test(str(p.hltv)) ? str(p.hltv) : '' }))
     })).filter(t => t.players.length);
     if (!teams.length) return null;
-    const schedule = Array.isArray(d.schedule) ? d.schedule.filter(m => m && m.team1 && m.team2).map(m => ({ time: str(m.time), team1: str(m.team1), team2: str(m.team2), group: str(m.group), key: str(m.team1) + '|' + str(m.team2) })) : [];
+    const schedule = Array.isArray(d.schedule) ? d.schedule.filter(m => m && m.date && m.time).map(m => ({
+      n: str(m.n), stage: str(m.stage), code: str(m.code), group: str(m.group), date: str(m.date), time: str(m.time),
+      team1: str(m.team1), team2: str(m.team2), s1: m.s1 === '' || m.s1 == null ? '' : m.s1, s2: m.s2 === '' || m.s2 == null ? '' : m.s2, key: str(m.key) || `${str(m.date)}|${str(m.time)}|${str(m.n)}`
+    })) : [];
     const rooms = {};
     if (d.rooms && typeof d.rooms === 'object') for (const [k, r] of Object.entries(d.rooms)) if (r && typeof r === 'object') rooms[k] = { room: str(r.room), basis: str(r.basis), note: str(r.note), pending: !!r.pending };
-    const source = d.source && typeof d.source.id === 'string' && /^[\w-]{20,100}$/.test(d.source.id) ? { id: d.source.id, title: str(d.source.title) } : null;
-    return {
-      teams, schedule, rooms, source,
-      warnings: Array.isArray(d.warnings) ? d.warnings.map(str).filter(Boolean).slice(0, 40) : [],
-      scheduleLabel: str(d.scheduleLabel), syncedAt: Number(d.syncedAt) || 0, origin: str(d.origin)
-    };
+    const sources = {};
+    for (const k of ['tournament', 'production']) {
+      const s = d.sources && d.sources[k];
+      sources[k] = s && /^[\w-]{20,100}$/.test(str(s.id)) ? { id: str(s.id), title: str(s.title) } : DEFAULT_SOURCES[k];
+    }
+    const list = v => (Array.isArray(v) ? v.map(str).filter(Boolean).slice(0, 60) : []);
+    return { teams, schedule, rooms, sources, warnings: list(d.warnings), notes: list(d.notes), syncedAt: Number(d.syncedAt) || 0, origin: str(d.origin) };
   }
 
   /* ---------- lineup + links (ported from core.js) ---------- */
@@ -590,72 +784,106 @@ dialog p.muted { font-size: 11px; }
     return (base && base !== 'vs' ? base : 'obs_scenes') + '.json';
   }
 
+  /* ---------- schedule helpers ---------- */
+  const known = m => m.team1 && m.team2 && state.teams.some(t => t.name === m.team1) && state.teams.some(t => t.name === m.team2);
+  function currentMatch() {
+    const now = Date.now();
+    const list = state.schedule.filter(known);
+    return list.find(m => matchEpoch(m) + PREP_GRACE_MIN * 60e3 > now) || list[list.length - 1] || null;
+  }
+  function selectedMatch() {
+    const m = state.schedule.find(x => x.key === state.matchKey);
+    return m && m.team1 === state.a && m.team2 === state.b ? m : null;
+  }
+  function scoreText(m) {
+    return m.s1 !== '' && m.s2 !== '' && m.s1 != null && m.s2 != null ? ` · ${m.s1}:${m.s2}` : '';
+  }
+
   /* ---------- UI memory (per viewer) ---------- */
   function loadLocal() {
     try {
       const s = JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null');
       if (!s || typeof s !== 'object') return;
+      if (s.tab === 'players' || s.tab === 'observer') state.tab = s.tab;
+      if (s.day !== mskISO(new Date())) return;
       if (typeof s.a === 'string') state.a = s.a;
       if (typeof s.b === 'string') state.b = s.b;
+      if (typeof s.matchKey === 'string') state.matchKey = s.matchKey;
       if (Array.isArray(s.keysA)) state.keysA = s.keysA.map(String).slice(0, 5);
       if (Array.isArray(s.keysB)) state.keysB = s.keysB.map(String).slice(0, 5);
-      if (s.tab === 'players' || s.tab === 'observer') state.tab = s.tab;
     } catch (e) { /* storage unavailable */ }
   }
   function saveLocal() {
-    try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ a: state.a, b: state.b, keysA: state.keysA, keysB: state.keysB, tab: state.tab })); } catch (e) { /* storage unavailable */ }
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ day: mskISO(new Date()), a: state.a, b: state.b, matchKey: state.matchKey, keysA: state.keysA, keysB: state.keysB, tab: state.tab })); } catch (e) { /* storage unavailable */ }
   }
 
   /* ---------- feedback ---------- */
   function toast(message) {
     const t = $('toast');
     t.textContent = message; t.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3600);
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3800);
   }
   function showError(text) { $('errorBox').textContent = text; $('errorBox').hidden = false; }
   function hideError() { $('errorBox').hidden = true; }
   function renderNotice() {
     const pendingRooms = state.teams.filter(t => state.rooms[t.name] && state.rooms[t.name].pending).map(t => t.name);
     const items = [...state.warnings];
-    if (pendingRooms.length) items.push(`Room ещё не согласован у ${pendingRooms.length} ${plural(pendingRooms.length, 'команды', 'команд', 'команд')} (${pendingRooms.join(', ')}). Так помечено в листе «Комнаты»: согласуй имя комнаты до рассылки PUSH-ссылок.`);
+    if (pendingRooms.length) items.push(`Room не согласован у ${pendingRooms.length} ${plural(pendingRooms.length, 'команды', 'команд', 'команд')} (${pendingRooms.join(', ')}). Согласуй имена комнат до рассылки PUSH-ссылок.`);
     const box = $('noticeBox');
-    if (!items.length) { box.hidden = true; return; }
-    box.innerHTML = '<b>Проверь таблицу</b><ul>' + items.map(w => `<li>${escapeHtml(w)}</li>`).join('') + '</ul>';
+    if (!items.length && !state.notes.length) { box.hidden = true; return; }
+    const top = items.slice(0, 8), rest = items.slice(8);
+    box.innerHTML = '<b>Проверь таблицы</b>'
+      + (top.length ? '<ul>' + top.map(w => `<li>${escapeHtml(w)}</li>`).join('') + '</ul>' : '')
+      + (rest.length ? `<details class="more"><summary>Ещё ${rest.length}</summary><ul>${rest.map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul></details>` : '')
+      + (state.notes.length ? `<details class="more"><summary>Мелочи в данных (${state.notes.length})</summary><ul>${state.notes.map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul></details>` : '');
     box.hidden = false;
   }
   function renderSync() {
     const dot = $('syncDot');
     if (!state.teams.length) {
       dot.className = state.stale ? 'stale' : '';
-      $('syncTitle').textContent = state.stale ? 'Нет связи с таблицей' : 'Загружаем составы…';
-      $('syncTime').textContent = `Таблица «${state.source.title || 'CyberClash S2 вебки'}»`;
+      $('syncTitle').textContent = state.stale ? 'Нет связи с таблицами' : 'Загружаем составы…';
+      $('syncTime').textContent = 'Таблица турнира CyberClash Season 2';
       return;
     }
     dot.className = state.stale ? 'stale' : 'good';
-    $('syncTitle').textContent = state.stale ? 'Данные требуют обновления' : `${state.teams.length} ${plural(state.teams.length, 'команда', 'команды', 'команд')} из таблицы`;
-    const how = state.origin === 'paste' ? 'вставлено вручную' : 'из Google Drive';
+    $('syncTitle').textContent = state.stale ? 'Данные требуют обновления' : `${state.teams.length} ${plural(state.teams.length, 'команда', 'команды', 'команд')} · ${state.schedule.length} ${plural(state.schedule.length, 'матч', 'матча', 'матчей')}`;
+    const how = state.origin === 'paste' ? 'вставлено вручную' : 'из таблицы турнира';
     $('syncTime').textContent = state.syncedAt ? `Обновлено ${mskStamp(state.syncedAt)} · ${how}` : how;
   }
   function updateSourceLinks() {
-    $('sidebarSource').href = `https://docs.google.com/spreadsheets/d/${state.source.id}/edit`;
+    $('linkTournament').href = `https://docs.google.com/spreadsheets/d/${state.sources.tournament.id}/edit`;
+    const prodId = state.sources.production && state.sources.production.id;
+    $('linkProduction').hidden = !prodId;
+    if (prodId) $('linkProduction').href = `https://docs.google.com/spreadsheets/d/${prodId}/edit`;
   }
 
   /* ---------- render ---------- */
-  function render() {
-    const matchSel = $('matchSelect');
-    $('matchLabel').textContent = 'МАТЧ ПО РАСПИСАНИЮ' + (state.scheduleLabel ? ' · ' + state.scheduleLabel : '');
-    matchSel.innerHTML = '<option value="">Выбери команды вручную</option>' + state.schedule.map(m => `<option value="${escapeHtml(m.key)}">${escapeHtml(m.time + ' · ' + m.team1 + ' — ' + m.team2)}</option>`).join('');
-    const currentKey = state.a + '|' + state.b;
-    matchSel.value = state.schedule.some(m => m.key === currentKey) ? currentKey : '';
+  function renderMatchSelect() {
+    const sel = $('matchSelect'), today = mskISO(new Date());
+    const days = [];
+    for (const m of state.schedule) { let d = days.find(x => x.date === m.date); if (!d) days.push(d = { date: m.date, list: [] }); d.list.push(m); }
+    sel.innerHTML = '<option value="">Выбери команды вручную</option>' + days.map(d =>
+      `<optgroup label="${d.date === today ? 'Сегодня · ' : ''}${escapeHtml(dayLabel(d.date))}">` + d.list.map(m => {
+        const ok = known(m);
+        const label = `${d.date === today ? '' : dayLabel(m.date) + ' · '}${m.time} · ${ok ? m.team1 + ' — ' + m.team2 : (m.stage || 'Матч') + ' · соперники ещё не известны'}${ok && m.code ? ' · ' + m.code : ''}${scoreText(m)}`;
+        return `<option value="${escapeHtml(m.key)}" ${ok ? '' : 'disabled'}>${escapeHtml(label)}</option>`;
+      }).join('') + '</optgroup>').join('');
+    const m = selectedMatch() || state.schedule.find(x => x.team1 === state.a && x.team2 === state.b && x.date === today);
+    sel.value = m ? m.key : '';
+    const todays = state.schedule.filter(x => x.date === today).length;
+    $('matchLabel').textContent = 'РАСПИСАНИЕ' + (todays ? ` · СЕГОДНЯ ${dayLabel(today)}` : '');
+  }
 
+  function render() {
+    renderMatchSelect();
     if (!state.teams.length) {
       $('teamGrid').innerHTML = state.stale
-        ? '<div class="empty-panel"><b>Составов пока нет</b>Нажми «Обновить составы», чтобы подтянуть их из Google Drive, или вставь лист «Все игроки» через ⚙ Источник данных.</div>'
-        : '<div class="empty-panel"><b>Загружаем составы</b>Берём данные из рабочей таблицы CyberClash.</div>';
+        ? '<div class="empty-panel"><b>Составов пока нет</b>Нажми «Обновить составы», чтобы подтянуть их из Google Drive, или вставь лист с составами через ⚙ Источник данных.</div>'
+        : '<div class="empty-panel"><b>Загружаем составы</b>Берём данные из таблицы турнира CyberClash.</div>';
       renderOutput();
       return;
     }
-
     $('teamGrid').innerHTML = ['a', 'b'].map((side, index) => {
       const team = getTeam(side);
       if (!team) return '<div class="empty-panel">Команда не выбрана</div>';
@@ -663,6 +891,7 @@ dialog p.muted { font-size: 11px; }
       const reserves = eligible.filter(p => p.role === 'Запасной').length, coaches = eligible.filter(p => p.role === 'Тренер').length;
       const roomInfo = state.rooms[team.name];
       const chip = roomInfo && roomInfo.pending ? `<span class="room-chip" title="${escapeHtml((roomInfo.basis ? roomInfo.basis + '. ' : '') + (roomInfo.note || 'Согласовать имя перед рассылкой ссылок.'))}">room не согласован</span>` : '';
+      const ex = team.aliases.filter(a => a !== team.name && a !== team.full);
       const rows = Array.from({ length: 5 }, (_, i) => {
         const player = team.players.find(p => p.key === keys[i]);
         const sub = player
@@ -672,7 +901,7 @@ dialog p.muted { font-size: 11px; }
         const n = index * 5 + i + 1;
         return `<div class="player-row"><span class="slot-number">${pad(n)}</span><div class="player-info"><select data-player="${side}" data-slot="${i}" aria-label="Игрок ${n}"><option value="">Выбери игрока</option>${options}</select><span class="player-subline${player && player.role !== 'Основной' ? ' swap' : ''}">${escapeHtml(sub)}</span></div><button class="copy-icon" type="button" data-view="${side}" data-slot="${i}" aria-label="Скопировать VIEW ${player ? escapeHtml(player.nick) : ''}" title="Копировать VIEW" ${player ? '' : 'disabled'}>⧉</button></div>`;
       }).join('');
-      return `<article class="team-card side-${side}"><div class="card-top"><div class="team-letter">${index ? 'B' : 'A'}</div><div class="team-heading"><label for="team-${side}">${index ? 'ВТОРАЯ' : 'ПЕРВАЯ'} КОМАНДА</label><select id="team-${side}" data-team="${side}">${state.teams.map(t => `<option ${t.name === team.name ? 'selected' : ''} value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('')}</select></div>${chip}<span class="slot-caption">${index ? '06–10' : '01–05'}</span></div><div class="camera-list">${rows}</div><div class="card-actions"><button class="text-button" type="button" data-reset="${side}">↻ Порядок из таблицы</button><div class="card-bottom">${reserves ? `<span class="reserve-badge">+${reserves} запасн.</span>` : ''}${coaches ? `<span class="reserve-badge">+${coaches} тренер</span>` : ''}<button class="text-button" type="button" data-copy-team="${side}">Игрокам ⧉</button><a class="text-button" target="_blank" rel="noreferrer" href="${escapeHtml(directorUrl(team))}">Директор ↗</a></div></div></article>`;
+      return `<article class="team-card side-${side}"><div class="card-top"><div class="team-letter">${index ? 'B' : 'A'}</div><div class="team-heading"><label for="team-${side}">${index ? 'ВТОРАЯ' : 'ПЕРВАЯ'} КОМАНДА${ex.length ? `<span class="ex"> · ex-${escapeHtml(ex.join(', '))}</span>` : ''}</label><select id="team-${side}" data-team="${side}">${state.teams.map(t => `<option ${t.name === team.name ? 'selected' : ''} value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('')}</select></div>${chip}<span class="slot-caption">${index ? '06–10' : '01–05'}</span></div><div class="camera-list">${rows}</div><div class="card-actions"><button class="text-button" type="button" data-reset="${side}">↻ Порядок из таблицы</button><div class="card-bottom">${reserves ? `<span class="reserve-badge">+${reserves} запасн.</span>` : ''}${coaches ? `<span class="reserve-badge">+${coaches} тренер</span>` : ''}<button class="text-button" type="button" data-copy-team="${side}">Игрокам ⧉</button><a class="text-button" target="_blank" rel="noreferrer" href="${escapeHtml(directorUrl(team))}">Директор ↗</a></div></div></article>`;
     }).join('');
     renderOutput();
     saveLocal();
@@ -683,8 +912,9 @@ dialog p.muted { font-size: 11px; }
     $('downloadBtn').disabled = !!error || !state.template;
     $('copyAllBtn').disabled = !!error;
     $('swapBtn').disabled = !getTeam('a') || !getTeam('b');
+    const m = selectedMatch();
     $('exportHint').textContent = !state.teams.length ? 'Сначала загрузи составы'
-      : error || `${state.stale ? 'По ранее загруженным данным. ' : ''}1–5: ${state.a} · 6–10: ${state.b}`;
+      : error || `${state.stale ? 'По ранее загруженным данным. ' : ''}${m ? `${dayLabel(m.date)} ${m.time}${m.code ? ' · ' + m.code : ''} · ` : ''}1–5: ${state.a} · 6–10: ${state.b}`;
     const obs = state.tab === 'observer';
     $('tabObserver').classList.toggle('selected', obs); $('tabPlayers').classList.toggle('selected', !obs);
     $('tabObserver').setAttribute('aria-selected', String(obs)); $('tabPlayers').setAttribute('aria-selected', String(!obs));
@@ -723,17 +953,25 @@ dialog p.muted { font-size: 11px; }
   }
 
   /* ---------- roster sources ---------- */
+  function pickMatch(m) {
+    state.matchKey = m.key; state.a = m.team1; state.b = m.team2;
+    state.keysA = defaultLineup(getTeam('a')); state.keysB = defaultLineup(getTeam('b'));
+  }
   function applyRoster(r) {
     state.teams = r.teams;
     const names = r.teams.map(t => t.name);
-    state.schedule = (r.schedule || []).filter(m => names.includes(m.team1) && names.includes(m.team2));
+    state.schedule = r.schedule || [];
     state.rooms = r.rooms || {};
     state.warnings = r.warnings || [];
-    state.scheduleLabel = r.scheduleLabel || '';
+    state.notes = r.notes || [];
     state.syncedAt = r.syncedAt || Date.now();
     state.origin = r.origin || '';
-    if (r.source) { state.source = r.source; updateSourceLinks(); }
+    if (r.sources) { state.sources = r.sources; updateSourceLinks(); }
     state.stale = false;
+    if (!state.a || !names.includes(state.a)) {
+      const m = currentMatch();
+      if (m) pickMatch(m);
+    }
     if (!names.includes(state.a)) state.a = names[0];
     if (!names.includes(state.b) || state.b === state.a) state.b = names.find(n => n !== state.a) || '';
     state.keysA = reconcile(getTeam('a'), state.keysA);
@@ -776,29 +1014,30 @@ dialog p.muted { font-size: 11px; }
     if (p && typeof p === 'object' && typeof p.content === 'string') return { b64: p.content, title: str(p.title) };
     throw new Error('Google Drive вернул файл в неожиданном виде. Попробуй обновить ещё раз.');
   }
-  function driveErrorText(e) {
+  function driveErrorText(e, what) {
     const code = e && e.code;
     switch (code) {
       case 'no_mcp':
       case 'not_granted': case 'capability_disabled': case 'capability_removed':
-        return 'В этом окне панель не может обратиться к Google Drive. Открой её в claude.ai или вставь лист «Все игроки» вручную: ⚙ Источник данных.';
+        return 'В этом окне панель не может обратиться к Google Drive. Открой её в claude.ai или вставь лист с составами вручную: ⚙ Источник данных.';
       case 'needs_reauth':
         return 'Google Drive просит войти заново. Переподключи его в claude.ai → Settings → Connectors и нажми «Обновить составы».';
       case 'server_not_connected': case 'selection_required': case 'server_not_found':
-        return 'Google Drive не подключён к твоему аккаунту. Добавь его в claude.ai → Settings → Connectors или вставь лист «Все игроки» вручную: ⚙ Источник данных.';
+        return 'Google Drive не подключён к твоему аккаунту. Добавь его в claude.ai → Settings → Connectors или вставь лист с составами вручную: ⚙ Источник данных.';
       case 'not_in_manifest': case 'approval_required': case 'consent_required':
         return 'Панели не дали доступ к Google Drive. Нажми «Обновить составы» и разреши доступ или вставь лист вручную: ⚙ Источник данных.';
       case 'blocked_by_policy':
-        return 'Политика организации не пускает панель в Google Drive. Вставь лист «Все игроки» вручную: ⚙ Источник данных.';
+        return 'Политика организации не пускает панель в Google Drive. Вставь лист с составами вручную: ⚙ Источник данных.';
       case 'tool_error':
-        return 'Google Drive не отдал таблицу. Проверь, что у тебя есть доступ к файлу и ссылка верная.';
+        return `Google Drive не отдал ${what}. Проверь, что у тебя есть доступ к файлу и ссылка верная.`;
       case 'server_unavailable': case 'upstream_error': case 'rate_limited':
         return 'Google Drive долго отвечает. Попробуй обновить ещё раз через минуту.';
       default:
         return (e && e.message) || 'Не удалось обновить составы.';
     }
   }
-  async function callDrive(mcp, input) {
+  async function callDrive(mcp, fileId) {
+    const input = { fileId, exportMimeType: XLSX_MIME };
     try { return await mcp.callTool(DRIVE, 'download_file_content', input, { cache: false }); }
     catch (e) {
       if (e && e.retryable) {
@@ -818,22 +1057,41 @@ dialog p.muted { font-size: 11px; }
     try {
       const mcp = await use('mcp');
       if (!mcp) throw { code: 'no_mcp' };
-      const res = await callDrive(mcp, { fileId: state.source.id, exportMimeType: XLSX_MIME });
-      const file = payloadBase64(res);
+      const src = state.sources;
+      const [tRes, pRes] = await Promise.allSettled([
+        callDrive(mcp, src.tournament.id),
+        src.production && src.production.id ? callDrive(mcp, src.production.id) : Promise.resolve(null)
+      ]);
+      if (tRes.status !== 'fulfilled') { const e = tRes.reason || {}; throw { code: e.code, message: e.message, what: 'таблицу турнира' }; }
       const XLSX = await loadSheetJS();
-      const roster = parseWorkbook(XLSX.read(file.b64, { type: 'base64' }));
-      roster.syncedAt = Date.now();
-      roster.origin = 'drive';
-      roster.source = { id: state.source.id, title: file.title || state.source.title || '' };
+      const year = mskParts(new Date()).y;
+      const tFile = payloadBase64(tRes.value);
+      const org = parseTournamentWorkbook(XLSX.read(tFile.b64, { type: 'base64' }), year);
+      let prod = null, prodWarn = '';
+      if (pRes.status === 'fulfilled' && pRes.value) {
+        try { prod = parseProductionWorkbook(XLSX.read(payloadBase64(pRes.value).b64, { type: 'base64' })); }
+        catch (e) { prodWarn = 'Рабочую таблицу не удалось прочитать — room придуманы панелью, ID потоков = ники.'; }
+      } else if (pRes.status === 'rejected') {
+        prodWarn = 'Рабочая таблица не открылась (' + driveErrorText(pRes.reason, 'рабочую таблицу').replace(/\.$/, '') + '). Room придуманы панелью, ID потоков = ники.';
+      }
+      const base = buildRoster(org, prod);
+      const sched = attachSchedule(base, org.schedules, org.groupInfo);
+      const roster = {
+        teams: base.teams, rooms: base.rooms, schedule: sched.schedule,
+        warnings: [...(prodWarn ? [prodWarn] : []), ...sched.warnings, ...base.warnings, ...(prod ? prod.warnings : [])],
+        notes: base.notes,
+        syncedAt: Date.now(), origin: 'drive',
+        sources: { tournament: { id: src.tournament.id, title: tFile.title || src.tournament.title }, production: { ...src.production } }
+      };
       applyRoster(roster);
       hideError();
       const saved = await saveRoster(roster);
-      if (!auto) toast('Составы обновлены из таблицы.' + savedNote(saved));
+      if (!auto) toast('Составы и расписание обновлены.' + savedNote(saved));
     } catch (e) {
       state.stale = true;
       renderSync(); render();
       const last = state.teams.length && state.syncedAt ? ` Показаны данные от ${mskStamp(state.syncedAt)}.` : '';
-      showError(driveErrorText(e) + last);
+      showError(driveErrorText(e, (e && e.what) || 'таблицу') + last);
     } finally {
       loading = false;
       $('refreshBtn').disabled = false; $('refreshBtn').textContent = '↻ Обновить составы';
@@ -862,26 +1120,61 @@ dialog p.muted { font-size: 11px; }
   function loadPasted() {
     const text = $('pasteArea').value;
     if (!text.trim()) { toast('Сначала вставь данные из таблицы'); return; }
-    const rows = text.replace(/\r/g, '').split('\n').map(line => line.split('\t'));
+    const rows = parseTSV(text);
+    const year = mskParts(new Date()).y;
+    const keep = { teams: state.teams, rooms: state.rooms, schedule: state.schedule, warnings: state.warnings, notes: state.notes };
     let roster = null, what = '';
-    try {
-      const parsed = parseTeams(rows);
-      roster = { teams: parsed.teams, warnings: parsed.warnings, schedule: state.schedule, scheduleLabel: state.scheduleLabel, rooms: state.rooms };
-      what = `Загружено ${parsed.teams.length} ${plural(parsed.teams.length, 'команда', 'команды', 'команд')}.`;
-    } catch (e) {
-      const schedule = parseScheduleRows(rows);
-      const rooms = schedule ? null : parseRoomsRows(rows);
-      if ((schedule || rooms) && !state.teams.length) { toast('Сначала вставь лист «Все игроки», потом расписание или комнаты'); return; }
-      if (schedule) { roster = { teams: state.teams, warnings: state.warnings, schedule, scheduleLabel: '', rooms: state.rooms }; what = `Расписание: ${schedule.length} ${plural(schedule.length, 'матч', 'матча', 'матчей')}.`; }
-      else if (rooms) { roster = { teams: state.teams, warnings: state.warnings, schedule: state.schedule, scheduleLabel: state.scheduleLabel, rooms }; what = 'Комнаты обновлены.'; }
-      else { toast('Не нашёл ни составов, ни расписания. Скопируй лист целиком, вместе с заголовками.'); return; }
+    const org = parseOrganizerTeams(rows);
+    if (org.teams.length) {
+      const base = buildRoster(org, null);
+      for (const t of base.teams) { const old = state.rooms[t.name]; if (old) { t.room = old.room; base.rooms[t.name] = old; t.players.forEach(p => { p.room = old.room; }); } }
+      roster = { ...keep, teams: base.teams, rooms: base.rooms, notes: base.notes, warnings: base.warnings };
+      what = `Загружено ${base.teams.length} ${plural(base.teams.length, 'команда', 'команды', 'команд')}.`;
+    } else {
+      try {
+        const parsed = parseTeams(rows);
+        roster = { ...keep, teams: parsed.teams, warnings: parsed.warnings };
+        what = `Загружено ${parsed.teams.length} ${plural(parsed.teams.length, 'команда', 'команды', 'команд')}.`;
+      } catch (e) {
+        const sched = parseOrganizerSchedule(rows, 'вставка', year);
+        const rooms = sched ? null : parseRoomsRows(rows);
+        if ((sched || rooms) && !state.teams.length) { toast('Сначала вставь составы, потом расписание или комнаты'); return; }
+        if (sched) {
+          const s = attachSchedule({ teams: state.teams }, [sched], null);
+          roster = { ...keep, schedule: s.schedule, warnings: [...state.warnings, ...s.warnings] };
+          what = `Расписание: ${s.schedule.length} ${plural(s.schedule.length, 'матч', 'матча', 'матчей')}.`;
+        } else if (rooms) {
+          const teams = state.teams.map(t => { const k = Object.keys(rooms).find(n => t.aliases.some(a => norm(a) === norm(n))); if (!k) return t; return { ...t, room: rooms[k].room, players: t.players.map(p => ({ ...p, room: rooms[k].room })) }; });
+          const map = {}; for (const t of teams) { const k = Object.keys(rooms).find(n => t.aliases.some(a => norm(a) === norm(n))); map[t.name] = k ? rooms[k] : state.rooms[t.name]; }
+          roster = { ...keep, teams, rooms: map };
+          what = 'Комнаты обновлены.';
+        } else { toast('Не нашёл ни составов, ни расписания. Скопируй лист целиком, вместе с заголовками.'); return; }
+      }
     }
-    roster.warnings = [...roster.warnings.filter(w => !/^В расписании|room в составах/.test(w)), ...crossCheck(roster)];
-    roster.syncedAt = Date.now(); roster.origin = 'paste'; roster.source = { ...state.source };
+    roster.warnings = [...new Set(roster.warnings)];
+    roster.syncedAt = Date.now(); roster.origin = 'paste'; roster.sources = JSON.parse(JSON.stringify(state.sources));
     applyRoster(roster); hideError();
     $('pasteArea').value = '';
     closeSettings();
     saveRoster(roster).then(saved => toast(what + savedNote(saved)));
+  }
+
+  function parseTSV(text) {
+    const rows = []; let row = [], cell = '', quoted = false;
+    const src = text.replace(/\r\n?/g, '\n');
+    for (let i = 0; i < src.length; i++) {
+      const ch = src[i];
+      if (quoted) {
+        if (ch === '"' && src[i + 1] === '"') { cell += '"'; i++; }
+        else if (ch === '"') quoted = false;
+        else cell += ch;
+      } else if (ch === '"' && cell === '') quoted = true;
+      else if (ch === '\t') { row.push(cell); cell = ''; }
+      else if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+      else cell += ch;
+    }
+    row.push(cell); rows.push(row);
+    return rows;
   }
 
   /* ---------- downloads ---------- */
@@ -902,8 +1195,11 @@ dialog p.muted { font-size: 11px; }
   }
 
   /* ---------- settings dialog ---------- */
+  const sheetUrl = id => `https://docs.google.com/spreadsheets/d/${id}/edit`;
+  const sheetId = url => (str(url).match(/^https:\/\/docs\.google\.com\/spreadsheets\/d\/([\w-]{20,100})(?:[/?#]|$)/) || [])[1] || '';
   function openSettings() {
-    $('sourceUrl').value = `https://docs.google.com/spreadsheets/d/${state.source.id}/edit`;
+    $('tournamentUrl').value = sheetUrl(state.sources.tournament.id);
+    $('productionUrl').value = state.sources.production && state.sources.production.id ? sheetUrl(state.sources.production.id) : '';
     const d = $('settingsDialog');
     if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
   }
@@ -919,6 +1215,7 @@ dialog p.muted { font-size: 11px; }
       const side = el.dataset.team;
       state[side] = el.value;
       state[side === 'a' ? 'keysA' : 'keysB'] = defaultLineup(getTeam(side));
+      state.matchKey = '';
       render();
     } else if (el.dataset.player) {
       keysOf(el.dataset.player)[Number(el.dataset.slot)] = el.value;
@@ -945,13 +1242,13 @@ dialog p.muted { font-size: 11px; }
   $('swapBtn').addEventListener('click', () => {
     [state.a, state.b] = [state.b, state.a];
     [state.keysA, state.keysB] = [state.keysB, state.keysA];
+    state.matchKey = '';
     render(); toast('Команды поменялись сторонами');
   });
   $('matchSelect').addEventListener('change', () => {
     const m = state.schedule.find(x => x.key === $('matchSelect').value);
-    if (!m) return;
-    state.a = m.team1; state.b = m.team2;
-    state.keysA = defaultLineup(getTeam('a')); state.keysB = defaultLineup(getTeam('b'));
+    if (!m || !known(m)) { state.matchKey = ''; return; }
+    pickMatch(m);
     render();
   });
   $('tabObserver').addEventListener('click', () => { state.tab = 'observer'; renderOutput(); saveLocal(); });
@@ -963,13 +1260,18 @@ dialog p.muted { font-size: 11px; }
   $('downloadBtn').addEventListener('click', downloadJson);
   $('settingsBtn').addEventListener('click', openSettings);
   $('closeSettings').addEventListener('click', closeSettings);
-  $('resetSource').addEventListener('click', () => { $('sourceUrl').value = `https://docs.google.com/spreadsheets/d/${DEFAULT_SOURCE.id}/edit`; });
+  $('resetSource').addEventListener('click', () => {
+    $('tournamentUrl').value = sheetUrl(DEFAULT_SOURCES.tournament.id);
+    $('productionUrl').value = sheetUrl(DEFAULT_SOURCES.production.id);
+  });
   $('pasteBtn').addEventListener('click', loadPasted);
   $('settingsForm').addEventListener('submit', event => {
     event.preventDefault();
-    const match = $('sourceUrl').value.trim().match(/^https:\/\/docs\.google\.com\/spreadsheets\/d\/([\w-]{20,100})(?:[/?#]|$)/);
-    if (!match) { toast('Вставь ссылку на Google Sheets'); return; }
-    if (match[1] !== state.source.id) state.source = { id: match[1], title: match[1] === DEFAULT_SOURCE.id ? DEFAULT_SOURCE.title : '' };
+    const t = sheetId($('tournamentUrl').value), pUrl = str($('productionUrl').value), p = sheetId(pUrl);
+    if (!t) { toast('Вставь ссылку на таблицу турнира в Google Sheets'); return; }
+    if (pUrl && !p) { toast('Ссылка на рабочую таблицу должна вести в Google Sheets'); return; }
+    const titleFor = (id, k) => (id === DEFAULT_SOURCES[k].id ? DEFAULT_SOURCES[k].title : '');
+    state.sources = { tournament: { id: t, title: titleFor(t, 'tournament') }, production: p ? { id: p, title: titleFor(p, 'production') } : { id: '', title: '' } };
     updateSourceLinks(); closeSettings();
     refreshFromDrive();
   });
