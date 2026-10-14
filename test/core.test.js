@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import {
   decodeGviz, parseTeams, parseSchedule, scheduleDay, defaultLineup, observerText,
   selectedPlayers, validateMatch, playerText, viewUrl, pushUrl,
-  safeFilename, buildObs, MAP_POOL, VETO_RULES,
+  safeFilename, buildObs, cardUrl, personKey, DEFAULT_CARD_BASE, MAP_POOL, VETO_RULES,
   validateVeto, appendVeto, vetoText
 } from '../core.js';
 
@@ -193,8 +193,7 @@ test('OBS repairs cameras and remaps references without mutating template', () =
   ];
   for (let i = 0; i < 10; i++) {
     const scene = result.sources.find(s => s.name === `Игрок ${i + 1}`);
-    const item = scene.settings.items.find(it =>
-      byId.get(it.source_uuid)?.id === 'browser_source');
+    const item = scene.settings.items.find(it => it.name.startsWith('CAM '));
     const browser = byId.get(item.source_uuid);
     refs.add(item.source_uuid);
     assert.equal(browser.settings.url, viewUrl(players[i]));
@@ -216,6 +215,72 @@ test('OBS repairs cameras and remaps references without mutating template', () =
   assert.equal(new Set(result.sources.map(s => s.uuid)).size, result.sources.length);
   assert.ok(result.sources.every(s =>
     !template.sources.some(t => t.uuid === s.uuid)));
+});
+
+test('Player card sits under each camera and opens the card page', () => {
+  const args = fixture();
+  const players = [
+    ...selectedPlayers(args[0], args[2]).map(p => ({ ...p, team: args[0].name })),
+    ...selectedPlayers(args[1], args[3]).map(p => ({ ...p, team: args[1].name }))
+  ];
+  const result = buildObs(template, ...args, uuidFn(),
+    { cardBase: 'https://panel.example' });
+  const byId = new Map(result.sources.map(s => [s.uuid, s]));
+  for (let i = 0; i < 10; i++) {
+    const slot = String(i + 1).padStart(2, '0');
+    const scene = result.sources.find(s => s.name === `Игрок ${i + 1}`);
+    const names = scene.settings.items.map(it => it.name);
+    const card = names.indexOf(`CARD ${slot} | ${players[i].team} | ${players[i].nick}`);
+    const camera = names.indexOf(`CAM ${slot} | ${players[i].team} | ${players[i].nick}`);
+    // OBS lists scene items bottom to top: the card is drawn right under the camera.
+    assert.equal(card, camera - 1);
+    const item = scene.settings.items[card];
+    const source = byId.get(item.source_uuid);
+    assert.equal(source.id, 'browser_source');
+    assert.equal(source.name, item.name);
+    assert.equal(item.visible, true);
+    assert.deepEqual(item.bounds, { x: 1920, y: 1080 });
+    assert.deepEqual(item.pos, { x: 0, y: 0 });
+    assert.equal(new Set(scene.settings.items.map(it => it.id)).size, names.length);
+    assert.deepEqual(source.settings, {
+      url: cardUrl(players[i], 'https://panel.example'), width: 1920, height: 1080
+    });
+    const url = new URL(source.settings.url);
+    assert.equal(url.origin + url.pathname, 'https://panel.example/card.html');
+    assert.equal(url.searchParams.get('team'), players[i].team);
+    assert.equal(url.searchParams.get('nick'), players[i].nick);
+    assert.ok(new URL(byId.get(scene.settings.items[camera].source_uuid).settings.url)
+      .searchParams.has('transparent'));
+  }
+  const fallback = buildObs(template, ...args, uuidFn());
+  assert.ok(fallback.sources.some(s =>
+    s.settings?.url?.startsWith(`${DEFAULT_CARD_BASE}/card.html?`)));
+  assert.equal(personKey(' Nuclear  TigeRES '), personKey('nuclear-tigeres'));
+  assert.equal(personKey('zs0lt1-'), 'zs0lt1');
+  assert.notEqual(personKey('es0r7'), personKey('esor'));
+  assert.equal(new URL(cardUrl({ team: 'A&B', nick: 'x#1' })).searchParams.get('nick'), 'x#1');
+});
+
+test('Player photo list points at HLTV bodyshots and files that exist', () => {
+  const dir = new URL('../assets/players/', import.meta.url);
+  const { players } = JSON.parse(fs.readFileSync(new URL('players.json', dir), 'utf8'));
+  assert.ok(players.length > 0);
+  const seen = new Set();
+  for (const p of players) {
+    assert.ok(p.team && p.nick, JSON.stringify(p));
+    const key = `${personKey(p.team)}/${personKey(p.nick)}`;
+    assert.ok(!seen.has(key), key);
+    seen.add(key);
+    assert.match(p.hltv, /^https:\/\/www\.hltv\.org\/(player|coach)\/\d+\//);
+    if (p.photo) {
+      assert.match(p.photo, /^https:\/\/img-cdn\.hltv\.org\/playerbodyshot\//);
+    }
+    if (p.file) {
+      assert.ok(p.photo, `${p.nick}: a file without a photo URL`);
+      assert.match(p.file, /^[\w.-]+\.(png|jpe?g|webp)$/);
+      assert.ok(fs.existsSync(new URL(p.file, dir)), p.file);
+    }
+  }
 });
 
 test('Matrix tiles fit canvas without overlap', () => {

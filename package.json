@@ -7,7 +7,7 @@
     "dev": "node server.js",
     "start": "node server.js",
     "test": "node --test",
-    "check": "node --check app.js && node --check core.js && node --check theme.js && node --check server.js"
+    "check": "node --check app.js && node --check core.js && node --check theme.js && node --check card.js && node --check server.js"
   },
   "engines": { "node": ">=22" }
 }

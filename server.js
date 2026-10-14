@@ -5,14 +5,15 @@ import path from 'node:path';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicFiles = new Set([
-  'index.html', 'app.js', 'core.js', 'style.css', 'theme.js'
+  'index.html', 'app.js', 'core.js', 'style.css', 'theme.js',
+  'card.html', 'card.js', 'card.css'
 ]);
 const mime = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
-  '.png': 'image/png', '.jpg': 'image/jpeg'
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp'
 };
 export function createServer() {
   return http.createServer(async (request, response) => {

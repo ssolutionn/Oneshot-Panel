@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Карточка игрока · Oneshot Panel</title>
+  <link rel="icon" href="/assets/favicon.png" type="image/png">
+  <link rel="stylesheet" href="/card.css">
+  <script type="module" src="/card.js"></script>
+</head>
+<body>
+  <!-- 1920×1080, as the OBS browser source; a smaller window scales it down.
+       Opened as /card.html?team=Команда&nick=Ник -->
+  <main class="card" id="card">
+    <div class="card-text">
+      <div class="card-team">
+        <span class="card-logo" id="cardLogo" hidden><img alt=""></span>
+        <span id="cardTeam"></span>
+      </div>
+      <h1 class="card-nick" id="cardNick"></h1>
+      <span class="card-rule" aria-hidden="true"></span>
+    </div>
+    <img class="card-photo" id="cardPhoto" alt="" hidden>
+    <img class="card-emblem" id="cardEmblem" alt="" hidden>
+  </main>
+</body>
+</html>

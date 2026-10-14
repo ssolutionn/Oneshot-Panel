@@ -204,13 +204,17 @@ async def run(args):
             scene = next(
                 s for s in data["sources"] if s["name"] == f"Игрок {i}"
             )
-            item = next(
-                it for it in scene["settings"]["items"]
-                if by_id[it["source_uuid"]]["id"] == "browser_source"
-            )
+            items = scene["settings"]["items"]
+            item = next(it for it in items if it["name"].startswith("CAM "))
             assert item["rot"] == 0
             assert item["bounds"] == {"x": 1920, "y": 1080}
             assert by_id[item["source_uuid"]]["settings"]["width"] == 1920
+            assert "&transparent" in by_id[item["source_uuid"]]["settings"]["url"]
+            # The player card is right under the camera, served by this site.
+            card = items[items.index(item) - 1]
+            assert card["name"].startswith(f"CARD {i:02d} | ")
+            assert by_id[card["source_uuid"]]["settings"]["url"].startswith(
+                args.url.rstrip("/") + "/card.html?team=")
         passed("browser download filename and ten normalized cameras")
 
         await page.fill("#matchStage", "")
@@ -575,6 +579,67 @@ async def run(args):
         await night.close()
         assert not errors, errors
         passed("night mode follows the system; toggle persists, swaps the logo")
+
+        cards = await browser.new_context(viewport={"width": 1920, "height": 1080})
+        card_page = await cards.new_page()
+        card_errors = []
+        card_page.on("console", lambda m: m.type == "error" and card_errors.append(m.text))
+        card_page.on("pageerror", lambda e: card_errors.append(str(e)))
+        stand_in = (Path(__file__).resolve().parent.parent /
+                    "assets" / "favicon.png").read_bytes()
+
+        async def photo_list(route):
+            await route.fulfill(content_type="application/json", body=json.dumps({
+                "players": [{
+                    "team": "Nuclear TigeRES", "nick": "senka", "role": "1",
+                    "hltv": "https://www.hltv.org/player/22878/senka",
+                    "photo": "https://img-cdn.hltv.org/playerbodyshot/x.png?s=1",
+                    "file": "qa-senka.png",
+                }, {
+                    "team": "Honvéd", "nick": "es0r7", "aliases": ["esor"],
+                    "role": "4", "hltv": "https://www.hltv.org/player/23263/esor",
+                    "photo": "https://img-cdn.hltv.org/playerbodyshot/y.png?s=1",
+                    "file": "qa-esor.png",
+                }]}))
+        await card_page.route("**/assets/players/players.json", photo_list)
+        await card_page.route("**/assets/players/qa-*.png", lambda route:
+                              route.fulfill(content_type="image/png", body=stand_in))
+        base = args.url.rstrip("/")
+
+        async def open_card(query):
+            await card_page.goto(f"{base}/card.html?{query}")
+            await card_page.wait_for_selector("body[data-ready=true]")
+            return await card_page.evaluate("document.body.dataset.photo")
+
+        # Case and spacing do not matter; the HLTV spelling of a nick also works.
+        assert await open_card("team=nuclear%20tigeres&nick=SENKA") == "qa-senka.png"
+        await expect(card_page.locator("#cardPhoto")).to_be_visible()
+        await expect(card_page.locator("#cardLogo")).to_be_visible()
+        await expect(card_page.locator("#cardEmblem")).to_be_hidden()
+        await expect(card_page.locator("#cardNick")).to_have_text("SENKA")
+        assert await open_card("team=Honv%C3%A9d&nick=esor") == "qa-esor.png"
+        # No photo: the team logo stands in; no logo either: just the text.
+        assert await open_card("team=Lavked&nick=jakekeS") == "none"
+        await expect(card_page.locator("#cardEmblem")).to_be_visible()
+        assert await open_card("team=Nobody&nick=%3Cb%3Ex%3C%2Fb%3E") == "none"
+        await expect(card_page.locator("#cardEmblem")).to_be_hidden()
+        await expect(card_page.locator("#cardLogo")).to_be_hidden()
+        await expect(card_page.locator("#cardNick")).to_have_text("<b>x</b>")
+        await open_card("team=Lavked&nick=" + "W" * 24)
+        size = await card_page.evaluate(
+            "parseFloat(getComputedStyle(document.getElementById('cardNick')).fontSize)")
+        assert size < 168
+        assert await card_page.evaluate(
+            "document.getElementById('cardNick').getBoundingClientRect().right") <= 980
+        # A Матрица tile: the whole card scales into 480×270.
+        await card_page.set_viewport_size({"width": 480, "height": 270})
+        await open_card("team=Lavked&nick=jakekeS")
+        box = await card_page.locator("#card").bounding_box()
+        assert abs(box["width"] - 480) < 1 and abs(box["height"] - 270) < 1
+        assert box["x"] >= -0.5 and box["y"] >= -0.5
+        await cards.close()
+        assert not card_errors, card_errors
+        passed("player card: photo, alias, logo fallback, long nick, 480×270 tile")
         await browser.close()
 
     print(

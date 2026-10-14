@@ -637,8 +637,10 @@ $('downloadBtn').addEventListener('click', () => {
   try {
     const filename = safeFilename(state.a, state.b,
       $('matchTime').value, $('matchStage').value);
+    // Player cards come from the site the panel is opened on.
     const data = buildObs(state.template,
-      getTeam('a'), getTeam('b'), state.keysA, state.keysB);
+      getTeam('a'), getTeam('b'), state.keysA, state.keysB, undefined,
+      /^https?:$/.test(location.protocol) ? { cardBase: location.origin } : {});
     const url = URL.createObjectURL(new Blob([
       JSON.stringify(data, null, 2) + '\n'
     ], { type: 'application/json' }));

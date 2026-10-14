@@ -185,14 +185,31 @@ export function validateMatch(a, b, ka, kb) {
   return '';
 }
 
+// &transparent and &cleanoutput: until the player connects the camera shows
+// nothing, so the player card under it (card.html) stays visible.
 export function viewUrl(p) {
-  return `https://vdo.ninja/?view=${encodeURIComponent(p.id)}&solo=1&room=${encodeURIComponent(p.room)}&codec=h264`;
+  return `https://vdo.ninja/?view=${encodeURIComponent(p.id)}&solo=1&room=${encodeURIComponent(p.room)}&codec=h264&cleanoutput&transparent`;
 }
 export function pushUrl(p) {
   return `https://vdo.ninja/?room=${encodeURIComponent(p.room)}&broadcast&do&push=${encodeURIComponent(p.id)}`;
 }
 export function directorUrl(team) {
   return `https://vdo.ninja/?director=${encodeURIComponent(team.room)}`;
+}
+// The card page lives on the panel's own site; the artifact has no site of
+// its own, so its JSON points at the public panel.
+export const DEFAULT_CARD_BASE = 'https://onepanel.netlify.app';
+export function cardUrl(p, base = DEFAULT_CARD_BASE) {
+  const url = new URL('/card.html', base);
+  url.searchParams.set('team', line(p.team));
+  url.searchParams.set('nick', line(p.nick));
+  return url.href;
+}
+// Matches a roster nick or team to assets/players and assets/teams:
+// case, spaces and punctuation do not count ("Nuclear TigeRES" = "nuclear-tigeres").
+export function personKey(value) {
+  return line(value).normalize('NFKC').toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '');
 }
 // Slot order only: the observer gets the cameras from the OBS JSON.
 export function observerText(a, b, pa, pb) {
@@ -252,7 +269,8 @@ function fitItem(item, x = 0, y = 0, width = 1920, height = 1080) {
 }
 
 export function buildObs(template, a, b, ka, kb,
-                         uuidFn = () => crypto.randomUUID()) {
+                         uuidFn = () => crypto.randomUUID(),
+                         { cardBase = DEFAULT_CARD_BASE } = {}) {
   const error = validateMatch(a, b, ka, kb);
   if (error) throw new Error(error);
   if (!Array.isArray(template?.sources)) {
@@ -279,6 +297,7 @@ export function buildObs(template, a, b, ka, kb,
       throw new Error('В сцене игрока должен быть ровно один источник браузера.');
     }
     const item = items[0];
+    const cardSource = structuredClone(byId.get(item.source_uuid));
     let browser = byId.get(item.source_uuid);
     if (used.has(browser.uuid)) {
       browser = structuredClone(browser);
@@ -293,9 +312,26 @@ export function buildObs(template, a, b, ka, kb,
     Object.assign(browser.settings, {
       url: viewUrl(p), width: 1920, height: 1080
     });
-    names.set(browser.name,
-      `CAM ${String(i + 1).padStart(2, '0')} | ${p.team} | ${p.nick}`);
+    const slot = String(i + 1).padStart(2, '0');
+    names.set(browser.name, `CAM ${slot} | ${p.team} | ${p.nick}`);
     fitItem(item);
+
+    // The player card sits right under the camera: it is seen whenever
+    // VDO.Ninja has no video (not connected yet, or dropped).
+    Object.assign(cardSource, {
+      uuid: uuidFn(), name: `CARD ${slot} | ${p.team} | ${p.nick}`,
+      settings: { url: cardUrl(p, cardBase), width: 1920, height: 1080 },
+      muted: true
+    });
+    d.sources.push(cardSource);
+    byId.set(cardSource.uuid, cardSource);
+    const cardItem = {
+      ...structuredClone(item), name: cardSource.name,
+      source_uuid: cardSource.uuid, visible: true,
+      id: Math.max(...scene.settings.items.map(it => Number(it.id) || 0)) + 1
+    };
+    fitItem(cardItem);
+    scene.settings.items.splice(scene.settings.items.indexOf(item), 0, cardItem);
   });
 
   const matrix = byName.get('Матрица');

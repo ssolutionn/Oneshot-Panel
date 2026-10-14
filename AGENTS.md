@@ -21,6 +21,13 @@ Oneshot Panel — статическая веб-панель эфирной ко
 - `app.js` — интерфейс: загрузка таблиц, отрисовка, localStorage
   (`webcam-desk-source`, `oneshot-webcam-match-v1`), вето, копирование,
   скачивание JSON.
+- `card.html`, `card.js`, `card.css` — карточка игрока 1920×1080
+  (`/card.html?team=…&nick=…`): фон `assets/card/background.jpg`, логотип
+  команды, ник, фото HLTV из `assets/players/players.json`. В OBS JSON
+  стоит под каждой камерой (`CARD NN | Команда | Ник`); `card.js`
+  импортирует `personKey` из `core.js`. Оформление — токены `--card-*`.
+- `scripts/fetch_player_photos.py` — скачивает фото HLTV из
+  `players.json` (поле `photo`) в `assets/players/` и заполняет `file`.
 - `server.js` — локальный статический сервер. Отдаёт только файлы из
   `publicFiles` и `assets/`: новый файл в корне добавь в `publicFiles`.
 - `DEPLOY.md` — размещение на своём сервере (nginx) или домене; при смене
@@ -38,14 +45,14 @@ Oneshot Panel — статическая веб-панель эфирной ко
   на `replace_once`/`cut`, исходный кусок изменился — поправь замену в
   скрипте, а не обходи её.
 - `claude-artifact/index.html` — старая версия «Webcam Desk», не трогать.
-- `scripts/qa_browser.py` — 24 браузерных сценария (Python Playwright +
+- `scripts/qa_browser.py` — 25 браузерных сценариев (Python Playwright +
   Chromium).
 
 ## Команды
 
 ```sh
 npm run check        # синтаксис
-npm test             # 23 теста (node:test)
+npm test             # 27 тестов (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 claude-artifact/build_oneshot_artifact.py
@@ -64,7 +71,11 @@ Netlify публикует корень как есть.
 - Имя JSON без пробелов: `16-00_Группа-B_КомандаA_vs_КомандаB.json`.
 - OBS JSON: сцены «Игрок 1–10» и «Матрица», камеры вписаны в 1920×1080,
   поворот 0, без обрезки, новые UUID при каждом экспорте; источники
-  называются `CAM NN | Команда | Ник`.
+  называются `CAM NN | Команда | Ник`. Прямо под камерой — источник
+  браузера `CARD NN | Команда | Ник` с `card.html` того сайта, где открыта
+  панель (в артефакте — https://onepanel.netlify.app). Ссылка камеры
+  заканчивается на `&cleanoutput&transparent`: без видео VDO.Ninja
+  прозрачен, и видна карточка.
 - Вето как на veto.oneshot.su. Пул: Ancient, Anubis, Cache, Dust2,
   Inferno, Mirage, Nuke. Текст HLTV строками вида `X removed Map`,
   `X pick Map (Y CT)` или `(Y T)` — сторона соперника, последняя —
@@ -110,5 +121,11 @@ Netlify публикует корень как есть.
 - Логотипы команд: `assets/teams/teams.json` (название → файл) и PNG
   рядом; `scripts/extract_team_logos.py` достаёт их из таблицы
   организатора (.xlsx).
+- Фото игроков: `assets/players/players.json` — команда, ник, `aliases`,
+  ссылка HLTV, `photo` (img-cdn.hltv.org/playerbodyshot, w=400) и `file`.
+  Ссылки на фото собраны со страниц HLTV (лист «Teams (Group Stage)»
+  таблицы организатора даёт ссылки на профили). hltv.org закрыт
+  Cloudflare: страницы читаются только через браузерный сервис, а сами
+  картинки с img-cdn.hltv.org качаются обычным запросом.
 - Снимки таблицы не коммитить: `claude-artifact/data/` и
   `claude-artifact/dist/` в `.gitignore`.

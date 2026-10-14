@@ -16,6 +16,12 @@ test('Static server serves public files and rejects traversal', async () => {
     const theme = await fetch(base + '/theme.js');
     assert.equal(theme.status, 200);
     assert.ok(theme.headers.get('content-type').startsWith('text/javascript'));
+    const card = await fetch(base + '/card.html?team=A&nick=B');
+    assert.equal(card.status, 200);
+    assert.ok((await card.text()).includes('/card.js'));
+    for (const file of ['/card.js', '/card.css', '/assets/players/players.json']) {
+      assert.equal((await fetch(base + file)).status, 200, file);
+    }
     const template = await fetch(base + '/assets/obs-template.json');
     assert.equal(template.status, 200);
     assert.ok(Array.isArray((await template.json()).sources));

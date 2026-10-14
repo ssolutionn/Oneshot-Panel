@@ -12,7 +12,7 @@
 Нужные файлы (больше ничего из репозитория на сайт не кладётся):
 
 ```
-index.html  app.js  core.js  theme.js  style.css  assets/
+index.html  app.js  core.js  theme.js  style.css  card.html  card.js  card.css  assets/
 ```
 
 - Репозиторий: https://github.com/ssolutionn/Oneshot-Panel,
@@ -42,7 +42,7 @@ sudo git clone --depth 1 -b claude/gracious-sagan-apztcc \
   https://github.com/ssolutionn/Oneshot-Panel.git /opt/oneshot-panel
 sudo mkdir -p /var/www/oneshot-panel
 cd /opt/oneshot-panel
-sudo cp index.html app.js core.js theme.js style.css /var/www/oneshot-panel/
+sudo cp index.html app.js core.js theme.js style.css card.html card.js card.css /var/www/oneshot-panel/
 sudo cp -R assets /var/www/oneshot-panel/
 ```
 
@@ -82,7 +82,7 @@ sudo certbot --nginx -d panel.oneshot.su   # HTTPS от Let's Encrypt
 
 ```sh
 cd /opt/oneshot-panel && sudo git pull
-sudo cp index.html app.js core.js theme.js style.css /var/www/oneshot-panel/
+sudo cp index.html app.js core.js theme.js style.css card.html card.js card.css /var/www/oneshot-panel/
 sudo cp -R assets /var/www/oneshot-panel/
 ```
 
@@ -121,4 +121,6 @@ HTTPS Netlify выпустит сам после того, как записи �
 - в шапке логотип Oneshot, справа зелёная точка «Таблица турнира»;
 - под шапкой «16 команд из таблицы · Обновлено ЧЧ:ММ МСК»;
 - в «Матч по расписанию» — матчи на сегодня и следующие дни;
-- в консоли браузера нет ошибок CSP.
+- в консоли браузера нет ошибок CSP;
+- `https://panel.oneshot.su/card.html?team=Lavked&nick=jakekeS` — карточка
+  игрока с логотипом Lavked (её OBS открывает под каждой камерой).
