@@ -149,6 +149,10 @@ python3 scripts/qa_browser.py --url http://127.0.0.1:3000
 Первоначальные HTML/JS/CSS и OBS-шаблон были получены из:
 https://cyberclash-webcam-desk.quiet-hen-9825.chatgpt.site/
 
+Шрифт — системный шрифт интерфейса (San Francisco на Apple, Segoe UI
+на Windows, Roboto на Android), задан и на `:root`, и на `body`: так
+артефакт и сайт выглядят одинаково, ничего не скачивается.
+
 Логотипы Oneshot (дневной и ночной) — от команды, лежат в
 `assets/oneshot-logo-day.png` и `assets/oneshot-logo-night.png`,
 Иконка вкладки — знак-мишень Oneshot как есть: `assets/favicon.png`

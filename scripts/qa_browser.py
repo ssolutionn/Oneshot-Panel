@@ -110,6 +110,10 @@ async def run(args):
             "команд из таблицы"
         )
         assert await page.title() == "Oneshot Panel"
+        # The OS interface font, not a missing web font falling back to Arial.
+        assert (await page.evaluate(
+            "getComputedStyle(document.body).fontFamily"
+        )).startswith("system-ui")
         passed("load rosters, schedule and OBS template")
 
         await page.wait_for_load_state("networkidle")
