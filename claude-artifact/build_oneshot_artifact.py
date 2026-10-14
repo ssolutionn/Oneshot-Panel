@@ -612,9 +612,9 @@ app = replace_once(app, "  pending: null\n};", "  pending: null, cache: null\n};
 # The artifact has no asset directory; only the artifact embeds these files.
 map_images = {}
 for map_name in ("Ancient", "Anubis", "Cache", "Dust2", "Inferno", "Mirage", "Nuke"):
-    image_file = ROOT / "assets" / "maps" / (map_name + ".png")
-    map_images[map_name] = "data:image/png;base64," + base64.b64encode(image_file.read_bytes()).decode()
-app = replace_once(app, 'src="/assets/maps/${map}.png"', 'src="${ARTIFACT_MAPS[map]}"')
+    image_file = ROOT / "assets" / "maps" / (map_name + ".jpg")
+    map_images[map_name] = "data:image/jpeg;base64," + base64.b64encode(image_file.read_bytes()).decode()
+app = replace_once(app, 'src="/assets/maps/${map}.jpg"', 'src="${ARTIFACT_MAPS[map]}"')
 app = "const ARTIFACT_MAPS = " + json.dumps(map_images) + ";\n" + app
 if not app.rstrip().endswith("refresh();"):
     raise SystemExit("unexpected app.js ending")

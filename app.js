@@ -474,7 +474,7 @@ function renderVeto() {
       data-map="${map}"
       ${!ready || !!action || finished || !!state.pending ? 'disabled' : ''}
       aria-label="${escapeHtml(map + ': ' + label)}">
-      <img src="/assets/maps/${map}.png" alt="" loading="lazy" width="960" height="180">
+      <img src="/assets/maps/${map}.jpg" alt="" loading="lazy" width="960" height="180">
       <span class="map-name">${map}</span>
       <span class="map-action" title="${escapeHtml(label)}">${status}</span>
     </button>`;

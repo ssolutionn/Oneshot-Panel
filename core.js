@@ -47,15 +47,21 @@ export function parseTeams(rows) {
 }
 
 export function parseSchedule(rows) {
-  return rows.flatMap((row, index) => {
+  // The key names the match, not its row: a row inserted above it in the
+  // sheet must not reset a veto in progress. Identical rows get a counter.
+  const seen = new Map();
+  return rows.flatMap(row => {
     const v = row.map(line);
     const time = v[1]?.match(/^(\d{1,2}):([0-5]\d)(?::[0-5]\d)?$/);
     if (!v[2] || !v[3] || !time || Number(time[1]) > 23) return [];
     const stage = /^[A-H]$/.test(v[4] || '') ? `Группа ${v[4]}` : v[4] || '';
+    const fields = JSON.stringify(v.slice(1, 5));
+    const repeat = seen.get(fields) || 0;
+    seen.set(fields, repeat + 1);
     return [{
       time: `${time[1].padStart(2, '0')}:${time[2]}`,
       team1: v[2], team2: v[3], group: v[4] || '', stage,
-      key: JSON.stringify([index, ...v.slice(1, 5)])
+      key: JSON.stringify([...v.slice(1, 5), repeat])
     }];
   });
 }
@@ -238,7 +244,11 @@ export function buildObs(template, a, b, ka, kb,
     fitItem(item);
   });
 
-  for (const item of byName.get('Матрица')?.settings?.items || []) {
+  const matrix = byName.get('Матрица');
+  if (matrix?.id !== 'scene' || !Array.isArray(matrix.settings?.items)) {
+    throw new Error('В шаблоне отсутствует сцена «Матрица».');
+  }
+  for (const item of matrix.settings.items) {
     const scene = byId.get(item.source_uuid);
     const slot = /^Игрок (\d+)$/.exec(scene?.name || '');
     if (!slot) continue;

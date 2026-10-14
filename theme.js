@@ -23,7 +23,8 @@
       ?.setAttribute('content', night ? '#0a0a0b' : '#ffffff');
     const button = document.getElementById('themeToggle');
     if (!button) return;
-    button.textContent = night ? '☀ День' : '☾ Ночь';
+    // A switch: the label names the mode, the knob and aria-pressed show its state.
+    button.textContent = '☾ Ночь';
     button.setAttribute('aria-pressed', String(night));
     button.title = night ? 'Включить дневной режим' : 'Включить ночной режим';
   };

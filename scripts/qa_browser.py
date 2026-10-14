@@ -18,6 +18,17 @@ def gviz(rows):
     return "google.visualization.Query.setResponse(" + json.dumps(data) + ");"
 
 
+def with_row_above(text):
+    """Same Sheets response with one more match inserted at the top."""
+    begin, end = text.index("{"), text.rindex("}") + 1
+    data = json.loads(text[begin:end])
+    data["table"]["rows"].insert(0, {"c": [
+        {"v": ""}, {"v": "10:00"}, {"v": "HYPERSPIRIT"},
+        {"v": "6yuBoJlbl"}, {"v": "Шоуматч"}
+    ]})
+    return text[:begin] + json.dumps(data, ensure_ascii=False) + text[end:]
+
+
 def sample_roster(names=("6yuBoJlbl", "HYPERSPIRIT")):
     rows = []
     for t, name in enumerate(names):
@@ -60,7 +71,7 @@ async def run(args):
         )
         modes = {
             "roster_error": False, "schedule_error": False,
-            "delay": False, "new_source": False,
+            "delay": False, "new_source": False, "row_above": False,
         }
         gate = asyncio.Event()
         errors = []
@@ -76,12 +87,14 @@ async def run(args):
                 modes["schedule_error"] if is_schedule
                 else modes["roster_error"]
             ) else 200
-            body = schedule if is_schedule else (
-                sample_roster(("New Team A", "New Team B"))
-                if modes["new_source"] and
-                "/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/" in route.request.url
-                else roster
-            )
+            if is_schedule:
+                body = (with_row_above(schedule) if modes["row_above"]
+                        else schedule)
+            elif (modes["new_source"] and
+                    "/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/" in route.request.url):
+                body = sample_roster(("New Team A", "New Team B"))
+            else:
+                body = roster
             await route.fulfill(
                 status=status, content_type="application/javascript", body=body
             )
@@ -226,6 +239,18 @@ async def run(args):
         assert await page.input_value("#vetoOutput") == expected
         assert await select.input_value() == replacement[0]
         passed("reload restores match, substitutions and veto")
+
+        match_value = await page.input_value("#matchSelect")
+        modes["row_above"] = True
+        await page.click("#refreshBtn")
+        await expect(page.locator("#refreshBtn")).to_be_enabled()
+        assert await page.locator(
+            "#matchSelect option", has_text="10:00 · Шоуматч"
+        ).count() == 1
+        assert await page.input_value("#matchSelect") == match_value
+        assert await page.input_value("#vetoOutput") == expected
+        modes["row_above"] = False
+        passed("row inserted above the match keeps the veto after refresh")
         await page.screenshot(
             path=str(artifacts / "desktop.png"), full_page=True
         )
@@ -426,7 +451,8 @@ async def run(args):
         background = "getComputedStyle(document.body).backgroundColor"
         card = ("getComputedStyle(document.querySelector('.team-card'))"
                 ".backgroundColor")
-        await expect(toggle).to_have_text("☀ День")
+        await expect(toggle).to_have_text("☾ Ночь")
+        await expect(toggle).to_have_attribute("aria-pressed", "true")
         await expect(night_page.locator(".logo-night")).to_be_visible()
         await expect(night_page.locator(".logo-day")).to_be_hidden()
         assert await night_page.evaluate(background) == "rgb(16, 16, 18)"
@@ -444,7 +470,7 @@ async def run(args):
         )
         await night_page.set_viewport_size({"width": 1440, "height": 1000})
         await toggle.click()
-        await expect(toggle).to_have_text("☾ Ночь")
+        await expect(toggle).to_have_attribute("aria-pressed", "false")
         await expect(night_page.locator(".logo-day")).to_be_visible()
         await expect(night_page.locator(".logo-night")).to_be_hidden()
         assert await night_page.evaluate(
@@ -453,7 +479,7 @@ async def run(args):
         assert await night_page.evaluate(background) == "rgb(245, 245, 245)"
         assert await night_page.evaluate(card) == "rgb(255, 255, 255)"
         await night_page.reload()
-        await expect(toggle).to_have_text("☾ Ночь")
+        await expect(toggle).to_have_attribute("aria-pressed", "false")
         assert await night_page.evaluate(
             "document.documentElement.dataset.mode"
         ) == "light"
@@ -462,7 +488,7 @@ async def run(args):
         assert await night_page.evaluate(card) == "rgb(26, 26, 29)"
         await toggle.focus()
         await night_page.keyboard.press("Enter")
-        await expect(toggle).to_have_text("☾ Ночь")
+        await expect(toggle).to_have_attribute("aria-pressed", "false")
         await night.close()
         assert not errors, errors
         passed("night mode follows the system; toggle persists, swaps the logo")

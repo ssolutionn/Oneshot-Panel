@@ -27,7 +27,7 @@ Oneshot webcam panel — статическая веб-панель эфирно
   `server.js` (тест сверяет, что они совпадают).
 - `assets/` — `obs-template.json` (оригинальный шаблон OBS, не
   переформатировать), `oneshot-logo-day.png` / `oneshot-logo-night.png`,
-  `favicon.png`. Карты `assets/maps/*.png` — локальные миниатюры; происхождение и
+  `favicon.png`. Карты `assets/maps/*.jpg` — локальные миниатюры; происхождение и
   лицензия в этом каталоге. Панель скрывает битые картинки.
 - `claude-artifact/build_oneshot_artifact.py` — собирает
   `claude-artifact/oneshot-panel.html` (версия для артефакта Claude) из тех

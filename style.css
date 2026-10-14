@@ -83,7 +83,7 @@ h2 { font-size:17px; line-height:1.4; letter-spacing:-.3px; margin-bottom:0; }
 .button.dark:hover:not(:disabled) { background:var(--strong-hover); border-color:var(--strong-hover); }
 .button.small { min-height:32px; padding:7px 11px; font-size:11px; }
 .error-box { background:var(--warn); color:var(--warn-ink); border:1px solid var(--warn-line); border-radius:7px; padding:13px 16px; margin-bottom:12px; line-height:1.65; font-size:12px; overflow-wrap:anywhere; }
-.match-tools { display:grid; grid-template-columns:105px 150px minmax(0,1fr) 38px; align-items:center; gap:18px; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:14px 18px; margin-bottom:12px; }
+.match-tools { display:grid; grid-template-columns:132px 150px minmax(0,1fr) 38px; align-items:center; gap:18px; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:14px 18px; margin-bottom:12px; }
 .match-tools label { min-width:0; }
 .match-picker { grid-column:3; grid-row:1; }
 .match-tools>label:has(#matchTime) { grid-column:1; grid-row:1; border-right:1px solid var(--line); padding-right:18px; }
@@ -204,7 +204,7 @@ dialog textarea { margin:0; width:100%; }
   .nav-button { font-size:10px; min-height:32px; }
   main { padding:0 12px; } .intro { gap:6px; align-items:flex-start; flex-direction:column; padding:12px 2px; }
   .workspace-label { font-size:8px; } .sync-card { justify-content:flex-start; flex-wrap:wrap; font-size:9px; gap:5px; }
-  .match-tools { grid-template-columns:94px minmax(0,1fr) 34px; gap:12px; padding:12px; }
+  .match-tools { grid-template-columns:122px minmax(0,1fr) 34px; gap:12px; padding:12px; }
   .match-picker { grid-column:1/-1; grid-row:2; border-top:1px solid var(--divider); padding-top:10px; }
   .stage-picker { grid-column:2; grid-row:1; } #swapBtn { grid-column:3; grid-row:1; }
   .match-tools>label:has(#matchTime) { padding-right:10px; } #matchTime { font-size:23px; } #matchSelect { font-size:13px; min-height:34px; }

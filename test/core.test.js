@@ -72,6 +72,13 @@ test('Schedule identifies repeat matchups and validates time', () => {
   assert.equal(schedule[0].time, '09:05');
   assert.notEqual(schedule[0].key, schedule[1].key);
   assert.equal(schedule[1].stage, 'Финал');
+  // A row inserted above keeps the key, so the veto survives a refresh.
+  const row = ['', '16:00', 'A', 'B', 'B'];
+  const [before] = parseSchedule([row]);
+  const after = parseSchedule([['Матчи 14 октября'], ['', '13:00', 'C', 'D', 'A'], row]);
+  assert.equal(after.find(m => m.team1 === 'A').key, before.key);
+  const twice = parseSchedule([row, row]);
+  assert.notEqual(twice[0].key, twice[1].key);
 });
 
 test('Schedule day comes from the sheet title, not from match rows', () => {
@@ -215,6 +222,9 @@ test('Invalid template fails rather than exporting broken JSON', () => {
   const broken = structuredClone(template);
   broken.sources = broken.sources.filter(s => s.name !== 'Игрок 6');
   assert.throws(() => buildObs(broken, ...fixture()), /игрока 6/);
+  const noMatrix = structuredClone(template);
+  noMatrix.sources = noMatrix.sources.filter(s => s.name !== 'Матрица');
+  assert.throws(() => buildObs(noMatrix, ...fixture()), /Матрица/);
 });
 
 test('BO3 matches exact requested HLTV text', () => {

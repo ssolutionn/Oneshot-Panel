@@ -2,7 +2,7 @@ name: Panel checks
 
 on:
   push:
-    branches: ["codex/oneshot-panel-review-redesign"]
+    branches: ["claude/gracious-sagan-apztcc", "codex/oneshot-panel-review-redesign"]
   pull_request:
     branches: ["claude/gracious-sagan-apztcc"]
 
