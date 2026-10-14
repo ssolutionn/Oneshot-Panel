@@ -1,0 +1,1362 @@
+<title>Oneshot webcam panel</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Вебки игроков CyberClash, коллекции сцен OBS и вето для HLTV.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap">
+<!-- Built from the web panel by claude-artifact/build_oneshot_artifact.py; edit the web panel, then rebuild. -->
+<style>
+/* Oneshot look, single light theme on purpose: black header, red accent, white cards. */
+:root{color-scheme:light;font-family:Roboto,Arial,Helvetica,sans-serif;color:#171717;background:#f5f5f5;font-synthesis:none;--ink:#171717;--muted:#626262;--line:#ddd;--red:#d3202c}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:90px}body{margin:0}button,input,select,textarea{font:inherit}button,a,select,input{outline-offset:4px}button,a{touch-action:manipulation}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.5}a{color:inherit}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #2477dd}[hidden]{display:none!important}
+.site-header{background:#111;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:20px;padding-block:14px;padding-left:max(24px,calc((100vw - 1232px)/2),env(safe-area-inset-left,0px));padding-right:max(24px,calc((100vw - 1232px)/2),env(safe-area-inset-right,0px));border-bottom:4px solid var(--red)}
+.brand{display:flex;align-items:center;gap:14px;text-decoration:none;font-size:19px}.brand img{border-radius:3px;background:#fff;padding:3px}.brand b{font-weight:400}.site-header nav{display:flex;gap:24px;align-items:center;font-size:13px}.site-header nav a{text-decoration:none}.site-header nav a:hover{text-decoration:underline}
+main{max-width:1280px;margin:auto;padding-block:0;padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}.intro{padding:34px 0 26px;display:flex;justify-content:space-between;align-items:center;gap:25px}.eyebrow{font-size:10px;letter-spacing:1.5px;font-weight:700;color:var(--muted)}h1{font-size:clamp(28px,4vw,42px);line-height:1.2;letter-spacing:-1px;margin:12px 0;font-weight:800}.intro p{font-size:13px;color:var(--muted);line-height:1.7;margin:0}h2{font-size:18px;line-height:1.4;margin:0}
+.button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:42px;padding:10px 16px;border:1px solid #c9c9c9;background:#fff;border-radius:5px;font-weight:600;font-size:12px;color:var(--ink);text-decoration:none}.button:hover:not(:disabled){background:#e9e9e9}.button.primary{background:var(--red);border-color:var(--red);color:#fff}.button.primary:hover:not(:disabled){background:#b81722}.button.dark{background:#171717;color:#fff;border-color:#171717}.button.dark:hover:not(:disabled){background:#333}.button.small{font-size:12px;min-height:36px;padding:7px 11px}
+.sync-card{background:#fff;border:1px solid var(--line);border-radius:6px;min-width:260px;padding:16px;display:flex;flex-direction:column;gap:10px;font-size:12px}.sync-label{font-weight:600;display:flex;gap:8px;align-items:center}.sync-label i{height:8px;width:8px;border-radius:50%;background:#999}.sync-label i.good{background:#21823b}.sync-label i.stale{background:#ae6814}.sync-card>span:nth-child(2){font-size:11px;color:var(--muted)}.sync-actions{display:flex;gap:8px}
+.error-box{background:#fff4de;color:#664411;border:1px solid #dbbd83;border-radius:6px;padding:14px;line-height:1.6;font-size:13px;margin-bottom:16px}.match-tools{padding:18px;background:#fff;border:1px solid var(--line);border-radius:6px;display:flex;align-items:end;gap:14px;flex-wrap:wrap;margin-bottom:20px}.match-tools label{min-width:0}.match-picker{flex:2;min-width:250px!important}.stage-picker{flex:1;min-width:160px!important}.mini-label{display:block;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.6px;margin-bottom:7px}.match-tools select,.match-tools input{border:1px solid #bbb;border-radius:4px;background:#fff;height:40px;padding:8px;width:100%;font-size:13px;color:var(--ink)}
+.team-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.team-card{background:#fff;border:1px solid var(--line);border-radius:6px;overflow:hidden;min-width:0}.card-top{padding:18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #e5e5e5}.team-letter{background:#171717;color:#fff;font-weight:700;font-size:14px;display:grid;place-items:center;width:35px;height:35px;border-radius:4px}.team-card:nth-child(2) .team-letter{background:var(--red)}.team-heading{flex:1;min-width:0}.team-heading label{display:block;font-size:9px;letter-spacing:1px;color:var(--muted);margin-bottom:6px}.team-heading select{font-size:18px;font-weight:700;max-width:100%;width:100%;background:none;border:0;color:var(--ink);padding:0 20px 0 0}.slot-caption{font-size:11px;color:var(--muted);white-space:nowrap}.camera-list{padding:4px 18px}.player-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid #eee}.player-row:last-child{border:0}.slot-number{height:30px;min-width:30px;border-radius:4px;background:#f0f0f0;display:grid;place-items:center;font-size:11px;font-variant-numeric:tabular-nums;color:#555}.player-info{min-width:0;flex:1}.player-info select{width:100%;font-weight:600;font-size:14px;border:0;background:transparent;padding:2px 18px 2px 0;color:var(--ink)}.player-subline{font-size:10px;color:var(--muted);display:block;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.copy-icon{background:#fff;border:1px solid #ccc;height:34px;width:34px;border-radius:4px;font-size:16px}.copy-icon:hover{background:#eee}.card-actions{display:flex;justify-content:space-between;align-items:center;background:#fafafa;padding:14px 18px;border-top:1px solid #eee;gap:12px;flex-wrap:wrap}.text-button{font-size:12px;background:none;border:0;padding:3px;color:#444;text-decoration:none}.text-button:hover{text-decoration:underline}.card-bottom{display:flex;gap:14px;align-items:center}
+.export-bar{display:flex;align-items:center;justify-content:space-between;padding:20px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--red);border-radius:6px;margin:20px 0;gap:20px}.export-bar>div{display:flex;gap:14px;align-items:center;min-width:0}.export-icon{font-size:28px}.export-bar h2{font-size:15px}.export-bar p{font-size:12px;color:var(--muted);margin:7px 0 0;overflow-wrap:anywhere}#filenamePreview{font-family:ui-monospace,Consolas,monospace;font-size:11px}.copy-panel,.veto-panel{background:#fff;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-bottom:24px}.panel-heading{display:flex;align-items:center;justify-content:space-between;padding:22px;gap:16px}.panel-heading h2{margin-top:5px}.copy-tabs{display:flex;gap:24px;border-bottom:1px solid #ddd;padding:0 22px}.tab{border:0;background:transparent;font-size:13px;padding:13px 0;color:var(--muted);border-bottom:3px solid transparent}.tab span{font-size:10px;background:#eee;padding:3px 5px;border-radius:3px;margin-left:5px}.tab.selected{color:#111;border-color:var(--red);font-weight:700}.preview-head{display:flex;justify-content:space-between;align-items:center;padding:16px 22px 12px;gap:16px}.preview-head>span{font-size:12px;color:var(--muted);line-height:1.6}textarea{display:block;width:calc(100% - 44px);margin:0 22px;background:#f7f7f7;border:1px solid #ddd;border-radius:4px;padding:14px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.8;resize:vertical;min-height:230px;color:#333;white-space:pre;overflow:auto}.copy-foot{font-size:11px;color:var(--muted);padding:0 22px 10px;line-height:1.7}
+.veto-controls{display:flex;gap:16px}.veto-controls label{display:flex;align-items:center;gap:8px;font-size:12px}.veto-controls select{border:1px solid #bbb;padding:8px;border-radius:4px;max-width:210px;min-width:80px;background:#fff;color:#171717}.veto-status{background:#171717;color:#fff;margin:0;padding:16px 22px;font-size:14px;line-height:1.5}.side-choice{display:flex;gap:12px;align-items:center;padding:18px 22px;background:#fff3cf;flex-wrap:wrap}.side-choice strong{flex:1;font-size:13px}.map-grid{display:grid;gap:6px;padding:16px 22px}.map-card{position:relative;height:90px;overflow:hidden;border:2px solid transparent;border-radius:4px;padding:18px 22px;background:#333;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:16px;text-align:left}.map-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 44%;opacity:.48}.map-card::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,#0008,#0004)}.map-name,.map-action{position:relative;z-index:1}.map-name{font-size:23px;font-weight:800;text-shadow:0 1px 4px #000}.map-action{font-size:13px;text-align:right;text-shadow:0 1px 4px #000;font-weight:600}.map-card:hover:not(:disabled){border-color:#111}.map-card:hover:not(:disabled) img{opacity:.75}.map-card:disabled{opacity:1}.map-card.ban::after{background:#720000b8}.map-card.ban .map-name{text-decoration:line-through}.map-card.pick::after{background:#004019bf}.map-card.leftover::after{background:#002b65c9}.veto-actions{display:flex;justify-content:space-between;gap:15px;padding:4px 22px 10px;align-items:center;flex-wrap:wrap}.veto-actions>div{display:flex;gap:8px}.check{display:flex;align-items:center;gap:7px;font-size:12px;color:#444}.check input{accent-color:var(--red)}#vetoOutput{min-height:200px}
+.empty-panel{padding:50px 20px;background:#fff;border:1px dashed #bbb;border-radius:6px;grid-column:1/-1;text-align:center;color:var(--muted);font-size:14px;line-height:1.7}footer{display:flex;gap:18px;align-items:center;margin:26px 0;font-size:12px;font-weight:600;color:var(--muted)}footer span{font-weight:400;font-size:11px}footer a{margin-left:auto;text-decoration:none}.toast{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:30;background:#171717;color:#fff;padding:14px 22px;box-shadow:0 5px 25px #0003;border-radius:5px;font-size:13px;width:max-content;max-width:90vw;line-height:1.5}dialog{border:1px solid #bbb;border-radius:8px;padding:24px;width:min(600px,calc(100% - 32px));max-height:90dvh;overflow-y:auto;color:var(--ink);box-shadow:0 20px 80px #0004}dialog::backdrop{background:#0007}.dialog-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.icon-button{border:0;background:none;font-size:26px;color:#444;min-width:38px;min-height:38px}dialog p{font-size:12px;color:var(--muted);line-height:1.7}dialog label{display:block;font-size:12px;font-weight:600;margin:16px 0}dialog input{width:100%;margin-top:7px;padding:10px;border:1px solid #bbb;border-radius:4px;font-size:12px}dialog p.muted{font-size:11px}.dialog-actions{display:flex;justify-content:space-between;margin-top:20px;gap:12px}dialog textarea{width:100%;margin:0}
+@media(max-width:800px){.site-header{padding-block:12px;padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px));flex-wrap:wrap}.brand{font-size:17px}.site-header nav{font-size:12px;gap:20px}main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}.intro{align-items:stretch;flex-direction:column;gap:18px;padding-top:24px}.sync-card{min-width:0}.team-grid{grid-template-columns:1fr}.match-tools{padding:14px;gap:12px}.match-picker{flex-basis:100%;min-width:0!important}.stage-picker{min-width:140px!important}.match-tools>button{flex-basis:100%}.export-bar{align-items:stretch;flex-direction:column}.export-bar .primary{width:100%}.panel-heading{padding:18px;align-items:flex-start;flex-wrap:wrap}.preview-head{padding:14px 16px 10px}.preview-head>span{max-width:55%}.copy-tabs{padding:0 16px}textarea{width:calc(100% - 32px);margin:0 16px;font-size:11px}.copy-foot{padding-left:16px;padding-right:16px}.veto-controls{flex-wrap:wrap;width:100%;gap:10px}.veto-controls label{flex:1;min-width:0}.veto-controls select{max-width:100%;min-width:0;width:100%}.veto-status{padding:14px 16px}.map-grid{padding:14px 16px}.map-card{height:94px;padding:15px}.map-name{font-size:21px}.map-action{font-size:11px;max-width:62%;line-height:1.6}.veto-actions{padding-left:16px;padding-right:16px}.side-choice{padding:14px 16px}.side-choice strong{flex-basis:100%}footer{align-items:flex-start;gap:10px;flex-wrap:wrap}footer span{flex-basis:100%;order:3}footer a{font-size:11px}.slot-caption{display:none}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{background:#f5f5f5;color:#171717}#pasteArea{min-height:140px}.dialog-section{border-top:1px solid #ddd;margin-top:22px}
+</style>
+<header class="site-header">
+    <a class="brand" href="#webcams" aria-label="Oneshot webcam panel">
+      <img src="assets/oneshot-logo.png" alt="Логотип Oneshot" width="48" height="48">
+      <span>Oneshot <b>webcam panel</b></span>
+    </a>
+    <nav aria-label="Разделы панели">
+      <a href="#webcams">Вебки</a>
+      <a href="#veto">Вето</a>
+      <a id="sidebarSource" target="_blank" rel="noreferrer">Таблица</a>
+    </nav>
+  </header>
+  <main>
+    <section class="intro" id="webcams">
+      <div>
+        <div class="eyebrow">CYBERCLASH · ЭФИРНАЯ КОМАНДА</div>
+        <h1>Вебки. OBS. Вето.</h1>
+        <p>Выбери матч и составы. Ссылки игрокам, сцены и текст HLTV — в одной панели.</p>
+      </div>
+      <div class="sync-card">
+        <span class="sync-label"><i id="syncDot"></i><span id="syncTitle">Подключаем таблицу</span></span>
+        <span id="syncTime">Составы из Google Sheets</span>
+        <div class="sync-actions">
+          <button id="refreshBtn" class="button small">↻ Обновить</button>
+          <button id="settingsBtn" class="button small">Источник данных</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="errorBox" class="error-box" role="alert" hidden></div>
+
+    <section class="match-tools" aria-label="Параметры матча">
+      <label class="match-picker">
+        <span class="mini-label" id="scheduleLabel">Матч по расписанию</span>
+        <select id="matchSelect"><option value="">Выбери команды вручную</option></select>
+      </label>
+      <label><span class="mini-label">Время · МСК</span><input id="matchTime" type="time" required></label>
+      <label class="stage-picker">
+        <span class="mini-label">Стадия</span>
+        <input id="matchStage" type="text" placeholder="Например, четвертьфинал" maxlength="100" required>
+      </label>
+      <button id="swapBtn" class="button small" disabled>⇄ Поменять стороны</button>
+    </section>
+
+    <section id="teamGrid" class="team-grid" aria-label="Составы двух команд">
+      <div class="empty-panel">Загружаем составы…</div>
+    </section>
+
+    <section id="exportBar" class="export-bar">
+      <div>
+        <span class="export-icon">↓</span>
+        <div>
+          <h2>Коллекция сцен OBS · 1920×1080</h2>
+          <p id="exportHint">10 вебок, сцены «Игрок 1–10» и «Матрица»</p>
+          <p id="filenamePreview"></p>
+        </div>
+      </div>
+      <button class="button primary" id="downloadBtn" disabled>Скачать JSON</button>
+    </section>
+
+    <section class="copy-panel" aria-label="Ссылки участникам">
+      <div class="panel-heading">
+        <div><span class="eyebrow">ГОТОВО К ПЕРЕДАЧЕ</span><h2>Скопировал — отправил</h2></div>
+      </div>
+      <div class="copy-tabs" role="tablist" aria-label="Получатель ссылок">
+        <button id="tabObserver" class="tab selected" role="tab" aria-selected="true" aria-controls="outputPanel">Для обсервера <span>VIEW</span></button>
+        <button id="tabPlayers" class="tab" role="tab" aria-selected="false" aria-controls="outputPanel" tabindex="-1">Для игроков <span>PUSH</span></button>
+      </div>
+      <div id="outputPanel" role="tabpanel" aria-labelledby="tabObserver">
+        <div class="preview-head">
+          <span id="previewLabel">Ники и VIEW-ссылки по слотам 1–10</span>
+          <button id="copyAllBtn" class="button dark small" disabled>Копировать всё</button>
+        </div>
+        <textarea id="output" aria-label="Текст для копирования" readonly placeholder="Сначала выбери две команды"></textarea>
+        <p class="copy-foot" id="copyFoot">Ники, ссылки и JSON используют один порядок слотов.</p>
+      </div>
+    </section>
+
+    <section id="veto" class="veto-panel" aria-labelledby="vetoHeading">
+      <div class="panel-heading">
+        <div><span class="eyebrow">ONESHOT VETO</span><h2 id="vetoHeading">Вето карт</h2></div>
+        <div class="veto-controls">
+          <label>Формат
+            <select id="vetoFormat">
+              <option>BO1</option><option>BO2</option>
+              <option selected>BO3</option><option>BO5</option>
+            </select>
+          </label>
+          <label>Первый ход<select id="vetoFirst" aria-label="Команда первого хода"></select></label>
+        </div>
+      </div>
+      <p class="veto-status" id="vetoStatus" role="status" aria-live="polite">Выбери две разные команды.</p>
+      <div id="sideChoice" class="side-choice" hidden>
+        <strong id="sideLabel"></strong>
+        <button id="chooseCT" class="button dark">CT</button>
+        <button id="chooseT" class="button">T</button>
+        <button id="cancelSide" class="button small">Отмена</button>
+      </div>
+      <div id="mapGrid" class="map-grid" aria-label="Карты для вето"></div>
+      <div class="veto-actions">
+        <div>
+          <button id="vetoUndo" class="button small" disabled>↶ Отменить ход</button>
+          <button id="vetoReset" class="button small" disabled>Сбросить вето</button>
+        </div>
+        <label class="check"><input id="autoCopyVeto" type="checkbox"> Копировать по завершении</label>
+      </div>
+      <div class="preview-head">
+        <span id="vetoHint">Текст HLTV обновляется после каждого хода.</span>
+        <button id="copyVeto" class="button primary small" disabled>Копировать для HLTV</button>
+      </div>
+      <textarea id="vetoOutput" aria-label="Вето в формате HLTV" readonly placeholder="Выбирай карты — здесь появится текст вето"></textarea>
+      <p class="copy-foot">На пике выбери стартовую сторону соперника. Смена матча сбрасывает текущее вето.</p>
+    </section>
+
+    <footer>
+      Oneshot webcam panel
+      <span>Веб-панель CyberClash · данные из Google Sheets</span>
+      <a href="https://vdo.ninja/" target="_blank" rel="noreferrer">VDO.Ninja</a>
+    </footer>
+  </main>
+
+  <dialog id="settingsDialog" aria-labelledby="settingsHeading">
+    <form id="settingsForm">
+      <div class="dialog-head">
+        <h2 id="settingsHeading">Источник данных</h2>
+        <button class="icon-button" type="button" id="closeSettings" aria-label="Закрыть">×</button>
+      </div>
+      <div id="sourceError" class="error-box" role="alert" hidden></div>
+      <p>Панель скачивает таблицу через твой Google Drive и берёт листы «Все игроки» и «Матчи ДД.ММ» на сегодня. Последняя версия сохраняется в панели, её видит вся эфирная команда.</p>
+      <label>Таблица составов<input id="sourceUrl" type="url" required></label>
+      <p class="muted">
+        Составы: ID, команда, слот, ник, ID потока, room, PUSH, VIEW, роль.
+        Расписание: B — время, C/D — команды, E — группа.
+        Таблица организатора:
+        <a href="https://docs.google.com/spreadsheets/d/1GtwcpVnyxY1YOs6ZTrXwJr5mjZqI0QxjLSKjimn9G2o/edit" target="_blank" rel="noreferrer">открыть</a>.
+      </p>
+      <div class="dialog-actions">
+        <button type="button" class="button" id="resetSource">Исходная таблица</button>
+        <button type="submit" class="button primary">Подключить</button>
+      </div>
+      <div class="dialog-section">
+        <label>Нет доступа к Google Drive? Вставь лист вручную
+          <textarea id="pasteArea" spellcheck="false" placeholder="Открой лист «Все игроки», выдели всё (Ctrl+A), скопируй (Ctrl+C) и вставь сюда. Потом так же можно вставить лист «Матчи»."></textarea>
+        </label>
+        <div class="dialog-actions"><span></span><button type="button" class="button" id="pasteBtn">Загрузить вставленное</button></div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="copyDialog" aria-labelledby="copyHeading">
+    <div class="dialog-head">
+      <h2 id="copyHeading">Скопируй текст вручную</h2>
+      <button id="closeCopy" class="icon-button" aria-label="Закрыть">×</button>
+    </div>
+    <p>Нажми Ctrl+C или ⌘C — нужный текст уже выделен.</p>
+    <textarea id="manualCopy" readonly aria-label="Текст для ручного копирования"></textarea>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script>
+'use strict';
+const DEFAULT_SOURCE = {
+  id: '1e__ijBjufD19SWBkSJL177vmmfMh2tdykYQHAS06S8I',
+  gid: '1315978454',
+  scheduleId: '1e__ijBjufD19SWBkSJL177vmmfMh2tdykYQHAS06S8I',
+  scheduleGid: '1758299905'
+};
+
+const line = value => String(value ?? '').replace(/[\r\n\t]+/g, ' ').trim();
+
+function decodeGviz(text) {
+  const begin = text.indexOf('{'), end = text.lastIndexOf('}');
+  let result;
+  try { result = JSON.parse(text.slice(begin, end + 1)); }
+  catch {
+    throw new Error('Не удалось прочитать ответ Google Sheets. Проверь доступ на просмотр по ссылке.');
+  }
+  if (result.status !== 'ok' || !Array.isArray(result.table?.rows)) {
+    throw new Error('Google Sheets не разрешил чтение. Нужен доступ на просмотр по ссылке.');
+  }
+  return result.table.rows.map(row => (row.c || []).map(c => line(c?.f ?? c?.v)));
+}
+
+function parseTeams(rows) {
+  const teams = [], byName = new Map(), ids = new Set();
+  rows.forEach((row, index) => {
+    const v = row.map(line);
+    if (!v[0] || !v[1] || !v[3] ||
+        !['Основной', 'Запасной', 'Тренер'].includes(v[8])) return;
+    const name = v[1], nick = v[3], id = v[4] || nick, room = v[5];
+    if (!room) throw new Error(`Не указана комната команды ${name}.`);
+    if (ids.has(v[0])) throw new Error(`Повтор ID в таблице: ${v[0]}`);
+    ids.add(v[0]);
+    if (!byName.has(name)) {
+      const team = { name, room, players: [], sourceRow: index + 1 };
+      teams.push(team);
+      byName.set(name, team);
+    }
+    byName.get(name).players.push({
+      key: v[0], slot: v[2], nick, id, room,
+      role: v[8], sourceRow: index + 1
+    });
+  });
+  if (!teams.length) {
+    throw new Error('На листе не найден состав. Нужен лист «Все игроки»: ID, команда, слот, ник, ID потока, room, PUSH, VIEW, роль.');
+  }
+  return teams;
+}
+
+function parseSchedule(rows) {
+  return rows.flatMap((row, index) => {
+    const v = row.map(line);
+    const time = v[1]?.match(/^(\d{1,2}):([0-5]\d)(?::[0-5]\d)?$/);
+    if (!v[2] || !v[3] || !time || Number(time[1]) > 23) return [];
+    const stage = /^[A-H]$/.test(v[4] || '') ? `Группа ${v[4]}` : v[4] || '';
+    return [{
+      time: `${time[1].padStart(2, '0')}:${time[2]}`,
+      team1: v[2], team2: v[3], group: v[4] || '', stage,
+      key: JSON.stringify([index, ...v.slice(1, 5)])
+    }];
+  });
+}
+
+const MONTHS = [/^январ/, /^феврал/, /^март/, /^апрел/, /^ма[йя]$/, /^июн/,
+  /^июл/, /^август/, /^сентябр/, /^октябр/, /^ноябр/, /^декабр/];
+
+// Day the schedule sheet is for, from its title ("Матчи 14 октября 2026"
+// or "Матчи 14.10"), as "DD.MM"; '' when the sheet does not say.
+function scheduleDay(rows) {
+  for (const row of rows.slice(0, 6)) {
+    for (const cell of row) {
+      const text = line(cell).toLowerCase();
+      if (!/матч|расписан|schedule/.test(text)) continue;
+      const word = text.match(/(\d{1,2})\s+([а-яё]+)/);
+      const month = word ? MONTHS.findIndex(m => m.test(word[2])) : -1;
+      const numeric = text.match(/(\d{1,2})\.(\d{1,2})(?!\d)/);
+      const [day, mon] = month >= 0 ? [Number(word[1]), month + 1] :
+        numeric ? [Number(numeric[1]), Number(numeric[2])] : [0, 0];
+      if (day >= 1 && day <= 31 && mon >= 1 && mon <= 12) {
+        return `${String(day).padStart(2, '0')}.${String(mon).padStart(2, '0')}`;
+      }
+    }
+  }
+  return '';
+}
+
+function defaultLineup(team) {
+  return team?.players.filter(p => p.role === 'Основной')
+    .slice(0, 5).map(p => p.key) || [];
+}
+function lineupCandidates(team) { return team?.players || []; }
+function roleSuffix(p) {
+  return p.role === 'Тренер' ? ' (тренер)' :
+    p.role === 'Запасной' ? ' (запасной)' : '';
+}
+function selectedPlayers(team, keys) {
+  return keys.map(key => team?.players.find(p => p.key === key) || null);
+}
+function validatePlayers(players) {
+  if (players.length !== 5 || players.some(p => !p)) {
+    return 'Выбери ровно пять игроков в команде.';
+  }
+  if (new Set(players.map(p => p.key)).size !== 5) {
+    return 'Один игрок выбран несколько раз.';
+  }
+  if (players.some(p => !p.room || !p.id)) {
+    return 'У игрока не указан ID потока или room.';
+  }
+  if (new Set(players.map(p => p.id)).size !== 5) {
+    return 'Повторяется ID видеопотока.';
+  }
+  return '';
+}
+function validateMatch(a, b, ka, kb) {
+  if (!a || !b) return 'Выбери две команды.';
+  if (a.name === b.name) return 'Выбери разные команды.';
+  const pa = selectedPlayers(a, ka), pb = selectedPlayers(b, kb);
+  const error = validatePlayers(pa) || validatePlayers(pb);
+  if (error) return error;
+  if (new Set([...pa, ...pb].map(p => p.key)).size !== 10) {
+    return 'Один игрок выбран в обеих командах.';
+  }
+  if (new Set([...pa, ...pb].map(p => p.id)).size !== 10) {
+    return 'У каждого из десяти игроков должен быть свой ID видеопотока.';
+  }
+  return '';
+}
+
+function viewUrl(p) {
+  return `https://vdo.ninja/?view=${encodeURIComponent(p.id)}&solo=1&room=${encodeURIComponent(p.room)}&codec=h264`;
+}
+function pushUrl(p) {
+  return `https://vdo.ninja/?room=${encodeURIComponent(p.room)}&broadcast&do&push=${encodeURIComponent(p.id)}`;
+}
+function directorUrl(team) {
+  return `https://vdo.ninja/?director=${encodeURIComponent(team.room)}`;
+}
+function observerText(a, b, pa, pb) {
+  return `${a.name} — ${b.name}\n\n` +
+    [...pa, ...pb].map((p, i) =>
+      `${i + 1}. ${i < 5 ? a.name : b.name} — ${p.nick}\n${viewUrl(p)}`
+    ).join('\n\n');
+}
+function markdown(value) {
+  return line(value).replace(/[\\[\]*_~`<>#!()]/g, '\\$&');
+}
+function playerText(team, players) {
+  return `## ${markdown(team.name)}\nOpen your link and turn on your camera.\n\n` +
+    players.filter(Boolean).map(p =>
+      `**${markdown(p.nick)}** ${pushUrl(p)}`
+    ).join('\n');
+}
+
+function validateMetadata(time, stage) {
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    return 'Укажи время матча в формате ЧЧ:ММ.';
+  }
+  if (!line(stage)) return 'Укажи стадию матча для имени файла.';
+  return '';
+}
+function safeFilename(a, b, time, stage) {
+  const error = validateMetadata(time, stage);
+  if (error) throw new Error(error);
+  const safe = value => {
+    const clean = line(value).normalize('NFC')
+      .replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, '-');
+    let result = '';
+    for (const char of clean) {
+      if (new TextEncoder().encode(result + char).length > 70) break;
+      result += char;
+    }
+    return result.replace(/[. ]+$/g, '') || 'Матч';
+  };
+  return `${time.replace(':', '-')} _ ${safe(stage)} _ ${safe(a)} vs ${safe(b)}.json`;
+}
+
+function fitItem(item, x = 0, y = 0, width = 1920, height = 1080) {
+  Object.assign(item, {
+    rot: 0, align: 5,
+    pos: { x, y },
+    pos_rel: { x: (x - 960) / 540, y: (y - 540) / 540 },
+    scale: { x: 1, y: 1 },
+    scale_rel: { x: 1, y: 1 },
+    scale_ref: { x: 1920, y: 1080 },
+    bounds_type: 2, bounds_align: 0, bounds_crop: false,
+    bounds: { x: width, y: height },
+    bounds_rel: { x: width / 540, y: height / 540 },
+    crop_left: 0, crop_right: 0, crop_top: 0, crop_bottom: 0
+  });
+}
+
+function buildObs(template, a, b, ka, kb,
+                         uuidFn = () => crypto.randomUUID()) {
+  const error = validateMatch(a, b, ka, kb);
+  if (error) throw new Error(error);
+  if (!Array.isArray(template?.sources)) {
+    throw new Error('Некорректный шаблон OBS.');
+  }
+  const d = structuredClone(template);
+  const byId = new Map(d.sources.map(s => [s.uuid, s]));
+  const byName = new Map(d.sources.map(s => [s.name, s]));
+  const used = new Set(), names = new Map();
+  const players = [
+    ...selectedPlayers(a, ka).map(p => ({ ...p, team: a.name })),
+    ...selectedPlayers(b, kb).map(p => ({ ...p, team: b.name }))
+  ];
+  players.forEach((p, i) => {
+    const scene = byName.get(`Игрок ${i + 1}`);
+    if (scene?.id !== 'scene' ||
+        !Array.isArray(scene.settings?.items)) {
+      throw new Error(`В шаблоне отсутствует сцена игрока ${i + 1}.`);
+    }
+    const items = scene.settings.items.filter(it =>
+      byId.get(it.source_uuid)?.id === 'browser_source'
+    );
+    if (items.length !== 1) {
+      throw new Error('В сцене игрока должен быть ровно один источник браузера.');
+    }
+    const item = items[0];
+    let browser = byId.get(item.source_uuid);
+    if (used.has(browser.uuid)) {
+      browser = structuredClone(browser);
+      browser.uuid = uuidFn();
+      browser.name = `Камера слота ${i + 1}`;
+      d.sources.push(browser);
+      byId.set(browser.uuid, browser);
+    }
+    used.add(browser.uuid);
+    item.source_uuid = browser.uuid;
+    item.name = browser.name;
+    Object.assign(browser.settings, {
+      url: viewUrl(p), width: 1920, height: 1080
+    });
+    names.set(browser.name,
+      `CAM ${String(i + 1).padStart(2, '0')} | ${p.team} | ${p.nick}`);
+    fitItem(item);
+  });
+
+  for (const item of byName.get('Матрица')?.settings?.items || []) {
+    const scene = byId.get(item.source_uuid);
+    const slot = /^Игрок (\d+)$/.exec(scene?.name || '');
+    if (!slot) continue;
+    const index = Number(slot[1]) - 1;
+    if (index >= 0 && index < 8) {
+      fitItem(item, (index % 4) * 480,
+        Math.floor(index / 4) * 270, 480, 270);
+    }
+    if (index === 8 || index === 9) {
+      fitItem(item, (index - 8) * 960, 540, 960, 540);
+    }
+  }
+
+  const uuidMap = new Map(d.sources.map(s => [s.uuid, uuidFn()]));
+  function remap(value) {
+    if (Array.isArray(value)) return value.map(remap);
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value)
+        .map(([k, v]) => [k, remap(v)]));
+    }
+    return typeof value === 'string' ?
+      uuidMap.get(value) || names.get(value) || value : value;
+  }
+  d.name = `${a.name} vs ${b.name}`;
+  d.resolution = { x: 1920, y: 1080 };
+  return remap(d);
+}
+
+const MAP_POOL = [
+  'Ancient', 'Anubis', 'Cache', 'Dust2', 'Inferno', 'Mirage', 'Nuke'
+];
+const VETO_RULES = {
+  BO1: ['ban', 'ban', 'ban', 'ban', 'ban', 'ban'],
+  BO2: ['ban', 'ban', 'ban', 'ban', 'ban', 'pick'],
+  BO3: ['ban', 'ban', 'pick', 'pick', 'ban', 'ban'],
+  BO5: ['ban', 'ban', 'pick', 'pick', 'pick', 'pick']
+};
+
+function validateVeto(actions, format, first) {
+  if (!Object.hasOwn(VETO_RULES, format) ||
+      ![0, 1].includes(first) ||
+      !Array.isArray(actions) || actions.length > 6) {
+    throw new Error('Некорректное вето.');
+  }
+  const used = new Set();
+  for (const [i, action] of actions.entries()) {
+    if (!MAP_POOL.includes(action.map) || used.has(action.map) ||
+        action.type !== VETO_RULES[format][i] ||
+        action.team !== (first + i) % 2 ||
+        (action.type === 'pick' &&
+          !['CT', 'T'].includes(action.side))) {
+      throw new Error('Нарушен порядок вето.');
+    }
+    used.add(action.map);
+  }
+  return MAP_POOL.filter(map => !used.has(map));
+}
+function appendVeto(actions, format, first, map, side) {
+  const available = validateVeto(actions, format, first);
+  const type = VETO_RULES[format][actions.length];
+  if (!type || !available.includes(map)) {
+    throw new Error('Эта карта уже выбрана или вето завершено.');
+  }
+  const result = [...actions, {
+    map, type, team: (first + actions.length) % 2,
+    ...(type === 'pick' ? { side } : {})
+  }];
+  validateVeto(result, format, first);
+  return result;
+}
+function vetoText(teams, actions, format = 'BO3', first = 0) {
+  const remaining = validateVeto(actions, format, first);
+  if (teams.length !== 2 || !teams.every(t => line(t)) ||
+      teams[0] === teams[1]) {
+    throw new Error('Для вето нужны две разные команды.');
+  }
+  const lines = actions.map(action => action.type === 'ban' ?
+    `${line(teams[action.team])} removed ${action.map}` :
+    `${line(teams[action.team])} pick ${action.map} (${line(teams[1 - action.team])} ${action.side})`);
+  if (actions.length === 6) lines.push(`${remaining[0]} was left over`);
+  return lines.join('\n');
+}
+
+const DRIVE = 'Google Drive';
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const SHEETJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.mini.min.js';
+const CACHE_PATH = 'panel/sheets';
+const capCache = {};
+function use(name) {
+  if (!capCache[name]) {
+    const c = window.claude;
+    capCache[name] = c && typeof c.use === 'function' ?
+      Promise.resolve().then(() => c.use(name)).catch(() => null) :
+      Promise.resolve(null);
+  }
+  return capCache[name];
+}
+let sheetJs = null;
+function loadSheetJS() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (!sheetJs) {
+    sheetJs = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = SHEETJS_URL;
+      script.onload = () => window.XLSX ? resolve(window.XLSX) :
+        reject(new Error('Модуль чтения таблиц загрузился с ошибкой.'));
+      script.onerror = () => {
+        script.remove();
+        sheetJs = null;
+        reject(new Error('Не загрузился модуль чтения таблиц. Проверь сеть и нажми «Обновить».'));
+      };
+      document.head.append(script);
+    });
+  }
+  return sheetJs;
+}
+function cellText(value) {
+  if (typeof value === 'number' && value > 0 && value < 1) {
+    const minutes = Math.round(value * 1440) % 1440;
+    return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+  }
+  return value == null ? '' : String(value);
+}
+function workbookData(XLSX, workbook) {
+  const rowsOf = name => XLSX.utils.sheet_to_json(workbook.Sheets[name],
+    { header: 1, raw: true, defval: '' }).map(row => row.map(cellText));
+  const names = workbook.SheetNames;
+  const parses = name => { try { parseTeams(rowsOf(name)); return true; } catch { return false; } };
+  const rosterName = names.find(n => n.trim().toLowerCase() === 'все игроки') || names.find(parses);
+  if (!rosterName) {
+    throw new Error('В таблице нет листа «Все игроки» с колонками ID, команда, слот, ник, ID потока, room и роль.');
+  }
+  const today = mskToday();
+  const scheduleNames = names.filter(n => /^матчи/i.test(n.trim()));
+  const scheduleName = scheduleNames.find(n => n.includes(today)) ||
+    scheduleNames[scheduleNames.length - 1] || '';
+  return {
+    roster: rowsOf(rosterName),
+    schedule: scheduleName ? rowsOf(scheduleName) : [],
+    scheduleName
+  };
+}
+function payloadBase64(result) {
+  let payload = result?.payload;
+  if (typeof payload === 'string') {
+    try { payload = JSON.parse(payload); } catch { /* not JSON */ }
+  }
+  if (payload && typeof payload.content === 'string') {
+    return { b64: payload.content, title: String(payload.title || '') };
+  }
+  throw new Error('Google Drive вернул файл в неожиданном виде. Попробуй обновить ещё раз.');
+}
+async function callDrive(mcp, fileId) {
+  const input = { fileId, exportMimeType: XLSX_MIME };
+  try {
+    return await mcp.callTool(DRIVE, 'download_file_content', input, { cache: false });
+  } catch (error) {
+    if (!error?.retryable) throw error;
+    await new Promise(r => setTimeout(r,
+      Math.min(Number(error.retryAfterMs) || 700 + Math.random() * 1300, 15000)));
+    return mcp.callTool(DRIVE, 'download_file_content', input, { cache: false });
+  }
+}
+function driveErrorText(error) {
+  switch (error?.code) {
+    case 'no_mcp': case 'not_granted': case 'capability_disabled': case 'capability_removed':
+      return 'В этом окне панель не может обратиться к Google Drive. Открой её в claude.ai или вставь лист «Все игроки» через «Источник данных».';
+    case 'needs_reauth':
+      return 'Google Drive просит войти заново. Переподключи его в claude.ai → Settings → Connectors и нажми «Обновить».';
+    case 'server_not_connected': case 'selection_required': case 'server_not_found':
+      return 'Google Drive не подключён. Добавь его в claude.ai → Settings → Connectors или вставь лист «Все игроки» через «Источник данных».';
+    case 'not_in_manifest': case 'approval_required': case 'consent_required':
+      return 'Панели не дали доступ к Google Drive. Нажми «Обновить» и разреши доступ или вставь лист вручную.';
+    case 'blocked_by_policy':
+      return 'Политика организации не пускает панель в Google Drive. Вставь лист «Все игроки» через «Источник данных».';
+    case 'tool_error':
+      return 'Google Drive не отдал таблицу. Проверь, что у тебя есть доступ к файлу и ссылка верная.';
+    case 'server_unavailable': case 'upstream_error': case 'rate_limited':
+      return 'Google Drive долго отвечает. Попробуй обновить ещё раз через минуту.';
+    default:
+      return error?.message || 'Не удалось обновить составы.';
+  }
+}
+let storeReadOnly = false;
+async function saveCache(data) {
+  const db = await use('db');
+  if (!db || storeReadOnly) return 'local';
+  try {
+    await db.doc(CACHE_PATH).set({
+      roster: JSON.stringify(data.roster), schedule: JSON.stringify(data.schedule),
+      scheduleName: data.scheduleName, sourceId: data.sourceId, title: data.title || '',
+      origin: data.origin, syncedAt: data.syncedAt
+    });
+    return 'shared';
+  } catch (error) {
+    if (error?.code === 'invalid_argument') storeReadOnly = true;
+    return 'failed';
+  }
+}
+function cacheData(doc) {
+  const rows = text => {
+    try {
+      const value = JSON.parse(text);
+      return Array.isArray(value) && value.every(Array.isArray) ?
+        value.map(row => row.map(cell => String(cell ?? ''))) : null;
+    } catch { return null; }
+  };
+  const roster = rows(doc?.roster), schedule = rows(doc?.schedule || '[]');
+  if (!roster || !schedule || typeof doc.sourceId !== 'string') return null;
+  return {
+    roster, schedule, scheduleName: String(doc.scheduleName || ''),
+    sourceId: doc.sourceId, title: String(doc.title || ''),
+    origin: String(doc.origin || ''), syncedAt: Number(doc.syncedAt) || 0
+  };
+}
+
+const $ = id => document.getElementById(id);
+const state = {
+  teams: [], schedule: [], a: '', b: '', keysA: [], keysB: [],
+  matchKey: '', tab: 'observer', lastSync: null, stale: false,
+  scheduleDay: '',
+  source: { ...DEFAULT_SOURCE }, template: null, templateError: '',
+  veto: { format: 'BO3', first: 0, actions: [], matchKey: '' },
+  pending: null, cache: null
+};
+let toastTimer, refreshId = 0, controller, templatePromise;
+
+function readStorage(key) {
+  try { return JSON.parse(localStorage.getItem(key)); }
+  catch { return null; }
+}
+function writeStorage(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+  catch { return false; }
+}
+
+const savedSource = readStorage('webcam-desk-source');
+if (savedSource &&
+    /^[\w-]{20,100}$/.test(savedSource.id) &&
+    /^\d+$/.test(savedSource.gid)) {
+  state.source = {
+    id: savedSource.id, gid: savedSource.gid,
+    scheduleId: /^[\w-]{20,100}$/.test(savedSource.scheduleId || '') ?
+      savedSource.scheduleId : savedSource.id,
+    scheduleGid: /^\d+$/.test(savedSource.scheduleGid || '') ?
+      savedSource.scheduleGid : null
+  };
+}
+const savedMatch = readStorage('oneshot-webcam-match-v1');
+if (savedMatch && savedMatch.source === JSON.stringify(state.source)) {
+  for (const key of ['a', 'b', 'matchKey']) {
+    if (typeof savedMatch[key] === 'string') state[key] = savedMatch[key];
+  }
+  for (const key of ['keysA', 'keysB']) {
+    if (Array.isArray(savedMatch[key]) &&
+        savedMatch[key].length <= 5 &&
+        savedMatch[key].every(k => typeof k === 'string')) {
+      state[key] = savedMatch[key];
+    }
+  }
+  if (savedMatch.tab === 'players') state.tab = 'players';
+  try {
+    validateVeto(savedMatch.veto.actions,
+      savedMatch.veto.format, savedMatch.veto.first);
+    state.veto = savedMatch.veto;
+  } catch { /* Ignore invalid stored progress. */ }
+}
+$('matchTime').value =
+  !validateMetadata(savedMatch?.time || '', 'Матч') ?
+    savedMatch.time :
+    new Intl.DateTimeFormat('ru-RU', {
+      timeZone: 'Europe/Moscow', hour: '2-digit',
+      minute: '2-digit', hourCycle: 'h23'
+    }).format(new Date());
+$('matchStage').value =
+  typeof savedMatch?.stage === 'string' ?
+    savedMatch.stage.slice(0, 100) : '';
+
+function persist() {
+  writeStorage('oneshot-webcam-match-v1', {
+    source: JSON.stringify(state.source),
+    a: state.a, b: state.b, keysA: state.keysA, keysB: state.keysB,
+    matchKey: state.matchKey, time: $('matchTime').value,
+    stage: $('matchStage').value, tab: state.tab, veto: state.veto
+  });
+}
+function toast(message) {
+  $('toast').textContent = message;
+  $('toast').hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { $('toast').hidden = true; }, 3500);
+}
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;',
+    '"': '&quot;', "'": '&#39;'
+  })[c]);
+}
+function getTeam(side) {
+  return state.teams.find(t => t.name === state[side]);
+}
+function chosen(side) {
+  return selectedPlayers(getTeam(side),
+    state[side === 'a' ? 'keysA' : 'keysB']);
+}
+function valid() {
+  return validateMatch(getTeam('a'), getTeam('b'),
+    state.keysA, state.keysB);
+}
+function showError(text) {
+  $('errorBox').textContent = text;
+  $('errorBox').hidden = !text;
+}
+function updateSourceLinks() {
+  $('sidebarSource').href =
+    `https://docs.google.com/spreadsheets/d/${state.source.id}/edit#gid=${state.source.gid}`;
+}
+function reconcileKeys(team, keys) {
+  if (!keys.length) return defaultLineup(team);
+  const available = new Set(team?.players.map(p => p.key));
+  return keys.map(key => available.has(key) ? key : '');
+}
+async function loadTemplate() {
+  if (templatePromise) return templatePromise;
+  templatePromise = (async () => {
+    try {
+      const response = await fetch('assets/obs-template.json');
+      if (!response.ok) {
+        throw new Error('Не загружен шаблон OBS. Попробуй обновить страницу.');
+      }
+      const template = await response.json();
+      if (!Array.isArray(template.sources)) {
+        throw new Error('Некорректный шаблон OBS.');
+      }
+      state.template = template;
+      state.templateError = '';
+    } catch (error) {
+      state.templateError = error.message;
+    } finally {
+      templatePromise = null;
+      renderOutput();
+    }
+  })();
+  return templatePromise;
+}
+async function refresh(options = {}) {
+  const request = ++refreshId;
+  const source = { ...state.source };
+  $('refreshBtn').disabled = true;
+  $('refreshBtn').textContent = 'Обновляем…';
+  if (!options.quiet) showError('');
+  if (!state.template) loadTemplate();
+  try {
+    const mcp = await use('mcp');
+    if (!mcp) throw { code: 'no_mcp' };
+    const result = await callDrive(mcp, source.id);
+    if (request !== refreshId) return;
+    const file = payloadBase64(result);
+    const XLSX = await loadSheetJS();
+    const data = workbookData(XLSX, XLSX.read(file.b64, { type: 'base64' }));
+    if (request !== refreshId) return;
+    Object.assign(data, {
+      sourceId: source.id, title: file.title, origin: 'drive', syncedAt: Date.now()
+    });
+    applyData(data);
+    const saved = await saveCache(data);
+    if (!options.quiet) {
+      toast('Составы обновлены.' + (saved === 'shared' ? ' Вся команда видит эту версию.' : ''));
+    }
+  } catch (error) {
+    if (request !== refreshId) return;
+    markStale(driveErrorText(error));
+  } finally {
+    if (request === refreshId) {
+      $('refreshBtn').disabled = false;
+      $('refreshBtn').textContent = '↻ Обновить';
+    }
+  }
+}
+function applyData(data) {
+  const teams = parseTeams(data.roster);
+  const names = teams.map(t => t.name);
+  state.cache = data;
+  state.teams = teams;
+  state.schedule = parseSchedule(data.schedule || [])
+    .filter(m => names.includes(m.team1) && names.includes(m.team2));
+  state.scheduleDay = scheduleDay(data.schedule || []) ||
+    scheduleDay([[data.scheduleName || '']]);
+  if (!names.includes(state.a)) {
+    state.a = names[0];
+    state.keysA = [];
+  }
+  if (!names.includes(state.b) || state.b === state.a) {
+    state.b = names.find(n => n !== state.a) || '';
+    state.keysB = [];
+  }
+  state.keysA = reconcileKeys(getTeam('a'), state.keysA);
+  state.keysB = reconcileKeys(getTeam('b'), state.keysB);
+  state.lastSync = new Date(data.syncedAt || Date.now());
+  state.stale = false;
+  showError('');
+  render();
+  renderScheduleDay();
+  $('syncTitle').textContent = `${teams.length} команд из таблицы`;
+  $('syncDot').className = 'good';
+  $('syncTime').textContent =
+    'Обновлено ' + state.lastSync.toLocaleTimeString('ru-RU', {
+      timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit'
+    }) + ' МСК' + (data.origin === 'paste' ? ' · вставлено вручную' : '');
+  if (!data.schedule?.length) {
+    showError('Составы загружены. Листа «Матчи» в таблице нет — выбери команды, время и стадию вручную.');
+  } else if (state.scheduleDay && state.scheduleDay !== mskToday()) {
+    showError(`Расписание в таблице на ${state.scheduleDay}, а сегодня ${mskToday()} по МСК. Листа «Матчи ${mskToday()}» пока нет — проверь время и стадию перед экспортом.`);
+  }
+}
+function markStale(message) {
+  state.stale = true;
+  $('syncDot').className = 'stale';
+  $('syncTitle').textContent = state.teams.length ?
+    'Данные требуют обновления' : 'Нет связи с таблицей';
+  showError(message + (state.lastSync ? ' Показаны ранее загруженные составы.' : ''));
+  if (!state.teams.length) {
+    $('teamGrid').innerHTML =
+      '<div class="empty-panel">Составов пока нет. Нажми «Обновить», чтобы взять их из Google Drive, или вставь лист «Все игроки» через «Источник данных».</div>';
+  }
+  renderOutput();
+  renderVeto();
+}
+async function connectStore() {
+  const db = await use('db');
+  if (!db) { refresh({ quiet: true }); return; }
+  let decided = false;
+  const decide = () => {
+    if (decided) return;
+    decided = true;
+    if (!state.teams.length) refresh({ quiet: true });
+  };
+  const timer = setTimeout(decide, 7000);
+  try {
+    db.doc(CACHE_PATH).onSnapshot(snap => {
+      if (!snap.exists) {
+        if (!snap.metadata.fromCache) { clearTimeout(timer); decide(); }
+        return;
+      }
+      clearTimeout(timer);
+      const data = cacheData(snap.data());
+      const newer = data && data.syncedAt > (state.lastSync?.getTime() || 0);
+      if (data && data.sourceId === state.source.id && (newer || !state.teams.length)) {
+        try { applyData(data); decided = true; return; } catch { /* fall through */ }
+      }
+      decide();
+    }, () => { clearTimeout(timer); decide(); });
+  } catch {
+    clearTimeout(timer);
+    decide();
+  }
+}
+
+function mskToday() {
+  return new Intl.DateTimeFormat('ru-RU', {
+    timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit'
+  }).format(new Date());
+}
+function renderScheduleDay() {
+  $('scheduleLabel').textContent = 'Матч по расписанию' +
+    (state.scheduleDay ? ` · ${state.scheduleDay}` : '');
+}
+// Images come from veto.oneshot.su; if a file is missing, show no broken icon.
+function dropBrokenImage(img) {
+  if (img.complete && !img.naturalWidth) img.remove();
+  else img.addEventListener('error', () => img.remove(), { once: true });
+}
+
+function render() {
+  $('matchSelect').innerHTML =
+    '<option value="">Выбери команды вручную</option>' +
+    state.schedule.map(m => `<option value="${escapeHtml(m.key)}">${escapeHtml(
+      [m.time, m.stage, `${m.team1} vs ${m.team2}`]
+        .filter(Boolean).join(' · ')
+    )}</option>`).join('');
+  if (!state.schedule.some(m =>
+      m.key === state.matchKey &&
+      m.team1 === state.a && m.team2 === state.b)) {
+    state.matchKey = '';
+  }
+  $('matchSelect').value = state.matchKey;
+
+  $('teamGrid').innerHTML = ['a', 'b'].map((side, index) => {
+    const team = getTeam(side);
+    if (!team) return '<div class="empty-panel">Команда не выбрана</div>';
+    const keys = state[side === 'a' ? 'keysA' : 'keysB'];
+    const eligible = lineupCandidates(team);
+    return `<article class="team-card">
+      <div class="card-top">
+        <div class="team-letter">${index ? 'B' : 'A'}</div>
+        <div class="team-heading">
+          <label for="team-${side}">${index ? 'ВТОРАЯ' : 'ПЕРВАЯ'} КОМАНДА</label>
+          <select id="team-${side}" data-team="${side}">
+            ${state.teams.map(t => `<option
+              ${t.name === team.name ? 'selected' : ''}
+              value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('')}
+          </select>
+        </div>
+        <span class="slot-caption">${index ? '06–10' : '01–05'}</span>
+      </div>
+      <div class="camera-list">${Array.from({ length: 5 }, (_, i) => {
+        const player = team.players.find(p => p.key === keys[i]);
+        return `<div class="player-row">
+          <span class="slot-number">${String(index * 5 + i + 1).padStart(2, '0')}</span>
+          <div class="player-info">
+            <select data-player="${side}" data-slot="${i}" aria-label="Игрок ${index * 5 + i + 1}">
+              <option value="">Выбери игрока</option>
+              ${eligible.map(p => `<option
+                value="${escapeHtml(p.key)}"
+                ${p.key === keys[i] ? 'selected' : ''}
+                ${keys.includes(p.key) && p.key !== keys[i] ? 'disabled' : ''}
+              >${escapeHtml(p.nick + roleSuffix(p))}</option>`).join('')}
+            </select>
+            <span class="player-subline">${player ?
+              escapeHtml(`room: ${player.room} / ${player.role.toLowerCase()}`) :
+              'Место не заполнено'}</span>
+          </div>
+          <button class="copy-icon" data-view="${side}" data-slot="${i}"
+            aria-label="Скопировать VIEW ${player ? escapeHtml(player.nick) : ''}"
+            title="Копировать VIEW" ${!player ? 'disabled' : ''}>⧉</button>
+        </div>`;
+      }).join('')}</div>
+      <div class="card-actions">
+        <button class="text-button" data-reset="${side}">↻ Порядок из таблицы</button>
+        <div class="card-bottom">
+          <button class="text-button" data-copy-team="${side}"
+            ${validatePlayers(chosen(side)) ? 'disabled' : ''}>Игрокам ⧉</button>
+          <a class="text-button" target="_blank" rel="noreferrer"
+            href="${escapeHtml(directorUrl(team))}">Директор</a>
+        </div>
+      </div>
+    </article>`;
+  }).join('');
+
+  $('teamGrid').querySelectorAll('[data-team]').forEach(el =>
+    el.addEventListener('change', () => {
+      const side = el.dataset.team;
+      state[side] = el.value;
+      state[side === 'a' ? 'keysA' : 'keysB'] = defaultLineup(getTeam(side));
+      state.matchKey = '';
+      render();
+    }));
+  $('teamGrid').querySelectorAll('[data-player]').forEach(el =>
+    el.addEventListener('change', () => {
+      state[el.dataset.player === 'a' ? 'keysA' : 'keysB']
+        [Number(el.dataset.slot)] = el.value;
+      render();
+    }));
+  $('teamGrid').querySelectorAll('[data-reset]').forEach(el =>
+    el.addEventListener('click', () => {
+      const side = el.dataset.reset;
+      state[side === 'a' ? 'keysA' : 'keysB'] = defaultLineup(getTeam(side));
+      render();
+      toast('Порядок восстановлен из таблицы');
+    }));
+  $('teamGrid').querySelectorAll('[data-view]').forEach(el =>
+    el.addEventListener('click', () => {
+      const player = chosen(el.dataset.view)[Number(el.dataset.slot)];
+      if (player) copy(viewUrl(player));
+    }));
+  $('teamGrid').querySelectorAll('[data-copy-team]').forEach(el =>
+    el.addEventListener('click', () => {
+      const side = el.dataset.copyTeam, players = chosen(side);
+      const error = validatePlayers(players);
+      if (error) return toast(error);
+      copy(playerText(getTeam(side), players));
+    }));
+  renderOutput();
+  renderVeto();
+  persist();
+}
+
+function renderOutput() {
+  const error = valid();
+  const metadataError =
+    validateMetadata($('matchTime').value, $('matchStage').value);
+  $('downloadBtn').disabled = !!error || !!metadataError || !state.template;
+  $('copyAllBtn').disabled = !!error;
+  $('swapBtn').disabled = !getTeam('a') || !getTeam('b');
+  $('exportHint').textContent =
+    error || metadataError || state.templateError ||
+    (!state.template ? 'Загружаем шаблон OBS…' :
+      `${state.stale ? 'По ранее загруженным данным. ' : ''}1–5: ${state.a} · 6–10: ${state.b}`);
+  $('filenamePreview').textContent =
+    !error && !metadataError ?
+      safeFilename(state.a, state.b,
+        $('matchTime').value, $('matchStage').value) : '';
+  const playersTab = state.tab === 'players';
+  for (const [id, selected] of [
+    ['tabObserver', !playersTab], ['tabPlayers', playersTab]
+  ]) {
+    $(id).classList.toggle('selected', selected);
+    $(id).setAttribute('aria-selected', String(selected));
+    $(id).tabIndex = selected ? 0 : -1;
+  }
+  $('outputPanel').setAttribute('aria-labelledby',
+    playersTab ? 'tabPlayers' : 'tabObserver');
+  $('previewLabel').textContent = playersTab ?
+    'Команда, жирный ник и отдельная PUSH-ссылка' :
+    'Ники и VIEW-ссылки строго по слотам 1–10';
+  $('output').value = error ? '' : playersTab ?
+    playerText(getTeam('a'), chosen('a')) + '\n\n' +
+      playerText(getTeam('b'), chosen('b')) :
+    observerText(getTeam('a'), getTeam('b'), chosen('a'), chosen('b'));
+  $('copyFoot').textContent = playersTab ?
+    'Только выбранные игроки. Ссылки директора сюда не попадают.' :
+    'Имена, ссылки и JSON используют один порядок десяти слотов.';
+}
+
+async function copy(text, message = 'Скопировано в буфер обмена') {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(message);
+    return;
+  } catch { /* Continue with the same payload. */ }
+  const field = document.createElement('textarea');
+  field.value = text;
+  field.style.position = 'fixed';
+  field.style.opacity = '0';
+  document.body.append(field);
+  field.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); }
+  catch { /* Manual fallback below. */ }
+  finally { field.remove(); }
+  if (ok) return toast(message);
+  $('manualCopy').value = text;
+  if (!$('copyDialog').open) $('copyDialog').showModal();
+  $('manualCopy').focus();
+  $('manualCopy').select();
+}
+
+function renderVeto() {
+  const identity = JSON.stringify([state.a, state.b, state.matchKey]);
+  if (state.veto.matchKey !== identity) {
+    state.veto = {
+      format: state.veto.format, first: state.veto.first,
+      actions: [], matchKey: identity
+    };
+    state.pending = null;
+  }
+  const { actions, format, first } = state.veto;
+  const ready = !!getTeam('a') && !!getTeam('b') && state.a !== state.b;
+  const finished = actions.length === 6;
+  $('vetoFormat').value = format;
+  $('vetoFormat').disabled = actions.length > 0 || !!state.pending;
+  $('vetoFirst').innerHTML =
+    [state.a || 'Первая команда', state.b || 'Вторая команда']
+      .map((name, index) =>
+        `<option value="${index}">${escapeHtml(name)}</option>`).join('');
+  $('vetoFirst').value = String(first);
+  $('vetoFirst').disabled = !ready || actions.length > 0 || !!state.pending;
+
+  const team = (first + actions.length) % 2;
+  const teams = [state.a, state.b];
+  const type = VETO_RULES[format][actions.length];
+  $('vetoStatus').textContent = !ready ?
+    'Выбери две разные команды.' :
+    state.pending ? `Выбери сторону для ${teams[1 - team]} на ${state.pending}.` :
+    finished ? 'Вето завершено. Текст готов для HLTV.' :
+    `Ход ${actions.length + 1}/6 · ${teams[team]} · ${type === 'pick' ?
+      'PICK — выбирает карту' : 'BAN — убирает карту'}`;
+  $('sideChoice').hidden = !state.pending;
+  $('sideLabel').textContent = state.pending ?
+    `${teams[1 - team]} начинает на ${state.pending}:` : '';
+
+  $('mapGrid').innerHTML = MAP_POOL.map(map => {
+    const action = actions.find(a => a.map === map);
+    const leftover = finished && !action;
+    const label = action ?
+      `${action.type === 'pick' ? 'PICK' : 'BAN'} · ${teams[action.team]}${action.type === 'pick' ?
+        ` · ${teams[1 - action.team]} ${action.side}` : ''}` :
+      leftover ? 'DECIDER · was left over' :
+      state.pending === map ? 'Выбор стороны…' : 'Выбрать карту';
+    return `<button
+      class="map-card ${action ? action.type : leftover ? 'leftover' : ''}"
+      data-map="${map}"
+      ${!ready || !!action || finished || !!state.pending ? 'disabled' : ''}
+      aria-label="${escapeHtml(map + ': ' + label)}">
+      <img src="/assets/maps/${map}.jpg" alt="" loading="lazy" width="960" height="180">
+      <span class="map-name">${map}</span>
+      <span class="map-action">${escapeHtml(label)}</span>
+    </button>`;
+  }).join('');
+  $('mapGrid').querySelectorAll('img').forEach(dropBrokenImage);
+  $('mapGrid').querySelectorAll('[data-map]').forEach(el =>
+    el.addEventListener('click', () => {
+      if (VETO_RULES[state.veto.format][state.veto.actions.length] === 'pick') {
+        state.pending = el.dataset.map;
+        renderVeto();
+        $('chooseCT').focus();
+      } else commitVeto(el.dataset.map);
+    }));
+  $('vetoOutput').value =
+    ready ? vetoText(teams, actions, format, first) : '';
+  $('vetoHint').textContent = finished ?
+    'Полное вето · 7 строк' :
+    'Неполное вето — текст обновляется после каждого хода.';
+  $('copyVeto').disabled = !ready || actions.length === 0 || !!state.pending;
+  $('vetoUndo').disabled = !state.pending && actions.length === 0;
+  $('vetoReset').disabled = !state.pending && actions.length === 0;
+}
+function commitVeto(map, side) {
+  try {
+    state.veto.actions = appendVeto(state.veto.actions,
+      state.veto.format, state.veto.first, map, side);
+    state.pending = null;
+    renderVeto();
+    persist();
+    // The map buttons were re-rendered; keep keyboard users on the grid.
+    ($('mapGrid').querySelector('button:not(:disabled)') || $('copyVeto'))
+      .focus({ preventScroll: true });
+    if (state.veto.actions.length === 6 && $('autoCopyVeto').checked) {
+      copy($('vetoOutput').value);
+    }
+  } catch (error) { toast(error.message); }
+}
+
+$('chooseCT').addEventListener('click', () => {
+  if (state.pending) commitVeto(state.pending, 'CT');
+});
+$('chooseT').addEventListener('click', () => {
+  if (state.pending) commitVeto(state.pending, 'T');
+});
+$('cancelSide').addEventListener('click', () => {
+  state.pending = null;
+  renderVeto();
+});
+$('vetoUndo').addEventListener('click', () => {
+  if (state.pending) state.pending = null;
+  else state.veto.actions.pop();
+  renderVeto();
+  persist();
+});
+let resetArmed = 0;
+$('vetoReset').addEventListener('click', () => {
+  if (!resetArmed) {
+    $('vetoReset').textContent = 'Точно сбросить?';
+    resetArmed = setTimeout(() => {
+      resetArmed = 0;
+      $('vetoReset').textContent = 'Сбросить вето';
+    }, 4000);
+    return;
+  }
+  clearTimeout(resetArmed);
+  resetArmed = 0;
+  $('vetoReset').textContent = 'Сбросить вето';
+  state.veto.actions = [];
+  state.pending = null;
+  renderVeto();
+  persist();
+});
+$('vetoFormat').addEventListener('change', () => {
+  state.veto.format = $('vetoFormat').value;
+  renderVeto();
+  persist();
+});
+$('vetoFirst').addEventListener('change', () => {
+  state.veto.first = Number($('vetoFirst').value);
+  renderVeto();
+  persist();
+});
+$('copyVeto').addEventListener('click', () => copy($('vetoOutput').value));
+$('refreshBtn').addEventListener('click', refresh);
+$('swapBtn').addEventListener('click', () => {
+  [state.a, state.b] = [state.b, state.a];
+  [state.keysA, state.keysB] = [state.keysB, state.keysA];
+  state.matchKey = '';
+  render();
+  toast('Команды поменялись сторонами');
+});
+$('matchSelect').addEventListener('change', () => {
+  state.matchKey = $('matchSelect').value;
+  const match = state.schedule.find(m => m.key === state.matchKey);
+  if (match) {
+    state.a = match.team1;
+    state.b = match.team2;
+    state.keysA = defaultLineup(getTeam('a'));
+    state.keysB = defaultLineup(getTeam('b'));
+    $('matchTime').value = match.time;
+    $('matchStage').value = match.stage;
+  }
+  render();
+});
+for (const id of ['matchTime', 'matchStage']) {
+  $(id).addEventListener('input', () => { renderOutput(); persist(); });
+}
+for (const [id, tab] of [
+  ['tabObserver', 'observer'], ['tabPlayers', 'players']
+]) {
+  $(id).addEventListener('click', () => {
+    state.tab = tab;
+    renderOutput();
+    persist();
+  });
+  $(id).addEventListener('keydown', event => {
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault();
+      const next = event.key === 'Home' ? 'tabObserver' :
+        event.key === 'End' ? 'tabPlayers' :
+        id === 'tabObserver' ? 'tabPlayers' : 'tabObserver';
+      $(next).click();
+      $(next).focus();
+    }
+  });
+}
+$('copyAllBtn').addEventListener('click', () => copy($('output').value));
+$('downloadBtn').addEventListener('click', async () => {
+  let filename, text;
+  try {
+    filename = safeFilename(state.a, state.b,
+      $('matchTime').value, $('matchStage').value);
+    text = JSON.stringify(buildObs(state.template,
+      getTeam('a'), getTeam('b'), state.keysA, state.keysB), null, 2) + '\n';
+  } catch (error) { showError(error.message); return; }
+  const downloads = await use('downloads');
+  if (downloads) {
+    try {
+      await downloads.save({ filename, data: text });
+      toast('JSON готов. OBS → Коллекция сцен → Импорт.');
+      return;
+    } catch (error) {
+      if (error?.code === 'declined') { toast('Сохранение отменено'); return; }
+      if (error?.code === 'rate_limited') { toast('Окно сохранения уже открыто'); return; }
+    }
+  }
+  copy(text, `JSON скопирован. Сохрани его как «${filename}» и импортируй в OBS.`);
+});
+
+function sheetId(value) {
+  let url;
+  try { url = new URL(value); } catch { throw new Error('Вставь ссылку на Google Sheets.'); }
+  const match = url.pathname.match(/^\/spreadsheets\/d\/([\w-]{20,100})(?:\/|$)/);
+  if (url.protocol !== 'https:' || url.hostname !== 'docs.google.com' ||
+      url.username || url.password || !match) {
+    throw new Error('Вставь ссылку на Google Sheets.');
+  }
+  return match[1];
+}
+function parseTSV(text) {
+  const rows = [];
+  let row = [], cell = '', quoted = false;
+  const src = text.replace(/\r\n?/g, '\n');
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (quoted) {
+      if (ch === '"' && src[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"' && cell === '') quoted = true;
+    else if (ch === '\t') { row.push(cell); cell = ''; }
+    else if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += ch;
+  }
+  row.push(cell);
+  rows.push(row);
+  return rows;
+}
+function sourceError(text) {
+  $('sourceError').textContent = text;
+  $('sourceError').hidden = !text;
+}
+$('settingsBtn').addEventListener('click', () => {
+  $('sourceUrl').value = `https://docs.google.com/spreadsheets/d/${state.source.id}/edit`;
+  sourceError('');
+  $('settingsDialog').showModal();
+});
+$('closeSettings').addEventListener('click', () => $('settingsDialog').close());
+$('closeCopy').addEventListener('click', () => $('copyDialog').close());
+$('resetSource').addEventListener('click', () => {
+  $('sourceUrl').value = `https://docs.google.com/spreadsheets/d/${DEFAULT_SOURCE.id}/edit`;
+});
+$('settingsForm').addEventListener('submit', event => {
+  event.preventDefault();
+  let id;
+  try { id = sheetId($('sourceUrl').value.trim()); }
+  catch (error) { sourceError(error.message); return; }
+  $('settingsDialog').close();
+  if (id !== state.source.id) {
+    state.source = { ...DEFAULT_SOURCE, id, scheduleId: id };
+    const stored = writeStorage('webcam-desk-source', state.source);
+    Object.assign(state, {
+      teams: [], schedule: [], scheduleDay: '', lastSync: null, cache: null,
+      a: '', b: '', keysA: [], keysB: [], matchKey: ''
+    });
+    renderScheduleDay();
+    updateSourceLinks();
+    $('teamGrid').innerHTML = '<div class="empty-panel">Загружаем составы…</div>';
+    renderOutput();
+    renderVeto();
+    if (!stored) toast('Источник подключён. Браузер не разрешил запомнить его для следующего открытия.');
+  }
+  refresh();
+});
+$('pasteBtn').addEventListener('click', () => {
+  const text = $('pasteArea').value;
+  if (!text.trim()) { sourceError('Сначала вставь лист из таблицы.'); return; }
+  const rows = parseTSV(text);
+  let data = null, what = '';
+  try {
+    const teams = parseTeams(rows);
+    data = { roster: rows, schedule: state.cache?.schedule || [], scheduleName: state.cache?.scheduleName || '' };
+    what = `Загружено команд: ${teams.length}.`;
+  } catch (rosterError) {
+    const matches = parseSchedule(rows);
+    if (matches.length && state.cache?.roster) {
+      data = { roster: state.cache.roster, schedule: rows, scheduleName: '' };
+      what = `Расписание: ${matches.length} матч(а/ей).`;
+    } else if (matches.length) {
+      sourceError('Сначала вставь лист «Все игроки», потом расписание.');
+      return;
+    } else {
+      sourceError(rosterError.message);
+      return;
+    }
+  }
+  Object.assign(data, { sourceId: state.source.id, title: '', origin: 'paste', syncedAt: Date.now() });
+  try { applyData(data); } catch (error) { sourceError(error.message); return; }
+  $('pasteArea').value = '';
+  $('settingsDialog').close();
+  saveCache(data).then(saved =>
+    toast(what + (saved === 'shared' ? ' Вся команда видит эту версию.' : '')));
+});
+
+document.querySelectorAll('.brand img').forEach(dropBrokenImage);
+updateSourceLinks();
+renderOutput();
+renderVeto();
+loadTemplate();
+use('downloads').then(downloads => {
+  if (!downloads) $('downloadBtn').textContent = 'Скопировать JSON';
+});
+connectStore();
+</script>

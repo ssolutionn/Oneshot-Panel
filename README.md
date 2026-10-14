@@ -139,6 +139,14 @@ https://veto.oneshot.su/
 Без них панель работает, но в шапке нет логотипа, а у карт вето
 нет фона. Адреса файлов — в разделе «Происхождение».
 
-В папке `claude-artifact/` лежит отдельная версия панели для
-артефакта Claude (Google Drive вместо gviz, проверки таблиц).
-Netlify её не использует.
+В папке `claude-artifact/` лежат версии для артефакта Claude
+(Netlify их не использует):
+
+- `oneshot-panel.html` — эта же панель, собранная для артефакта
+  скриптом `claude-artifact/build_oneshot_artifact.py` из
+  `index.html`, `style.css`, `core.js` и `app.js`. Таблица читается
+  через Google Drive (xlsx), лист «Матчи ДД.ММ» выбирается на сегодня
+  сам, JSON сохраняется через окно сохранения. После правок
+  веб-панели пересоберите: `python3 claude-artifact/build_oneshot_artifact.py`.
+- `index.html` — ранняя версия «Webcam Desk» с проверками таблицы
+  организатора.
