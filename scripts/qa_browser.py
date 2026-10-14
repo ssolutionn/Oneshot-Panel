@@ -114,6 +114,10 @@ async def run(args):
         assert (await page.evaluate(
             "getComputedStyle(document.body).fontFamily"
         )).startswith("system-ui")
+        # The public header link opens the organizer's sheet, not the rosters.
+        source_link = await page.get_attribute("#sidebarSource", "href")
+        assert "1GtwcpVnyxY1YOs6ZTrXwJr5mjZqI0QxjLSKjimn9G2o" in source_link
+        assert "#gid=815739139" in source_link
         passed("load rosters, schedule and OBS template")
 
         await page.wait_for_load_state("networkidle")

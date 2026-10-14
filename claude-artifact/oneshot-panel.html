@@ -326,8 +326,8 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
       <span class="brand-sub">panel</span>
     </a>
     <div class="header-actions">
-      <a id="sidebarSource" class="source-link" target="_blank" rel="noreferrer" title="Открыть Google Sheets">
-        <i id="syncDot" aria-hidden="true"></i><span>Google Sheets</span><span class="external-mark" aria-hidden="true">↗</span>
+      <a id="sidebarSource" class="source-link" target="_blank" rel="noreferrer" title="Открыть таблицу организатора">
+        <i id="syncDot" aria-hidden="true"></i><span>Таблица турнира</span><span class="external-mark" aria-hidden="true">↗</span>
       </a>
       <button id="themeToggle" class="theme-toggle" type="button">☾ Ночь</button>
     </div>
@@ -1136,9 +1136,12 @@ function showError(text) {
   $('errorBox').textContent = text;
   $('errorBox').hidden = !text;
 }
+// The header opens the organizer's sheet (the schedule source), not the
+// roster sheet: the panel is public and the rosters are ours to edit.
 function updateSourceLinks() {
-  $('sidebarSource').href =
-    `https://docs.google.com/spreadsheets/d/${state.source.id}/edit#gid=${state.source.gid}`;
+  const { scheduleId, scheduleGid, id, gid } = state.source;
+  $('sidebarSource').href = `https://docs.google.com/spreadsheets/d/${
+    scheduleGid ? scheduleId || id : id}/edit#gid=${scheduleGid || gid}`;
 }
 function reconcileKeys(team, keys) {
   if (!keys.length) return defaultLineup(team);

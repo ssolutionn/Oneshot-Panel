@@ -110,9 +110,12 @@ function showError(text) {
   $('errorBox').textContent = text;
   $('errorBox').hidden = !text;
 }
+// The header opens the organizer's sheet (the schedule source), not the
+// roster sheet: the panel is public and the rosters are ours to edit.
 function updateSourceLinks() {
-  $('sidebarSource').href =
-    `https://docs.google.com/spreadsheets/d/${state.source.id}/edit#gid=${state.source.gid}`;
+  const { scheduleId, scheduleGid, id, gid } = state.source;
+  $('sidebarSource').href = `https://docs.google.com/spreadsheets/d/${
+    scheduleGid ? scheduleId || id : id}/edit#gid=${scheduleGid || gid}`;
 }
 async function sheetRows(source, gid, range, signal, id = source.id, headers = '0') {
   const url = new URL(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq`);
