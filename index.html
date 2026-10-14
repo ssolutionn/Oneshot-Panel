@@ -1,0 +1,989 @@
+<title>CyberClash Webcam Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Составы из Google Sheets, ссылки игрокам и обсерверу, готовый JSON для OBS.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: fixed teal rail on the left; one working column — sync → match → two team cards (slots 01–05 / 06–10) → OBS export → copy panel */
+:root {
+  --bg: #f4f6f5;
+  --surface: #ffffff;
+  --surface-2: #fafbf9;
+  --fill: #f2f5f2;
+  --line: #dfe6e2;
+  --line-soft: #edf1ed;
+  --ink: #172e36;
+  --muted: #677a77;
+  --faint: #86948d;
+  --mint: #d0f173;
+  --mint-hover: #c1e662;
+  --on-mint: #172e36;
+  --mint-soft: #e9efe8;
+  --mint-line: #d9e4d7;
+  --mint-ink: #5b7a53;
+  --mint-tab: #93b24f;
+  --nav: #122a31;
+  --nav-2: #264047;
+  --nav-ink: #f7faf7;
+  --nav-muted: #8caaa9;
+  --a-tint: #edf3ed;
+  --a-tint-line: #dbe4dc;
+  --b-tint: #f4f0f7;
+  --b-tint-line: #e6dfee;
+  --good: #629d65;
+  --good-ring: #eef6e8;
+  --stale: #db9b37;
+  --warn-bg: #fff4df;
+  --warn-ink: #6d4c1c;
+  --warn-line: #ecd4a4;
+  --code-bg: #f6f8f4;
+  --code-line: #e6ece2;
+  --code-ink: #4c6350;
+  --toast-bg: #17352b;
+  --toast-ink: #ffffff;
+  --backdrop: rgba(16, 40, 25, .4);
+  --shadow: 0 20px 80px rgba(16, 40, 25, .18);
+  --focus: #6f9a2f;
+  --font: 'Golos Text', 'Segoe UI', Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  --rail: 220px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1e23; --surface: #13282e; --surface-2: #10232a; --fill: #1a3239;
+    --line: #23404a; --line-soft: #1c363d;
+    --ink: #e3ede9; --muted: #96aaa7; --faint: #7d928f;
+    --mint: #d0f173; --mint-hover: #dcf78f; --on-mint: #122a31;
+    --mint-soft: #172f28; --mint-line: #284638; --mint-ink: #a9c98a; --mint-tab: #b8d96b;
+    --nav: #0a171b; --nav-2: #1b333a; --nav-ink: #eef4f1; --nav-muted: #7f9c9b;
+    --a-tint: #1d382e; --a-tint-line: #2b4a3e; --b-tint: #2a2434; --b-tint-line: #3a3047;
+    --good: #7fbf82; --good-ring: #1b3524; --stale: #e2a94b;
+    --warn-bg: #33291a; --warn-ink: #f1d7a3; --warn-line: #5a4622;
+    --code-bg: #0f2328; --code-line: #213b43; --code-ink: #c2d8c8;
+    --toast-bg: #d0f173; --toast-ink: #122a31;
+    --backdrop: rgba(3, 10, 12, .6); --shadow: 0 20px 80px rgba(0, 0, 0, .5); --focus: #c1e662;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1e23; --surface: #13282e; --surface-2: #10232a; --fill: #1a3239;
+  --line: #23404a; --line-soft: #1c363d;
+  --ink: #e3ede9; --muted: #96aaa7; --faint: #7d928f;
+  --mint: #d0f173; --mint-hover: #dcf78f; --on-mint: #122a31;
+  --mint-soft: #172f28; --mint-line: #284638; --mint-ink: #a9c98a; --mint-tab: #b8d96b;
+  --nav: #0a171b; --nav-2: #1b333a; --nav-ink: #eef4f1; --nav-muted: #7f9c9b;
+  --a-tint: #1d382e; --a-tint-line: #2b4a3e; --b-tint: #2a2434; --b-tint-line: #3a3047;
+  --good: #7fbf82; --good-ring: #1b3524; --stale: #e2a94b;
+  --warn-bg: #33291a; --warn-ink: #f1d7a3; --warn-line: #5a4622;
+  --code-bg: #0f2328; --code-line: #213b43; --code-ink: #c2d8c8;
+  --toast-bg: #d0f173; --toast-ink: #122a31;
+  --backdrop: rgba(3, 10, 12, .6); --shadow: 0 20px 80px rgba(0, 0, 0, .5); --focus: #c1e662;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-synthesis: none; display: flex; min-height: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+select option { background: var(--surface); color: var(--ink); }
+
+/* Rail */
+.sidebar {
+  position: fixed; top: 0; bottom: 0; left: 0;
+  width: calc(var(--rail) + env(safe-area-inset-left, 0px));
+  background: var(--nav); color: var(--nav-ink);
+  padding: calc(34px + env(safe-area-inset-top, 0px)) 23px calc(26px + env(safe-area-inset-bottom, 0px)) calc(23px + env(safe-area-inset-left, 0px));
+  display: flex; flex-direction: column; z-index: 3;
+}
+.brand { display: flex; gap: 12px; align-items: center; text-decoration: none; font-size: 13px; line-height: 1.2; letter-spacing: 1.8px; }
+.brand b { font-size: 20px; letter-spacing: 4px; }
+.brand-mark { width: 44px; height: 44px; position: relative; font-size: 28px; font-weight: 800; letter-spacing: -5px; color: var(--mint); }
+.brand-mark > span { font-size: 19px; position: absolute; top: 0; right: 0; letter-spacing: 0; }
+.season { font-size: 10px; letter-spacing: 1.5px; color: var(--nav-muted); margin: 38px 0 25px; }
+.nav-active, .nav-link { font-size: 12px; padding: 13px 10px; border-radius: 7px; }
+.nav-active { background: var(--nav-2); box-shadow: inset 3px 0 var(--mint); }
+.nav-active span { margin-right: 8px; color: var(--mint); }
+.nav-link { display: block; margin-top: 9px; color: var(--nav-muted); text-decoration: none; }
+.nav-link:hover { color: var(--nav-ink); }
+.sidebar-bottom { margin-top: auto; font-size: 11px; color: var(--nav-muted); line-height: 2; }
+.sidebar-bottom > span:last-child { display: block; margin-left: 14px; opacity: .8; }
+.small-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--mint); margin-right: 8px; }
+
+/* Main column */
+main {
+  flex: 1; min-width: 0; max-width: 1710px;
+  margin-left: calc(var(--rail) + env(safe-area-inset-left, 0px));
+  padding-left: 42px; padding-right: max(42px, env(safe-area-inset-right, 0px)); padding-block: 0 24px;
+}
+.topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 84px; border-bottom: 1px solid var(--line); }
+.breadcrumbs { font-size: 12px; color: var(--muted); }
+.breadcrumbs span { margin: 0 10px; color: var(--faint); }
+.button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 42px; padding: 10px 17px; border: 1px solid var(--line); background: var(--surface);
+  border-radius: 7px; font-weight: 600; font-size: 12px; color: var(--ink); text-decoration: none;
+  transition: background .15s, transform .15s;
+}
+.button:hover:not(:disabled) { background: var(--fill); transform: translateY(-1px); }
+.button.primary { background: var(--mint); border-color: var(--mint); color: var(--on-mint); font-weight: 700; }
+.button.primary:hover:not(:disabled) { background: var(--mint-hover); }
+.button.dark { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.button.dark:hover:not(:disabled) { background: var(--ink); opacity: .9; }
+.button.small { font-size: 11px; min-height: 34px; padding: 7px 11px; }
+.button.subtle { background: transparent; border: 0; font-size: 12px; }
+
+.intro { padding: 40px 0 28px; display: flex; justify-content: space-between; align-items: center; gap: 25px; }
+.eyebrow { font-size: 10px; letter-spacing: 1.8px; font-weight: 600; color: var(--faint); }
+h1 { font-size: clamp(27px, 3.2vw, 43px); line-height: 1.18; letter-spacing: -1.5px; font-weight: 700; margin: 12px 0 15px; text-wrap: balance; }
+h1 span { color: var(--faint); }
+.intro p { font-size: 13px; color: var(--muted); margin: 0; max-width: 60ch; line-height: 1.6; }
+.sync-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-width: 250px; padding: 18px 20px; display: flex; align-items: flex-start; flex-direction: column; gap: 10px; }
+.sync-label { font-size: 12px; font-weight: 600; display: flex; gap: 8px; align-items: center; }
+.sync-label i { height: 7px; width: 7px; border-radius: 50%; background: var(--faint); flex: none; }
+.sync-label i.good { background: var(--good); box-shadow: 0 0 0 3px var(--good-ring); }
+.sync-label i.stale { background: var(--stale); }
+.sync-meta { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+.error-box, .notice-box { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid var(--warn-line); border-radius: 8px; padding: 14px 17px; line-height: 1.6; font-size: 12px; margin-bottom: 20px; }
+.notice-box b { display: block; margin-bottom: 4px; }
+.notice-box ul { margin: 6px 0 0; padding-left: 18px; }
+.notice-box li + li { margin-top: 2px; }
+
+.match-tools { padding: 18px 0; display: flex; align-items: end; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+.match-tools > div { min-width: 0; }
+.mini-label { display: block; font-size: 10px; font-weight: 600; color: var(--faint); letter-spacing: 1.2px; margin-bottom: 8px; }
+.match-tools select { padding: 8px 30px 8px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; max-width: 100%; width: 390px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.order-note { display: flex; gap: 7px; align-items: center; font-size: 11px; color: var(--faint); margin-left: auto; }
+.order-note b { font-weight: 500; color: var(--muted); }
+.order-note > span { width: 1px; height: 13px; background: var(--line); margin: 0 5px; }
+
+.team-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+.team-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: 0; }
+.card-top { padding: 19px 20px 15px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line-soft); }
+.team-letter { background: var(--a-tint); border: 1px solid var(--a-tint-line); font-weight: 700; font-size: 13px; display: grid; place-items: center; width: 35px; height: 35px; border-radius: 8px; flex: none; }
+.team-card.side-b .team-letter { background: var(--b-tint); border-color: var(--b-tint-line); }
+.team-heading { flex: 1; min-width: 0; }
+.team-heading label { display: block; font-size: 10px; letter-spacing: 1.3px; color: var(--faint); margin-bottom: 5px; }
+.team-heading select { font-size: 17px; letter-spacing: -.3px; font-weight: 600; width: 100%; background: none; border: none; color: var(--ink); padding: 0 22px 0 0; }
+.slot-caption { font-size: 11px; color: var(--faint); white-space: nowrap; }
+.room-chip { font-size: 10px; font-weight: 600; background: var(--warn-bg); color: var(--warn-ink); border: 1px solid var(--warn-line); padding: 3px 7px; border-radius: 5px; white-space: nowrap; cursor: help; }
+.camera-list { padding: 5px 20px 0; }
+.player-row { display: flex; align-items: center; gap: 11px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.player-row:last-child { border: 0; }
+.slot-number { height: 28px; min-width: 30px; border-radius: 6px; background: var(--fill); display: grid; place-items: center; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted); flex: none; }
+.player-info { min-width: 0; flex: 1; }
+.player-info select { width: 100%; font-weight: 600; font-size: 13px; border: 0; background: transparent; padding: 1px 18px 1px 0; color: var(--ink); }
+.player-subline { font-size: 10px; color: var(--faint); display: block; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-subline.swap { color: var(--mint-ink); }
+.copy-icon { background: transparent; border: 1px solid var(--line); height: 28px; width: 28px; border-radius: 6px; color: var(--muted); font-size: 13px; flex: none; }
+.copy-icon:hover:not(:disabled) { background: var(--mint-soft); }
+.card-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; background: var(--surface-2); padding: 12px 20px; border-top: 1px solid var(--line-soft); gap: 8px 12px; }
+.text-button { font-size: 11px; background: none; border: 0; padding: 4px 0; color: var(--mint-ink); text-decoration: none; }
+.text-button:hover { color: var(--ink); }
+.card-bottom { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.reserve-badge { font-size: 10px; background: var(--mint-soft); color: var(--mint-ink); padding: 3px 6px; border-radius: 4px; }
+
+.export-bar { display: flex; align-items: center; justify-content: space-between; padding: 20px 23px; background: var(--mint-soft); border: 1px solid var(--mint-line); border-radius: 10px; margin: 20px 0 33px; gap: 20px; }
+.export-bar > div { display: flex; gap: 14px; align-items: center; min-width: 0; }
+.export-icon { width: 36px; height: 36px; background: var(--surface); border-radius: 8px; display: grid; place-items: center; font-size: 21px; color: var(--mint-ink); flex: none; }
+h2 { font-size: 16px; letter-spacing: -.3px; margin: 0; font-weight: 600; }
+.export-bar h2 { font-size: 14px; }
+.export-bar p { font-size: 11px; color: var(--mint-ink); margin: 6px 0 0; }
+
+.copy-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.panel-heading { padding: 24px 24px 18px; }
+.panel-heading h2 { margin-top: 7px; }
+.copy-tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--line); padding: 0 24px; }
+.tab { border: 0; background: transparent; font-size: 12px; padding: 13px 0; color: var(--faint); border-bottom: 2px solid transparent; }
+.tab span { font-size: 9px; background: var(--fill); padding: 2px 4px; border-radius: 3px; margin-left: 5px; letter-spacing: .5px; }
+.tab.selected { color: var(--ink); border-color: var(--mint-tab); font-weight: 600; }
+.preview-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px 10px; gap: 15px; }
+.preview-head > span { font-size: 11px; color: var(--faint); }
+.output-wrap { padding: 0 24px; }
+.output-wrap textarea { display: block; width: 100%; background: var(--code-bg); border: 1px solid var(--code-line); border-radius: 6px; padding: 16px; font-family: var(--mono); font-size: 12px; line-height: 1.75; resize: vertical; min-height: 220px; color: var(--code-ink); white-space: pre; overflow: auto; }
+.copy-foot { font-size: 11px; color: var(--faint); padding: 0 24px 4px; line-height: 1.6; }
+
+footer { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin: 25px 0 0; font-size: 11px; font-weight: 600; color: var(--faint); }
+footer span { font-weight: 400; font-size: 10px; }
+footer a { margin-left: auto; text-decoration: none; }
+.empty-panel { padding: 64px 20px; background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; grid-column: 1 / -1; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.empty-panel b { display: block; color: var(--ink); font-size: 15px; margin-bottom: 4px; }
+
+.toast {
+  position: fixed; left: calc(50% + var(--rail) / 2); transform: translateX(-50%);
+  bottom: calc(26px + env(safe-area-inset-bottom, 0px)); z-index: 20;
+  background: var(--toast-bg); color: var(--toast-ink); padding: 12px 22px; box-shadow: var(--shadow);
+  border-radius: 8px; font-size: 12px; max-width: min(560px, calc(100vw - 32px)); line-height: 1.5;
+}
+dialog { border: 1px solid var(--line); border-radius: 15px; padding: 26px; width: min(560px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+dialog::backdrop { background: var(--backdrop); backdrop-filter: blur(3px); }
+.dialog-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.icon-button { border: 0; background: none; font-size: 25px; color: var(--muted); line-height: 1; }
+dialog p { font-size: 12px; color: var(--muted); line-height: 1.7; }
+dialog label { display: block; font-size: 12px; font-weight: 600; margin: 16px 0; }
+dialog input, dialog textarea { display: block; width: 100%; margin-top: 7px; padding: 11px; border: 1px solid var(--line); border-radius: 6px; font-size: 12px; background: var(--surface-2); color: var(--ink); }
+dialog textarea { min-height: 120px; font-family: var(--mono); font-size: 11px; resize: vertical; white-space: pre; }
+dialog p.muted { font-size: 11px; }
+.dialog-actions { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+.dialog-section { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 6px; }
+
+@media (min-width: 1600px) { main { padding-left: 65px; padding-right: max(65px, env(safe-area-inset-right, 0px)); } .intro { padding-top: 50px; } }
+@media (max-width: 1100px) {
+  :root { --rail: 170px; }
+  .sidebar { padding-left: calc(17px + env(safe-area-inset-left, 0px)); padding-right: 17px; }
+  .brand { font-size: 11px; } .brand b { font-size: 16px; } .season { letter-spacing: .7px; }
+  main { padding-left: 25px; padding-right: max(25px, env(safe-area-inset-right, 0px)); }
+  .order-note, .slot-caption { display: none; }
+  .card-top, .camera-list, .card-actions { padding-left: 14px; padding-right: 14px; }
+}
+@media (max-width: 760px) {
+  :root { --rail: 0px; }
+  .sidebar { display: none; }
+  main { margin-left: 0; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .topbar { min-height: 64px; }
+  .intro { align-items: stretch; padding-top: 28px; flex-direction: column; gap: 20px; }
+  h1 { font-size: 33px; }
+  .sync-card { min-width: 0; width: 100%; }
+  .sync-card .button { width: 100%; }
+  .team-grid { grid-template-columns: minmax(0, 1fr); }
+  .match-tools select { width: 100%; }
+  .export-bar { padding: 16px; align-items: stretch; flex-direction: column; }
+  .export-bar .primary { width: 100%; }
+  .panel-heading { padding: 20px 16px 14px; }
+  .preview-head { padding: 14px 16px 10px; }
+  .copy-tabs, .output-wrap, .copy-foot { padding-left: 16px; padding-right: 16px; }
+  .output-wrap textarea { font-size: 11px; }
+  footer a { margin-left: 0; }
+  .player-row { padding: 14px 0; }
+  .player-info select { font-size: 15px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<aside class="sidebar">
+  <a class="brand" id="brandLink" href="#desk" aria-label="Webcam Desk"><span class="brand-mark">W<span>↗</span></span><span>WEBCAM<br><b>DESK</b></span></a>
+  <div class="season">CYBERCLASH / SEASON 2</div>
+  <div class="nav-active"><span>▦</span> Подготовка матча</div>
+  <a class="nav-link" id="sidebarSource" target="_blank" rel="noreferrer" href="https://docs.google.com/spreadsheets/d/1e__ijBjufD19SWBkSJL177vmmfMh2tdykYQHAS06S8I/edit">↗ Рабочая таблица</a>
+  <div class="sidebar-bottom"><span class="small-dot"></span>Порядок имеет значение<span>Слоты 1–5 / 6–10</span></div>
+</aside>
+
+<main id="desk">
+  <header class="topbar">
+    <div class="breadcrumbs">Эфирная команда <span>/</span> Вебки игроков</div>
+    <button id="settingsBtn" class="button subtle" type="button">⚙ Источник данных</button>
+  </header>
+
+  <section class="intro">
+    <div>
+      <div class="eyebrow">ИНСТРУМЕНТ ОБСЕРВЕРА</div>
+      <h1>Собери матч.<br><span>Вебки уже на местах.</span></h1>
+      <p>Выбери команды, проверь десять слотов и забирай файл OBS. На замену можно выбрать запасного или тренера.</p>
+    </div>
+    <div class="sync-card">
+      <span class="sync-label"><i id="syncDot"></i><span id="syncTitle">Загружаем составы…</span></span>
+      <span class="sync-meta" id="syncTime">Таблица «CyberClash S2 вебки»</span>
+      <button id="refreshBtn" class="button small" type="button">↻ Обновить составы</button>
+    </div>
+  </section>
+
+  <div id="errorBox" class="error-box" role="alert" hidden></div>
+  <div id="noticeBox" class="notice-box" hidden></div>
+
+  <section class="match-tools">
+    <div>
+      <label class="mini-label" for="matchSelect" id="matchLabel">МАТЧ ПО РАСПИСАНИЮ</label>
+      <select id="matchSelect"><option value="">Выбери команды вручную</option></select>
+    </div>
+    <button id="swapBtn" class="button small" type="button">⇄ Поменять стороны</button>
+    <span class="order-note">01–05 <b>Первая команда</b><span></span>06–10 <b>Вторая команда</b></span>
+  </section>
+
+  <section id="teamGrid" class="team-grid" aria-label="Составы двух команд">
+    <div class="empty-panel"><b>Загружаем составы</b>Берём данные из рабочей таблицы CyberClash.</div>
+  </section>
+
+  <section class="export-bar">
+    <div><span class="export-icon">↓</span><div><h2>Коллекция сцен OBS</h2><p id="exportHint">Сначала выбери две команды</p></div></div>
+    <button class="button primary" id="downloadBtn" type="button" disabled>Скачать JSON <span>↗</span></button>
+  </section>
+
+  <section class="copy-panel">
+    <div class="panel-heading"><span class="eyebrow">ГОТОВО К ПЕРЕДАЧЕ</span><h2>Скопировал — отправил</h2></div>
+    <div class="copy-tabs" role="tablist">
+      <button id="tabObserver" class="tab selected" role="tab" aria-selected="true" type="button">Для обсервера <span>VIEW</span></button>
+      <button id="tabPlayers" class="tab" role="tab" aria-selected="false" type="button">Для игроков <span>PUSH</span></button>
+    </div>
+    <div class="preview-head"><span id="previewLabel">Ники и VIEW-ссылки строго по слотам 1–10</span><button id="copyAllBtn" class="button dark small" type="button" disabled>Копировать всё</button></div>
+    <div class="output-wrap"><textarea id="output" aria-label="Текст для копирования" readonly placeholder="Сначала выбери две команды"></textarea></div>
+    <p class="copy-foot" id="copyFoot">Имена, ссылки и JSON используют один и тот же порядок десяти слотов.</p>
+  </section>
+
+  <footer>Webcam Desk <span>Составы и комнаты — из рабочей таблицы. JSON — по вашему шаблону OBS.</span><a href="https://docs.vdo.ninja/" target="_blank" rel="noreferrer">VDO.Ninja ↗</a></footer>
+</main>
+
+<dialog id="settingsDialog" aria-labelledby="settingsTitle">
+  <form id="settingsForm" method="dialog">
+    <div class="dialog-head"><h2 id="settingsTitle">Источник составов</h2><button class="icon-button" type="button" id="closeSettings" aria-label="Закрыть">×</button></div>
+    <p>Панель скачивает таблицу через твой Google Drive и сама находит листы «Все игроки», «Матчи» и «Комнаты». Свежие составы сохраняются в панели, их видит вся эфирная команда.</p>
+    <label for="sourceUrl">Ссылка на Google Sheets<input id="sourceUrl" type="url" required placeholder="https://docs.google.com/spreadsheets/d/…"></label>
+    <p class="muted">Нужны колонки: ID, команда, слот, ник, ID потока, room, PUSH, VIEW, роль. Порядок строк сохраняется.</p>
+    <div class="dialog-actions"><button type="button" class="button" id="resetSource">Исходная таблица</button><button type="submit" class="button primary" id="connectBtn">Подключить</button></div>
+    <div class="dialog-section">
+      <label for="pasteArea">Нет доступа к Google Drive? Вставь лист вручную
+        <textarea id="pasteArea" spellcheck="false" placeholder="В таблице открой лист «Все игроки», выдели всё (Ctrl+A), скопируй (Ctrl+C) и вставь сюда. Так же можно вставить лист «Матчи» или «Комнаты»."></textarea>
+      </label>
+      <div class="dialog-actions"><span></span><button type="button" class="button" id="pasteBtn">Загрузить вставленное</button></div>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function () {
+  'use strict';
+
+  const DEFAULT_SOURCE = { id: '1e__ijBjufD19SWBkSJL177vmmfMh2tdykYQHAS06S8I', title: 'CyberClash S2 вебки' };
+  const DRIVE = 'Google Drive';
+  const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  const SHEETJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.mini.min.js';
+  const ROSTER_PATH = 'desk/roster';
+  const LOCAL_KEY = 'webcam-desk-ui';
+  const ROLES = ['Основной', 'Запасной', 'Тренер'];
+
+  const $ = id => document.getElementById(id);
+  const state = {
+    teams: [], schedule: [], rooms: {}, warnings: [], scheduleLabel: '',
+    a: '', b: '', keysA: [], keysB: [], tab: 'observer',
+    syncedAt: 0, origin: '', source: { ...DEFAULT_SOURCE }, template: null, stale: false
+  };
+  let loading = false, toastTimer = 0, dbReadOnly = false;
+
+  /* ---------- platform capabilities ---------- */
+  const capCache = {};
+  function use(name) {
+    if (!capCache[name]) {
+      const c = window.claude;
+      capCache[name] = c && typeof c.use === 'function'
+        ? Promise.resolve().then(() => c.use(name)).catch(() => null)
+        : Promise.resolve(null);
+    }
+    return capCache[name];
+  }
+
+  /* ---------- small helpers ---------- */
+  const str = v => (v == null ? '' : String(v).trim());
+  const pad = n => String(n).padStart(2, '0');
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function mskDay(d) { return d.toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit' }); }
+  function mskStamp(ts) {
+    const d = new Date(ts);
+    const time = d.toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' });
+    return (mskDay(d) === mskDay(new Date()) ? '' : mskDay(d) + ', ') + time + ' МСК';
+  }
+  function plural(n, one, few, many) {
+    const m10 = n % 10, m100 = n % 100;
+    return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many;
+  }
+
+  /* ---------- roster parsing (same columns as the original desk) ---------- */
+  function parseTeams(rows) {
+    const teams = [], byName = new Map(), warnings = [];
+    rows.forEach((raw, r) => {
+      const v = (raw || []).map(str);
+      if (!v[0] || !v[1] || !v[3] || !ROLES.includes(v[8])) return;
+      const name = v[1], nick = v[3], id = v[4] || nick, room = v[5];
+      if (!room) { warnings.push(`${name}: у ${nick} не указан room — строка ${r + 1} пропущена.`); return; }
+      let team = byName.get(name);
+      if (!team) { team = { name, room, players: [] }; teams.push(team); byName.set(name, team); }
+      if (team.players.some(p => p.key === v[0])) { warnings.push(`Повтор ID «${v[0]}» в строке ${r + 1} — строка пропущена.`); return; }
+      team.players.push({ key: v[0], slot: v[2], nick, id, room, role: v[8] });
+    });
+    if (!teams.length) throw new Error('На этом листе не найден состав. Нужен лист «Все игроки» с колонками ID, команда, слот, ник, ID потока, room и роль.');
+    for (const t of teams) {
+      const mains = t.players.filter(p => p.role === 'Основной').length;
+      if (mains < 5) warnings.push(`${t.name}: основных игроков ${mains} из 5.`);
+      const seen = new Map();
+      for (const p of t.players) {
+        const k = p.id.toLowerCase();
+        if (seen.has(k)) warnings.push(`${t.name}: у ${seen.get(k)} и ${p.nick} одинаковый ID потока «${p.id}» — в одной комнате VDO.Ninja они перебьют друг друга.`);
+        else seen.set(k, p.nick);
+      }
+    }
+    return { teams, warnings };
+  }
+
+  function timeText(v) {
+    if (typeof v === 'number' && isFinite(v)) {
+      const m = Math.round((v - Math.floor(v)) * 1440) % 1440;
+      return pad(Math.floor(m / 60)) + ':' + pad(m % 60);
+    }
+    const m = str(v).match(/^(\d{1,2}):(\d{2})/);
+    return m ? pad(m[1]) + ':' + m[2] : '';
+  }
+  function findHeader(rows, need) {
+    for (let i = 0; i < Math.min(rows.length, 40); i++) {
+      const cells = (rows[i] || []).map(str);
+      if (need.every(n => cells.includes(n))) return i;
+    }
+    return -1;
+  }
+  function parseScheduleRows(rows) {
+    const h = findHeader(rows, ['Команда 1', 'Команда 2']);
+    if (h < 0) return null;
+    const head = rows[h].map(str);
+    const col = (re, fallback) => { const i = head.findIndex(c => re.test(c)); return i < 0 ? fallback : i; };
+    const ct = col(/начало|время|мск|msk/i, 1), c1 = head.indexOf('Команда 1'), c2 = head.indexOf('Команда 2'), cg = col(/^группа/i, -1);
+    return rows.slice(h + 1)
+      .map(v => ({ time: timeText(v[ct]), team1: str(v[c1]), team2: str(v[c2]), group: cg >= 0 ? str(v[cg]) : '' }))
+      .filter(m => m.team1 && m.team2 && /^\d{2}:\d{2}$/.test(m.time))
+      .map(m => ({ ...m, key: m.team1 + '|' + m.team2 }));
+  }
+  function parseRoomsRows(rows) {
+    const h = findHeader(rows, ['Команда', 'room', 'Основание']);
+    if (h < 0) return null;
+    const head = rows[h].map(str);
+    const ci = head.indexOf('Команда'), cr = head.indexOf('room'), cb = head.indexOf('Основание'), cn = head.indexOf('Примечание');
+    const out = {};
+    for (const v of rows.slice(h + 1)) {
+      const team = str(v[ci]);
+      if (!team) continue;
+      const basis = str(v[cb]), note = cn >= 0 ? str(v[cn]) : '';
+      out[team] = { room: str(v[cr]), basis, note, pending: /предлож/i.test(basis) || /согласовать/i.test(note) };
+    }
+    return out;
+  }
+  function crossCheck(roster) {
+    const names = new Set(roster.teams.map(t => t.name));
+    const extra = [];
+    for (const t of roster.teams) {
+      const r = roster.rooms[t.name];
+      if (r && r.room && r.room !== t.room) extra.push(`${t.name}: room в составах «${t.room}», а в листе «Комнаты» — «${r.room}».`);
+    }
+    for (const m of roster.schedule) {
+      for (const n of [m.team1, m.team2]) if (!names.has(n)) extra.push(`В расписании (${m.time}) команда «${n}», которой нет в составах.`);
+    }
+    return extra;
+  }
+
+  function sheetRows(wb, name) {
+    const ws = wb.Sheets[name];
+    return ws ? window.XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' }) : [];
+  }
+  function parseWorkbook(wb) {
+    const names = wb.SheetNames;
+    const order = names.includes('Все игроки') ? ['Все игроки', ...names.filter(n => n !== 'Все игроки')] : names;
+    let players = null;
+    for (const n of order) { try { players = parseTeams(sheetRows(wb, n)); break; } catch (e) { /* try next sheet */ } }
+    if (!players) throw new Error('В таблице не найден лист с составами. Нужен лист «Все игроки» с колонками ID, команда, слот, ник, ID потока, room и роль.');
+    const scheduleSheets = names.filter(n => findHeader(sheetRows(wb, n), ['Команда 1', 'Команда 2']) >= 0);
+    const today = mskDay(new Date());
+    const scheduleName = scheduleSheets.find(n => n.includes(today)) || scheduleSheets[scheduleSheets.length - 1] || '';
+    const roomsName = names.find(n => /комнат/i.test(n)) || '';
+    const roster = {
+      teams: players.teams,
+      schedule: scheduleName ? parseScheduleRows(sheetRows(wb, scheduleName)) || [] : [],
+      scheduleLabel: scheduleName.replace(/^матчи\s*/i, ''),
+      rooms: roomsName ? parseRoomsRows(sheetRows(wb, roomsName)) || {} : {}
+    };
+    roster.warnings = [...players.warnings, ...crossCheck(roster)];
+    return roster;
+  }
+
+  function sanitizeRoster(d) {
+    if (!d || !Array.isArray(d.teams)) return null;
+    const teams = d.teams.filter(t => t && typeof t.name === 'string' && Array.isArray(t.players)).map(t => ({
+      name: str(t.name), room: str(t.room),
+      players: t.players.filter(p => p && p.key).map(p => ({ key: str(p.key), slot: str(p.slot), nick: str(p.nick), id: str(p.id) || str(p.nick), room: str(p.room), role: str(p.role) }))
+    })).filter(t => t.players.length);
+    if (!teams.length) return null;
+    const schedule = Array.isArray(d.schedule) ? d.schedule.filter(m => m && m.team1 && m.team2).map(m => ({ time: str(m.time), team1: str(m.team1), team2: str(m.team2), group: str(m.group), key: str(m.team1) + '|' + str(m.team2) })) : [];
+    const rooms = {};
+    if (d.rooms && typeof d.rooms === 'object') for (const [k, r] of Object.entries(d.rooms)) if (r && typeof r === 'object') rooms[k] = { room: str(r.room), basis: str(r.basis), note: str(r.note), pending: !!r.pending };
+    const source = d.source && typeof d.source.id === 'string' && /^[\w-]{20,100}$/.test(d.source.id) ? { id: d.source.id, title: str(d.source.title) } : null;
+    return {
+      teams, schedule, rooms, source,
+      warnings: Array.isArray(d.warnings) ? d.warnings.map(str).filter(Boolean).slice(0, 40) : [],
+      scheduleLabel: str(d.scheduleLabel), syncedAt: Number(d.syncedAt) || 0, origin: str(d.origin)
+    };
+  }
+
+  /* ---------- lineup + links (ported from core.js) ---------- */
+  const getTeam = side => state.teams.find(t => t.name === state[side]);
+  const keysOf = side => state[side === 'a' ? 'keysA' : 'keysB'];
+  function defaultLineup(team) { return team ? team.players.filter(p => p.role === 'Основной').slice(0, 5).map(p => p.key) : []; }
+  function reconcile(team, keys) {
+    if (!team) return [];
+    if (!Array.isArray(keys) || keys.length !== 5) return defaultLineup(team);
+    const has = k => team.players.some(p => p.key === k);
+    const out = keys.map(k => (k && has(k) ? k : ''));
+    const pool = defaultLineup(team).filter(k => !out.includes(k));
+    return out.map(k => k || pool.shift() || '');
+  }
+  function roleSuffix(p) { return p.role === 'Тренер' ? ' (тренер)' : p.role === 'Запасной' ? ' (запасной)' : ''; }
+  function selectedPlayers(team, keys) { return keys.map(k => (team && team.players.find(p => p.key === k)) || null); }
+  const chosen = side => selectedPlayers(getTeam(side), keysOf(side));
+  function validateMatch(teamA, teamB, keysA, keysB) {
+    if (!teamA || !teamB) return 'Выбери две команды.';
+    if (teamA.name === teamB.name) return 'Выбери разные команды.';
+    const players = [...selectedPlayers(teamA, keysA), ...selectedPlayers(teamB, keysB)];
+    if (players.length !== 10 || players.some(p => !p)) return 'Для JSON нужно выбрать ровно пять игроков в каждой команде.';
+    if (new Set(players.map(p => p.key)).size !== 10) return 'Один игрок выбран несколько раз. Проверь состав.';
+    if (players.some(p => !p.room || !p.id)) return 'У игрока не указан ID потока или room.';
+    if (new Set(players.map(p => p.id)).size !== 10) return 'Повторяется ID видеопотока. У каждого из десяти игроков должен быть свой ID.';
+    return '';
+  }
+  const valid = () => validateMatch(getTeam('a'), getTeam('b'), state.keysA, state.keysB);
+  const viewUrl = p => `https://vdo.ninja/?view=${encodeURIComponent(p.id)}&solo=1&room=${encodeURIComponent(p.room)}&codec=h264`;
+  const pushUrl = p => `https://vdo.ninja/?room=${encodeURIComponent(p.room)}&broadcast&do&push=${encodeURIComponent(p.id)}`;
+  const directorUrl = team => `https://vdo.ninja/?director=${encodeURIComponent(team.room)}`;
+  function observerText(a, b, pa, pb) {
+    return `${a.name} — ${b.name}\n\n` + [...pa, ...pb].map((p, i) => `${i + 1}. ${i < 5 ? a.name : b.name} — ${p.nick}\n${viewUrl(p)}`).join('\n\n');
+  }
+  const markdown = s => String(s).replace(/[\\[\]*_~`]/g, '\\$&');
+  function playerText(team, selected) {
+    return `## ${markdown(team.name)}\nOpen your link and turn on your camera.\n\n` + selected.filter(Boolean).map(p => `- [**${markdown(p.nick)}**](<${pushUrl(p)}>)`).join('\n');
+  }
+  function newUuid() {
+    if (window.crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    const b = new Uint8Array(16); crypto.getRandomValues(b); b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+    const h = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+  }
+  function buildObs(template, teamA, teamB, keysA, keysB, uuidFn = newUuid) {
+    const error = validateMatch(teamA, teamB, keysA, keysB);
+    if (error) throw new Error(error);
+    const d = JSON.parse(JSON.stringify(template));
+    const all = [...selectedPlayers(teamA, keysA).map(p => ({ ...p, team: teamA.name })), ...selectedPlayers(teamB, keysB).map(p => ({ ...p, team: teamB.name }))];
+    const byId = new Map(d.sources.map(s => [s.uuid, s])), byName = new Map(d.sources.map(s => [s.name, s]));
+    const uuidMap = new Map(d.sources.map(s => [s.uuid, uuidFn()])), names = new Map();
+    for (let i = 0; i < 10; i++) {
+      const scene = byName.get('Игрок ' + (i + 1));
+      if (!scene) throw new Error('В шаблоне отсутствует сцена игрока ' + (i + 1));
+      const items = scene.settings.items.filter(it => (byId.get(it.source_uuid) || {}).id === 'browser_source');
+      if (items.length !== 1) throw new Error('В сцене игрока должен быть ровно один источник браузера.');
+      const browser = byId.get(items[0].source_uuid), p = all[i];
+      browser.settings.url = viewUrl(p);
+      names.set(browser.name, `CAM ${pad(i + 1)} | ${p.team} | ${p.nick}`);
+    }
+    const remap = value => {
+      if (Array.isArray(value)) return value.map(remap);
+      if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, remap(v)]));
+      return typeof value === 'string' ? (uuidMap.get(value) || names.get(value) || value) : value;
+    };
+    d.name = `${teamA.name} vs ${teamB.name}`;
+    return remap(d);
+  }
+  const TRANSLIT = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya' };
+  function safeFilename(a, b) {
+    const base = (a + ' vs ' + b).normalize('NFKD').replace(/[̀-ͯ]/g, '')
+      .replace(/[а-яё]/gi, ch => { const t = TRANSLIT[ch.toLowerCase()]; return ch === ch.toLowerCase() ? t : t.charAt(0).toUpperCase() + t.slice(1); })
+      .replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '');
+    return (base && base !== 'vs' ? base : 'obs_scenes') + '.json';
+  }
+
+  /* ---------- UI memory (per viewer) ---------- */
+  function loadLocal() {
+    try {
+      const s = JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null');
+      if (!s || typeof s !== 'object') return;
+      if (typeof s.a === 'string') state.a = s.a;
+      if (typeof s.b === 'string') state.b = s.b;
+      if (Array.isArray(s.keysA)) state.keysA = s.keysA.map(String).slice(0, 5);
+      if (Array.isArray(s.keysB)) state.keysB = s.keysB.map(String).slice(0, 5);
+      if (s.tab === 'players' || s.tab === 'observer') state.tab = s.tab;
+    } catch (e) { /* storage unavailable */ }
+  }
+  function saveLocal() {
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ a: state.a, b: state.b, keysA: state.keysA, keysB: state.keysB, tab: state.tab })); } catch (e) { /* storage unavailable */ }
+  }
+
+  /* ---------- feedback ---------- */
+  function toast(message) {
+    const t = $('toast');
+    t.textContent = message; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3600);
+  }
+  function showError(text) { $('errorBox').textContent = text; $('errorBox').hidden = false; }
+  function hideError() { $('errorBox').hidden = true; }
+  function renderNotice() {
+    const pendingRooms = state.teams.filter(t => state.rooms[t.name] && state.rooms[t.name].pending).map(t => t.name);
+    const items = [...state.warnings];
+    if (pendingRooms.length) items.push(`Room ещё не согласован у ${pendingRooms.length} ${plural(pendingRooms.length, 'команды', 'команд', 'команд')} (${pendingRooms.join(', ')}). Так помечено в листе «Комнаты»: согласуй имя комнаты до рассылки PUSH-ссылок.`);
+    const box = $('noticeBox');
+    if (!items.length) { box.hidden = true; return; }
+    box.innerHTML = '<b>Проверь таблицу</b><ul>' + items.map(w => `<li>${escapeHtml(w)}</li>`).join('') + '</ul>';
+    box.hidden = false;
+  }
+  function renderSync() {
+    const dot = $('syncDot');
+    if (!state.teams.length) {
+      dot.className = state.stale ? 'stale' : '';
+      $('syncTitle').textContent = state.stale ? 'Нет связи с таблицей' : 'Загружаем составы…';
+      $('syncTime').textContent = `Таблица «${state.source.title || 'CyberClash S2 вебки'}»`;
+      return;
+    }
+    dot.className = state.stale ? 'stale' : 'good';
+    $('syncTitle').textContent = state.stale ? 'Данные требуют обновления' : `${state.teams.length} ${plural(state.teams.length, 'команда', 'команды', 'команд')} из таблицы`;
+    const how = state.origin === 'paste' ? 'вставлено вручную' : 'из Google Drive';
+    $('syncTime').textContent = state.syncedAt ? `Обновлено ${mskStamp(state.syncedAt)} · ${how}` : how;
+  }
+  function updateSourceLinks() {
+    $('sidebarSource').href = `https://docs.google.com/spreadsheets/d/${state.source.id}/edit`;
+  }
+
+  /* ---------- render ---------- */
+  function render() {
+    const matchSel = $('matchSelect');
+    $('matchLabel').textContent = 'МАТЧ ПО РАСПИСАНИЮ' + (state.scheduleLabel ? ' · ' + state.scheduleLabel : '');
+    matchSel.innerHTML = '<option value="">Выбери команды вручную</option>' + state.schedule.map(m => `<option value="${escapeHtml(m.key)}">${escapeHtml(m.time + ' · ' + m.team1 + ' — ' + m.team2)}</option>`).join('');
+    const currentKey = state.a + '|' + state.b;
+    matchSel.value = state.schedule.some(m => m.key === currentKey) ? currentKey : '';
+
+    if (!state.teams.length) {
+      $('teamGrid').innerHTML = state.stale
+        ? '<div class="empty-panel"><b>Составов пока нет</b>Нажми «Обновить составы», чтобы подтянуть их из Google Drive, или вставь лист «Все игроки» через ⚙ Источник данных.</div>'
+        : '<div class="empty-panel"><b>Загружаем составы</b>Берём данные из рабочей таблицы CyberClash.</div>';
+      renderOutput();
+      return;
+    }
+
+    $('teamGrid').innerHTML = ['a', 'b'].map((side, index) => {
+      const team = getTeam(side);
+      if (!team) return '<div class="empty-panel">Команда не выбрана</div>';
+      const keys = keysOf(side), eligible = team.players;
+      const reserves = eligible.filter(p => p.role === 'Запасной').length, coaches = eligible.filter(p => p.role === 'Тренер').length;
+      const roomInfo = state.rooms[team.name];
+      const chip = roomInfo && roomInfo.pending ? `<span class="room-chip" title="${escapeHtml((roomInfo.basis ? roomInfo.basis + '. ' : '') + (roomInfo.note || 'Согласовать имя перед рассылкой ссылок.'))}">room не согласован</span>` : '';
+      const rows = Array.from({ length: 5 }, (_, i) => {
+        const player = team.players.find(p => p.key === keys[i]);
+        const sub = player
+          ? 'room: ' + player.room + ' / ' + (player.role === 'Тренер' ? 'тренер на замене' : player.role === 'Запасной' ? 'выбрана замена' : 'по таблице')
+          : 'Место не заполнено';
+        const options = eligible.map(p => `<option value="${escapeHtml(p.key)}" ${p.key === keys[i] ? 'selected' : ''} ${keys.includes(p.key) && p.key !== keys[i] ? 'disabled' : ''}>${escapeHtml(p.nick)}${roleSuffix(p)}</option>`).join('');
+        const n = index * 5 + i + 1;
+        return `<div class="player-row"><span class="slot-number">${pad(n)}</span><div class="player-info"><select data-player="${side}" data-slot="${i}" aria-label="Игрок ${n}"><option value="">Выбери игрока</option>${options}</select><span class="player-subline${player && player.role !== 'Основной' ? ' swap' : ''}">${escapeHtml(sub)}</span></div><button class="copy-icon" type="button" data-view="${side}" data-slot="${i}" aria-label="Скопировать VIEW ${player ? escapeHtml(player.nick) : ''}" title="Копировать VIEW" ${player ? '' : 'disabled'}>⧉</button></div>`;
+      }).join('');
+      return `<article class="team-card side-${side}"><div class="card-top"><div class="team-letter">${index ? 'B' : 'A'}</div><div class="team-heading"><label for="team-${side}">${index ? 'ВТОРАЯ' : 'ПЕРВАЯ'} КОМАНДА</label><select id="team-${side}" data-team="${side}">${state.teams.map(t => `<option ${t.name === team.name ? 'selected' : ''} value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('')}</select></div>${chip}<span class="slot-caption">${index ? '06–10' : '01–05'}</span></div><div class="camera-list">${rows}</div><div class="card-actions"><button class="text-button" type="button" data-reset="${side}">↻ Порядок из таблицы</button><div class="card-bottom">${reserves ? `<span class="reserve-badge">+${reserves} запасн.</span>` : ''}${coaches ? `<span class="reserve-badge">+${coaches} тренер</span>` : ''}<button class="text-button" type="button" data-copy-team="${side}">Игрокам ⧉</button><a class="text-button" target="_blank" rel="noreferrer" href="${escapeHtml(directorUrl(team))}">Директор ↗</a></div></div></article>`;
+    }).join('');
+    renderOutput();
+    saveLocal();
+  }
+
+  function renderOutput() {
+    const error = valid();
+    $('downloadBtn').disabled = !!error || !state.template;
+    $('copyAllBtn').disabled = !!error;
+    $('swapBtn').disabled = !getTeam('a') || !getTeam('b');
+    $('exportHint').textContent = !state.teams.length ? 'Сначала загрузи составы'
+      : error || `${state.stale ? 'По ранее загруженным данным. ' : ''}1–5: ${state.a} · 6–10: ${state.b}`;
+    const obs = state.tab === 'observer';
+    $('tabObserver').classList.toggle('selected', obs); $('tabPlayers').classList.toggle('selected', !obs);
+    $('tabObserver').setAttribute('aria-selected', String(obs)); $('tabPlayers').setAttribute('aria-selected', String(!obs));
+    $('previewLabel').textContent = obs ? 'Ники и VIEW-ссылки строго по слотам 1–10' : 'Сообщение на английском для выбранных пяти игроков каждой команды';
+    $('copyFoot').textContent = obs ? 'Имена, ссылки и JSON используют один и тот же порядок десяти слотов.' : 'Только выбранные игроки, в порядке слотов выше. Упоминание роли добавь в Discord вручную.';
+    if (error) { $('output').value = ''; return; }
+    $('output').value = obs
+      ? observerText(getTeam('a'), getTeam('b'), chosen('a'), chosen('b'))
+      : playerText(getTeam('a'), chosen('a')) + '\n\n' + playerText(getTeam('b'), chosen('b'));
+  }
+
+  /* ---------- copy ---------- */
+  function execCopy(text) {
+    const field = document.createElement('textarea');
+    field.value = text; field.setAttribute('readonly', ''); field.style.position = 'fixed'; field.style.opacity = '0';
+    document.body.append(field); field.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; } finally { field.remove(); }
+    return ok;
+  }
+  async function copy(text, message) {
+    const done = message || 'Скопировано в буфер обмена';
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(done);
+    } catch (e) {
+      if (execCopy(text)) { toast(done); return; }
+      const out = $('output');
+      out.value = text; out.focus(); out.select();
+      toast('Нажми Ctrl+C или ⌘C — текст выделен в поле ниже');
+    }
+  }
+  function roomWarning(team) {
+    const r = team && state.rooms[team.name];
+    return r && r.pending ? ` Room «${team.room}» ещё не согласован.` : '';
+  }
+
+  /* ---------- roster sources ---------- */
+  function applyRoster(r) {
+    state.teams = r.teams;
+    const names = r.teams.map(t => t.name);
+    state.schedule = (r.schedule || []).filter(m => names.includes(m.team1) && names.includes(m.team2));
+    state.rooms = r.rooms || {};
+    state.warnings = r.warnings || [];
+    state.scheduleLabel = r.scheduleLabel || '';
+    state.syncedAt = r.syncedAt || Date.now();
+    state.origin = r.origin || '';
+    if (r.source) { state.source = r.source; updateSourceLinks(); }
+    state.stale = false;
+    if (!names.includes(state.a)) state.a = names[0];
+    if (!names.includes(state.b) || state.b === state.a) state.b = names.find(n => n !== state.a) || '';
+    state.keysA = reconcile(getTeam('a'), state.keysA);
+    state.keysB = reconcile(getTeam('b'), state.keysB);
+    render(); renderSync(); renderNotice();
+  }
+
+  async function saveRoster(roster) {
+    const db = await use('db');
+    if (!db || dbReadOnly) return 'local';
+    try { await db.doc(ROSTER_PATH).set(JSON.parse(JSON.stringify(roster))); return 'shared'; }
+    catch (e) {
+      if (e && e.code === 'invalid_argument') { dbReadOnly = true; return 'readonly'; }
+      return 'failed';
+    }
+  }
+  function savedNote(result) {
+    return result === 'shared' ? ' Вся команда видит эту версию.'
+      : result === 'readonly' ? ' Сохранить для всей команды не вышло: у тебя доступ только на просмотр.'
+      : result === 'failed' ? ' Для команды не сохранилось, попробуй обновить ещё раз.' : '';
+  }
+
+  let sheetJs = null;
+  function loadSheetJS() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    if (!sheetJs) {
+      sheetJs = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = SHEETJS_URL; s.async = true;
+        s.onload = () => (window.XLSX ? resolve(window.XLSX) : reject(new Error('Модуль чтения таблиц загрузился с ошибкой.')));
+        s.onerror = () => { s.remove(); sheetJs = null; reject(new Error('Не загрузился модуль чтения таблиц. Проверь сеть и нажми «Обновить составы» ещё раз.')); };
+        document.head.appendChild(s);
+      });
+    }
+    return sheetJs;
+  }
+  function payloadBase64(res) {
+    let p = res && res.payload;
+    if (typeof p === 'string') { try { p = JSON.parse(p); } catch (e) { /* not JSON */ } }
+    if (p && typeof p === 'object' && typeof p.content === 'string') return { b64: p.content, title: str(p.title) };
+    throw new Error('Google Drive вернул файл в неожиданном виде. Попробуй обновить ещё раз.');
+  }
+  function driveErrorText(e) {
+    const code = e && e.code;
+    switch (code) {
+      case 'no_mcp':
+      case 'not_granted': case 'capability_disabled': case 'capability_removed':
+        return 'В этом окне панель не может обратиться к Google Drive. Открой её в claude.ai или вставь лист «Все игроки» вручную: ⚙ Источник данных.';
+      case 'needs_reauth':
+        return 'Google Drive просит войти заново. Переподключи его в claude.ai → Settings → Connectors и нажми «Обновить составы».';
+      case 'server_not_connected': case 'selection_required': case 'server_not_found':
+        return 'Google Drive не подключён к твоему аккаунту. Добавь его в claude.ai → Settings → Connectors или вставь лист «Все игроки» вручную: ⚙ Источник данных.';
+      case 'not_in_manifest': case 'approval_required': case 'consent_required':
+        return 'Панели не дали доступ к Google Drive. Нажми «Обновить составы» и разреши доступ или вставь лист вручную: ⚙ Источник данных.';
+      case 'blocked_by_policy':
+        return 'Политика организации не пускает панель в Google Drive. Вставь лист «Все игроки» вручную: ⚙ Источник данных.';
+      case 'tool_error':
+        return 'Google Drive не отдал таблицу. Проверь, что у тебя есть доступ к файлу и ссылка верная.';
+      case 'server_unavailable': case 'upstream_error': case 'rate_limited':
+        return 'Google Drive долго отвечает. Попробуй обновить ещё раз через минуту.';
+      default:
+        return (e && e.message) || 'Не удалось обновить составы.';
+    }
+  }
+  async function callDrive(mcp, input) {
+    try { return await mcp.callTool(DRIVE, 'download_file_content', input, { cache: false }); }
+    catch (e) {
+      if (e && e.retryable) {
+        await sleep(Math.min(Number(e.retryAfterMs) || (700 + Math.random() * 1300), 15000));
+        return mcp.callTool(DRIVE, 'download_file_content', input, { cache: false });
+      }
+      throw e;
+    }
+  }
+
+  async function refreshFromDrive(opts) {
+    const auto = !!(opts && opts.auto);
+    if (loading) return;
+    loading = true;
+    $('refreshBtn').disabled = true; $('refreshBtn').textContent = 'Обновляем…';
+    if (!auto) hideError();
+    try {
+      const mcp = await use('mcp');
+      if (!mcp) throw { code: 'no_mcp' };
+      const res = await callDrive(mcp, { fileId: state.source.id, exportMimeType: XLSX_MIME });
+      const file = payloadBase64(res);
+      const XLSX = await loadSheetJS();
+      const roster = parseWorkbook(XLSX.read(file.b64, { type: 'base64' }));
+      roster.syncedAt = Date.now();
+      roster.origin = 'drive';
+      roster.source = { id: state.source.id, title: file.title || state.source.title || '' };
+      applyRoster(roster);
+      hideError();
+      const saved = await saveRoster(roster);
+      if (!auto) toast('Составы обновлены из таблицы.' + savedNote(saved));
+    } catch (e) {
+      state.stale = true;
+      renderSync(); render();
+      const last = state.teams.length && state.syncedAt ? ` Показаны данные от ${mskStamp(state.syncedAt)}.` : '';
+      showError(driveErrorText(e) + last);
+    } finally {
+      loading = false;
+      $('refreshBtn').disabled = false; $('refreshBtn').textContent = '↻ Обновить составы';
+    }
+  }
+
+  async function connectStore() {
+    const db = await use('db');
+    if (!db) { if (!state.teams.length) refreshFromDrive({ auto: true }); return; }
+    let decided = false;
+    const decide = () => { if (decided) return; decided = true; if (!state.teams.length) refreshFromDrive({ auto: true }); };
+    const fallbackTimer = setTimeout(decide, 7000);
+    try {
+      db.doc(ROSTER_PATH).onSnapshot(snap => {
+        if (snap.exists) {
+          decided = true; clearTimeout(fallbackTimer);
+          const r = sanitizeRoster(snap.data());
+          if (r && (!state.teams.length || r.syncedAt > (state.syncedAt || 0))) applyRoster(r);
+        } else if (!snap.metadata.fromCache) {
+          clearTimeout(fallbackTimer); decide();
+        }
+      }, () => { clearTimeout(fallbackTimer); decide(); });
+    } catch (e) { clearTimeout(fallbackTimer); decide(); }
+  }
+
+  function loadPasted() {
+    const text = $('pasteArea').value;
+    if (!text.trim()) { toast('Сначала вставь данные из таблицы'); return; }
+    const rows = text.replace(/\r/g, '').split('\n').map(line => line.split('\t'));
+    let roster = null, what = '';
+    try {
+      const parsed = parseTeams(rows);
+      roster = { teams: parsed.teams, warnings: parsed.warnings, schedule: state.schedule, scheduleLabel: state.scheduleLabel, rooms: state.rooms };
+      what = `Загружено ${parsed.teams.length} ${plural(parsed.teams.length, 'команда', 'команды', 'команд')}.`;
+    } catch (e) {
+      const schedule = parseScheduleRows(rows);
+      const rooms = schedule ? null : parseRoomsRows(rows);
+      if ((schedule || rooms) && !state.teams.length) { toast('Сначала вставь лист «Все игроки», потом расписание или комнаты'); return; }
+      if (schedule) { roster = { teams: state.teams, warnings: state.warnings, schedule, scheduleLabel: '', rooms: state.rooms }; what = `Расписание: ${schedule.length} ${plural(schedule.length, 'матч', 'матча', 'матчей')}.`; }
+      else if (rooms) { roster = { teams: state.teams, warnings: state.warnings, schedule: state.schedule, scheduleLabel: state.scheduleLabel, rooms }; what = 'Комнаты обновлены.'; }
+      else { toast('Не нашёл ни составов, ни расписания. Скопируй лист целиком, вместе с заголовками.'); return; }
+    }
+    roster.warnings = [...roster.warnings.filter(w => !/^В расписании|room в составах/.test(w)), ...crossCheck(roster)];
+    roster.syncedAt = Date.now(); roster.origin = 'paste'; roster.source = { ...state.source };
+    applyRoster(roster); hideError();
+    $('pasteArea').value = '';
+    closeSettings();
+    saveRoster(roster).then(saved => toast(what + savedNote(saved)));
+  }
+
+  /* ---------- downloads ---------- */
+  async function downloadJson() {
+    let text;
+    try { text = JSON.stringify(buildObs(state.template, getTeam('a'), getTeam('b'), state.keysA, state.keysB), null, 2) + '\n'; }
+    catch (e) { showError(e.message); return; }
+    const filename = safeFilename(state.a, state.b);
+    const dl = await use('downloads');
+    if (dl) {
+      try { await dl.save({ filename, data: text }); toast('JSON готов. Импортируй его в OBS → Коллекция сцен → Импорт.'); return; }
+      catch (e) {
+        if (e && e.code === 'declined') { toast('Сохранение отменено'); return; }
+        if (e && e.code === 'rate_limited') { toast('Окно сохранения уже открыто'); return; }
+      }
+    }
+    copy(text, `JSON скопирован. Сохрани его как ${filename} и импортируй в OBS → Коллекция сцен → Импорт.`);
+  }
+
+  /* ---------- settings dialog ---------- */
+  function openSettings() {
+    $('sourceUrl').value = `https://docs.google.com/spreadsheets/d/${state.source.id}/edit`;
+    const d = $('settingsDialog');
+    if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
+  }
+  function closeSettings() {
+    const d = $('settingsDialog');
+    if (typeof d.close === 'function') d.close(); else d.removeAttribute('open');
+  }
+
+  /* ---------- events ---------- */
+  $('teamGrid').addEventListener('change', e => {
+    const el = e.target;
+    if (el.dataset.team) {
+      const side = el.dataset.team;
+      state[side] = el.value;
+      state[side === 'a' ? 'keysA' : 'keysB'] = defaultLineup(getTeam(side));
+      render();
+    } else if (el.dataset.player) {
+      keysOf(el.dataset.player)[Number(el.dataset.slot)] = el.value;
+      render();
+    }
+  });
+  $('teamGrid').addEventListener('click', e => {
+    const el = e.target.closest('button');
+    if (!el) return;
+    if (el.dataset.reset) {
+      const side = el.dataset.reset;
+      state[side === 'a' ? 'keysA' : 'keysB'] = defaultLineup(getTeam(side));
+      render(); toast('Порядок восстановлен из таблицы');
+    } else if (el.dataset.view) {
+      const p = chosen(el.dataset.view)[Number(el.dataset.slot)];
+      if (p) copy(viewUrl(p), `VIEW ${p.nick} скопирован`);
+    } else if (el.dataset.copyTeam) {
+      const side = el.dataset.copyTeam, players = chosen(side);
+      if (players.length !== 5 || players.some(p => !p)) { toast('Сначала выбери пять игроков'); return; }
+      copy(playerText(getTeam(side), players), 'Ссылки для игроков скопированы.' + roomWarning(getTeam(side)));
+    }
+  });
+  $('refreshBtn').addEventListener('click', () => refreshFromDrive());
+  $('swapBtn').addEventListener('click', () => {
+    [state.a, state.b] = [state.b, state.a];
+    [state.keysA, state.keysB] = [state.keysB, state.keysA];
+    render(); toast('Команды поменялись сторонами');
+  });
+  $('matchSelect').addEventListener('change', () => {
+    const m = state.schedule.find(x => x.key === $('matchSelect').value);
+    if (!m) return;
+    state.a = m.team1; state.b = m.team2;
+    state.keysA = defaultLineup(getTeam('a')); state.keysB = defaultLineup(getTeam('b'));
+    render();
+  });
+  $('tabObserver').addEventListener('click', () => { state.tab = 'observer'; renderOutput(); saveLocal(); });
+  $('tabPlayers').addEventListener('click', () => { state.tab = 'players'; renderOutput(); saveLocal(); });
+  $('copyAllBtn').addEventListener('click', () => {
+    const extra = state.tab === 'players' ? roomWarning(getTeam('a')) + roomWarning(getTeam('b')) : '';
+    copy($('output').value, 'Скопировано в буфер обмена.' + extra);
+  });
+  $('downloadBtn').addEventListener('click', downloadJson);
+  $('settingsBtn').addEventListener('click', openSettings);
+  $('closeSettings').addEventListener('click', closeSettings);
+  $('resetSource').addEventListener('click', () => { $('sourceUrl').value = `https://docs.google.com/spreadsheets/d/${DEFAULT_SOURCE.id}/edit`; });
+  $('pasteBtn').addEventListener('click', loadPasted);
+  $('settingsForm').addEventListener('submit', event => {
+    event.preventDefault();
+    const match = $('sourceUrl').value.trim().match(/^https:\/\/docs\.google\.com\/spreadsheets\/d\/([\w-]{20,100})(?:[/?#]|$)/);
+    if (!match) { toast('Вставь ссылку на Google Sheets'); return; }
+    if (match[1] !== state.source.id) state.source = { id: match[1], title: match[1] === DEFAULT_SOURCE.id ? DEFAULT_SOURCE.title : '' };
+    updateSourceLinks(); closeSettings();
+    refreshFromDrive();
+  });
+
+  /* ---------- boot ---------- */
+  loadLocal();
+  updateSourceLinks();
+  renderSync();
+  render();
+  fetch('assets/obs-template.json', { cache: 'no-store' })
+    .then(r => { if (!r.ok) throw new Error('Не загружен шаблон OBS.'); return r.json(); })
+    .then(t => { state.template = t; renderOutput(); })
+    .catch(e => showError(e.message || 'Не загружен шаблон OBS.'));
+  use('downloads').then(dl => { if (!dl) $('downloadBtn').innerHTML = 'Скопировать JSON <span>⧉</span>'; });
+  connectStore();
+})();
+</script>
