@@ -381,14 +381,14 @@ function renderOutput() {
     playersTab ? 'tabPlayers' : 'tabObserver');
   $('previewLabel').textContent = playersTab ?
     'Команда, жирный ник и отдельная PUSH-ссылка' :
-    'Ники и VIEW-ссылки строго по слотам 1–10';
+    'Порядок слотов 1–10: команда и ник, без ссылок';
   $('output').value = error ? '' : playersTab ?
     playerText(getTeam('a'), chosen('a')) + '\n\n' +
       playerText(getTeam('b'), chosen('b')) :
     observerText(getTeam('a'), getTeam('b'), chosen('a'), chosen('b'));
   $('copyFoot').textContent = playersTab ?
     'Только выбранные игроки. Ссылки директора сюда не попадают.' :
-    'Имена, ссылки и JSON используют один порядок десяти слотов.';
+    'Порядок совпадает со сценами «Игрок 1–10» в JSON для OBS.';
 }
 
 async function copy(text) {

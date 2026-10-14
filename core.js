@@ -134,11 +134,12 @@ export function pushUrl(p) {
 export function directorUrl(team) {
   return `https://vdo.ninja/?director=${encodeURIComponent(team.room)}`;
 }
+// Slot order only: the observer gets the cameras from the OBS JSON.
 export function observerText(a, b, pa, pb) {
+  const slot = (p, i) => `${i + 1}. ${i < 5 ? a.name : b.name} — ${p.nick}`;
   return `${a.name} — ${b.name}\n\n` +
-    [...pa, ...pb].map((p, i) =>
-      `${i + 1}. ${i < 5 ? a.name : b.name} — ${p.nick}\n${viewUrl(p)}`
-    ).join('\n\n');
+    pa.map((p, i) => slot(p, i)).join('\n') + '\n\n' +
+    pb.map((p, i) => slot(p, i + 5)).join('\n');
 }
 function markdown(value) {
   return line(value).replace(/[\\[\]*_~`<>#!()]/g, '\\$&');

@@ -125,6 +125,9 @@ async def run(args):
         assert await page.locator("#tabObserver").get_attribute(
             "aria-selected"
         ) == "true"
+        observer = await page.input_value("#output")
+        assert "http" not in observer and "vdo.ninja" not in observer
+        assert observer.count("\n10. ") == 1
         passed("keyboard-accessible output tabs")
 
         select = page.locator('[data-player="a"][data-slot="0"]')

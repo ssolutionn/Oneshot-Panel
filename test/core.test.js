@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
-  decodeGviz, parseTeams, parseSchedule, scheduleDay, defaultLineup,
+  decodeGviz, parseTeams, parseSchedule, scheduleDay, defaultLineup, observerText,
   selectedPlayers, validateMatch, playerText, viewUrl, pushUrl,
   safeFilename, buildObs, MAP_POOL, VETO_RULES,
   validateVeto, appendVeto, vetoText
@@ -92,6 +92,17 @@ test('Player output has bold nickname and separate PUSH URL', () => {
   assert.equal((text.match(/https:\/\/vdo\.ninja\//g) || []).length, 5);
   assert.ok(!text.includes('[**'));
   assert.ok(!text.includes('director='));
+});
+
+test('Observer text is the slot order only, without links', () => {
+  const [a, b, ka, kb] = fixture();
+  const text = observerText(a, b, selectedPlayers(a, ka), selectedPlayers(b, kb));
+  assert.ok(!/https?:|vdo\.ninja/.test(text));
+  const lines = text.split('\n').filter(l => /^\d+\. /.test(l));
+  assert.equal(lines.length, 10);
+  assert.equal(lines[0], '1. HYPERSPIRIT — Ciocardau');
+  assert.equal(lines[5], '6. 6yuBoJlbl — Player1-0');
+  assert.ok(text.startsWith('HYPERSPIRIT — 6yuBoJlbl\n\n'));
 });
 
 test('URL parameters and Markdown are escaped', () => {
