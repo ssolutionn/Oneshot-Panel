@@ -1,6 +1,6 @@
 # CyberClash Webcam Desk
 
-Панель обсервера для CyberClash S2: составы из рабочей таблицы → 10 слотов (01–05 / 06–10) → VIEW-ссылки обсерверу, PUSH-ссылки игрокам (Discord markdown) → коллекция сцен OBS в JSON.
+Панель обсервера для CyberClash S2: составы и расписание из таблицы турнира → 10 слотов (01–05 / 06–10) → VIEW-ссылки обсерверу, PUSH-ссылки игрокам (Discord markdown) → коллекция сцен OBS в JSON.
 
 Работает как артефакт Claude (`index.html` + `assets/obs-template.json`).
 
