@@ -422,6 +422,8 @@ async def run(args):
         card = ("getComputedStyle(document.querySelector('.team-card'))"
                 ".backgroundColor")
         await expect(toggle).to_have_text("☀ День")
+        await expect(night_page.locator(".logo-night")).to_be_visible()
+        await expect(night_page.locator(".logo-day")).to_be_hidden()
         assert await night_page.evaluate(background) == "rgb(16, 16, 18)"
         assert await night_page.evaluate(card) == "rgb(26, 26, 29)"
         await night_page.screenshot(
@@ -429,6 +431,11 @@ async def run(args):
         )
         await toggle.click()
         await expect(toggle).to_have_text("☾ Ночь")
+        await expect(night_page.locator(".logo-day")).to_be_visible()
+        await expect(night_page.locator(".logo-night")).to_be_hidden()
+        assert await night_page.evaluate(
+            "document.querySelector('meta[name=theme-color]').content"
+        ) == "#ffffff"
         assert await night_page.evaluate(background) == "rgb(245, 245, 245)"
         assert await night_page.evaluate(card) == "rgb(255, 255, 255)"
         await night_page.reload()
@@ -444,7 +451,7 @@ async def run(args):
         await expect(toggle).to_have_text("☾ Ночь")
         await night.close()
         assert not errors, errors
-        passed("night mode follows the system; toggle persists and wins")
+        passed("night mode follows the system; toggle persists, swaps the logo")
         await browser.close()
 
     print(

@@ -17,9 +17,12 @@
       : systemDark.matches ? 'dark' : 'light');
 
   const label = () => {
+    const night = current() === 'dark';
+    // Browser top bar matches the header (white by day, black at night).
+    document.querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', night ? '#0a0a0b' : '#ffffff');
     const button = document.getElementById('themeToggle');
     if (!button) return;
-    const night = current() === 'dark';
     button.textContent = night ? '☀ День' : '☾ Ночь';
     button.title = night ? 'Включить дневной режим' : 'Включить ночной режим';
   };

@@ -6,9 +6,10 @@ truth. This script inlines it into one Claude artifact page and swaps only
 what the artifact sandbox does not allow:
   - Google Sheets gviz fetch  -> Google Drive connector (xlsx + SheetJS),
     latest sheets cached in the artifact store for the whole crew;
-  - <a download>              -> downloads capability (clipboard fallback);
+  - <a download>              -> downloads capability, then a normal download;
+                                 copying is only a visible backup button;
   - confirm()                 -> two-step reset button;
-  - absolute /assets paths    -> relative paths.
+  - logos                     -> inline data URIs, other /assets paths relative.
 Run from the repository root:
   python3 claude-artifact/build_oneshot_artifact.py [--snapshot sheets.json]
 --snapshot embeds the last synced sheets (the artifact's panel/sheets
@@ -16,6 +17,7 @@ document) so viewers outside the claude.ai viewer still see rosters. That
 build goes to claude-artifact/dist/ (git-ignored: the repository is public
 and the snapshot holds rosters, rooms and stream IDs).
 """
+import base64
 import json
 import re
 import sys
@@ -52,13 +54,28 @@ css = replace_once(css, "main{padding:0 16px}",
                    "main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}")
 css = replace_once(css, "bottom:24px;left:50%", "bottom:calc(24px + env(safe-area-inset-bottom,0px));left:50%")
 css += ("#pasteArea{min-height:140px}"
+        ".export-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}"
+        ".download-note{color:var(--warn-ink)!important;background:var(--warn);border:1px solid var(--warn-line);"
+        "border-radius:4px;padding:8px 10px;line-height:1.6}"
+        "@media(max-width:800px){.export-actions .button{flex:1}}"
         ".dialog-section{border-top:1px solid var(--line);margin-top:22px}\n")
 
 # ---------- markup ----------
 html = (ROOT / "index.html").read_text(encoding="utf-8")
 body = html[html.index("<body>") + len("<body>"):html.index("</body>")]
 body = body.replace('<script type="module" src="/app.js"></script>', "")
-body = replace_once(body, 'src="/assets/oneshot-logo.png"', 'src="assets/oneshot-logo.png"')
+# Logos travel inside the page: a link opened as a plain tab has no asset host.
+for logo in ("oneshot-logo-day.png", "oneshot-logo-night.png"):
+    data = base64.b64encode((ROOT / "assets" / logo).read_bytes()).decode()
+    body = replace_once(body, f'src="/assets/{logo}"', f'src="data:image/png;base64,{data}"')
+# Download: the main button always downloads; access and copy are fallbacks.
+body = replace_once(body, '<p id="filenamePreview"></p>',
+                    '<p id="filenamePreview"></p>\n          <p id="downloadNote" class="download-note" role="status" hidden></p>')
+body = replace_once(body, '<button class="button primary" id="downloadBtn" disabled>Скачать JSON</button>',
+                    '<div class="export-actions">'
+                    '<button class="button" id="downloadAccess" hidden>Разрешить скачивание</button>'
+                    '<button class="button" id="copyJsonBtn" hidden>Скопировать JSON</button>'
+                    '<button class="button primary" id="downloadBtn" disabled>Скачать JSON</button></div>')
 body = replace_once(body, '<a class="brand" href="/"', '<a class="brand" href="#webcams"')
 settings = '''<dialog id="settingsDialog" aria-labelledby="settingsHeading">
     <form id="settingsForm">
@@ -388,40 +405,80 @@ async function connectStore() {
 
 '''
 
-DOWNLOAD = r'''let downloadsCap = null;
+DOWNLOAD = r'''function obsFile() {
+  const filename = safeFilename(state.a, state.b,
+    $('matchTime').value, $('matchStage').value);
+  const text = JSON.stringify(buildObs(state.template,
+    getTeam('a'), getTeam('b'), state.keysA, state.keysB), null, 2) + '\n';
+  return { filename, text };
+}
+function downloadNote(text) {
+  $('downloadNote').textContent = text;
+  $('downloadNote').hidden = !text;
+}
+// A plain browser tab, or a frame that allows downloads, saves a normal <a download>.
+function directDownload(filename, text) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
 $('downloadBtn').addEventListener('click', async () => {
-  let filename, text;
-  try {
-    filename = safeFilename(state.a, state.b,
-      $('matchTime').value, $('matchStage').value);
-    text = JSON.stringify(buildObs(state.template,
-      getTeam('a'), getTeam('b'), state.keysA, state.keysB), null, 2) + '\n';
-  } catch (error) { showError(error.message); return; }
-  const downloads = downloadsCap;
+  let file;
+  try { file = obsFile(); } catch (error) { showError(error.message); return; }
+  downloadNote('');
+  $('downloadAccess').hidden = $('copyJsonBtn').hidden = true;
+  const done = `Скачан ${file.filename}. OBS → Коллекция сцен → Импорт.`;
+  // Inside claude.ai the file goes through the downloads capability:
+  // Claude shows its own save prompt with the final file name.
+  const downloads = await use('downloads');
   if (downloads) {
     try {
-      await downloads.save({ filename, data: text });
-      toast('JSON готов. OBS → Коллекция сцен → Импорт.');
+      await downloads.save({ filename: file.filename, data: file.text });
+      toast(done);
       return;
     } catch (error) {
       if (error?.code === 'declined') { toast('Сохранение отменено'); return; }
       if (error?.code === 'rate_limited') { toast('Окно сохранения уже открыто'); return; }
+      // unavailable, not_granted and the like: try a normal download below.
     }
   }
-  if (window.self === window.top) {
-    // Opened as a plain browser tab (outside the claude.ai viewer): a normal download works.
-    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
-    toast('JSON готов. OBS → Коллекция сцен → Импорт.');
+  directDownload(file.filename, file.text);
+  if (window.self === window.top) { toast(done); return; }
+  // A viewer without the capability may block that download without a sign,
+  // so say why and what to do instead of switching to copying.
+  const permissions = await use('permissions');
+  const access = permissions ?
+    await permissions.state('downloads').catch(() => 'unavailable') : 'unavailable';
+  $('copyJsonBtn').hidden = false;
+  if (access === 'denied') {
+    $('downloadAccess').hidden = false;
+    downloadNote('Claude запретил панели сохранять файлы. Нажми «Разрешить скачивание», включи Downloads и снова нажми «Скачать JSON».');
+  } else {
+    downloadNote('Если файл не скачался, это окно Claude не даёт сохранять файлы. Открой панель по ссылке claude.ai/artifact в браузере (Chrome, Safari) — там JSON скачивается. Запасной вариант — «Скопировать JSON».');
+  }
+});
+$('downloadAccess').addEventListener('click', async () => {
+  const permissions = await use('permissions');
+  try {
+    await permissions.manage();
+  } catch {
+    downloadNote('Открой меню Permissions у артефакта, включи Downloads и снова нажми «Скачать JSON».');
     return;
   }
-  copy(text, `JSON скопирован. Сохрани его как «${filename}» и импортируй в OBS.`);
+  if (await permissions.state('downloads') !== 'denied') {
+    $('downloadAccess').hidden = true;
+    downloadNote('Готово. Нажми «Скачать JSON» ещё раз.');
+  }
+});
+$('copyJsonBtn').addEventListener('click', () => {
+  let file;
+  try { file = obsFile(); } catch (error) { showError(error.message); return; }
+  copy(file.text, `JSON скопирован. Сохрани его как «${file.filename}» и импортируй в OBS.`);
 });
 
 '''
@@ -555,10 +612,7 @@ app = replace_once(app, "fetch('/assets/obs-template.json')", "fetch('assets/obs
 app = replace_once(app, "  pending: null\n};", "  pending: null, cache: null\n};")
 if not app.rstrip().endswith("refresh();"):
     raise SystemExit("unexpected app.js ending")
-app = app.rstrip()[:-len("refresh();")] + """use('downloads').then(downloads => {
-  downloadsCap = downloads;
-  if (!downloads && window.self !== window.top) $('downloadBtn').textContent = 'Скопировать JSON';
-});
+app = app.rstrip()[:-len("refresh();")] + """use('downloads');
 connectStore();
 """
 for banned in ["confirm(", "/gviz/"]:
