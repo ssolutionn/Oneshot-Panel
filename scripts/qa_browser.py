@@ -533,6 +533,13 @@ async def run(args):
         await expect(night_page.locator(".logo-day")).to_be_hidden()
         assert await night_page.evaluate(background) == "rgb(16, 16, 18)"
         assert await night_page.evaluate(card) == "rgb(26, 26, 29)"
+        # Windows paints select lists from option styles: dark list, light text.
+        assert await night_page.evaluate(
+            "[...document.querySelectorAll('select option')].every(o => {"
+            " const s = getComputedStyle(o);"
+            " return s.backgroundColor === 'rgb(26, 26, 29)' &&"
+            " s.color === 'rgb(236, 236, 236)'; })"
+        )
         await night_page.select_option("#matchSelect", options[0])
         await night_page.screenshot(
             path=str(artifacts / "desktop-night.png"), full_page=True
