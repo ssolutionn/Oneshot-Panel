@@ -1,8 +1,9 @@
 export const DEFAULT_SOURCE = {
   id: '1e__ijBjufD19SWBkSJL177vmmfMh2tdykYQHAS06S8I',
   gid: '1315978454',
-  scheduleId: '1e__ijBjufD19SWBkSJL177vmmfMh2tdykYQHAS06S8I',
-  scheduleGid: '1758299905'
+  // Schedule (Group Stage) of the organizer's sheet: every day, by date.
+  scheduleId: '1GtwcpVnyxY1YOs6ZTrXwJr5mjZqI0QxjLSKjimn9G2o',
+  scheduleGid: '815739139'
 };
 
 const line = value => String(value ?? '').replace(/[\r\n\t]+/g, ' ').trim();
@@ -46,23 +47,72 @@ export function parseTeams(rows) {
   return teams;
 }
 
+const TIME = /^(\d{1,2}):([0-5]\d)(?::[0-5]\d)?$/;
+const EN_MONTHS = ['january', 'february', 'march', 'april', 'may', 'june',
+  'july', 'august', 'september', 'october', 'november', 'december'];
+const PLAYOFF_STAGES = [
+  [/^quarter-?finals?\b/i, 'Четвертьфинал'], [/^semi-?finals?\b/i, 'Полуфинал'],
+  [/^3rd place/i, 'Матч за 3 место'], [/^grand final/i, 'Гранд-финал']
+];
+
+// The organizer's sheet ("Schedule (Group Stage)", "Schedule (Playoffs)")
+// names its columns in a header row; each match row carries its own date.
+function organizerColumns(v) {
+  const find = test => v.findIndex(c => test(c.toLowerCase()));
+  const cols = {
+    stage: find(c => c === 'stage'), date: find(c => c === 'date'),
+    time: find(c => c.startsWith('msk')),
+    team1: find(c => c === 'team 1'), team2: find(c => c === 'team 2')
+  };
+  return Object.values(cols).every(i => i >= 0) ? cols : null;
+}
+function organizerDate(text) {
+  const m = text.toLowerCase().match(/^([a-z]+)\s+(\d{1,2})$/);
+  const month = m ? EN_MONTHS.indexOf(m[1]) : -1;
+  return month < 0 ? '' :
+    `${m[2].padStart(2, '0')}.${String(month + 1).padStart(2, '0')}`;
+}
+function organizerStage(text) {
+  const group = text.match(/\b([A-H])\d+$/);
+  if (group) return { group: group[1], stage: `Группа ${group[1]}` };
+  const playoff = PLAYOFF_STAGES.find(([pattern]) => pattern.test(text));
+  const number = text.match(/\s(\d+)$/)?.[1];
+  return {
+    group: '',
+    stage: playoff ? playoff[1] + (number ? ` ${number}` : '') : text
+  };
+}
+// "PRIVATE (ex-RUBY)" in the organizer's sheet is "PRIVATE" in the rosters.
+const teamName = text => text.replace(/\s*\(ex-[^)]*\)\s*$/i, '');
+
+// Two layouts: the organizer's sheet (found by its header row, dated rows)
+// and a day sheet «Матчи ДД.ММ» (B time, C/D teams, E group; no dates).
 export function parseSchedule(rows) {
   // The key names the match, not its row: a row inserted above it in the
   // sheet must not reset a veto in progress. Identical rows get a counter.
   const seen = new Map();
+  let cols = null;
   return rows.flatMap(row => {
     const v = row.map(line);
-    const time = v[1]?.match(/^(\d{1,2}):([0-5]\d)(?::[0-5]\d)?$/);
-    if (!v[2] || !v[3] || !time || Number(time[1]) > 23) return [];
-    const stage = /^[A-H]$/.test(v[4] || '') ? `Группа ${v[4]}` : v[4] || '';
-    const fields = JSON.stringify(v.slice(1, 5));
-    const repeat = seen.get(fields) || 0;
-    seen.set(fields, repeat + 1);
-    return [{
-      time: `${time[1].padStart(2, '0')}:${time[2]}`,
-      team1: v[2], team2: v[3], group: v[4] || '', stage,
-      key: JSON.stringify([...v.slice(1, 5), repeat])
-    }];
+    const header = organizerColumns(v);
+    if (header) { cols = header; return []; }
+    const match = cols ? {
+      date: organizerDate(v[cols.date] || ''), time: v[cols.time] || '',
+      team1: teamName(v[cols.team1] || ''), team2: teamName(v[cols.team2] || ''),
+      ...organizerStage(v[cols.stage] || '')
+    } : {
+      date: '', time: v[1] || '', team1: v[2] || '', team2: v[3] || '',
+      group: v[4] || '',
+      stage: /^[A-H]$/.test(v[4] || '') ? `Группа ${v[4]}` : v[4] || ''
+    };
+    const time = match.time.match(TIME);
+    if (!match.team1 || !match.team2 || !time || Number(time[1]) > 23) return [];
+    match.time = `${time[1].padStart(2, '0')}:${time[2]}`;
+    const fields = [match.date, match.time, match.team1, match.team2, match.stage];
+    const id = JSON.stringify(fields);
+    const repeat = seen.get(id) || 0;
+    seen.set(id, repeat + 1);
+    return [{ ...match, key: JSON.stringify([...fields, repeat]) }];
   });
 }
 

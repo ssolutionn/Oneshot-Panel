@@ -11,6 +11,8 @@
   --shell-line:#e1e3e7; --nav-bg:#fafafb; --slot-bg:#eff0f3; --slot-ink:#505867;
   --accent-soft:#fff0f2; --toggle-track:#dfe1e6; --toggle-knob:#fff;
   --toggle-shadow:0 1px 4px #0002; --header-rule:#eceef1; --map-rule:#ffffff26;
+  /* Same in both modes: several team logos are white on transparent. */
+  --logo-plate:#141416; --logo-plate-line:#ffffff14;
 }
 @media(prefers-color-scheme:dark) {
   :root:not([data-mode=light]):not([data-theme=light]) {
@@ -98,8 +100,11 @@ h2 { font-size:17px; line-height:1.4; letter-spacing:-.3px; margin-bottom:0; }
 .team-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
 .team-card { background:var(--surface); border:1px solid var(--line); border-radius:8px; overflow:hidden; min-width:0; }
 .card-top { display:flex; align-items:center; gap:13px; padding:16px 16px 13px; border-bottom:1px solid var(--divider); }
-.team-letter { display:grid; place-items:center; width:34px; height:38px; flex-shrink:0; color:var(--ink); background:var(--soft); clip-path:polygon(50% 0,100% 27%,88% 78%,50% 100%,12% 78%,0 27%); font-size:18px; font-weight:900; }
+.team-letter { display:grid; place-items:center; width:34px; height:38px; margin:4px 6px; flex-shrink:0; color:var(--ink); background:var(--soft); clip-path:polygon(50% 0,100% 27%,88% 78%,50% 100%,12% 78%,0 27%); font-size:18px; font-weight:900; }
 .team-card:nth-child(2) .team-letter { color:var(--red); background:var(--accent-soft); }
+.team-logo { display:grid; place-items:center; width:46px; height:46px; flex-shrink:0; border-radius:10px; background:var(--logo-plate); box-shadow:inset 0 0 0 1px var(--logo-plate-line); }
+.team-logo img { display:block; width:34px; height:34px; object-fit:contain; }
+.team-logo:empty { display:none; }
 .team-heading { flex:1; min-width:0; }
 .team-heading label { display:block; font-size:8px; letter-spacing:1.2px; color:var(--muted); margin-bottom:4px; }
 .team-heading select { width:100%; max-width:100%; min-width:0; border:0; background:transparent; color:var(--ink); padding:0 12px 0 0; font-size:20px; font-weight:800; letter-spacing:-.5px; }

@@ -4,9 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#ffffff">
-  <title>Oneshot webcam panel</title>
+  <title>Oneshot Panel</title>
   <meta name="description" content="Вебки игроков CyberClash, коллекции сцен OBS и вето для HLTV.">
-  <link rel="icon" href="/assets/favicon.png">
+  <link rel="icon" type="image/png" sizes="256x256" href="/assets/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
   <script src="/theme.js"></script>
   <link rel="stylesheet" href="/style.css">
 </head>
@@ -14,10 +15,10 @@
   <a class="skip-link" href="#webcams">К составам команд</a>
   <div class="app-shell">
   <header class="site-header">
-    <a class="brand" href="/" aria-label="Oneshot webcam panel">
+    <a class="brand" href="/" aria-label="Oneshot Panel">
       <img class="logo-day" src="/assets/oneshot-logo-day.png" alt="Oneshot" width="359" height="96">
       <img class="logo-night" src="/assets/oneshot-logo-night.png" alt="Oneshot" width="359" height="96">
-      <span class="brand-sub">webcam panel</span>
+      <span class="brand-sub">panel</span>
     </a>
     <div class="header-actions">
       <a id="sidebarSource" class="source-link" target="_blank" rel="noreferrer" title="Открыть Google Sheets">
@@ -132,7 +133,7 @@
     </section>
 
     <footer>
-      Oneshot webcam panel
+      Oneshot Panel
       <span>Веб-панель CyberClash · данные из Google Sheets</span>
       <a href="https://vdo.ninja/" target="_blank" rel="noreferrer">VDO.Ninja</a>
     </footer>
@@ -152,8 +153,10 @@
       <label>Таблица расписания (необязательно)<input id="scheduleUrl" type="url"></label>
       <label>GID расписания<input id="scheduleGid" inputmode="numeric" pattern="[0-9]+"></label>
       <p class="muted">
-        Расписание: A — дата, B — время, C/D — команды, E — стадия.
-        Вторая рабочая таблица:
+        Расписание: лист организатора «Schedule (...)» (Stage, Date, MSK,
+        Team 1, Team 2 — матчи на сегодня и дальше) или дневной лист
+        «Матчи ДД.ММ» (B — время, C/D — команды, E — стадия).
+        Таблица организатора:
         <a href="https://docs.google.com/spreadsheets/d/1GtwcpVnyxY1YOs6ZTrXwJr5mjZqI0QxjLSKjimn9G2o/edit" target="_blank" rel="noreferrer">открыть</a>.
       </p>
       <div class="dialog-actions">

@@ -10,7 +10,7 @@ test('Static server serves public files and rejects traversal', async () => {
   try {
     const page = await fetch(base);
     assert.equal(page.status, 200);
-    assert.ok((await page.text()).includes('Oneshot webcam panel'));
+    assert.ok((await page.text()).includes('Oneshot Panel'));
     assert.ok(page.headers.get('content-security-policy')
       .includes("script-src 'self'"));
     const theme = await fetch(base + '/theme.js');

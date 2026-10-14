@@ -78,7 +78,7 @@ settings = '''<dialog id="settingsDialog" aria-labelledby="settingsHeading">
         <button class="icon-button" type="button" id="closeSettings" aria-label="Закрыть">×</button>
       </div>
       <div id="sourceError" class="error-box" role="alert" hidden></div>
-      <p>Панель скачивает таблицу через твой Google Drive и берёт листы «Все игроки» и «Матчи ДД.ММ» на сегодня. Последняя версия сохраняется в панели, её видит вся эфирная команда.</p>
+      <p>Панель скачивает через твой Google Drive составы (лист «Все игроки») и расписание из таблицы организатора: матчи на сегодня и следующие дни. Последняя версия сохраняется в панели, её видит вся эфирная команда.</p>
       <label>Таблица составов<input id="sourceUrl" type="url" required></label>
       <p class="muted">
         Составы: ID, команда, слот, ник, ID потока, room, PUSH, VIEW, роль.
@@ -155,32 +155,39 @@ function cellText(value) {
   }
   return value == null ? '' : String(value);
 }
-function workbookData(XLSX, workbook) {
-  const rowsOf = name => {
-    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[name],
-      { header: 1, raw: true, defval: '' }).map(row => row.map(cellText));
-    while (rows.length && rows[rows.length - 1].every(cell => !cell.trim())) rows.pop();
-    return rows.map(row => {
-      let end = row.length;
-      while (end && !row[end - 1].trim()) end--;
-      return row.slice(0, end);
-    });
-  };
+function rowsOf(XLSX, workbook, name) {
+  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[name],
+    { header: 1, raw: true, defval: '' }).map(row => row.map(cellText));
+  while (rows.length && rows[rows.length - 1].every(cell => !cell.trim())) rows.pop();
+  return rows.map(row => {
+    let end = row.length;
+    while (end && !row[end - 1].trim()) end--;
+    return row.slice(0, end);
+  });
+}
+function rosterRows(XLSX, workbook) {
   const names = workbook.SheetNames;
-  const parses = name => { try { parseTeams(rowsOf(name)); return true; } catch { return false; } };
+  const parses = name => { try { parseTeams(rowsOf(XLSX, workbook, name)); return true; } catch { return false; } };
   const rosterName = names.find(n => n.trim().toLowerCase() === 'все игроки') || names.find(parses);
   if (!rosterName) {
     throw new Error('В таблице нет листа «Все игроки» с колонками ID, команда, слот, ник, ID потока, room и роль.');
   }
-  const today = mskToday();
-  const scheduleNames = names.filter(n => /^матчи/i.test(n.trim()));
-  const scheduleName = scheduleNames.find(n => n.includes(today)) ||
-    scheduleNames[scheduleNames.length - 1] || '';
-  return {
-    roster: rowsOf(rosterName),
-    schedule: scheduleName ? rowsOf(scheduleName) : [],
-    scheduleName
-  };
+  return rowsOf(XLSX, workbook, rosterName);
+}
+// The organizer's sheet: every «Schedule (...)» tab, rows carry dates.
+// A roster sheet: today's day tab «Матчи ДД.ММ» (or the latest one).
+function scheduleData(XLSX, workbook) {
+  const names = workbook.SheetNames;
+  const organizer = names.filter(n => /^schedule/i.test(n.trim()));
+  if (organizer.length) {
+    return {
+      schedule: organizer.flatMap(n => rowsOf(XLSX, workbook, n)),
+      scheduleName: organizer.join(' + ')
+    };
+  }
+  const days = names.filter(n => /^матчи/i.test(n.trim()));
+  const name = days.find(n => n.includes(mskToday())) || days[days.length - 1] || '';
+  return { schedule: name ? rowsOf(XLSX, workbook, name) : [], scheduleName: name };
 }
 function payloadBase64(result) {
   let payload = result?.payload;
@@ -275,16 +282,33 @@ REFRESH = r'''async function refresh(options = {}) {
   try {
     const mcp = await use('mcp');
     if (!mcp) throw { code: 'no_mcp' };
-    const result = await callDrive(mcp, source.id);
+    const separate = !!source.scheduleId && source.scheduleId !== source.id;
+    const [roster, schedule] = await Promise.allSettled([
+      callDrive(mcp, source.id),
+      separate ? callDrive(mcp, source.scheduleId) : null
+    ]);
     if (request !== refreshId) return;
-    const file = payloadBase64(result);
+    if (roster.status !== 'fulfilled') throw roster.reason;
+    const file = payloadBase64(roster.value);
     const XLSX = await loadSheetJS();
-    const data = workbookData(XLSX, XLSX.read(file.b64, { type: 'base64' }));
+    const workbook = XLSX.read(file.b64, { type: 'base64' });
+    let plan = scheduleData(XLSX, workbook), note = '';
+    if (separate) {
+      try {
+        if (schedule.status !== 'fulfilled') throw schedule.reason;
+        plan = scheduleData(XLSX,
+          XLSX.read(payloadBase64(schedule.value).b64, { type: 'base64' }));
+      } catch {
+        note = 'Таблица организатора не открылась — расписание взято из листа «Матчи» таблицы составов.';
+      }
+    }
     if (request !== refreshId) return;
-    Object.assign(data, {
+    const data = {
+      roster: rosterRows(XLSX, workbook), ...plan,
       sourceId: source.id, title: file.title, origin: 'drive', syncedAt: Date.now()
-    });
+    };
     applyData(data);
+    if (note) showError(note);
     const saved = await saveCache(data);
     if (!options.quiet) {
       toast('Составы обновлены.' + (saved === 'shared' ? ' Вся команда видит эту версию.' : ''));
@@ -304,8 +328,7 @@ function applyData(data) {
   const names = teams.map(t => t.name);
   state.cache = data;
   state.teams = teams;
-  state.schedule = parseSchedule(data.schedule || [])
-    .filter(m => names.includes(m.team1) && names.includes(m.team2));
+  state.schedule = upcoming(parseSchedule(data.schedule || []), names);
   state.scheduleDay = scheduleDay(data.schedule || []) ||
     scheduleDay([[data.scheduleName || '']]);
   if (!names.includes(state.a)) {
@@ -331,7 +354,7 @@ function applyData(data) {
     }) + ' МСК' + (data.origin === 'paste' ? ' · вставлено вручную' :
       data.origin === 'snapshot' ? ' · снимок таблицы' : '');
   if (!data.schedule?.length) {
-    showError('Составы загружены. Листа «Матчи» в таблице нет — выбери команды, время и стадию вручную.');
+    showError('Составы загружены. Расписание не найдено — выбери команды, время и стадию вручную.');
   } else if (state.scheduleDay && state.scheduleDay !== mskToday()) {
     showError(`Расписание в таблице на ${state.scheduleDay}, а сегодня ${mskToday()} по МСК. Листа «Матчи ${mskToday()}» пока нет — проверь время и стадию перед экспортом.`);
   }
@@ -369,7 +392,7 @@ async function connectStore() {
     if (!await useSnapshot() || await use('mcp')) refresh({ quiet: true });
     return;
   }
-  let decided = false;
+  let decided = false, pulledStale = false;
   const decide = async () => {
     if (decided) return;
     decided = true;
@@ -387,7 +410,16 @@ async function connectStore() {
       const data = cacheData(snap.data());
       const newer = data && data.syncedAt > (state.lastSync?.getTime() || 0);
       if (data && data.sourceId === state.source.id && (newer || !state.teams.length)) {
-        try { applyData(data); decided = true; return; } catch { /* fall through */ }
+        try {
+          applyData(data);
+          decided = true;
+          // A copy older than an hour may miss today's schedule: pull once.
+          if (!pulledStale && Date.now() - data.syncedAt > 3600000) {
+            pulledStale = true;
+            refresh({ quiet: true });
+          }
+          return;
+        } catch { /* fall through */ }
       }
       decide();
     }, () => { clearTimeout(timer); decide(); });
@@ -595,13 +627,23 @@ $('vetoReset').addEventListener('click', () => {
 '''
 
 app = cut(app, "async function sheetRows(", "function reconcileKeys(", "")
-app = cut(app, "async function refresh() {", "function mskToday() {", REFRESH)
+app = cut(app, "async function refresh() {", "function mskToday(", REFRESH)
 app = cut(app, "$('downloadBtn').addEventListener('click', () => {", "function fillSource(source) {", DOWNLOAD)
 app = cut(app, "function fillSource(source) {", "document.querySelectorAll('.brand img').forEach(dropBrokenImage);", SETTINGS)
 app = cut(app, "$('vetoReset').addEventListener('click', () => {", "$('vetoFormat').addEventListener('change', () => {", VETO_RESET)
 app = replace_once(app, "async function copy(text) {", "async function copy(text, message = 'Скопировано в буфер обмена') {")
 app = replace_once(app, "toast('Скопировано в буфер обмена');", "toast(message);")
 app = replace_once(app, "if (ok) return toast('Скопировано');", "if (ok) return toast(message);")
+# Team logos: the manifest and its files go inline, like the maps below.
+logo_manifest = json.loads((ROOT / "assets" / "teams" / "teams.json").read_text(encoding="utf-8"))
+logo_files = {}
+for logo_file in sorted(set(logo_manifest.values())):
+    logo_files[logo_file] = "data:image/png;base64," + base64.b64encode(
+        (ROOT / "assets" / "teams" / logo_file).read_bytes()).decode()
+app = replace_once(app, "fetch('/assets/teams/teams.json')",
+                   "Promise.resolve({ok:true,json:async()=>(" + json.dumps(logo_manifest, ensure_ascii=False) + ")})")
+app = replace_once(app, "`/assets/teams/${file}`", "ARTIFACT_LOGOS[file]")
+app = "const ARTIFACT_LOGOS = " + json.dumps(logo_files) + ";\n" + app
 # Keep the exported artifact self-contained; its URL has no /assets host.
 template_json = (ROOT / "assets" / "obs-template.json").read_text(encoding="utf-8").strip()
 json.loads(template_json)  # Validate without rewriting the canonical template.
@@ -639,7 +681,9 @@ if "--snapshot" in sys.argv:
     snapshot_tag = ('<script type="application/json" id="sheetsSnapshot">' +
                     json.dumps(keep, ensure_ascii=False).replace("</", "<\\/") + "</script>\n")
 
-page = f'''<title>Oneshot webcam panel</title>
+favicon = "data:image/png;base64," + base64.b64encode((ROOT / "assets" / "favicon.png").read_bytes()).decode()
+page = f'''<title>Oneshot Panel</title>
+<link rel="icon" href="{favicon}">
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Вебки игроков CyberClash, коллекции сцен OBS и вето для HLTV.">
 <link rel="preconnect" href="https://fonts.googleapis.com">

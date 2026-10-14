@@ -1,6 +1,6 @@
 # Заметки для ИИ-агентов (Codex, ChatGPT, Claude)
 
-Oneshot webcam panel — статическая веб-панель эфирной команды CyberClash.
+Oneshot Panel — статическая веб-панель эфирной команды CyberClash.
 Читает составы и расписание из Google Sheets, раскладывает 10 вебок
 по слотам 01–05 / 06–10, отдаёт ссылки VDO.Ninja игрокам, JSON-коллекцию
 сцен OBS (1920×1080) и вето карт BO1/2/3/5 с текстом для HLTV.
@@ -36,14 +36,14 @@ Oneshot webcam panel — статическая веб-панель эфирно
   на `replace_once`/`cut`, исходный кусок изменился — поправь замену в
   скрипте, а не обходи её.
 - `claude-artifact/index.html` — старая версия «Webcam Desk», не трогать.
-- `scripts/qa_browser.py` — 22 браузерных сценария (Python Playwright +
+- `scripts/qa_browser.py` — 24 браузерных сценария (Python Playwright +
   Chromium).
 
 ## Команды
 
 ```sh
 npm run check        # синтаксис
-npm test             # 22 теста (node:test)
+npm test             # 23 теста (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 claude-artifact/build_oneshot_artifact.py
@@ -98,7 +98,15 @@ Netlify публикует корень как есть.
 
 - Составы: https://docs.google.com/spreadsheets/d/1e__ijBjufD19SWBkSJL177vmmfMh2tdykYQHAS06S8I/edit,
   лист игроков GID 1315978454 (A ID, B команда, C слот, D ник, E ID потока,
-  F room, I роль), расписание GID 1758299905 (B время, C/D команды,
-  E группа). Таблица должна быть открыта на просмотр по ссылке.
+  F room, I роль). Таблица должна быть открыта на просмотр по ссылке.
+- Расписание: таблица организатора
+  https://docs.google.com/spreadsheets/d/1GtwcpVnyxY1YOs6ZTrXwJr5mjZqI0QxjLSKjimn9G2o/edit,
+  лист «Schedule (Group Stage)» GID 815739139 (колонки по заголовкам:
+  Stage, Date, MSK, Team 1, Team 2; у каждой строки своя дата).
+  Старый дневной лист «Матчи ДД.ММ» (B время, C/D команды, E группа)
+  тоже разбирается: `parseSchedule` различает форматы по заголовку.
+- Логотипы команд: `assets/teams/teams.json` (название → файл) и PNG
+  рядом; `scripts/extract_team_logos.py` достаёт их из таблицы
+  организатора (.xlsx).
 - Снимки таблицы не коммитить: `claude-artifact/data/` и
   `claude-artifact/dist/` в `.gitignore`.

@@ -2,6 +2,7 @@
 import argparse
 import asyncio
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
@@ -78,7 +79,7 @@ async def run(args):
 
         async def sheets(route):
             params = parse_qs(urlsplit(route.request.url).query)
-            is_schedule = params.get("gid") == ["1758299905"]
+            is_schedule = params.get("gid") == ["815739139"]
             if (modes["delay"] and
                     "/1e__ijBjufD19SWBkSJL177vmmfMh2tdykYQHAS06S8I/"
                     in route.request.url):
@@ -106,7 +107,7 @@ async def run(args):
         await expect(page.locator("#syncTitle")).to_contain_text(
             "команд из таблицы"
         )
-        assert await page.title() == "Oneshot webcam panel"
+        assert await page.title() == "Oneshot Panel"
         passed("load rosters, schedule and OBS template")
 
         await page.wait_for_load_state("networkidle")
@@ -315,6 +316,9 @@ async def run(args):
         gate.set()
         await page.wait_for_timeout(100)
         assert await page.input_value("#team-a") == "New Team A"
+        # Teams without a logo keep the A/B badge.
+        await expect(page.locator(".team-letter")).to_have_text(["A", "B"])
+        assert await page.locator(".team-logo").count() == 0
         passed("source change ignores late old data")
         assert not errors, errors
         await context.close()
@@ -322,7 +326,7 @@ async def run(args):
         async def normal_sheets(route):
             await route.fulfill(
                 status=200, content_type="application/javascript",
-                body=schedule if "gid=1758299905" in route.request.url
+                body=schedule if "gid=815739139" in route.request.url
                 else roster,
             )
 
@@ -392,7 +396,7 @@ async def run(args):
         async def hostile_sheets(route):
             await route.fulfill(
                 status=200, content_type="application/javascript",
-                body=schedule if "gid=1758299905" in route.request.url
+                body=schedule if "gid=815739139" in route.request.url
                 else injection_body,
             )
 
@@ -404,9 +408,12 @@ async def run(args):
         await expect(hostile_page.locator("#syncTitle")).to_contain_text(
             "команд из таблицы"
         )
-        assert await hostile_page.locator(
-            "#teamGrid img, #teamGrid script"
-        ).count() == 0
+        # Only team logos from the panel's own folder may be images here.
+        assert await hostile_page.evaluate(
+            "[...document.querySelectorAll('#teamGrid img')].every(i =>"
+            " new URL(i.src).pathname.startsWith('/assets/teams/'))"
+        )
+        assert await hostile_page.locator("#teamGrid script").count() == 0
         assert not await hostile_page.evaluate("Boolean(window.injected)")
         assert payload in await hostile_page.locator(
             '[data-player="a"][data-slot="0"]'
@@ -420,7 +427,7 @@ async def run(args):
             body = gviz([
                 ["Матчи 1 января 2020"], ["№", "Начало МСК"],
                 ["1", "16:00", "6yuBoJlbl", "HYPERSPIRIT", "B"],
-            ]) if "gid=1758299905" in route.request.url else roster
+            ]) if "gid=815739139" in route.request.url else roster
             await route.fulfill(
                 status=200, content_type="application/javascript", body=body
             )
@@ -436,6 +443,65 @@ async def run(args):
         )
         passed("schedule sheet for another day is flagged")
         await old_day.close()
+
+        organizer = await browser.new_context(
+            viewport={"width": 1440, "height": 1000},
+            locale="ru-RU", timezone_id="Europe/Moscow"
+        )
+        moscow = datetime.now(timezone(timedelta(hours=3)))
+        day = lambda shift: (moscow + timedelta(days=shift)).strftime("%B %-d")
+        label = lambda shift: (moscow + timedelta(days=shift)).strftime("%d.%m")
+
+        async def organizer_schedule(route):
+            body = gviz([
+                ["Match #", "Stage", "Date", "GMT", "MSK (GMT +3)", "Stream",
+                 "", "Team 1", "Score", "", "", "Team 2"],
+                ["1", "Opening Match A1", day(-1), "10:00", "13:00", "A", "",
+                 "6yuBoJlbl", "2", "vs", "0", "HYPERSPIRIT"],
+                ["2", "Opening Match B2", day(0), "13:00", "16:00", "A", "",
+                 "6yuBoJlbl", "", "vs", "", "HYPERSPIRIT"],
+                ["3", "Losers Match B3", day(1), "13:00", "16:00", "A", "",
+                 "HYPERSPIRIT (ex-HS)", "", "vs", "", "6yuBoJlbl"],
+                ["4", "Winners Match B4", day(1), "16:00", "19:00", "A", "",
+                 "", "", "vs", "", ""],
+            ]) if "gid=815739139" in route.request.url else roster
+            await route.fulfill(
+                status=200, content_type="application/javascript", body=body
+            )
+
+        await organizer.route(
+            "https://docs.google.com/**/gviz/**", organizer_schedule
+        )
+        organizer_page = await organizer.new_page()
+        await organizer_page.goto(args.url)
+        await expect(organizer_page.locator("#syncTitle")).to_contain_text(
+            "команд из таблицы"
+        )
+        assert await organizer_page.title() == "Oneshot Panel"
+        groups = await organizer_page.locator(
+            "#matchSelect optgroup"
+        ).evaluate_all("els => els.map(g => [g.label, g.children.length])")
+        assert groups == [
+            [f"{label(0)} · сегодня", 1], [f"{label(1)} · завтра", 1]
+        ], groups
+        tomorrow = await organizer_page.locator(
+            "#matchSelect optgroup:last-child option"
+        ).text_content()
+        assert tomorrow == "16:00 · Группа B · HYPERSPIRIT vs 6yuBoJlbl", tomorrow
+        await organizer_page.select_option(
+            "#matchSelect", label="16:00 · Группа B · HYPERSPIRIT vs 6yuBoJlbl"
+        )
+        assert await organizer_page.input_value("#matchStage") == "Группа B"
+        await expect(organizer_page.locator(".team-logo img")).to_have_count(2)
+        assert await organizer_page.locator(".team-logo img").evaluate_all(
+            "imgs => imgs.map(i => i.complete && i.naturalWidth > 0 &&"
+            " i.closest('.team-card').querySelector('select').value)"
+        ) == ["HYPERSPIRIT", "6yuBoJlbl"]
+        await organizer_page.locator(".team-grid").screenshot(
+            path=str(artifacts / "team-logos.png")
+        )
+        passed("organizer schedule by date; logos on team cards")
+        await organizer.close()
 
         night = await browser.new_context(
             viewport={"width": 1440, "height": 1000}, color_scheme="dark"

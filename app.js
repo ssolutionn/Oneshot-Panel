@@ -11,7 +11,7 @@ const state = {
   teams: [], schedule: [], a: '', b: '', keysA: [], keysB: [],
   matchKey: '', tab: 'observer', lastSync: null, stale: false,
   scheduleDay: '',
-  source: { ...DEFAULT_SOURCE }, template: null, templateError: '',
+  source: { ...DEFAULT_SOURCE }, template: null, templateError: '', logos: {},
   veto: { format: 'BO3', first: 0, actions: [], matchKey: '' },
   pending: null
 };
@@ -37,6 +37,13 @@ if (savedSource &&
     scheduleGid: /^\d+$/.test(savedSource.scheduleGid || '') ?
       savedSource.scheduleGid : null
   };
+  // The schedule used to be the roster sheet's day tab «Матчи 14.10»; the
+  // organizer's sheet has every day, so that old default moves over.
+  if (state.source.scheduleId === state.source.id &&
+      state.source.scheduleGid === '1758299905') {
+    state.source.scheduleId = DEFAULT_SOURCE.scheduleId;
+    state.source.scheduleGid = DEFAULT_SOURCE.scheduleGid;
+  }
 }
 const savedMatch = readStorage('oneshot-webcam-match-v1');
 if (savedMatch && savedMatch.source === JSON.stringify(state.source)) {
@@ -166,7 +173,7 @@ async function refresh() {
     const [roster, schedule] = await Promise.allSettled([
       sheetRows(source, source.gid, 'A1:K2000', signal),
       source.scheduleGid ?
-        sheetRows(source, source.scheduleGid, 'A1:H1000',
+        sheetRows(source, source.scheduleGid, 'A1:N300',
           signal, source.scheduleId || source.id) :
         Promise.resolve([])
     ]);
@@ -175,10 +182,8 @@ async function refresh() {
     const teams = parseTeams(roster.value);
     const names = teams.map(t => t.name);
     state.teams = teams;
-    state.schedule = (
-      schedule.status === 'fulfilled' ?
-        parseSchedule(schedule.value) : state.schedule
-    ).filter(m => names.includes(m.team1) && names.includes(m.team2));
+    state.schedule = upcoming(schedule.status === 'fulfilled' ?
+      parseSchedule(schedule.value) : state.schedule, names);
 
     if (!names.includes(state.a)) {
       state.a = names[0];
@@ -235,10 +240,34 @@ async function refresh() {
   }
 }
 
-function mskToday() {
+function mskToday(days = 0) {
   return new Intl.DateTimeFormat('ru-RU', {
     timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit'
-  }).format(new Date());
+  }).format(new Date(Date.now() + days * 86400000));
+}
+// Matches of teams in the rosters; dated ones from today (MSK) on, so a
+// finished day drops out and the next days are ready in advance.
+function upcoming(schedule, names) {
+  const day = date => Number(date.slice(3, 5)) * 100 + Number(date.slice(0, 2));
+  const today = day(mskToday());
+  return schedule.filter(m => names.includes(m.team1) &&
+    names.includes(m.team2) && (!m.date || day(m.date) >= today));
+}
+function dayLabel(date) {
+  return date === mskToday() ? `${date} · сегодня` :
+    date === mskToday(1) ? `${date} · завтра` : date;
+}
+// Logos: assets/teams/teams.json maps a team name to a file next to it.
+async function loadLogos() {
+  try {
+    const response = await fetch('/assets/teams/teams.json');
+    if (!response.ok) return;
+    const logos = await response.json();
+    state.logos = Object.fromEntries(Object.entries(logos).filter(([, file]) =>
+      typeof file === 'string' && /^[\w.-]+\.(png|jpe?g|webp|svg)$/i.test(file))
+      .map(([name, file]) => [name, `/assets/teams/${file}`]));
+    if (state.teams.length) render();
+  } catch { /* No logos: cards keep the A/B badge. */ }
 }
 function renderScheduleDay() {
   $('scheduleLabel').textContent = 'Матч по расписанию' +
@@ -256,12 +285,16 @@ function render() {
   const focusId = $('teamGrid').contains(active) ? active.id : '';
   const focusPlayer = active?.dataset.player;
   const focusSlot = active?.dataset.slot;
+  const option = m => `<option value="${escapeHtml(m.key)}">${escapeHtml(
+    [m.time, m.stage, `${m.team1} vs ${m.team2}`].filter(Boolean).join(' · ')
+  )}</option>`;
+  const days = [...new Set(state.schedule.map(m => m.date))];
   $('matchSelect').innerHTML =
     '<option value="">Выбери команды вручную</option>' +
-    state.schedule.map(m => `<option value="${escapeHtml(m.key)}">${escapeHtml(
-      [m.time, m.stage, `${m.team1} vs ${m.team2}`]
-        .filter(Boolean).join(' · ')
-    )}</option>`).join('');
+    (days.some(Boolean) ? days.map(date =>
+      `<optgroup label="${escapeHtml(dayLabel(date))}">${state.schedule
+        .filter(m => m.date === date).map(option).join('')}</optgroup>`).join('') :
+      state.schedule.map(option).join(''));
   if (!state.schedule.some(m =>
       m.key === state.matchKey &&
       m.team1 === state.a && m.team2 === state.b)) {
@@ -276,7 +309,10 @@ function render() {
     const eligible = lineupCandidates(team);
     return `<article class="team-card">
       <div class="card-top">
-        <div class="team-letter">${index ? 'B' : 'A'}</div>
+        ${state.logos[team.name] ?
+          `<span class="team-logo"><img src="${escapeHtml(state.logos[team.name])}"
+            alt="" width="34" height="34"></span>` :
+          `<div class="team-letter">${index ? 'B' : 'A'}</div>`}
         <div class="team-heading">
           <label for="team-${side}">${index ? 'ВТОРАЯ' : 'ПЕРВАЯ'} КОМАНДА</label>
           <select id="team-${side}" data-team="${side}">
@@ -356,6 +392,7 @@ function render() {
       if (error) return toast(error);
       copy(playerText(getTeam(side), players));
     }));
+  $('teamGrid').querySelectorAll('.team-logo img').forEach(dropBrokenImage);
   renderOutput();
   renderVeto();
   persist();
@@ -684,4 +721,5 @@ updateSourceLinks();
 renderOutput();
 renderVeto();
 loadTemplate();
+loadLogos();
 refresh();

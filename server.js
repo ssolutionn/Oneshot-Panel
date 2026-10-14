@@ -58,5 +58,5 @@ if (process.argv[1] &&
   const host = process.env.HOST || '127.0.0.1';
   const port = Number(process.env.PORT || 3000);
   createServer().listen(port, host, () =>
-    console.log(`Oneshot webcam panel listening on ${host}:${port}`));
+    console.log(`Oneshot Panel listening on ${host}:${port}`));
 }

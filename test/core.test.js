@@ -81,6 +81,31 @@ test('Schedule identifies repeat matchups and validates time', () => {
   assert.notEqual(twice[0].key, twice[1].key);
 });
 
+test('Organizer schedule: dated rows, roster names, stages from both sheets', () => {
+  const header = ['Match #', 'Stage', 'Date', 'GMT', 'CET (GMT+1)',
+    'CEST (GMT +2)', 'MSK (GMT +3)', 'Stream', '', 'Team 1', 'Score', '', '', 'Team 2'];
+  const row = (n, stage, date, msk, t1, t2) =>
+    [n, stage, date, '', '', '', msk, 'A', '', t1, '', 'vs', '', t2];
+  const schedule = parseSchedule([
+    header,
+    row('1', 'Opening Match A1', 'October 14', '13:00', 'Nuclear TigeRES', 'LPH'),
+    row('9', 'Opening Match D2', 'October 15', '22:00', 'PRIVATE (ex-RUBY)', 'Honvéd'),
+    row('10', 'Losers Match A3', 'October 16', '13:00', '', ''),
+    ['Match #', 'Stage', 'Date', 'CET', 'MSK', 'Stream', '', 'Team 1', '', '', '', 'Team 2'],
+    ['1', 'Quarterfinal 1', 'October 29', '9:00', '10:00', 'A', '', 'Omega', '', '', '', 'LPH'],
+    ['8', 'Grand Final', 'October 31', '15:00', '16:00', 'A', '', 'Omega', '', '', '', 'LPH']
+  ]);
+  assert.deepEqual(schedule.map(m => [m.date, m.time, m.team1, m.team2, m.stage]), [
+    ['14.10', '13:00', 'Nuclear TigeRES', 'LPH', 'Группа A'],
+    ['15.10', '22:00', 'PRIVATE', 'Honvéd', 'Группа D'],
+    ['29.10', '10:00', 'Omega', 'LPH', 'Четвертьфинал 1'],
+    ['31.10', '16:00', 'Omega', 'LPH', 'Гранд-финал']
+  ]);
+  assert.equal(schedule[1].group, 'D');
+  assert.equal(new Set(schedule.map(m => m.key)).size, 4);
+  assert.equal(scheduleDay([header]), '');
+});
+
 test('Schedule day comes from the sheet title, not from match rows', () => {
   assert.equal(scheduleDay([[''], ['Матчи 14 октября 2026'], ['№', 'Начало МСК']]), '14.10');
   assert.equal(scheduleDay([['Матчи 3 мая'], ['1', '13:00', 'A', 'B']]), '03.05');
