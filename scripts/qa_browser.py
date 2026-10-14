@@ -164,7 +164,7 @@ async def run(args):
             await page.click("#downloadBtn")
         download = await info.value
         assert download.suggested_filename == (
-            "16-00 _ Группа B _ 6yuBoJlbl vs HYPERSPIRIT.json"
+            "16-00_Группа-B_6yuBoJlbl_vs_HYPERSPIRIT.json"
         )
         target = artifacts / download.suggested_filename
         await download.save_as(target)
@@ -406,6 +406,45 @@ async def run(args):
         )
         passed("schedule sheet for another day is flagged")
         await old_day.close()
+
+        night = await browser.new_context(
+            viewport={"width": 1440, "height": 1000}, color_scheme="dark"
+        )
+        await night.route("https://docs.google.com/**/gviz/**", sheets)
+        night_page = await night.new_page()
+        night_page.on("pageerror", lambda error: errors.append(str(error)))
+        await night_page.goto(args.url)
+        await expect(night_page.locator("#syncTitle")).to_contain_text(
+            "команд из таблицы"
+        )
+        toggle = night_page.locator("#themeToggle")
+        background = "getComputedStyle(document.body).backgroundColor"
+        card = ("getComputedStyle(document.querySelector('.team-card'))"
+                ".backgroundColor")
+        await expect(toggle).to_have_text("☀ День")
+        assert await night_page.evaluate(background) == "rgb(16, 16, 18)"
+        assert await night_page.evaluate(card) == "rgb(26, 26, 29)"
+        await night_page.screenshot(
+            path=str(artifacts / "desktop-night.png"), full_page=True
+        )
+        await toggle.click()
+        await expect(toggle).to_have_text("☾ Ночь")
+        assert await night_page.evaluate(background) == "rgb(245, 245, 245)"
+        assert await night_page.evaluate(card) == "rgb(255, 255, 255)"
+        await night_page.reload()
+        await expect(toggle).to_have_text("☾ Ночь")
+        assert await night_page.evaluate(
+            "document.documentElement.dataset.mode"
+        ) == "light"
+        assert await night_page.evaluate(background) == "rgb(245, 245, 245)"
+        await toggle.click()
+        assert await night_page.evaluate(card) == "rgb(26, 26, 29)"
+        await toggle.focus()
+        await night_page.keyboard.press("Enter")
+        await expect(toggle).to_have_text("☾ Ночь")
+        await night.close()
+        assert not errors, errors
+        passed("night mode follows the system; toggle persists and wins")
         await browser.close()
 
     print(

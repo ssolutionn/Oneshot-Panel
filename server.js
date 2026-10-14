@@ -4,7 +4,9 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-const publicFiles = new Set(['index.html', 'app.js', 'core.js', 'style.css']);
+const publicFiles = new Set([
+  'index.html', 'app.js', 'core.js', 'style.css', 'theme.js'
+]);
 const mime = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',

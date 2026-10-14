@@ -120,10 +120,15 @@ test('URL parameters and Markdown are escaped', () => {
 test('Filename preserves Russian and validates metadata', () => {
   assert.equal(
     safeFilename('6yuBoJlbl', 'HYPERSPIRIT', '18:00', 'Групповой этап'),
-    '18-00 _ Групповой этап _ 6yuBoJlbl vs HYPERSPIRIT.json'
+    '18-00_Групповой-этап_6yuBoJlbl_vs_HYPERSPIRIT.json'
+  );
+  assert.equal(
+    safeFilename('Nuclear  TigeRES', 'LPH', '13:00', 'Группа A'),
+    '13-00_Группа-A_Nuclear-TigeRES_vs_LPH.json'
   );
   const name = safeFilename('../Команда:А', 'B/C', '00:05', 'Финал*');
-  assert.ok(!/[<>:"/\\|?*]/.test(name));
+  assert.ok(!/[<>:"/\\|?*\s]/.test(name));
+  assert.equal(name, '00-05_Финал_Команда-А_vs_B-C.json');
   assert.throws(() => safeFilename('A', 'B', '25:00', 'Final'), /время/);
   assert.throws(() => safeFilename('A', 'B', '18:00', ' '), /стадию/);
   assert.ok(new TextEncoder().encode(safeFilename(

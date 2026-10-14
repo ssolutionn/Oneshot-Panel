@@ -39,8 +39,6 @@ def cut(text, start, end, new):
 
 # ---------- CSS ----------
 css = (ROOT / "style.css").read_text(encoding="utf-8")
-css = replace_once(css, ":root{font-family:Roboto,Arial,Helvetica,sans-serif;",
-                   ":root{color-scheme:light;font-family:Roboto,Arial,Helvetica,sans-serif;")
 css = replace_once(css, "padding:14px max(24px,calc((100vw - 1232px)/2))",
                    "padding-block:14px;padding-left:max(24px,calc((100vw - 1232px)/2),env(safe-area-inset-left,0px));"
                    "padding-right:max(24px,calc((100vw - 1232px)/2),env(safe-area-inset-right,0px))")
@@ -53,9 +51,8 @@ css = replace_once(css, ".site-header{padding:12px 18px;flex-wrap:wrap}",
 css = replace_once(css, "main{padding:0 16px}",
                    "main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}")
 css = replace_once(css, "bottom:24px;left:50%", "bottom:calc(24px + env(safe-area-inset-bottom,0px));left:50%")
-css += ("body{background:#f5f5f5;color:#171717}"
-        "#pasteArea{min-height:140px}"
-        ".dialog-section{border-top:1px solid #ddd;margin-top:22px}\n")
+css += ("#pasteArea{min-height:140px}"
+        ".dialog-section{border-top:1px solid var(--line);margin-top:22px}\n")
 
 # ---------- markup ----------
 html = (ROOT / "index.html").read_text(encoding="utf-8")
@@ -93,6 +90,11 @@ settings = '''<dialog id="settingsDialog" aria-labelledby="settingsHeading">
 body = cut(body, '<dialog id="settingsDialog"', '<dialog id="copyDialog"', settings + "\n\n  ")
 
 # ---------- core.js ----------
+# Day/night toggle: inlined first, so the saved mode applies before paint.
+theme = (ROOT / "theme.js").read_text(encoding="utf-8")
+if '<button id="themeToggle"' not in body:
+    raise SystemExit("theme toggle missing from index.html")
+
 core = (ROOT / "core.js").read_text(encoding="utf-8")
 core = re.sub(r"^export (const|function) ", r"\1 ", core, flags=re.M)
 if "export " in core:
@@ -584,8 +586,10 @@ page = f'''<title>Oneshot webcam panel</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap">
 <!-- Built from the web panel by claude-artifact/build_oneshot_artifact.py; edit the web panel, then rebuild. -->
+<script>
+{theme}</script>
 <style>
-/* Oneshot look, single light theme on purpose: black header, red accent, white cards. */
+/* Oneshot look: black header, red accent; day and night tokens come from style.css. */
 {css}</style>
 {body.strip()}
 {snapshot_tag}<script>

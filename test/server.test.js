@@ -13,6 +13,9 @@ test('Static server serves public files and rejects traversal', async () => {
     assert.ok((await page.text()).includes('Oneshot webcam panel'));
     assert.ok(page.headers.get('content-security-policy')
       .includes("script-src 'self'"));
+    const theme = await fetch(base + '/theme.js');
+    assert.equal(theme.status, 200);
+    assert.ok(theme.headers.get('content-type').startsWith('text/javascript'));
     const template = await fetch(base + '/assets/obs-template.json');
     assert.equal(template.status, 200);
     assert.ok(Array.isArray((await template.json()).sources));

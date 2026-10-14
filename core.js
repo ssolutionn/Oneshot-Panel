@@ -161,17 +161,19 @@ export function validateMetadata(time, stage) {
 export function safeFilename(a, b, time, stage) {
   const error = validateMetadata(time, stage);
   if (error) throw new Error(error);
+  // No spaces: parts are joined by "_", spaces inside a part become "-".
   const safe = value => {
     const clean = line(value).normalize('NFC')
-      .replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, '-');
+      .replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, '-')
+      .replace(/\s+/g, '-').replace(/-{2,}/g, '-').replace(/^[-.]+/, '');
     let result = '';
     for (const char of clean) {
       if (new TextEncoder().encode(result + char).length > 70) break;
       result += char;
     }
-    return result.replace(/[. ]+$/g, '') || 'Матч';
+    return result.replace(/[-.]+$/g, '') || 'Матч';
   };
-  return `${time.replace(':', '-')} _ ${safe(stage)} _ ${safe(a)} vs ${safe(b)}.json`;
+  return `${time.replace(':', '-')}_${safe(stage)}_${safe(a)}_vs_${safe(b)}.json`;
 }
 
 function fitItem(item, x = 0, y = 0, width = 1920, height = 1080) {
