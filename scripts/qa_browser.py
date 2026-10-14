@@ -101,7 +101,8 @@ async def run(args):
             "[...document.images].filter(i => i.complete && "
             "!i.naturalWidth).length"
         ) == 0
-        passed("missing logo or map images leave no broken icons")
+        assert await page.locator("#mapGrid img").count() == 7
+        passed("all seven local map images load without broken icons")
 
         options = await page.locator("#matchSelect option").evaluate_all(
             "els => els.filter(e => e.textContent.includes('6yuBoJlbl') && "
@@ -136,7 +137,11 @@ async def run(args):
             "/запасной|тренер/.test(e.textContent)).map(e => e.value)"
         )
         assert replacement
+        await select.focus()
         await select.select_option(replacement[0])
+        assert await page.evaluate(
+            "document.activeElement?.matches('[data-player=\"a\"][data-slot=\"0\"]')"
+        )
         await page.click("#refreshBtn")
         await expect(page.locator("#refreshBtn")).to_be_enabled()
         assert await select.input_value() == replacement[0]
@@ -426,9 +431,18 @@ async def run(args):
         await expect(night_page.locator(".logo-day")).to_be_hidden()
         assert await night_page.evaluate(background) == "rgb(16, 16, 18)"
         assert await night_page.evaluate(card) == "rgb(26, 26, 29)"
+        await night_page.select_option("#matchSelect", options[0])
         await night_page.screenshot(
             path=str(artifacts / "desktop-night.png"), full_page=True
         )
+        await night_page.set_viewport_size({"width": 375, "height": 812})
+        assert await night_page.evaluate(
+            "document.documentElement.scrollWidth <= window.innerWidth"
+        )
+        await night_page.screenshot(
+            path=str(artifacts / "mobile-night.png"), full_page=True
+        )
+        await night_page.set_viewport_size({"width": 1440, "height": 1000})
         await toggle.click()
         await expect(toggle).to_have_text("☾ Ночь")
         await expect(night_page.locator(".logo-day")).to_be_visible()
