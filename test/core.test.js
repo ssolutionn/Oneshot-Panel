@@ -81,6 +81,18 @@ test('Schedule identifies repeat matchups and validates time', () => {
   assert.notEqual(twice[0].key, twice[1].key);
 });
 
+test('gviz column labels come back as the first row', () => {
+  const response = labels => 'google.visualization.Query.setResponse(' + JSON.stringify({
+    status: 'ok', table: {
+      cols: labels.map(label => ({ label })),
+      rows: [{ c: [{ v: 'Opening Match A2' }, { v: [13, 0, 0, 0], f: '13:00' }] }]
+    }
+  }) + ');';
+  assert.deepEqual(decodeGviz(response(['Stage', 'MSK (GMT +3)'])),
+    [['Stage', 'MSK (GMT +3)'], ['Opening Match A2', '13:00']]);
+  assert.deepEqual(decodeGviz(response(['', ''])), [['Opening Match A2', '13:00']]);
+});
+
 test('Organizer schedule: dated rows, roster names, stages from both sheets', () => {
   const header = ['Match #', 'Stage', 'Date', 'GMT', 'CET (GMT+1)',
     'CEST (GMT +2)', 'MSK (GMT +3)', 'Stream', '', 'Team 1', 'Score', '', '', 'Team 2'];

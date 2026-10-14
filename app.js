@@ -114,10 +114,10 @@ function updateSourceLinks() {
   $('sidebarSource').href =
     `https://docs.google.com/spreadsheets/d/${state.source.id}/edit#gid=${state.source.gid}`;
 }
-async function sheetRows(source, gid, range, signal, id = source.id) {
+async function sheetRows(source, gid, range, signal, id = source.id, headers = '0') {
   const url = new URL(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq`);
   url.search = new URLSearchParams({
-    gid, range, headers: '0', tqx: 'out:json',
+    gid, range, headers, tqx: 'out:json',
     _t: String(Date.now())
   });
   const response = await fetch(url, {
@@ -173,8 +173,9 @@ async function refresh() {
     const [roster, schedule] = await Promise.allSettled([
       sheetRows(source, source.gid, 'A1:K2000', signal),
       source.scheduleGid ?
+        // Header row as labels: the organizer's columns are found by name.
         sheetRows(source, source.scheduleGid, 'A1:N300',
-          signal, source.scheduleId || source.id) :
+          signal, source.scheduleId || source.id, '1') :
         Promise.resolve([])
     ]);
     if (request !== refreshId) return;

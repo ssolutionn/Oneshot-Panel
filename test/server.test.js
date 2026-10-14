@@ -34,6 +34,18 @@ test('Static server serves public files and rejects traversal', async () => {
   }
 });
 
+test('Netlify publishes the files server.js serves', () => {
+  const toml = fs.readFileSync(new URL('../netlify.toml', import.meta.url), 'utf8');
+  const server = fs.readFileSync(new URL('../server.js', import.meta.url), 'utf8');
+  const command = toml.match(/^\s*command = "(.*)"$/m)[1];
+  const copied = command.match(/cp ([^&]+) public\//)[1].trim().split(/\s+/);
+  const served = [...server.match(/publicFiles = new Set\(\[([^\]]*)\]/)[1]
+    .matchAll(/'([^']+)'/g)].map(m => m[1]);
+  assert.deepEqual(copied.sort(), served.sort());
+  assert.match(command, /cp -R assets public\//);
+  assert.match(toml, /^\s*publish = "public"$/m);
+});
+
 test('Netlify serves the same security headers as server.js', async () => {
   const toml = fs.readFileSync(new URL('../netlify.toml', import.meta.url), 'utf8');
   const server = createServer();

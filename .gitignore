@@ -4,4 +4,5 @@ artifacts/
 .DS_Store
 __pycache__/
 claude-artifact/dist/
+public/
 claude-artifact/data/

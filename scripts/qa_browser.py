@@ -9,13 +9,15 @@ from urllib.parse import parse_qs, urlsplit
 from playwright.async_api import async_playwright, expect
 
 
-def gviz(rows):
+def gviz(rows, labels=None):
     data = {
         "status": "ok",
         "table": {
             "rows": [{"c": [{"v": cell} for cell in row]} for row in rows]
         },
     }
+    if labels:  # headers=1: the header row comes back as column labels
+        data["table"]["cols"] = [{"label": label} for label in labels]
     return "google.visualization.Query.setResponse(" + json.dumps(data) + ");"
 
 
@@ -454,8 +456,6 @@ async def run(args):
 
         async def organizer_schedule(route):
             body = gviz([
-                ["Match #", "Stage", "Date", "GMT", "MSK (GMT +3)", "Stream",
-                 "", "Team 1", "Score", "", "", "Team 2"],
                 ["1", "Opening Match A1", day(-1), "10:00", "13:00", "A", "",
                  "6yuBoJlbl", "2", "vs", "0", "HYPERSPIRIT"],
                 ["2", "Opening Match B2", day(0), "13:00", "16:00", "A", "",
@@ -464,7 +464,9 @@ async def run(args):
                  "HYPERSPIRIT (ex-HS)", "", "vs", "", "6yuBoJlbl"],
                 ["4", "Winners Match B4", day(1), "16:00", "19:00", "A", "",
                  "", "", "vs", "", ""],
-            ]) if "gid=815739139" in route.request.url else roster
+            ], ["Match #", "Stage", "Date", "GMT", "MSK (GMT +3)", "Stream",
+                "", "Team 1", "Score", "", "", "Team 2"]
+            ) if "gid=815739139" in route.request.url else roster
             await route.fulfill(
                 status=200, content_type="application/javascript", body=body
             )

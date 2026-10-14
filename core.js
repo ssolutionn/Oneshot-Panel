@@ -18,7 +18,11 @@ export function decodeGviz(text) {
   if (result.status !== 'ok' || !Array.isArray(result.table?.rows)) {
     throw new Error('Google Sheets не разрешил чтение. Нужен доступ на просмотр по ссылке.');
   }
-  return result.table.rows.map(row => (row.c || []).map(c => line(c?.f ?? c?.v)));
+  // With headers=1 the header row comes back as column labels, so text
+  // headers above time or number columns are not dropped as minority type.
+  const labels = (result.table.cols || []).map(c => line(c?.label));
+  const rows = result.table.rows.map(row => (row.c || []).map(c => line(c?.f ?? c?.v)));
+  return labels.some(Boolean) ? [labels, ...rows] : rows;
 }
 
 export function parseTeams(rows) {

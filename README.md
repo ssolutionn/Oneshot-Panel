@@ -17,9 +17,20 @@ npm run dev
 Для статического размещения нужны index.html, app.js, core.js, theme.js,
 style.css и assets/, с сохранением путей от корня сайта.
 
-Netlify: подключите репозиторий, остальное задаёт `netlify.toml`
-(сборки нет, публикуется корень, те же заголовки безопасности,
-что и в `server.js`; тест следит, чтобы они не разошлись).
+Netlify: подключите репозиторий, остальное задаёт `netlify.toml`.
+Компиляции нет: команда сборки копирует в `public/` те же файлы,
+что отдаёт `server.js`, и публикует только их, с теми же заголовками
+безопасности (тесты следят, чтобы список и заголовки не разошлись).
+
+1. app.netlify.com → Add new site → Import an existing project → GitHub.
+2. Репозиторий `ssolutionn/Oneshot-Panel`, ветка `claude/gracious-sagan-apztcc`.
+   Build command и Publish directory Netlify возьмёт из `netlify.toml`.
+3. Deploy. Затем Site configuration → Change site name, например
+   `oneshot-panel` → https://oneshot-panel.netlify.app.
+4. Каждый push в ветку выкладывается сам.
+
+Таблица составов должна быть открыта по ссылке только на просмотр:
+ссылка на неё видна в панели всем, кто её открыл.
 
 ## Использование
 
