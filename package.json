@@ -1,0 +1,13 @@
+{
+  "name": "oneshot-webcam-panel",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "test": "node --test",
+    "check": "node --check app.js && node --check core.js && node --check server.js"
+  },
+  "engines": { "node": ">=22" }
+}
