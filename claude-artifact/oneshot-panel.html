@@ -629,6 +629,14 @@ async function saveCache(data) {
     return 'failed';
   }
 }
+function snapshotData() {
+  const el = document.getElementById('sheetsSnapshot');
+  if (!el) return null;
+  try {
+    const data = cacheData(JSON.parse(el.textContent));
+    return data && { ...data, origin: 'snapshot' };
+  } catch { return null; }
+}
 function cacheData(doc) {
   const rows = text => {
     try {
@@ -838,7 +846,8 @@ function applyData(data) {
   $('syncTime').textContent =
     'Обновлено ' + state.lastSync.toLocaleTimeString('ru-RU', {
       timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit'
-    }) + ' МСК' + (data.origin === 'paste' ? ' · вставлено вручную' : '');
+    }) + ' МСК' + (data.origin === 'paste' ? ' · вставлено вручную' :
+      data.origin === 'snapshot' ? ' · снимок таблицы' : '');
   if (!data.schedule?.length) {
     showError('Составы загружены. Листа «Матчи» в таблице нет — выбери команды, время и стадию вручную.');
   } else if (state.scheduleDay && state.scheduleDay !== mskToday()) {
@@ -858,14 +867,32 @@ function markStale(message) {
   renderOutput();
   renderVeto();
 }
+// Signed-out viewers (or a messenger's in-app browser) get neither the
+// shared store nor Google Drive: show the snapshot built into the page.
+async function useSnapshot() {
+  const snapshot = snapshotData();
+  if (!snapshot || snapshot.sourceId !== state.source.id) return false;
+  try { applyData(snapshot); } catch { return false; }
+  if (!await use('mcp')) {
+    showError(`Показан снимок таблицы от ${state.lastSync.toLocaleString('ru-RU', {
+      timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit',
+      hour: '2-digit', minute: '2-digit'
+    })} МСК. Живое обновление из Google Drive работает, когда панель открыта внутри claude.ai под аккаунтом с доступом к таблице.`);
+  }
+  return true;
+}
 async function connectStore() {
   const db = await use('db');
-  if (!db) { refresh({ quiet: true }); return; }
+  if (!db) {
+    if (!await useSnapshot() || await use('mcp')) refresh({ quiet: true });
+    return;
+  }
   let decided = false;
-  const decide = () => {
+  const decide = async () => {
     if (decided) return;
     decided = true;
-    if (!state.teams.length) refresh({ quiet: true });
+    if (!state.teams.length && await useSnapshot() && !await use('mcp')) return;
+    if (!state.lastSync || state.cache?.origin === 'snapshot') refresh({ quiet: true });
   };
   const timer = setTimeout(decide, 7000);
   try {
@@ -1242,6 +1269,7 @@ for (const [id, tab] of [
   });
 }
 $('copyAllBtn').addEventListener('click', () => copy($('output').value));
+let downloadsCap = null;
 $('downloadBtn').addEventListener('click', async () => {
   let filename, text;
   try {
@@ -1250,7 +1278,7 @@ $('downloadBtn').addEventListener('click', async () => {
     text = JSON.stringify(buildObs(state.template,
       getTeam('a'), getTeam('b'), state.keysA, state.keysB), null, 2) + '\n';
   } catch (error) { showError(error.message); return; }
-  const downloads = await use('downloads');
+  const downloads = downloadsCap;
   if (downloads) {
     try {
       await downloads.save({ filename, data: text });
@@ -1260,6 +1288,19 @@ $('downloadBtn').addEventListener('click', async () => {
       if (error?.code === 'declined') { toast('Сохранение отменено'); return; }
       if (error?.code === 'rate_limited') { toast('Окно сохранения уже открыто'); return; }
     }
+  }
+  if (window.self === window.top) {
+    // Opened as a plain browser tab (outside the claude.ai viewer): a normal download works.
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    toast('JSON готов. OBS → Коллекция сцен → Импорт.');
+    return;
   }
   copy(text, `JSON скопирован. Сохрани его как «${filename}» и импортируй в OBS.`);
 });
@@ -1365,7 +1406,8 @@ renderOutput();
 renderVeto();
 loadTemplate();
 use('downloads').then(downloads => {
-  if (!downloads) $('downloadBtn').textContent = 'Скопировать JSON';
+  downloadsCap = downloads;
+  if (!downloads && window.self !== window.top) $('downloadBtn').textContent = 'Скопировать JSON';
 });
 connectStore();
 </script>

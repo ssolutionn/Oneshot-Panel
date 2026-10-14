@@ -9,9 +9,16 @@ what the artifact sandbox does not allow:
   - <a download>              -> downloads capability (clipboard fallback);
   - confirm()                 -> two-step reset button;
   - absolute /assets paths    -> relative paths.
-Run from the repository root: python3 claude-artifact/build_oneshot_artifact.py
+Run from the repository root:
+  python3 claude-artifact/build_oneshot_artifact.py [--snapshot sheets.json]
+--snapshot embeds the last synced sheets (the artifact's panel/sheets
+document) so viewers outside the claude.ai viewer still see rosters. That
+build goes to claude-artifact/dist/ (git-ignored: the repository is public
+and the snapshot holds rosters, rooms and stream IDs).
 """
+import json
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -219,6 +226,14 @@ async function saveCache(data) {
     return 'failed';
   }
 }
+function snapshotData() {
+  const el = document.getElementById('sheetsSnapshot');
+  if (!el) return null;
+  try {
+    const data = cacheData(JSON.parse(el.textContent));
+    return data && { ...data, origin: 'snapshot' };
+  } catch { return null; }
+}
 function cacheData(doc) {
   const rows = text => {
     try {
@@ -300,7 +315,8 @@ function applyData(data) {
   $('syncTime').textContent =
     'Обновлено ' + state.lastSync.toLocaleTimeString('ru-RU', {
       timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit'
-    }) + ' МСК' + (data.origin === 'paste' ? ' · вставлено вручную' : '');
+    }) + ' МСК' + (data.origin === 'paste' ? ' · вставлено вручную' :
+      data.origin === 'snapshot' ? ' · снимок таблицы' : '');
   if (!data.schedule?.length) {
     showError('Составы загружены. Листа «Матчи» в таблице нет — выбери команды, время и стадию вручную.');
   } else if (state.scheduleDay && state.scheduleDay !== mskToday()) {
@@ -320,14 +336,32 @@ function markStale(message) {
   renderOutput();
   renderVeto();
 }
+// Signed-out viewers (or a messenger's in-app browser) get neither the
+// shared store nor Google Drive: show the snapshot built into the page.
+async function useSnapshot() {
+  const snapshot = snapshotData();
+  if (!snapshot || snapshot.sourceId !== state.source.id) return false;
+  try { applyData(snapshot); } catch { return false; }
+  if (!await use('mcp')) {
+    showError(`Показан снимок таблицы от ${state.lastSync.toLocaleString('ru-RU', {
+      timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit',
+      hour: '2-digit', minute: '2-digit'
+    })} МСК. Живое обновление из Google Drive работает, когда панель открыта внутри claude.ai под аккаунтом с доступом к таблице.`);
+  }
+  return true;
+}
 async function connectStore() {
   const db = await use('db');
-  if (!db) { refresh({ quiet: true }); return; }
+  if (!db) {
+    if (!await useSnapshot() || await use('mcp')) refresh({ quiet: true });
+    return;
+  }
   let decided = false;
-  const decide = () => {
+  const decide = async () => {
     if (decided) return;
     decided = true;
-    if (!state.teams.length) refresh({ quiet: true });
+    if (!state.teams.length && await useSnapshot() && !await use('mcp')) return;
+    if (!state.lastSync || state.cache?.origin === 'snapshot') refresh({ quiet: true });
   };
   const timer = setTimeout(decide, 7000);
   try {
@@ -352,7 +386,8 @@ async function connectStore() {
 
 '''
 
-DOWNLOAD = r'''$('downloadBtn').addEventListener('click', async () => {
+DOWNLOAD = r'''let downloadsCap = null;
+$('downloadBtn').addEventListener('click', async () => {
   let filename, text;
   try {
     filename = safeFilename(state.a, state.b,
@@ -360,7 +395,7 @@ DOWNLOAD = r'''$('downloadBtn').addEventListener('click', async () => {
     text = JSON.stringify(buildObs(state.template,
       getTeam('a'), getTeam('b'), state.keysA, state.keysB), null, 2) + '\n';
   } catch (error) { showError(error.message); return; }
-  const downloads = await use('downloads');
+  const downloads = downloadsCap;
   if (downloads) {
     try {
       await downloads.save({ filename, data: text });
@@ -370,6 +405,19 @@ DOWNLOAD = r'''$('downloadBtn').addEventListener('click', async () => {
       if (error?.code === 'declined') { toast('Сохранение отменено'); return; }
       if (error?.code === 'rate_limited') { toast('Окно сохранения уже открыто'); return; }
     }
+  }
+  if (window.self === window.top) {
+    // Opened as a plain browser tab (outside the claude.ai viewer): a normal download works.
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    toast('JSON готов. OBS → Коллекция сцен → Импорт.');
+    return;
   }
   copy(text, `JSON скопирован. Сохрани его как «${filename}» и импортируй в OBS.`);
 });
@@ -506,13 +554,28 @@ app = replace_once(app, "  pending: null\n};", "  pending: null, cache: null\n};
 if not app.rstrip().endswith("refresh();"):
     raise SystemExit("unexpected app.js ending")
 app = app.rstrip()[:-len("refresh();")] + """use('downloads').then(downloads => {
-  if (!downloads) $('downloadBtn').textContent = 'Скопировать JSON';
+  downloadsCap = downloads;
+  if (!downloads && window.self !== window.top) $('downloadBtn').textContent = 'Скопировать JSON';
 });
 connectStore();
 """
-for banned in ["confirm(", "link.download", "/gviz/", "createObjectURL"]:
+for banned in ["confirm(", "/gviz/"]:
     if banned in app:
         raise SystemExit(f"artifact-incompatible code left: {banned}")
+
+snapshot_tag = ""
+if "--snapshot" in sys.argv:
+    doc = json.loads(Path(sys.argv[sys.argv.index("--snapshot") + 1]).read_text(encoding="utf-8"))
+    doc = doc.get("data", doc)
+    keep = {k: doc[k] for k in ("roster", "schedule", "scheduleName", "sourceId", "title", "syncedAt") if k in doc}
+    for key in ("roster", "schedule"):
+        rows = json.loads(keep[key])
+        while rows and not any(str(c).strip() for c in rows[-1]):
+            rows.pop()
+        keep[key] = json.dumps([r[:max([i + 1 for i, c in enumerate(r) if str(c).strip()] or [0])] for r in rows],
+                               ensure_ascii=False)
+    snapshot_tag = ('<script type="application/json" id="sheetsSnapshot">' +
+                    json.dumps(keep, ensure_ascii=False).replace("</", "<\\/") + "</script>\n")
 
 page = f'''<title>Oneshot webcam panel</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -525,11 +588,13 @@ page = f'''<title>Oneshot webcam panel</title>
 /* Oneshot look, single light theme on purpose: black header, red accent, white cards. */
 {css}</style>
 {body.strip()}
-<script>
+{snapshot_tag}<script>
 'use strict';
 {core}
 {DRIVE_HELPERS}
 {app}</script>
 '''
-OUT.write_text(page, encoding="utf-8")
-print(f"wrote {OUT.relative_to(ROOT)} ({len(page.encode())} bytes)")
+out = ROOT / "claude-artifact" / "dist" / "oneshot-panel.html" if snapshot_tag else OUT
+out.parent.mkdir(parents=True, exist_ok=True)
+out.write_text(page, encoding="utf-8")
+print(f"wrote {out.relative_to(ROOT)} ({len(page.encode())} bytes)")

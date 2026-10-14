@@ -149,5 +149,11 @@ https://veto.oneshot.su/
   через Google Drive (xlsx), лист «Матчи ДД.ММ» выбирается на сегодня
   сам, JSON сохраняется через окно сохранения. После правок
   веб-панели пересоберите: `python3 claude-artifact/build_oneshot_artifact.py`.
+  Для публикации собирайте со снимком таблицы
+  (`--snapshot claude-artifact/data/sheets-snapshot.json`, это документ
+  `panel/sheets` из хранилища артефакта): ссылку, открытую просто
+  во вкладке браузера, claude.ai отдаёт без хранилища и Google Drive,
+  и без снимка там нечего показать. Сборка со снимком пишется в
+  `claude-artifact/dist/`, в git она не попадает.
 - `index.html` — ранняя версия «Webcam Desk» с проверками таблицы
   организатора.

@@ -3,3 +3,5 @@ artifacts/
 *.log
 .DS_Store
 __pycache__/
+claude-artifact/dist/
+claude-artifact/data/
