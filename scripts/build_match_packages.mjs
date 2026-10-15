@@ -53,12 +53,12 @@ for (const match of matches) {
     await save('player-links/' + personKey(team.name) + '.txt', playerText(team, selected) + '\n');
   }
   const filename = safeFilename(a.name, b.name, match.time, match.stage);
-  const online = buildObs(template, a, b, ka, kb, randomUUID, {cardBase:site});
+  const online = buildObs(template, a, b, ka, kb, randomUUID, {cardBase:site, includeCards:true});
   const cards = online.sources.filter(s => s.name.startsWith('CARD '));
   if (cards.length !== 10) throw new Error('Expected 10 CARD sources.');
   await save('OBS_ONLINE/' + filename, JSON.stringify(online, null, 2) + '\n');
-  const offline = buildObs(template, a, b, ka, kb, randomUUID, {cardBase:site});
-  const embedded = buildObs(template, a, b, ka, kb, randomUUID, {cardBase:site});
+  const offline = buildObs(template, a, b, ka, kb, randomUUID, {cardBase:site, includeCards:true});
+  const embedded = buildObs(template, a, b, ka, kb, randomUUID, {cardBase:site, includeCards:true});
   await save('EMBEDDED_TEMPLATES/' + filename, JSON.stringify(embedded, null, 2) + '\n');
   const ordered = [...pa.map(p => ({...p, team:a.name})), ...pb.map(p => ({...p, team:b.name}))];
   offline.sources.filter(s => s.name.startsWith('CARD ')).forEach((s, i) => {

@@ -217,6 +217,28 @@ test('OBS repairs cameras and remaps references without mutating template', () =
     !template.sources.some(t => t.uuid === s.uuid)));
 });
 
+test('OBS omits all player cards by default and when disabled', () => {
+  const args = fixture(), original = JSON.stringify(template);
+  for (const options of [undefined, { includeCards: false }]) {
+    const result = buildObs(template, ...args, uuidFn(), options);
+    assert.equal(JSON.stringify(template), original);
+    assert.equal(result.sources.filter(s => s.name.startsWith('CAM ')).length, 10);
+    assert.equal(result.sources.filter(s => s.name.startsWith('CARD ')).length, 0);
+    assert.ok(!result.sources.some(s => s.settings?.url?.includes('/card.html')));
+    const byId = new Map(result.sources.map(s => [s.uuid, s]));
+    for (let i = 1; i <= 10; i++) {
+      const scene = result.sources.find(s => s.name === `Игрок ${i}`);
+      const cameras = scene.settings.items.filter(it => it.name.startsWith('CAM '));
+      assert.equal(cameras.length, 1);
+      assert.ok(!scene.settings.items.some(it => it.name.startsWith('CARD ')));
+      assert.equal(byId.get(cameras[0].source_uuid).settings.width, 1920);
+      assert.equal(byId.get(cameras[0].source_uuid).settings.height, 1080);
+      for (const item of scene.settings.items) assert.ok(byId.has(item.source_uuid));
+    }
+    assert.ok(result.sources.some(s => s.name === 'Матрица'));
+  }
+});
+
 test('Player card sits under each camera and opens the card page', () => {
   const args = fixture();
   const players = [
@@ -224,7 +246,7 @@ test('Player card sits under each camera and opens the card page', () => {
     ...selectedPlayers(args[1], args[3]).map(p => ({ ...p, team: args[1].name }))
   ];
   const result = buildObs(template, ...args, uuidFn(),
-    { cardBase: 'https://panel.example' });
+    { cardBase: 'https://panel.example', includeCards: true });
   const byId = new Map(result.sources.map(s => [s.uuid, s]));
   for (let i = 0; i < 10; i++) {
     const slot = String(i + 1).padStart(2, '0');
@@ -252,7 +274,7 @@ test('Player card sits under each camera and opens the card page', () => {
     assert.ok(new URL(byId.get(scene.settings.items[camera].source_uuid).settings.url)
       .searchParams.has('transparent'));
   }
-  const fallback = buildObs(template, ...args, uuidFn());
+  const fallback = buildObs(template, ...args, uuidFn(), { includeCards: true });
   assert.ok(fallback.sources.some(s =>
     s.settings?.url?.startsWith(`${DEFAULT_CARD_BASE}/card.html?`)));
   assert.equal(personKey(' Nuclear  TigeRES '), personKey('nuclear-tigeres'));

@@ -189,6 +189,28 @@ async def run(args):
         modes["roster_error"] = False
         passed("roster outage retains substitutions and marks stale data")
 
+        cards_option = page.get_by_label("Добавлять карточки и заглушки под камеры")
+        await expect(cards_option).not_to_be_checked()
+
+        async def verify_no_cards(folder):
+            async with page.expect_download() as info:
+                await page.click("#downloadBtn")
+            download = await info.value
+            assert download.suggested_filename == "16-00_Группа-B_6yuBoJlbl_vs_HYPERSPIRIT.json"
+            destination = artifacts / "no-cards" / folder
+            destination.mkdir(parents=True, exist_ok=True)
+            target = destination / download.suggested_filename
+            await download.save_as(target)
+            document = json.loads(target.read_text())
+            assert len([s for s in document["sources"] if s["name"].startswith("CAM ")]) == 10
+            assert not any(s["name"].startswith("CARD ") for s in document["sources"])
+            assert not any("/card.html" in s.get("settings", {}).get("url", "") for s in document["sources"])
+            for scene in [s for s in document["sources"] if s["id"] == "scene"]:
+                assert not any(it["name"].startswith("CARD ") for it in scene["settings"]["items"])
+
+        await verify_no_cards("default")
+        await cards_option.check()
+
         async with page.expect_download() as info:
             await page.click("#downloadBtn")
         download = await info.value
@@ -215,7 +237,9 @@ async def run(args):
             assert card["name"].startswith(f"CARD {i:02d} | ")
             assert by_id[card["source_uuid"]]["settings"]["url"].startswith(
                 args.url.rstrip("/") + "/card.html?team=")
-        passed("browser download filename and ten normalized cameras")
+        await cards_option.uncheck()
+        await verify_no_cards("disabled-again")
+        passed("browser download: cards default off, enabled, disabled again; ten cameras")
 
         await page.fill("#matchStage", "")
         assert await page.locator("#downloadBtn").is_disabled()

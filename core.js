@@ -270,7 +270,7 @@ function fitItem(item, x = 0, y = 0, width = 1920, height = 1080) {
 
 export function buildObs(template, a, b, ka, kb,
                          uuidFn = () => crypto.randomUUID(),
-                         { cardBase = DEFAULT_CARD_BASE } = {}) {
+                         { cardBase = DEFAULT_CARD_BASE, includeCards = false } = {}) {
   const error = validateMatch(a, b, ka, kb);
   if (error) throw new Error(error);
   if (!Array.isArray(template?.sources)) {
@@ -297,7 +297,7 @@ export function buildObs(template, a, b, ka, kb,
       throw new Error('В сцене игрока должен быть ровно один источник браузера.');
     }
     const item = items[0];
-    const cardSource = structuredClone(byId.get(item.source_uuid));
+    const cardSource = includeCards ? structuredClone(byId.get(item.source_uuid)) : null;
     let browser = byId.get(item.source_uuid);
     if (used.has(browser.uuid)) {
       browser = structuredClone(browser);
@@ -316,22 +316,24 @@ export function buildObs(template, a, b, ka, kb,
     names.set(browser.name, `CAM ${slot} | ${p.team} | ${p.nick}`);
     fitItem(item);
 
-    // The player card sits right under the camera: it is seen whenever
-    // VDO.Ninja has no video (not connected yet, or dropped).
-    Object.assign(cardSource, {
-      uuid: uuidFn(), name: `CARD ${slot} | ${p.team} | ${p.nick}`,
-      settings: { url: cardUrl(p, cardBase), width: 1920, height: 1080 },
-      muted: true
-    });
-    d.sources.push(cardSource);
-    byId.set(cardSource.uuid, cardSource);
-    const cardItem = {
-      ...structuredClone(item), name: cardSource.name,
-      source_uuid: cardSource.uuid, visible: true,
-      id: Math.max(...scene.settings.items.map(it => Number(it.id) || 0)) + 1
-    };
-    fitItem(cardItem);
-    scene.settings.items.splice(scene.settings.items.indexOf(item), 0, cardItem);
+    if (includeCards) {
+      // The player card sits right under the camera: it is seen whenever
+      // VDO.Ninja has no video (not connected yet, or dropped).
+      Object.assign(cardSource, {
+        uuid: uuidFn(), name: `CARD ${slot} | ${p.team} | ${p.nick}`,
+        settings: { url: cardUrl(p, cardBase), width: 1920, height: 1080 },
+        muted: true
+      });
+      d.sources.push(cardSource);
+      byId.set(cardSource.uuid, cardSource);
+      const cardItem = {
+        ...structuredClone(item), name: cardSource.name,
+        source_uuid: cardSource.uuid, visible: true,
+        id: Math.max(...scene.settings.items.map(it => Number(it.id) || 0)) + 1
+      };
+      fitItem(cardItem);
+      scene.settings.items.splice(scene.settings.items.indexOf(item), 0, cardItem);
+    }
   });
 
   const matrix = byName.get('Матрица');

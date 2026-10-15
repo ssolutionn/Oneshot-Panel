@@ -24,7 +24,8 @@ Oneshot Panel — статическая веб-панель эфирной ко
 - `card.html`, `card.js`, `card.css` — карточка игрока 1920×1080
   (`/card.html?team=…&nick=…`): фон `assets/card/background.png`, логотип CyberClash и логотип
   команды, ник, фото HLTV из `assets/players/players.json`. В OBS JSON
-  стоит под каждой камерой (`CARD NN | Команда | Ник`); `card.js`
+  добавляется под каждой камерой только при включённом includeCards
+  (`CARD NN | Команда | Ник`); `card.js`
   импортирует `personKey` из `core.js`. Оформление — токены `--card-*`.
   Фото крупно по центру; при отсутствии/ошибке фото — эмблема команды
   и ник по центру. Совпадение ника в другой команде не даёт фото.
@@ -64,7 +65,7 @@ Oneshot Panel — статическая веб-панель эфирной ко
 
 ```sh
 npm run check        # синтаксис
-npm test             # 27 тестов (node:test)
+npm test             # 28 тестов (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 claude-artifact/build_oneshot_artifact.py
@@ -83,9 +84,11 @@ Netlify проверяет локальные фото, докачивает н�
 - Имя JSON без пробелов: `16-00_Группа-B_КомандаA_vs_КомандаB.json`.
 - OBS JSON: сцены «Игрок 1–10» и «Матрица», камеры вписаны в 1920×1080,
   поворот 0, без обрезки, новые UUID при каждом экспорте; источники
-  называются `CAM NN | Команда | Ник`. Прямо под камерой — источник
-  браузера `CARD NN | Команда | Ник` с `card.html` того сайта, где открыта
-  панель (в артефакте — https://onepanel.netlify.app). Ссылка камеры
+  называются `CAM NN | Команда | Ник`. По умолчанию экспорт без карточек.
+  Галочка includeCards добавляет прямо под камерой источник браузера
+  `CARD NN | Команда | Ник` с card.html сайта панели (в артефакте —
+  https://onepanel.netlify.app). Выбор не сохраняется в localStorage.
+  Ссылка камеры
   заканчивается на `&cleanoutput&transparent`: без видео VDO.Ninja
   прозрачен, и видна карточка.
 - Вето как на veto.oneshot.su. Пул: Ancient, Anubis, Cache, Dust2,
@@ -104,7 +107,7 @@ Netlify проверяет локальные фото, докачивает н�
 - id: sidebarSource themeToggle webcams syncDot syncTitle syncTime
   refreshBtn settingsBtn errorBox scheduleLabel matchSelect matchTime
   matchStage swapBtn teamGrid exportBar exportHint filenamePreview
-  downloadBtn tabObserver tabPlayers outputPanel previewLabel copyAllBtn
+  downloadBtn includeCards tabObserver tabPlayers outputPanel previewLabel copyAllBtn
   output copyFoot veto vetoHeading vetoFormat vetoFirst vetoStatus
   sideChoice sideLabel chooseCT chooseT cancelSide mapGrid vetoUndo
   vetoReset autoCopyVeto vetoHint copyVeto vetoOutput settingsDialog

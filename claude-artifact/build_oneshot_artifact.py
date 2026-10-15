@@ -435,7 +435,8 @@ DOWNLOAD = r'''function obsFile() {
   const filename = safeFilename(state.a, state.b,
     $('matchTime').value, $('matchStage').value);
   const text = JSON.stringify(buildObs(state.template,
-    getTeam('a'), getTeam('b'), state.keysA, state.keysB), null, 2) + '\n';
+    getTeam('a'), getTeam('b'), state.keysA, state.keysB, undefined,
+    { includeCards: $('includeCards').checked }), null, 2) + '\n';
   return { filename, text };
 }
 function downloadNote(text) {
