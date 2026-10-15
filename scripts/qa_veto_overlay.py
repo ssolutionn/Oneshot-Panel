@@ -48,6 +48,48 @@ async def run(base, output):
         await page.click("#finish")
         assert len((await page.evaluate("window.vetoOverlay.getState()"))["actions"]) == 6
         checks.append("Preview advances, undoes and completes veto")
+
+        # Freeze smoke so only card effects can change these pixels.
+        async def card_sample(index=0, layout="full"):
+            return await page.evaluate("""({index,strip}) => {
+              const x=Math.round(80+index*((1760-14*6)/7+14)+20);
+              const y=strip?824:463,h=strip?70:170;
+              const d=document.getElementById('scene').getContext('2d').getImageData(x,y,190,h).data;
+              let hash=2166136261;
+              for(let i=0;i<d.length;i+=4)hash=Math.imul(hash^d[i]^d[i+1]^d[i+2],16777619);
+              return hash>>>0;
+            }""", {"index":index,"strip":layout=="strip"})
+        for kind in ["full", "strip"]:
+            await ready(layout=kind, step=0)
+            before = await card_sample(0, kind)
+            neighbour = await card_sample(1, kind)
+            await page.click("#next")
+            await page.wait_for_function("document.getElementById('scene').dataset.animating.includes('Ancient')")
+            await page.wait_for_timeout(180)
+            await page.evaluate("window.vetoOverlay.setState(window.vetoOverlay.getState())")
+            assert "Ancient" in await page.locator("#scene").get_attribute("data-animating")
+            middle = await card_sample(0, kind)
+            await page.screenshot(path=str(output / f"veto-ban-mid-{kind}.png"))
+            await page.wait_for_function("document.getElementById('scene').dataset.animating === ''")
+            settled = await card_sample(0, kind)
+            assert before != middle != settled, "Ban is not visibly interpolated"
+            assert neighbour == await card_sample(1, kind), "Unchanged card moved"
+            await page.click("#previous")
+            await page.wait_for_function("document.getElementById('scene').dataset.animating.includes('Ancient')")
+            await page.wait_for_function("document.getElementById('scene').dataset.animating === ''")
+            assert before == await card_sample(0, kind), "Undo did not restore the card"
+            await ready(layout=kind, step=2)
+            before = await card_sample(5, kind)
+            await page.click("#next")
+            await page.wait_for_function("document.getElementById('scene').dataset.animating.includes('Mirage')")
+            await page.wait_for_timeout(350)
+            middle = await card_sample(5, kind)
+            await page.screenshot(path=str(output / f"veto-pick-mid-{kind}.png"))
+            await page.wait_for_function("document.getElementById('scene').dataset.animating === ''")
+            settled = await card_sample(5, kind)
+            assert middle != before and middle != settled, "Pick sweep/stamp is not visible"
+            checks.append(f"{kind}: ban/pick pixels animate; undo restores; unchanged cards and duplicate updates stay stable")
+
         for layout in ["full", "strip"]:
             for fmt in ["BO1", "BO2", "BO3", "BO5"]:
                 await ready(layout=layout, fmt=fmt)
@@ -89,6 +131,45 @@ async def run(base, output):
         await ready(step=2)
         assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         checks.append("375px preview has no horizontal scrolling")
+        # Reduced-motion settings disable card effects as well as the smoke.
+        reduced = await browser.new_page(viewport={"width":960,"height":624}, reduced_motion="reduce")
+        await reduced.goto(path + "?preview=1&step=0")
+        await reduced.wait_for_selector("body[data-ready='true']")
+        await reduced.wait_for_selector("#scene[data-ready='true']")
+        assert not await reduced.locator("#motion").is_checked()
+        await reduced.click("#next")
+        await reduced.wait_for_timeout(120)
+        assert await reduced.locator("#scene").get_attribute("data-animating") == ""
+        await reduced.close()
+        checks.append("Reduced motion presents the committed state without card transitions")
+
+        # Record a short example of the actual rendered effects.
+        film_context = await browser.new_context(
+            viewport={"width":1280,"height":720},
+            record_video_dir=str(output / "_recording"),
+            record_video_size={"width":1280,"height":720})
+        film = await film_context.new_page()
+        film.on("pageerror", lambda error: errors.append(str(error)))
+        await film.goto(path + "?preview=1&step=0")
+        await film.wait_for_selector("body[data-ready='true']")
+        await film.evaluate("""() => {
+          document.body.dataset.preview='false';document.getElementById('previewBar').hidden=true;
+        }""")
+        await film.wait_for_timeout(650)
+        for step in [1,2,3,4,3,4,5,6]:
+            await film.evaluate("""async step => {
+              const {demoState}=await import('/assets/veto-overlay/model.js');
+              await window.vetoOverlay.setState(demoState('BO3',step));
+            }""", step)
+            await film.wait_for_timeout(1200)
+        await film.wait_for_timeout(700)
+        video = film.video
+        await film.close()
+        await video.save_as(str(output / "CyberClash-veto-animation-preview.webm"))
+        original_video = Path(await video.path())
+        await film_context.close()
+        original_video.unlink(missing_ok=True)
+        checks.append("Recorded browser ban, pick, undo and completion video at 1280x720")
         await context.close()
         assert not errors, errors
         assert all(url.startswith(base) for url in urls), urls

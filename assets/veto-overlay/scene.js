@@ -6,6 +6,20 @@ const C = {
   deep:'#05131d', panel:'#0a1c27', ban:'#ff6571', gold:'#e5edf1'
 };
 const W=1920,H=1080;
+const clamp=value=>Math.max(0,Math.min(1,value));
+const ease=value=>{const p=clamp(value);return p*p*(3-2*p);};
+const visual=map=>({
+  ban:map.status==='ban'?1:0,
+  accent:['pick','pending'].includes(map.status)?1:0,
+  white:map.status==='leftover'?1:0
+});
+const sameMap=(a,b)=>['status','side','team','step','sideTeam','ownSide'].every(key=>a?.[key]===b?.[key]);
+const mix=(a,b,p)=>Object.fromEntries(Object.keys(b).map(key=>[key,a[key]+(b[key]-a[key])*p]));
+function tint(a,b,p) {
+  const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
+  const x=rgb(a),y=rgb(b);
+  return '#'+x.map((n,i)=>Math.round(n+(y[i]-n)*clamp(p)).toString(16).padStart(2,'0')).join('');
+}
 function image(url) {
   return new Promise(resolve => {
     const img=new Image();
@@ -40,25 +54,44 @@ export async function artwork(teams) {
 }
 
 export class VetoScene {
-  constructor(canvas,assets,{layout='full',motion=true}={}) {
+  constructor(canvas,assets,{layout='full',motion=true,animations=true}={}) {
     this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:true});
-    this.assets=assets;this.layout=layout;this.motion=motion;this.changed=new Map();
+    this.assets=assets;this.layout=layout;this.motion=motion;this.animations=animations;this.changed=new Map();
     this.smoke=makeSmoke(assets.get('/background'));this.raf=0;this.lastFrame=0;
     this.frozenTime=12;this.started=performance.now();this.model=null;
     this.paint=this.paint.bind(this);
   }
   setState(value,{animate=true}={}) {
     const next=viewModel(value),now=performance.now();
-    this.changed.clear();
-    if(animate && this.model) {
+    const sameMatch=this.model && JSON.stringify([this.model.teams,this.model.format,this.model.first])===
+      JSON.stringify([next.teams,next.format,next.first]);
+    if(!animate || !this.animations || !sameMatch)this.changed.clear();
+    else {
       next.maps.forEach(map=>{
         const old=this.model.maps.find(old=>old.name===map.name);
-        if(old?.status!==map.status || old?.side!==map.side) this.changed.set(map.name,now);
+        if(sameMap(old,map))return; // Polling identical state must not restart or cancel an animation.
+        const previous=this.changed.get(map.name);
+        const from=previous?this.cardVisual(old,now).value:visual(old);
+        this.changed.set(map.name,{
+          started:now,duration:map.status==='available'?650:900,
+          from,to:visual(map),old
+        });
       });
     }
     this.model=next;
     this.canvas.dataset.phase=next.finished ? 'finished' : next.pending ? 'side' : 'veto';
     this.canvas.setAttribute('aria-label',this.description());
+    this.start();
+  }
+  cardVisual(map,now) {
+    const change=this.changed.get(map.name);
+    if(!change)return {value:visual(map),p:1,change:null};
+    const p=clamp((now-change.started)/change.duration);
+    return {value:mix(change.from,change.to,ease(p)),p,change};
+  }
+  setAnimations(enabled) {
+    this.animations=!!enabled;
+    if(!this.animations)this.changed.clear();
     this.start();
   }
   description() {
@@ -77,8 +110,10 @@ export class VetoScene {
     this.raf=0;
     if(now-this.lastFrame<32) {this.start();return;}
     this.lastFrame=now;this.draw(now);
-    const transitioning=[...this.changed.values()].some(time=>now-time<550);
-    if(this.motion || transitioning) this.start();
+    for(const [name,change] of this.changed) {
+      if(now-change.started>=change.duration)this.changed.delete(name);
+    }
+    if(this.motion || this.changed.size) this.start();
   }
   dispose() {cancelAnimationFrame(this.raf);this.smoke?.dispose();}
   text(value,x,y,size=24,color=C.ink,{weight=700,max=Infinity,align='left',alpha=1}={}) {
@@ -95,9 +130,9 @@ export class VetoScene {
   line(x1,y1,x2,y2,color,width=1) {
     const c=this.ctx;c.strokeStyle=color;c.lineWidth=width;c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke();
   }
-  cover(img,x,y,w,h) {
+  cover(img,x,y,w,h,zoom=1) {
     if(!img)return;
-    const scale=Math.max(w/img.width,h/img.height),sw=w/scale,sh=h/scale;
+    const scale=Math.max(w/img.width,h/img.height)*zoom,sw=w/scale,sh=h/scale;
     this.ctx.drawImage(img,(img.width-sw)/2,(img.height-sh)/2,sw,sh,x,y,w,h);
   }
   logo(key,x,y,w,h) {
@@ -162,52 +197,102 @@ export class VetoScene {
   card(map,index,m,now,strip) {
     const c=this.ctx,gap=14,w=(1760-gap*6)/7,x=80+index*(w+gap);
     const y=strip?806:382,h=strip?213:438;
-    const ban=map.status==='ban',pick=map.status==='pick',left=map.status==='leftover',pending=map.status==='pending';
-    const color=ban?C.ban:pick||pending?C.accent:left?C.gold:C.faint;
-    const elapsed=now-(this.changed.get(map.name) ?? -10000),p=Math.min(1,elapsed/500);
-    const lift=elapsed>=0 && p<1 ? Math.sin(p*Math.PI)*(strip?5:11) : 0;
-    c.save();c.translate(0,-lift);
+    const {value:v,p,change}=this.cardVisual(map,now),active=!!change&&p<1;
+    const color=tint(tint(tint(C.faint,C.ban,v.ban),C.accent,v.accent),C.gold,v.white);
+    const accent=map.status==='pick'||map.status==='pending';
+    const enteringPick=active&&map.status==='pick'&&change.old.status!=='pick';
+    const entering=active&&map.status!=='available';
+    const energy=active?Math.sin(Math.PI*p):0;
+    // Cards remain anchored: only the artwork moves, never the seven-column grid.
     this.rect(x,y,w,h,C.panel,3);
     c.save();c.beginPath();c.roundRect(x,y,w,h,3);c.clip();
     const imageY=strip?y:y+51,imageH=strip?133:249;
     c.save();
-    c.filter=ban?'grayscale(1) brightness(.58)':'saturate(.85) brightness(.9)';
-    this.cover(this.assets.get(map.name),x,imageY,w,imageH);c.restore();
+    c.filter=`grayscale(${v.ban}) saturate(.85) brightness(${.9-v.ban*.32})`;
+    this.cover(this.assets.get(map.name),x,imageY,w,imageH,1+(entering?energy*.025:0));
+    c.restore();
     const fade=c.createLinearGradient(0,imageY,0,imageY+imageH+15);
     fade.addColorStop(0,'#04131d00');fade.addColorStop(.55,'#04131d10');fade.addColorStop(1,C.panel);
     this.rect(x,imageY,w,imageH+15,fade);
-    if(ban) {
-      c.save();c.globalAlpha=.44;
-      const cx=x+w/2,cy=strip?y+64:y+177,d=strip?20:35;
-      this.line(cx-d,cy-d,cx+d,cy+d,C.ban,strip?3:4);
-      this.line(cx+d,cy-d,cx-d,cy+d,C.ban,strip?3:4);c.restore();
+    if(v.ban>0) {
+      c.save();c.globalAlpha=.64;
+      const cx=x+w/2,cy=strip?y+62:y+174,d=strip?29:47;
+      const stroke=(a,b,progress)=>{
+        const q=clamp(progress);
+        if(q>0)this.line(a[0],a[1],a[0]+(b[0]-a[0])*q,a[1]+(b[1]-a[1])*q,C.ban,strip?4:5);
+      };
+      stroke([cx-d,cy-d],[cx+d,cy+d],v.ban*2);
+      stroke([cx+d,cy-d],[cx-d,cy+d],v.ban*2-1);
+      c.restore();
     }
-    if(!strip) {
-      this.text(map.step?String(map.step).padStart(2,'0'):'—',x+18,y+31,18,color);
-      this.text(ban?'BAN':pick?'PICK':left?m.leftoverLabel:pending?'ВЫБОР СТОРОНЫ':'В ПУЛЕ',x+w-16,y+31,14,color,{align:'right',max:w-70});
+    if(entering) {
+      // A single diagonal colour sweep, without a whole-screen flash.
+      c.save();c.beginPath();c.rect(x,imageY,w,imageH);c.clip();
+      const cursor=x-100+(w+240)*p;
+      const beam=c.createLinearGradient(cursor-95,0,cursor+45,0);
+      beam.addColorStop(0,'#00000000');beam.addColorStop(.65,map.status==='ban'?'#ff657170':'#03dcf378');
+      beam.addColorStop(1,'#00000000');c.globalAlpha=energy;
+      c.fillStyle=beam;c.beginPath();c.moveTo(cursor-90,imageY);c.lineTo(cursor+45,imageY);
+      c.lineTo(cursor-15,imageY+imageH);c.lineTo(cursor-150,imageY+imageH);c.closePath();c.fill();
+      c.restore();
     }
-    this.text(map.name.toUpperCase(),x+16,strip?y+150:y+337,strip?29:39,ban?'#b0bec5':C.ink,{weight:900,max:w-30});
-    const actionLabel=ban?'BAN':pick?'PICK':left?m.leftoverLabel:pending?'СТОРОНА':'ДОСТУПНА';
-    this.text(actionLabel,x+17,strip?y+181:y+373,strip?17:19,color,{weight:900,max:w-32});
-    if(map.team!==null) {
-      const actor=m.teams[map.team];
-      this.text(actor,x+17,strip?y+202:y+401,strip?13:16,ban?C.muted:C.ink,{max:w-33});
-    } else if(left) {
-      this.text(m.format==='BO2'?'Осталась в пуле':'Решающая карта',x+17,strip?y+202:y+402,strip?13:16,C.muted,{max:w-33});
-    } else if(pending) {
-      this.text(m.teams[1-m.nextTeam],x+17,strip?y+202:y+402,strip?13:16,C.muted,{max:w-33});
+    if(enteringPick) {
+      const reveal=ease(p/.3)*(1-ease((p-.64)/.3));
+      const bx=x+w/2,by=imageY+imageH*.5,sw=strip?104:142,sh=strip?38:52;
+      c.save();c.globalAlpha=reveal;c.translate(bx,by+8*(1-reveal));c.scale(.9+.1*reveal,.9+.1*reveal);
+      this.rect(-sw/2,-sh/2,sw,sh,C.accent,2);
+      this.text('PICK',0,strip?10:14,strip?25:34,C.deep,{weight:900,align:'center',alpha:reveal});
+      c.restore();
     }
-    if(pick && !strip) {
-      this.text(`${map.side} · ${m.teams[map.sideTeam]}`,x+17,y+423,13,C.muted,{max:w-33});
-    } else if(pick && strip) {
-      this.rect(x+w-52,y+163,38,24,'#03dcf322',2);
-      this.text(map.ownSide,x+w-33,y+180,13,C.accent,{align:'center'});
-    }
+    this.text(map.name.toUpperCase(),x+16,strip?y+150:y+337,strip?29:39,
+      tint(C.ink,'#b0bec5',v.ban),{weight:900,max:w-30});
+    const captions=(item,alpha,dy=0)=>{
+      if(alpha<=0)return;
+      const ban=item.status==='ban',pick=item.status==='pick',left=item.status==='leftover',pending=item.status==='pending';
+      const ink=ban?C.ban:pick||pending?C.accent:left?C.gold:C.faint;
+      if(!strip) {
+        this.text(item.step?String(item.step).padStart(2,'0'):'—',x+18,y+31+dy,18,ink,{alpha});
+        this.text(ban?'BAN':pick?'PICK':left?m.leftoverLabel:pending?'ВЫБОР СТОРОНЫ':'В ПУЛЕ',
+          x+w-16,y+31+dy,14,ink,{align:'right',max:w-70,alpha});
+      }
+      this.text(ban?'BAN':pick?'PICK':left?m.leftoverLabel:pending?'СТОРОНА':'ДОСТУПНА',
+        x+17,(strip?y+181:y+373)+dy,strip?17:19,ink,{weight:900,max:w-32,alpha});
+      if(item.team!==null) {
+        this.text(m.teams[item.team],x+17,(strip?y+202:y+401)+dy,strip?13:16,
+          ban?C.muted:C.ink,{max:w-33,alpha});
+      } else if(left) {
+        this.text(m.format==='BO2'?'Осталась в пуле':'Решающая карта',
+          x+17,(strip?y+202:y+402)+dy,strip?13:16,C.muted,{max:w-33,alpha});
+      } else if(pending) {
+        this.text(m.teams[1-m.nextTeam],x+17,(strip?y+202:y+402)+dy,
+          strip?13:16,C.muted,{max:w-33,alpha});
+      }
+      if(pick&&!strip) {
+        this.text(`${item.side} · ${m.teams[item.sideTeam]}`,x+17,y+423+dy,13,C.muted,{max:w-33,alpha});
+      } else if(pick&&strip) {
+        c.save();c.globalAlpha=alpha;
+        this.rect(x+w-52,y+163+dy,38,24,'#03dcf322',2);c.restore();
+        this.text(item.ownSide,x+w-33,y+180+dy,13,C.accent,{align:'center',alpha});
+      }
+    };
+    if(active) {
+      const out=1-ease(p/.36),reveal=ease((p-.25)/.5);
+      captions(change.old,out,-5*(1-out));
+      captions(map,reveal,10*(1-reveal));
+    } else captions(map,1);
     this.rect(x,y+h-4,w,4,color);
     c.restore();
-    c.strokeStyle=(pick||pending)?C.accent:left?'#cfe6ef70':'#8eb2be35';
-    c.lineWidth=(pick||pending)?2:1;c.beginPath();c.roundRect(x+.5,y+.5,w-1,h-1,3);c.stroke();
-    c.restore();
+    const border=tint(tint('#28414b',C.accent,v.accent),C.gold,v.white);
+    c.strokeStyle=border;c.lineWidth=1+v.accent;c.beginPath();c.roundRect(x+.5,y+.5,w-1,h-1,3);c.stroke();
+    if(entering) {
+      c.save();
+      c.strokeStyle=accent?C.accent:map.status==='ban'?C.ban:C.gold;
+      c.lineWidth=strip?3:4;c.shadowColor=c.strokeStyle;c.shadowBlur=16*energy;c.globalAlpha=.35+.65*energy;
+      const perimeter=2*(w+h)-6;
+      c.setLineDash([perimeter*ease(p),perimeter]);c.lineDashOffset=0;
+      c.beginPath();c.roundRect(x+1,y+1,w-2,h-2,3);c.stroke();
+      c.restore();
+    }
   }
   fullFooter(m) {
     if(m.finished) {
@@ -249,6 +334,8 @@ export class VetoScene {
   }
   draw(now=performance.now()) {
     const c=this.ctx,strip=this.layout==='strip';
+    this.canvas.dataset.animating=[...this.changed].filter(([,item])=>
+      now-item.started<item.duration).map(([name])=>name).join(',');
     c.clearRect(0,0,W,H);
     const seconds=this.motion?(now-this.started)/1000+12:this.frozenTime;
     this.background(seconds,strip);

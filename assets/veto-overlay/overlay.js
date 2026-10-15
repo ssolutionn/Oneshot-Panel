@@ -93,12 +93,12 @@ $('download').addEventListener('click',action(download));
 
 async function init() {
   const assets=await artwork(current?.teams||[]);
-  scene=new VetoScene($('scene'),assets,{layout,motion});
+  scene=new VetoScene($('scene'),assets,{layout,motion,animations:params.get('animations')!=='off'&&!reduced.matches});
   if(current)scene.setState(current,{animate:false});else scene.start();
   // Renderer contract for the future shared-state transport. This interface
   // itself does not synchronize browsers or publish to other computers.
   window.vetoOverlay={
-    setState:state=>apply(state),
+    setState:(state,options)=>apply(state,options),
     getState:()=>current?snapshot(current):null,
     setLayout:value=>{layout=value==='strip'?'strip':'full';scene.setLayout(layout);},
     png:()=>scene.png(),

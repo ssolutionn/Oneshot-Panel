@@ -7,6 +7,7 @@ Preview:
 - /assets/veto-overlay/overlay.html?preview=1
 - /assets/veto-overlay/overlay.html?preview=1&layout=strip
 - Add &step=6 for the completed demo, &format=BO1/BO2/BO3/BO5, &motion=off.
+- &animations=off disables card transitions independently of the smoke.
 
 The preview controls use **test data**, visibly labelled in the toolbar.
 Without preview=1 the page waits for state and does not display a demo match.
@@ -17,13 +18,18 @@ Without preview=1 the page waits for state and does not display a demo match.
 - Existing local CyberClash background, event emblem, team logos, map pictures.
 - Slow animated smoke via a small WebGL surface; static fallback if unavailable.
 - Bans, picks, pending side choice, deciding map and map play order.
+- 900ms ban/pick effects: gradual desaturation and a drawn red cross for bans;
+  cyan border/sweep and a brief PICK stamp for picks; delayed team/side labels.
+- Undo transitions back to the available card in 650ms. The card grid stays fixed.
+- Identical state updates preserve active transitions; changes during a transition
+  continue from its current visual state. Reload/restoration shows settled state.
 - Exact existing veto rules, imported from core.js rather than duplicated.
 - In BO2 the untouched second map is not labelled DECIDER.
 - Full-frame picks explicitly name the opposing team and their selected side.
   The strip badge shows the picking team's own starting side.
 - PNG download once the demo is complete; actual pixels 1920x1080, alpha in strip.
   Export clears transient card movement and uses the same renderer and artwork.
-- Keyboard controls, reduced-motion default and mobile preview.
+- Keyboard controls, reduced-motion default for smoke AND cards, and mobile preview.
 
 ## Integration boundary
 
@@ -65,4 +71,7 @@ python3 scripts/qa_veto_overlay.py
 The dedicated workflow renders all four formats in both layouts, checks actual
 PNG dimensions/alpha, smoke movement and freezing, undo/finish, malformed updates,
 asset failure fallback, 375px overflow, and an idle page with no fake match data.
-It publishes the PNGs and preview JPEGs as cyberclash-veto-preview.
+It also samples real card pixels with smoke frozen to check ban/pick effects,
+undo, unchanged neighbours and identical updates, checks reduced-motion settings,
+and records a short browser video. It publishes PNGs, JPEGs and the 1280x720 WebM
+recording as cyberclash-veto-preview.
