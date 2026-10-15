@@ -79,6 +79,15 @@ async def run():
         cdp = await websockets.connect(target["webSocketDebuggerUrl"], max_size=16 * 1024 * 1024)
         cid = 0
 
+        async def command(method, params):
+            nonlocal cid
+            cid += 1
+            await cdp.send(json.dumps({"id": cid, "method": method, "params": params}))
+            while True:
+                reply = json.loads(await cdp.recv())
+                if reply.get("id") == cid:
+                    return reply
+
         async def evaluate(expression):
             nonlocal cid
             cid += 1
@@ -114,7 +123,14 @@ async def run():
         print("AFTER NATIVE EVENT", await evaluate("({state: vetoOverlay.getState(),scene: {...document.getElementById('scene').dataset}})"), flush=True)
         shot = await request("GetSourceScreenshot", {"sourceName": "Veto", "imageFormat": "png", "imageWidth": 1920, "imageHeight": 1080})
         (OUT / "native-ban.png").write_bytes(base64.b64decode(shot["imageData"].split(",", 1)[1]))
-        assert (await evaluate("vetoOverlay.getState()"))["actions"] == state["actions"], "OBS accepted event but source never received it"
+        received = (await evaluate("vetoOverlay.getState()"))["actions"] == state["actions"]
+        if not received:
+            print("BYPASS CSP PROBE", await command("Page.setBypassCSP", {"enabled": True}), flush=True)
+            await request("CallVendorRequest", {"vendorName": "obs-browser", "requestType": "emit_event",
+                          "requestData": {"event_name": "oneshot-veto", "event_data": state}})
+            await asyncio.sleep(.5)
+            print("AFTER CSP BYPASS", await evaluate("vetoOverlay.getState()"), flush=True)
+        assert received, "OBS accepted event but source never received it"
         print("PASS: actual OBS delivers veto to browser source", flush=True)
         await cdp.close()
         await ws.close()
