@@ -91,10 +91,26 @@ async def run(args):
               window.qrVideoStream=c.captureStream(10);
               window.qrCaptureCanvas=c;
               window.qrTrack=qrVideoStream.getVideoTracks()[0];
+              // WebKit canvas capture emits frames only after a new paint.
+              const copy=document.createElement('canvas'); copy.width=c.width; copy.height=c.height;
+              copy.getContext('2d').drawImage(c,0,0);
+              const paint=setInterval(()=>c.getContext('2d').drawImage(copy,0,0),100);
+              window.qrStopPaint=()=>clearInterval(paint);
               navigator.mediaDevices.getUserMedia=async()=>qrVideoStream;
             }""")
             await reader.get_by_role("button",name="Сканировать камерой",exact=True).click()
-            await expect(page.locator("#obsPassword")).to_have_value("camera-pass", timeout=15000)
+            try:
+                await expect(page.locator("#obsPassword")).to_have_value("camera-pass", timeout=15000)
+            except Exception:
+                print("QR CAMERA DIAGNOSTIC", engine, await page.evaluate("""() => {
+                  const v=document.querySelector('#obsNativeQr video');
+                  return {status:document.querySelector('#obsNativeQr [role=status]').textContent,
+                    width:v.videoWidth,height:v.videoHeight,ready:v.readyState,paused:v.paused,
+                    stream:!!v.srcObject,track:qrTrack.readyState};
+                }"""), flush=True)
+                raise
+            finally:
+                await page.evaluate("qrStopPaint()")
             assert await page.evaluate("qrTrack.readyState") == "ended"
             assert await reader.locator("video").is_hidden()
             # Switching tabs while camera permission is pending must cancel it.
