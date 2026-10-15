@@ -190,7 +190,13 @@ async def run(args):
             await expect(phone.locator("#obsPairQr [role=status]")).to_contain_text("Код связи подставлен")
             await expect(phone.locator("#obsCode")).to_have_text(code)
             for current_page in [page, dock, phone]:
-                assert await current_page.locator('style,[style]').count() == 0
+                inline_rules = await current_page.locator('style,[style]').evaluate_all("""nodes =>
+                  nodes.filter(n=>(n.tagName==='STYLE'?n.textContent:n.getAttribute('style')).trim())
+                    .map(n=>({tag:n.tagName,id:n.id,css:n.tagName==='STYLE'?n.textContent:n.getAttribute('style')}))
+                """)
+                # Playwright can leave empty style="" attributes after restoring
+                # a focused input. Only actual inline rules matter.
+                assert not inline_rules, inline_rules
             if automation_styles:
                 print("NOTE WebKit automation style reports:", list({
                     str(value) for value in automation_styles
