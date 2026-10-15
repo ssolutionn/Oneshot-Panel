@@ -507,6 +507,10 @@ async def run(args):
         )
         assert await organizer_page.input_value("#matchStage") == "Группа B"
         await expect(organizer_page.locator(".team-logo img")).to_have_count(2)
+        await organizer_page.wait_for_function("""() =>
+            [...document.querySelectorAll('.team-logo img')]
+                .every(image => image.complete && image.naturalWidth > 0)
+        """)
         assert await organizer_page.locator(".team-logo img").evaluate_all(
             "imgs => imgs.map(i => i.complete && i.naturalWidth > 0 &&"
             " i.closest('.team-card').querySelector('select').value)"
