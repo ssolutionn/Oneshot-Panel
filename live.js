@@ -169,10 +169,12 @@ function toggleObsFields() {
 }
 function saveObsDialog() {
   const mode = document.querySelector('input[name=obsMode]:checked')?.value === 'direct' ? 'direct' : 'bridge';
+  const code = obsSettings().code;
   write(OBS_STORE, {
-    mode, code: obsSettings().code,
+    mode, code,
     url: $('obsUrl').value.trim() || OBS_DEFAULT_URL, password: $('obsPassword').value
   });
+  fillObsLink(code);
   ensureBridge().catch(() => {});
   renderObsState();
 }

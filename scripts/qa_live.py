@@ -240,8 +240,9 @@ async def run(args):
         camera = obs.inputs[scene[1]]
         assert camera["url"].endswith("&cleanoutput&transparent") and camera["width"] == 1920
         assert obs.inputs[scene[0]]["url"].startswith(base + "/card.html?team=HYPERSPIRIT")
-        await page.evaluate("localStorage.setItem('oneshot-obs', JSON.stringify("
-                            "{mode: 'direct', url: 'ws://127.0.0.1:4455', password: 'wrong'}))")
+        await page.click("#obsSetupBtn")
+        await page.fill("#obsPassword", "wrong")
+        await page.click("#saveObs")
         await page.click("#sendObsBtn")
         await expect(page.locator("#errorBox")).to_contain_text("Неверный пароль OBS WebSocket")
         await expect(page.locator("#errorBox")).to_contain_text("скачать или скопировать")
@@ -263,8 +264,8 @@ async def run(args):
         await page.check('input[name=obsMode][value=bridge]')
         await expect(page.locator("#obsDirectFields")).to_be_hidden()
         await expect(page.locator("#obsBridgeFields")).to_be_visible()
-        bridge_code = await page.locator("#obsCode").inner_text()
         await page.click("#saveObs")
+        bridge_code = await page.locator("#obsCode").inner_text()
         await expect(page.locator("#obsState")).to_have_text("Док OBS не на связи")
         await expect(page.locator("#obsConnectionState")).to_have_text("Док OBS не на связи")
         await page.locator("#obsDialog").screenshot(path=str(output / "obs-connection-remote.png"))
