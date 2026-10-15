@@ -73,13 +73,34 @@ jobs:
           import argparse
           import asyncio
           import os
+          import json
           import runpy
           import time
           from urllib.error import HTTPError
-          from urllib.request import urlopen
+          from urllib.request import Request, urlopen
 
           preview = os.environ["PREVIEW_URL"]
           production = "https://onepanel.netlify.app"
+          def published_senka():
+              request = Request(production + "/assets/players/players.json",
+                                headers={"Cache-Control": "no-cache"})
+              with urlopen(request, timeout=20) as response:
+                  players = json.load(response)["players"]
+              entry = next(p for p in players if p["nick"].lower() == "senka")
+              print("PUBLISHED_SENKA:", json.dumps(entry), flush=True)
+              return entry
+
+          if preview == production:
+              # Wait for the new manifest, not just HTML retained from an older deploy.
+              for attempt in range(10):
+                  senka = published_senka()
+                  if senka.get("photo") and senka.get("file"):
+                      break
+                  if attempt < 9:
+                      time.sleep(10)
+              assert senka.get("file") and senka.get("photo"), "Published senka photo is not ready."
+          else:
+              published_senka()
           # Deploy previews may require a Netlify login. OBS must use the public site.
           try:
               response = urlopen(preview + "/card.html", timeout=20)

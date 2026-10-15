@@ -1,0 +1,103 @@
+name: Match day broadcast package
+
+on:
+  push:
+    branches: ["codex/matchday-player-packages"]
+  workflow_dispatch:
+    inputs:
+      day:
+        description: "Confirmed match date, DD.MM"
+        required: true
+        default: "15.10"
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      MATCH_DAY: ${{ inputs.day || '15.10' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Prepare real player photos
+        run: python3 scripts/fetch_player_photos.py --allow-missing
+      - name: Generate match collections from the current organizer sheets
+        run: |
+          node --check scripts/build_match_packages.mjs
+          node scripts/build_match_packages.mjs --day="$MATCH_DAY" --out=work/match-package
+      - name: Install card renderer
+        run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Render and verify all broadcast cards
+        run: |
+          node server.js > "${RUNNER_TEMP}/oneshot-package-server.log" 2>&1 &
+          python3 scripts/render_match_cards.py --root work/match-package
+      - name: Verify the Windows preparation script
+        shell: pwsh
+        run: |
+          & ./work/match-package/prepare_local.ps1
+      - name: Check prepared paths and remove runner-specific JSON
+        run: |
+          python3 - <<'PY'
+          import json
+          import shutil
+          from pathlib import Path
+          root = Path("work/match-package")
+          manifest = json.loads((root / "package-manifest.json").read_text())
+          files = list((root / "OBS_LOCAL").glob("*.json"))
+          assert len(files) == len(manifest["matches"])
+          for path in files:
+              document = json.loads(path.read_text(encoding="utf-8-sig"))
+              cards = [s for s in document["sources"] if s["name"].startswith("CARD ")]
+              assert len(cards) == 10
+              assert all(Path(s["settings"]["file"]).is_file() for s in cards)
+          shutil.rmtree(root / "OBS_LOCAL")
+          PY
+      - name: Upload self-contained OBS collections
+        uses: actions/upload-artifact@v4
+        with:
+          name: CyberClash-${{ env.MATCH_DAY }}-2026-OBS
+          path: work/match-package/OBS_READY/
+          if-no-files-found: error
+      - name: Upload ready broadcast package
+        uses: actions/upload-artifact@v4
+        with:
+          name: CyberClash-${{ env.MATCH_DAY }}-2026
+          path: work/match-package/
+          if-no-files-found: error
+      - name: Upload lightweight match previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: CyberClash-match-previews
+          path: |
+            work/match-package/previews/
+            work/match-package/verification.json
+          if-no-files-found: error
+      - name: Save verified photos for static publishing
+        if: github.event_name == 'push' && github.ref == 'refs/heads/codex/matchday-player-packages'
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          folder = Path("assets/players")
+          files = [folder / "players.json", *sorted(p for p in folder.iterdir()
+                   if p.suffix.lower() in (".png", ".jpg", ".webp"))]
+          subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=True)
+          subprocess.run(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
+          subprocess.run(["git", "add", "--", *map(str, files)], check=True)
+          changed = subprocess.run(["git", "diff", "--cached", "--quiet"]).returncode
+          if changed:
+              subprocess.run(["git", "commit", "-m", "Publish verified local HLTV photos with their manifest"], check=True)
+              subprocess.run(["git", "push", "origin", "HEAD:refs/heads/codex/matchday-player-packages"], check=True)
+          PY
