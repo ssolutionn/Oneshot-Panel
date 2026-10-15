@@ -811,6 +811,54 @@
    "hltv": "https://www.hltv.org/player/23763/pepo",
    "photo": "https://img-cdn.hltv.org/playerbodyshot/OGdb53S5wV3VSXvi--qZip.png?ixlib=java-2.1.0&w=400&s=84e3c08c972aeeaf5b61f0463521093e",
    "file": null
+  },
+  {
+   "team": "Black Phoenix",
+   "nick": "karnez",
+   "role": "2",
+   "hltv": "https://www.hltv.org/player/22676/karnez",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/iGk5zQ3IHeb-gKu0Rxme7Y.png?ixlib=java-2.1.0&w=400&s=3e91686af3094927494bd56c1ffc783c",
+   "file": null
+  },
+  {
+   "team": "Black Phoenix",
+   "nick": "MRcreed",
+   "role": "4",
+   "hltv": "https://www.hltv.org/player/24824/mrcreed",
+   "photo": null,
+   "file": null
+  },
+  {
+   "team": "Black Phoenix",
+   "nick": "s0ft",
+   "role": "C",
+   "hltv": "https://www.hltv.org/coach/26034/s0ft",
+   "photo": null,
+   "file": null
+  },
+  {
+   "team": "Black Phoenix",
+   "nick": "4X1s",
+   "role": "1",
+   "hltv": "https://www.hltv.org/player/21513/4x1s",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/LOF0DXd2S5rMAvv1wCuEmT.png?ixlib=java-2.1.0&w=400&s=3d22c1ca1b9734ba07c22bfdc03191f9",
+   "file": null
+  },
+  {
+   "team": "Black Phoenix",
+   "nick": "topo",
+   "role": "3",
+   "hltv": "https://www.hltv.org/player/24326/topo",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/kgjxcMiWQkRbrYqdXXgsuk.png?ixlib=java-2.1.0&w=400&s=08ed6ce5fab48b69bfc2807c6d23123a",
+   "file": null
+  },
+  {
+   "team": "Black Phoenix",
+   "nick": "Salazar",
+   "role": "5",
+   "hltv": "https://www.hltv.org/player/25349/salazar",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/V5IiNEHtU0wxi4AOdBj6QJ.png?ixlib=java-2.1.0&w=400&s=1ed2691286b73776d6ba07548341c4c7",
+   "file": null
   }
  ]
 }

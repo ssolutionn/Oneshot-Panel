@@ -583,9 +583,18 @@ async def run(args):
         cards = await browser.new_context(viewport={"width": 1920, "height": 1080})
         card_page = await cards.new_page()
         card_errors = []
-        card_page.on("console", lambda m: m.type == "error" and
-                     ("Content Security Policy" in m.text or "Refused to" in m.text)
-                     and card_errors.append(m.text))
+        # Netlify injects a separate badge iframe. Its blocked inline script is
+        # outside the card; check CSP violations in the card's own document.
+        await card_page.expose_function("reportCardPolicyViolation",
+                                        lambda message: card_errors.append(message))
+        await card_page.add_init_script("""
+            if (window === window.top) {
+                addEventListener('securitypolicyviolation', event => {
+                    window.reportCardPolicyViolation(
+                        event.effectiveDirective + ': ' + event.blockedURI);
+                });
+            }
+        """)
         card_page.on("pageerror", lambda e: card_errors.append(str(e)))
         stand_in = (Path(__file__).resolve().parent.parent /
                     "assets" / "favicon.png").read_bytes()
