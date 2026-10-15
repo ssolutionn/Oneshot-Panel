@@ -354,6 +354,8 @@ async def run(args):
                     {"map": "Cache", "type": "ban", "team": 0}, {"map": "Dust2", "type": "ban", "team": 1}]}
         await overlay.evaluate("state => dispatchEvent(new CustomEvent('oneshot-veto', { detail: state }))", full)
         await expect(overlay.locator("#scene")).to_have_attribute(
+            "data-phase", "finished", timeout=4000)
+        await expect(overlay.locator("#scene")).to_have_attribute(
             "aria-label", re.compile("Rune Eaters против PCIFIC. BO3. Вето завершено. Mirage, Nuke, Inferno"))
         await overlay.wait_for_timeout(1200)
         await overlay.screenshot(path=str(output / "veto-overlay.png"))

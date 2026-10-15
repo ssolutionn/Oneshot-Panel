@@ -58,22 +58,34 @@ export class VetoScene {
     this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:true});
     this.assets=assets;this.layout=layout;this.cropped=!!cropped;this.resize();this.motion=motion;this.animations=animations;this.changed=new Map();
     this.smoke=makeSmoke(assets.get('/background'));this.raf=0;this.lastFrame=0;
-    this.frozenTime=12;this.started=performance.now();this.model=null;
+    this.deciderAt=0;this.frozenTime=12;this.started=performance.now();this.model=null;
     this.paint=this.paint.bind(this);
   }
   setState(value,{animate=true}={}) {
     const next=viewModel(value),now=performance.now();
     const sameMatch=this.model && JSON.stringify([this.model.teams,this.model.format,this.model.first])===
       JSON.stringify([next.teams,next.format,next.first]);
+    const hiddenDecider=this.deciderAt>now;
+    const revealDecider=animate&&sameMatch&&!this.model.finished&&next.finished;
+    if(!next.finished||!sameMatch||!animate) {
+      this.deciderAt=0;
+      this.changed.delete('turn-7');
+    }
+    if(revealDecider)this.deciderAt=now+1500;
     if(!animate || !this.animations || !sameMatch)this.changed.clear();
     else {
       next.slots.forEach(map=>{
-        const old=this.model.slots.find(old=>old.id===map.id);
+        let old=this.model.slots.find(old=>old.id===map.id);
+        if(hiddenDecider&&map.role==='leftover')old={...old,name:'',status:'available',team:null,sideTeam:null,side:null,ownSide:null};
         if(sameMap(old,map))return; // Polling identical state must not restart or cancel an animation.
         const previous=this.changed.get(map.id);
+        if(old.status==='pending'&&map.status==='pick'&&old.name===map.name&&previous) {
+          this.changed.set(map.id,{...previous,to:visual(map)});
+          return;
+        }
         const from=previous?this.cardVisual(old,now).value:visual(old);
         this.changed.set(map.id,{
-          name:map.name||old.name,started:now,duration:map.status==='available'?650:900,
+          name:map.name||old.name,started:revealDecider&&map.role==='leftover'?this.deciderAt:now,duration:map.status==='available'?650:900,
           from,to:visual(map),old:{...old}
         });
       });
@@ -96,6 +108,7 @@ export class VetoScene {
   }
   description() {
     const m=this.model;
+    if(m&&performance.now()<this.deciderAt)return m.teams.join(' против ')+'. Последний ход: '+m.actions.at(-1).map+'. Ожидание решающей карты.';
     return m ? `${m.teams.join(' против ')}. ${m.format}. ${m.finished ? 'Вето завершено. '+m.series.join(', ') :
       m.pending ? 'Выбор стороны на '+m.pending+': '+m.teams[1-m.nextTeam] : 'Ход '+(m.actions.length+1)+': '+m.teams[m.nextTeam]+', '+m.nextType}.` : 'Ожидание вето.';
   }
@@ -118,7 +131,7 @@ export class VetoScene {
     for(const [name,change] of this.changed) {
       if(now-change.started>=change.duration)this.changed.delete(name);
     }
-    if(this.motion || this.changed.size) this.start();
+    if(this.motion || this.changed.size || now<this.deciderAt) this.start();
   }
   dispose() {cancelAnimationFrame(this.raf);this.smoke?.dispose();}
   text(value,x,y,size=24,color=C.ink,{weight=700,max=Infinity,align='left',alpha=1}={}) {
@@ -359,7 +372,7 @@ export class VetoScene {
   draw(now=performance.now()) {
     const c=this.ctx,strip=this.layout==='strip';
     this.canvas.dataset.animating=[...this.changed].filter(([,item])=>
-      now-item.started<item.duration).map(([,item])=>item.name).join(',');
+      now>=item.started&&now-item.started<item.duration).map(([,item])=>item.name).join(',');
     c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,this.canvas.width,this.canvas.height);
     c.save();if(this.cropped&&strip)c.translate(0,-680);
     const seconds=this.motion?(now-this.started)/1000+12:this.frozenTime;
@@ -370,16 +383,24 @@ export class VetoScene {
       this.text('ОЖИДАНИЕ ВЕТО',960,strip?920:650,44,C.ink,{align:'center'});
       c.restore();return;
     }
+    const waiting=now<this.deciderAt;
     if(strip)this.stripHeader(m);else this.fullHeader(m);
-    m.slots.forEach((map,i)=>this.card(map,i,m,now,strip));
-    if(strip)this.stripFooter(m);else this.fullFooter(m);
+    m.slots.forEach((map,i)=>{
+      const shown=waiting&&i===6?{...map,name:'',status:'available',team:null,sideTeam:null,side:null,ownSide:null}:map;
+      this.card(shown,i,m,now,strip);
+    });
+    const footer=waiting?{...m,finished:false,actions:m.actions.slice(0,5),
+      nextTeam:m.actions.at(-1).team,nextType:m.actions.at(-1).type}:m;
+    if(strip)this.stripFooter(footer);else this.fullFooter(footer);
+    this.canvas.dataset.phase=waiting?'last-move':m.finished?'finished':m.pending?'side':'veto';
+    this.canvas.setAttribute('aria-label',this.description());
     c.restore();
     this.canvas.dataset.layout=this.layout;
     this.canvas.dataset.smoke=this.smoke?.kind||'static';
     this.canvas.dataset.ready='true';
   }
   async png() {
-    this.changed.clear();
+    this.changed.clear();this.deciderAt=0;
     this.draw();
     return new Promise((resolve,reject)=>this.canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Не удалось сохранить PNG.')),'image/png'));
   }

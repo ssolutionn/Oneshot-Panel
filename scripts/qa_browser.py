@@ -2,6 +2,7 @@
 import argparse
 import asyncio
 import json
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -281,6 +282,8 @@ async def run(args):
             "Ancient was left over"
         )
         assert await page.input_value("#vetoOutput") == expected
+        assert await page.locator('[data-map="Ancient"] .map-turn').count() == 0
+        await expect(page.locator('[data-map="Ancient"] .map-turn')).to_contain_text("DECIDER", timeout=3000)
         assert await page.locator("#mapGrid [data-map]").evaluate_all("els => els.map(el => el.dataset.map)") == selected_maps + ["Ancient"]
         assert await page.locator('[data-map="Ancient"]').is_disabled()
         await page.click("#vetoUndo")

@@ -28,7 +28,7 @@ async def run():
     log = (OUT / "obs.log").open("w")
     proc = subprocess.Popen(["obs", "--disable-shutdown-check", "--disable-missing-files-check",
                              "--skip-release-check", "--disable-updater", "--disable-auto-config",
-                             "--remote-debugging-port=9222", "--no-sandbox"],
+                             "--remote-debugging-port=9222", "--no-sandbox", "--disable-gpu", "--disable-webgl"],
                             stdout=log, stderr=subprocess.STDOUT)
     try:
         for _ in range(60):
@@ -161,13 +161,27 @@ async def run():
             await panel.click('[data-map="Anubis"]')
             await until("vetoOverlay.getState()?.actions.length === 2")
             await asyncio.sleep(1)
+            await evaluate("""(() => {
+              window.pickStamps=0;
+              const ctx=document.getElementById('scene').getContext('2d'),draw=ctx.fillText.bind(ctx);
+              ctx.fillText=function(text,...args) {
+                if(text==='PICK' && /34px/.test(this.font))window.pickStamps++;
+                return draw(text,...args);
+              };
+            })()""")
             await panel.click('[data-map="Mirage"]')
             await until("vetoOverlay.getState()?.pending === 'Mirage'")
+            await expect(panel.locator("#sideLabel")).to_contain_text("HYPERSPIRIT")
+            await until("window.pickStamps > 0")
+            print("PASS: PICK reaches OBS before the opposing team chooses CT/T", flush=True)
+            await asyncio.sleep(1)
+            await evaluate("window.pickStamps=0")
             await panel.click("#chooseCT")
             await until("vetoOverlay.getState()?.actions.length === 3")
             assert "Mirage" in await evaluate("document.getElementById('scene').dataset.animating")
             print("PASS: manual bans, pending pick, side choice and card animations reach actual OBS", flush=True)
             await asyncio.sleep(1)
+            assert await evaluate("window.pickStamps === 0"), "Side selection replayed PICK"
             shot = await request("GetSourceScreenshot", {"sourceName": "Veto", "imageFormat": "jpg",
                                                         "imageWidth": 960, "imageHeight": 540})
             raw = base64.b64decode(shot["imageData"].split(",", 1)[1])

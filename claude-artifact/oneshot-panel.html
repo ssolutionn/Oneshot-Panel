@@ -1758,6 +1758,7 @@ async function copy(text, message = 'Скопировано в буфер обм
   $('manualCopy').select();
 }
 
+let vetoPresentation = { match: '', count: 0, revealAt: 0, timer: null };
 function renderVeto() {
   const identity = JSON.stringify([state.a, state.b, state.matchKey]);
   if (state.veto.matchKey !== identity) {
@@ -1770,6 +1771,17 @@ function renderVeto() {
   const { actions, format, first } = state.veto;
   const ready = !!getTeam('a') && !!getTeam('b') && state.a !== state.b;
   const finished = actions.length === 6;
+  if (vetoPresentation.match === identity && vetoPresentation.count < 6 && finished) {
+    vetoPresentation.revealAt = performance.now() + 1500;
+    clearTimeout(vetoPresentation.timer);
+    vetoPresentation.timer = setTimeout(renderVeto, 1500);
+  } else if (vetoPresentation.match !== identity || !finished) {
+    clearTimeout(vetoPresentation.timer);
+    vetoPresentation.revealAt = 0;
+  }
+  vetoPresentation.match = identity;
+  vetoPresentation.count = actions.length;
+  const showDecider = finished && performance.now() >= vetoPresentation.revealAt;
   $('vetoFormat').value = format;
   $('vetoFormat').disabled = actions.length > 0 || !!state.pending;
   $('vetoFirst').innerHTML =
@@ -1798,7 +1810,7 @@ function renderVeto() {
     const actionIndex = actions.findIndex(action => action.map === map);
     const action = actions[actionIndex];
     const pending = state.pending === map;
-    const leftover = finished && !action;
+    const leftover = showDecider && !action;
     const turn = action ? actionIndex + 1 : pending ? actions.length + 1 : leftover ? 7 : null;
     const role = action?.type || (pending ? 'pick' : leftover ? 'leftover' : '');
     const owner = action ? teams[action.team] : pending ? teams[team] : '';
