@@ -257,10 +257,16 @@ async def run(args):
         await page.fill("#matchStage", "Группа B")
         passed("missing metadata blocks JSON while links remain available")
 
+        selected_maps = []
         for name in ["Anubis", "Nuke", "Dust2", "Cache", "Inferno", "Mirage"]:
             await page.click(f'[data-map="{name}"]')
+            selected_maps.append(name)
+            order = await page.locator("#mapGrid [data-map]").evaluate_all("els => els.map(el => el.dataset.map)")
+            assert order[:len(selected_maps)] == selected_maps, order
             if name in ["Dust2", "Cache"]:
                 assert await page.locator("#sideChoice").is_visible()
+                await expect(page.locator(f'[data-map="{name}"]')).to_have_class(re.compile(r"\\bpick\\b"))
+                await expect(page.locator("#sideLabel")).to_contain_text("HYPERSPIRIT" if name == "Dust2" else "6yuBoJlbl")
                 await page.click("#chooseCT")
             assert await page.evaluate(
                 "document.activeElement?.matches('#mapGrid button, #copyVeto')"
@@ -275,6 +281,7 @@ async def run(args):
             "Ancient was left over"
         )
         assert await page.input_value("#vetoOutput") == expected
+        assert await page.locator("#mapGrid [data-map]").evaluate_all("els => els.map(el => el.dataset.map)") == selected_maps + ["Ancient"]
         assert await page.locator('[data-map="Ancient"]').is_disabled()
         await page.click("#vetoUndo")
         await page.click('[data-map="Mirage"]')

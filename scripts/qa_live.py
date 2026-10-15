@@ -192,7 +192,12 @@ async def run(args):
         await page.keyboard.press("ArrowLeft")
         await expect(page.locator("#prepView")).to_be_visible()
         await expect(page.locator("#viewPrep")).to_be_focused()
-        passed("tabs, keyboard switching and webcam status 8/10")
+        await page.click("#viewLobby")
+        await expect(page.locator("#obsNavBtn")).to_be_visible()
+        await page.click("#obsNavBtn")
+        await expect(page.locator("#prepView")).to_be_visible()
+        await expect(page.locator("#obsForm")).to_be_visible()
+        passed("tabs, keyboard switching, always visible OBS entry and webcam status 8/10")
 
         # Set up through the visible form next to veto, without seeding storage.
         await expect(page.locator("#veto #obsForm")).to_be_visible()
@@ -326,7 +331,7 @@ async def run(args):
         overlay_link = await page.evaluate("window.__copied.at(-1)")
         await page.select_option("#vetoLayout", "strip")
         await page.click("#copyOverlay")
-        assert "?layout=strip#s=" in await page.evaluate("window.__copied.at(-1)")
+        assert "?layout=strip&crop=1#s=" in await page.evaluate("window.__copied.at(-1)")
         await overlay.close()
         await page.uncheck("#vetoLive")
         passed("live veto: real receiver acknowledgement, animated move and replay after reload; independent of the OBS control dock")
