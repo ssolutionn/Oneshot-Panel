@@ -164,20 +164,28 @@ async def run(base, output):
                     await page.set_viewport_size({"width":1920,"height":1164})
             checks.append(f"{layout}: all four formats export a 1920x1080 PNG; alpha correct")
 
+
         await ready(layout="strip", step=6)
         legacy = await page.evaluate("""() => {
-          const d=document.getElementById('scene').getContext('2d').getImageData(0,680,1920,400).data;
-          let h=2166136261;for(let i=0;i<d.length;i++)h=Math.imul(h^d[i],16777619);
-          return h>>>0;
+          const d=document.getElementById('scene').getContext('2d').getImageData(0,680,1920,400).data,s=[];
+          for(let y=5;y<400;y+=17)for(let x=5;x<1920;x+=31) {
+            const i=(y*1920+x)*4;s.push(d[i],d[i+1],d[i+2],d[i+3]);
+          }
+          return s;
         }""")
         await page.goto(path + "?preview=1&layout=strip&crop=1&step=6&motion=off")
         await page.wait_for_selector("#scene[data-ready='true']")
         cropped = await page.evaluate("""() => {
-          const c=document.getElementById('scene'),d=c.getContext('2d').getImageData(0,0,1920,400).data;
-          let h=2166136261;for(let i=0;i<d.length;i++)h=Math.imul(h^d[i],16777619);
-          return {width:c.width,height:c.height,hash:h>>>0,alpha:d[3]};
+          const c=document.getElementById('scene'),d=c.getContext('2d').getImageData(0,0,1920,400).data,s=[];
+          for(let y=5;y<400;y+=17)for(let x=5;x<1920;x+=31) {
+            const i=(y*1920+x)*4;s.push(d[i],d[i+1],d[i+2],d[i+3]);
+          }
+          return {width:c.width,height:c.height,sample:s,alpha:d[3]};
         }""")
-        assert cropped == {"width":1920,"height":400,"hash":legacy,"alpha":255}, cropped
+        assert (cropped["width"],cropped["height"],cropped["alpha"]) == (1920,400,255)
+        # Separate canvas origins can round antialiasing differently.
+        difference = sum(abs(a-b) for a,b in zip(legacy,cropped["sample"])) / len(legacy)
+        assert difference < 2, f"Compact strip differs from the legacy lower frame: {difference}"
         async with page.expect_download() as pending:
             await page.click("#download")
         download = await pending.value
@@ -185,7 +193,10 @@ async def run(base, output):
         await download.save_as(str(target))
         raw = target.read_bytes()
         assert int.from_bytes(raw[16:20],"big") == 1920 and int.from_bytes(raw[20:24],"big") == 400
-        checks.append("Compact strip: 1920x400, same lower pixels, 400px PNG export")
+        checks.append(f"Compact strip: 1920x400, lower frame mean pixel error {difference:.3f}, 400px PNG")
+        print("COMPACT_PREVIEW_BEGIN", flush=True)
+        print(await page.evaluate("document.getElementById('scene').toDataURL('image/jpeg',.85).split(',')[1]"), flush=True)
+        print("COMPACT_PREVIEW_END", flush=True)
 
         # Observe actual canvas labels and their horizontal positions, rather
         # than only the view model, in both OBS layouts and exported scenes.

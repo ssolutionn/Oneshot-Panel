@@ -76,7 +76,7 @@ export class VetoScene {
     else {
       next.slots.forEach(map=>{
         let old=this.model.slots.find(old=>old.id===map.id);
-        if(hiddenDecider&&map.role==='leftover')old={...old,name:'',status:'available',team:null,sideTeam:null,side:null,ownSide:null};
+        if(hiddenDecider&&!next.finished&&map.role==='leftover')old={...old,name:'',status:'available',team:null,sideTeam:null,side:null,ownSide:null};
         if(sameMap(old,map))return; // Polling identical state must not restart or cancel an animation.
         const previous=this.changed.get(map.id);
         if(old.status==='pending'&&map.status==='pick'&&old.name===map.name&&previous) {
@@ -91,7 +91,7 @@ export class VetoScene {
       });
     }
     this.model=next;
-    this.canvas.dataset.phase=next.finished ? 'finished' : next.pending ? 'side' : 'veto';
+    this.canvas.dataset.phase=now<this.deciderAt ? 'last-move' : next.finished ? 'finished' : next.pending ? 'side' : 'veto';
     this.canvas.setAttribute('aria-label',this.description());
     this.start();
   }

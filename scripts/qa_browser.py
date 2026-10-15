@@ -266,7 +266,7 @@ async def run(args):
             assert order[:len(selected_maps)] == selected_maps, order
             if name in ["Dust2", "Cache"]:
                 assert await page.locator("#sideChoice").is_visible()
-                await expect(page.locator(f'[data-map="{name}"]')).to_have_class(re.compile(r"\\bpick\\b"))
+                assert "pick" in (await page.locator(f'[data-map="{name}"]').get_attribute("class")).split()
                 await expect(page.locator("#sideLabel")).to_contain_text("HYPERSPIRIT" if name == "Dust2" else "6yuBoJlbl")
                 await page.click("#chooseCT")
             assert await page.evaluate(
