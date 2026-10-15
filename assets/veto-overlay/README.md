@@ -1,0 +1,68 @@
+# CyberClash veto — isolated visual prototype
+
+This branch adds new files only. It does not change app.js, core.js, index.html,
+Netlify configuration, the existing workflow, or the Claude artifact.
+
+Preview:
+- /assets/veto-overlay/overlay.html?preview=1
+- /assets/veto-overlay/overlay.html?preview=1&layout=strip
+- Add &step=6 for the completed demo, &format=BO1/BO2/BO3/BO5, &motion=off.
+
+The preview controls use **test data**, visibly labelled in the toolbar.
+Without preview=1 the page waits for state and does not display a demo match.
+
+## Included
+
+- 1920x1080 full frame and bottom strip with transparent space above y=680.
+- Existing local CyberClash background, event emblem, team logos, map pictures.
+- Slow animated smoke via a small WebGL surface; static fallback if unavailable.
+- Bans, picks, pending side choice, deciding map and map play order.
+- Exact existing veto rules, imported from core.js rather than duplicated.
+- In BO2 the untouched second map is not labelled DECIDER.
+- Full-frame picks explicitly name the opposing team and their selected side.
+  The strip badge shows the picking team's own starting side.
+- PNG download once the demo is complete; actual pixels 1920x1080, alpha in strip.
+  Export clears transient card movement and uses the same renderer and artwork.
+- Keyboard controls, reduced-motion default and mobile preview.
+
+## Integration boundary
+
+**Not connected to the panel or to a cross-computer transport yet.**
+Do not use this preview as an actual live-match source.
+
+The renderer accepts a full snapshot through:
+await window.vetoOverlay.setState({
+  version: 1,
+  teams: ["Team A", "Team B"],
+  format: "BO3",
+  first: 0,
+  actions: [{ map: "Ancient", type: "ban", team: 0 }],
+  pending: null,
+  stage: "GROUP STAGE"
+});
+
+Pick actions carry side: "CT" or "T" for the **opposing** team, matching core.js.
+pending is an available map awaiting that side choice, or null.
+Invalid snapshots reject and retain the previous valid state.
+Rendering, PNG and layout selection consume this one snapshot.
+
+The next integration should publish snapshots from the existing manual veto,
+use separate read-only OBS and secret write access, retain the latest state
+across OBS reloads, and keep a room bound to a match. Switching matches must not
+silently replace the on-air room. Undo, reset and pending picks must synchronize.
+A backend transport is required because admin and OBS run on different computers;
+localStorage/BroadcastChannel cannot provide that synchronization.
+
+FACEIT integration and player self-service veto are outside this prototype.
+Before integration, reconcile the latest Claude branch changes.
+
+## Verification
+
+npm run check && npm test
+node --check assets/veto-overlay/overlay.js
+python3 scripts/qa_veto_overlay.py
+
+The dedicated workflow renders all four formats in both layouts, checks actual
+PNG dimensions/alpha, smoke movement and freezing, undo/finish, malformed updates,
+asset failure fallback, 375px overflow, and an idle page with no fake match data.
+It publishes the PNGs and preview JPEGs as cyberclash-veto-preview.
