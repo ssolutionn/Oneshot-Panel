@@ -1,0 +1,58 @@
+/* Site-only OBS setup. The form has one owner, beside the map veto. */
+.obs-connection { margin:0 16px 16px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); scroll-margin-top:24px; }
+.obs-connection>summary { display:flex; align-items:center; gap:14px; padding:16px; cursor:pointer; list-style:none; }
+.obs-connection>summary::-webkit-details-marker { display:none; }
+.obs-connection-title { flex:1; min-width:0; display:grid; gap:5px; }
+.obs-connection-title>span:last-child { font-size:15px; font-weight:750; color:var(--ink); }
+.obs-connection-state { max-width:260px; color:var(--muted); font-size:11px; line-height:1.5; text-align:right; overflow-wrap:anywhere; }
+.obs-connection-state[data-kind=good] { color:var(--success-ink); }
+.obs-connection-state[data-kind=bad] { color:var(--red); }
+.obs-connection-chevron { color:var(--muted); font-size:20px; transition:transform .15s; }
+.obs-connection[open] .obs-connection-chevron { transform:rotate(180deg); }
+.obs-connection>form { padding:0 16px 16px; }
+.obs-connection-intro { margin:0 0 16px; color:var(--muted); font-size:12px; line-height:1.7; }
+.obs-connection .obs-mode { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:0 0 16px; }
+.obs-connection .obs-mode legend { margin-bottom:9px; }
+.obs-connection .obs-mode .check { display:flex; align-items:flex-start; gap:10px; min-width:0; padding:12px; border:1px solid var(--line); border-radius:6px; background:var(--surface); line-height:1.5; }
+.obs-connection .obs-mode .check:has(input:checked) { border-color:var(--red); background:var(--accent-soft); }
+.obs-connection .obs-mode .check input { flex:none; margin-top:3px; }
+.obs-connection .obs-mode b { display:block; font-size:12px; }
+.obs-connection .obs-mode small { display:block; color:var(--muted); font-size:11px; font-weight:400; margin-top:3px; }
+.obs-guide { padding:14px 16px; margin-bottom:16px; border:1px solid var(--divider-2); border-radius:6px; background:var(--surface); }
+.obs-guide h3 { margin:0 0 10px; color:var(--ink); font-size:13px; font-weight:700; }
+.obs-guide ol { margin:0; padding-left:20px; color:var(--sub); font-size:12px; line-height:1.75; }
+.obs-guide li+li { margin-top:8px; }
+.obs-guide b { font-weight:650; }
+.obs-connection .obs-field { display:block; min-width:0; color:var(--ink); font-size:12px; font-weight:600; line-height:1.6; }
+.obs-connection input:not([type=radio]) { display:block; width:100%; min-width:0; margin-top:6px; padding:11px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font-size:12px; }
+.obs-connection .copy-line { margin-top:6px; min-width:0; }
+.obs-connection .copy-line input { flex:1; margin:0; font-size:11px; }
+.obs-connection .copy-line button { flex:none; }
+.obs-credentials { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.obs-field-hint,.obs-code-line,.obs-version-note { color:var(--muted); font-size:11px; line-height:1.7; overflow-wrap:anywhere; }
+.obs-field-hint { margin:7px 0 0; }
+.obs-code-line { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:8px 0; }
+.obs-version-note { margin:14px 0 0; }
+.obs-version-note a { margin-left:6px; text-underline-offset:3px; }
+.obs-connection .obs-test { font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
+.obs-connection-actions { display:flex; align-items:center; flex-wrap:wrap; gap:9px; margin-top:12px; }
+.obs-connection-actions #closeObs { margin-left:auto; }
+.dock-help { color:var(--muted); font-size:11px; line-height:1.7; }
+.dock-help summary { cursor:pointer; font-weight:600; }
+.dock-help ol { padding-left:18px; margin:10px 0; }
+.dock-help li+li { margin-top:7px; }
+.dock-field-hint { font-size:10px; font-weight:400; line-height:1.6; color:var(--muted); overflow-wrap:anywhere; }
+@media(max-width:650px) {
+  .obs-connection { margin:0 10px 12px; }
+  .obs-connection>summary { gap:8px; padding:12px; flex-wrap:wrap; }
+  .obs-connection-title { flex-basis:70%; }
+  .obs-connection-chevron { margin-left:auto; order:1; }
+  .obs-connection-state { flex-basis:100%; max-width:none; order:2; text-align:left; }
+  .obs-connection>form { padding:0 12px 12px; }
+  .obs-connection .obs-mode,.obs-credentials { grid-template-columns:minmax(0,1fr); }
+  .obs-guide { padding:12px; }
+  .obs-connection .copy-line { flex-wrap:wrap; }
+  .obs-connection .copy-line input { flex-basis:100%; }
+  .obs-connection-actions .button { flex:1; }
+}
+@media(prefers-reduced-motion:reduce) { .obs-connection-chevron { transition:none; } }
