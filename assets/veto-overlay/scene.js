@@ -118,9 +118,11 @@ export class VetoScene {
   dispose() {cancelAnimationFrame(this.raf);this.smoke?.dispose();}
   text(value,x,y,size=24,color=C.ink,{weight=700,max=Infinity,align='left',alpha=1}={}) {
     const c=this.ctx;c.save();c.globalAlpha=alpha;c.fillStyle=color;
-    c.font=`${weight} ${size}px Arial, sans-serif`;c.textBaseline='alphabetic';c.textAlign=align;
-    const width=c.measureText(String(value)).width,scale=Math.min(1,max/Math.max(1,width));
-    c.translate(x,y);c.scale(scale,1);c.fillText(String(value),0,0);c.restore();
+    const display=size>=22||weight>=850,stretch=display?.86:1;
+    c.font=`${display?Math.min(weight,700):weight} ${size}px ${display?'"Oneshot Display", Arial, sans-serif':'Arial, sans-serif'}`;
+    c.textBaseline='alphabetic';c.textAlign=align;
+    const width=c.measureText(String(value)).width*stretch,scale=Math.min(1,max/Math.max(1,width));
+    c.translate(x,y);c.scale(scale*stretch,1);c.fillText(String(value),0,0);c.restore();
   }
   rect(x,y,w,h,color,radius=0) {
     const c=this.ctx;c.fillStyle=color;c.beginPath();

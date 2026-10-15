@@ -23,6 +23,8 @@ async def run(base, output):
             await page.wait_for_selector("body[data-ready='true']")
             await page.wait_for_selector("#scene[data-ready='true']")
         await ready(step=2, motion="on")
+        assert await page.evaluate("""() => document.fonts.check('700 48px "Oneshot Display"')""")
+        checks.append("Local event-style display font is loaded before the canvas")
         assert await page.locator("#scene").get_attribute("data-smoke") == "webgl", "Shader did not compile"
         async def sample():
             return await page.evaluate("""() => {

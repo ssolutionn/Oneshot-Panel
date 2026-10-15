@@ -1,7 +1,10 @@
 # CyberClash live veto
 
 1920×1080 full frame or bottom strip (transparent above y=680).
-Local event artwork, team logos and maps; WebGL smoke with a moving Canvas2D
+Local event artwork, team logos and maps. Tall condensed Oswald display type
+(Latin/Cyrillic, SIL OFL) echoes the CyberClash wordmark; small captions retain
+a readable sans-serif. The font is local and loads before canvas rendering/PNG.
+ WebGL smoke with a moving Canvas2D
 fallback. Reduced-motion settings disable smoke and card transitions.
 
 ## Add to OBS

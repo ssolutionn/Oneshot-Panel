@@ -126,6 +126,9 @@ async def run():
                     "({ready:document.body?.dataset.ready,state:window.vetoOverlay?.getState(),frames:[...document.querySelectorAll('iframe')].map(f=>f.title)})")))
 
             await until("document.body?.dataset.ready === 'true'")
+            print("OBS SOURCE ACTIVITY", await request("GetSourceActive", {"sourceName":"Veto"}), flush=True)
+            await request("GetSourceScreenshot", {"sourceName":"Veto","imageFormat":"jpg","imageWidth":480,"imageHeight":270})
+            await until("document.getElementById('scene')?.dataset.ready === 'true'")
             print("OBS INITIAL", await evaluate("({state:vetoOverlay.getState(),scene:{...document.getElementById('scene').dataset}})"), flush=True)
             await expect(panel.locator("#vetoLiveStatus")).to_contain_text("Оверлей получает вето", timeout=60000)
             print("PASS: actual OBS CEF acknowledged the live VDO stream; no OBS password in panel", flush=True)

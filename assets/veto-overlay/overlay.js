@@ -95,7 +95,10 @@ $('motion').addEventListener('change',()=>{motion=$('motion').checked;scene?.set
 $('download').addEventListener('click',action(download));
 
 async function init() {
-  const assets=await artwork(current?.teams||[]);
+  const [assets]=await Promise.all([
+    artwork(current?.teams||[]),
+    document.fonts.load('700 48px "Oneshot Display"','CYBERCLASH КАРТЫ РЕШАЮТ').catch(()=>[])
+  ]);
   scene=new VetoScene($('scene'),assets,{layout,motion,animations:params.get('animations')!=='off'&&!reduced.matches});
   if(current)scene.setState(current,{animate:false});else scene.start();
   // Renderer contract for the future shared-state transport. This interface
@@ -123,7 +126,7 @@ async function init() {
         if(message.type!=='veto-state'||typeof message.id!=='string')return;
         try {
           await apply(message.state);
-          requestAnimationFrame(()=>displayLink?.send({type:'veto-received',id:message.id}));
+          await displayLink?.send({type:'veto-received',id:message.id});
         } catch { /* A malformed update must not replace the on-air state. */ }
       });
     }

@@ -408,12 +408,14 @@ $('vetoLive').addEventListener('change', () => {
 async function flushVeto() {
   if (!$('vetoLive').checked || vetoSending) return;
   vetoSending = true;
+  let sentKey = null;
   try {
     const link = await ensureVetoLink();
     if (!link || !$('vetoLive').checked) return;
     // Capture after connection setup so an older queued move cannot acquire
     // the latest revision ID or overtake a newer snapshot.
     const state = vetoState(), key = JSON.stringify(state);
+    sentKey = key;
     if (key !== lastVeto) {
       lastVeto = key;
       vetoId = crypto.randomUUID();
@@ -424,7 +426,7 @@ async function flushVeto() {
     setVetoStatus('Оверлей: ' + error.message + ' Повторим автоматически.', 'bad');
   } finally {
     vetoSending = false;
-    if ($('vetoLive').checked && JSON.stringify(vetoState()) !== lastVeto) sendVeto();
+    if ($('vetoLive').checked && sentKey !== null && JSON.stringify(vetoState()) !== sentKey) sendVeto();
   }
 }
 function sendVeto() {
