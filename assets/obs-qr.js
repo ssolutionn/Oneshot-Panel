@@ -120,7 +120,7 @@ export function mountQrReader(root, { title = 'Заполнить по QR', hint
   details.append(summary, intro, actions, video, stop, manual, status);
   root.append(details);
 
-  let stream = null, timer, generation = 0;
+  let stream = null, timer, startupTimer, generation = 0;
   const report = (text, bad = false) => {
     status.textContent = text;
     status.dataset.kind = bad ? 'bad' : '';
@@ -128,6 +128,7 @@ export function mountQrReader(root, { title = 'Заполнить по QR', hint
   function stopCamera() {
     generation++;
     clearTimeout(timer);
+    clearTimeout(startupTimer);
     stream?.getTracks().forEach(track => track.stop());
     stream = null;
     video.srcObject = null;
@@ -160,11 +161,17 @@ export function mountQrReader(root, { title = 'Заполнить по QR', hint
       stream = next;
       video.srcObject = stream;
       video.hidden = stop.hidden = false;
+      startupTimer = setTimeout(() => {
+        if (current !== generation || (video.videoWidth && video.videoHeight)) return;
+        stopCamera();
+        report('Камера не передаёт изображение. Загрузи скриншот QR или введи данные вручную.', true);
+      }, 10000);
       await video.play();
       async function tick() {
         if (current !== generation) return;
         try {
           if (video.videoWidth && video.videoHeight) {
+            clearTimeout(startupTimer);
             const text = await decode(video, video.videoWidth, video.videoHeight);
             if (current !== generation) return;
             if (text) {
