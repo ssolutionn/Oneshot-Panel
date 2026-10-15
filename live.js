@@ -73,7 +73,7 @@ function obsSettings() {
   if (saved.code !== code) write(OBS_STORE, { ...saved, code });
   return settings;
 }
-const bridge = { link: null, code: '', seen: 0, obsOk: false, obsText: '', waiting: new Map() };
+const bridge = { link: null, opening: null, code: '', seen: 0, obsOk: false, obsText: '', waiting: new Map() };
 
 function obsBadge(text, kind) {
   $('obsState').textContent = text;
@@ -94,13 +94,18 @@ async function ensureBridge() {
   if (settings.mode !== 'bridge' || !settings.configured) {
     bridge.link?.close();
     bridge.link = null;
+    bridge.code = '';
     return null;
   }
   if (bridge.link && bridge.code === settings.code) return bridge.link;
+  if (bridge.opening && bridge.code === settings.code) return bridge.opening;
   bridge.link?.close();
+  bridge.link = null;
   bridge.code = settings.code;
   bridge.seen = 0;
-  bridge.link = new VdoLink(await bridgeSecrets(settings.code), 'panel', message => {
+  const opening = bridgeSecrets(settings.code).then(secrets => {
+    if (bridge.code !== settings.code || obsSettings().mode !== 'bridge') return null;
+    bridge.link = new VdoLink(secrets, 'panel', message => {
     if (message.type === 'presence' || message.type === 'result') {
       bridge.seen = Date.now();
       if (message.type === 'presence') {
@@ -114,8 +119,11 @@ async function ensureBridge() {
       bridge.waiting.get(message.id)?.(message);
     }
     renderObsState();
-  });
-  return bridge.link;
+    });
+    return bridge.link;
+  }).finally(() => { if (bridge.opening === opening) bridge.opening = null; });
+  bridge.opening = opening;
+  return opening;
 }
 setInterval(renderObsState, 5000);
 
@@ -131,6 +139,7 @@ async function obsCommand(message, timeout = 30000) {
     } finally { client.close(); }
   }
   const link = await ensureBridge();
+  if (!link) throw new Error('Настройки подключения изменились. Повтори команду.');
   const id = crypto.randomUUID();
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -345,28 +354,93 @@ function encodeState(state) {
   for (const byte of bytes) text += String.fromCharCode(byte);
   return btoa(text).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
-$('copyOverlay').addEventListener('click', () => panel.copy(
-  `${cardBase()}/assets/veto-overlay/overlay.html?layout=${$('vetoLayout').value}#s=${encodeState(vetoState())}`));
+const VETO_CHANNEL_STORE = 'oneshot-veto-channel';
+const savedVetoCode = normalizeCode(read(VETO_CHANNEL_STORE));
+const vetoCode = savedVetoCode || newBridgeCode();
+write(VETO_CHANNEL_STORE, vetoCode);
+let vetoLink = null, vetoOpening = null, vetoTimer, lastVeto = '', vetoId = '', vetoAck = '', vetoSeen = 0, vetoSending = false;
+function setVetoStatus(text, kind = '') {
+  $('vetoLiveStatus').textContent = text;
+  $('vetoLiveStatus').dataset.kind = kind;
+}
+function paintVetoStatus() {
+  if (!$('vetoLive').checked) return setVetoStatus('Живое обновление выключено. Копирование ссылки включает его автоматически.');
+  if (JSON.stringify(vetoState()) === lastVeto && vetoAck === vetoId && vetoSeen && Date.now() - vetoSeen < 12000) {
+    return setVetoStatus('Оверлей получает вето · ' + new Date(vetoSeen).toLocaleTimeString('ru-RU'), 'good');
+  }
+  setVetoStatus('Ждём оверлей. В OBS добавь Источники → + → Браузер, вставь ссылку на оверлей и задай 1920 × 1080.', 'wait');
+}
+function ensureVetoLink() {
+  if (vetoLink) return Promise.resolve(vetoLink);
+  if (vetoOpening) return vetoOpening;
+  vetoOpening = bridgeSecrets(vetoCode).then(secrets => {
+    if (!$('vetoLive').checked) return null;
+    vetoLink = new VdoLink(secrets, 'dock', message => {
+      if (message.type !== 'veto-received' || message.id !== vetoId) return;
+      vetoAck = message.id;
+      vetoSeen = Date.now();
+      paintVetoStatus();
+    });
+    return vetoLink;
+  }).finally(() => { vetoOpening = null; });
+  return vetoOpening;
+}
+function enableLiveVeto() {
+  $('vetoLive').checked = true;
+  write('oneshot-veto-live', true);
+  sendVeto();
+}
+$('copyOverlay').addEventListener('click', () => {
+  // This display-only code cannot operate OBS. Never reuse its control code.
+  panel.copy(`${cardBase()}/assets/veto-overlay/overlay.html?layout=${$('vetoLayout').value}#s=${encodeState(vetoState())}&r=${vetoCode}`);
+  enableLiveVeto();
+});
 $('vetoLive').checked = !!read('oneshot-veto-live');
 $('vetoLive').addEventListener('change', () => {
   write('oneshot-veto-live', $('vetoLive').checked);
-  lastVeto = '';
+  if (!$('vetoLive').checked) {
+    vetoLink?.close();
+    vetoLink = null;
+    vetoSeen = 0;
+  }
   sendVeto();
 });
-let lastVeto = '', vetoTimer;
-function sendVeto() {
-  if (!$('vetoLive').checked) return;
-  const state = vetoState();
-  const key = JSON.stringify(state);
-  if (key === lastVeto) return;
-  clearTimeout(vetoTimer);
-  vetoTimer = setTimeout(async () => {
-    try {
-      await obsCommand({ type: 'veto', state }, 15000);
+async function flushVeto() {
+  if (!$('vetoLive').checked || vetoSending) return;
+  vetoSending = true;
+  let sentKey = null;
+  try {
+    const link = await ensureVetoLink();
+    if (!link || !$('vetoLive').checked) return;
+    // Capture after connection setup so an older queued move cannot acquire
+    // the latest revision ID or overtake a newer snapshot.
+    const state = vetoState(), key = JSON.stringify(state);
+    sentKey = key;
+    if (key !== lastVeto) {
       lastVeto = key;
-    } catch (error) { panel.toast(`Оверлей вето: ${error.message}`); }
-  }, 250);
+      vetoId = crypto.randomUUID();
+    }
+    await link.send({ type: 'veto-state', id: vetoId, state });
+    paintVetoStatus();
+  } catch (error) {
+    setVetoStatus('Оверлей: ' + error.message + ' Повторим автоматически.', 'bad');
+  } finally {
+    vetoSending = false;
+    if ($('vetoLive').checked && sentKey !== null && JSON.stringify(vetoState()) !== sentKey) sendVeto();
+  }
 }
+function sendVeto() {
+  clearTimeout(vetoTimer);
+  if (!$('vetoLive').checked) return paintVetoStatus();
+  paintVetoStatus();
+  vetoTimer = setTimeout(flushVeto, 150);
+}
+// Replay only the current full snapshot. Late/reloaded sources recover;
+// identical updates preserve ongoing transitions in the renderer.
+setInterval(() => {
+  paintVetoStatus();
+  if ($('vetoLive').checked) flushVeto();
+}, 2500);
 
 // ---------- follow the panel ----------
 function onChange() {

@@ -28,7 +28,8 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 - `live.js` — только сайт: вкладки, «Отправить в OBS», «Копировать JSON»,
   форму «Подключение к OBS» рядом с вето, статус вебок, живое вето в OBS и ссылка на оверлей.
   localStorage: `oneshot-obs` (режим, код связи, адрес и пароль OBS),
-  `oneshot-view`, `oneshot-watch-cams`, `oneshot-veto-live`.
+  `oneshot-view`, `oneshot-watch-cams`, `oneshot-veto-live`,
+  `oneshot-veto-channel` (отдельный код показа графики, не код управления OBS).
   `obsDialog` — раскрываемый `details` с единственной формой подключения;
   оформление формы и подсказок — `assets/obs-connection.css`.
 - `obs.js` — без DOM: клиент obs-websocket v5 (пароль через WebCrypto),
@@ -57,7 +58,11 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   лобби, ключ приходит от админа и дальше не хранится); `server.js`
   отдаёт его же на `/api/faceit`.
 - `assets/veto-overlay/` — анимированный оверлей вето (Codex): `overlay.html`
-  берёт снимок вето из `#s=` и из события `oneshot-veto`; `?preview=1` —
+  берёт начальный снимок из `#s=`, живые снимки — по отдельному зашифрованному
+  каналу VDO.Ninja (`&r=` в фрагменте URL). Панель публикует, источник смотрит
+  и подтверждает `veto-received`; повторы каждые 2,5 с восстанавливают состояние
+  после reload. Нативное событие `oneshot-veto` оставлено для совместимости,
+  но успешный vendor request не доказывает доставку в браузер. `?preview=1` —
   демо. Свой README и `scripts/qa_veto_overlay.py` (нужен WebGL).
 - `card.html`, `card.js`, `card.css` — карточка игрока 1920×1080
   (`/card.html?team=…&nick=…`): фон `assets/card/background.jpg`, логотип CyberClash и логотип
@@ -104,12 +109,15 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   8 сценариев сайта: настройка OBS рядом с вето, вкладки, статус вебок, OBS напрямую и через док,
   копирование JSON, оверлей вето, лобби FACEIT (Sheets, VDO.Ninja,
   obs-websocket и FACEIT подменены, время лобби ускорено).
+  `scripts/qa_obs_runtime.py` / workflow «OBS runtime regression» проверяет
+  официальный OBS с настоящим CEF и VDO.Ninja: ручные ходы, подтверждение,
+  анимации и восстановление после reload; только Sheets подменены.
 
 ## Команды
 
 ```sh
 npm run check        # синтаксис
-npm test             # 45 тестов (node:test)
+npm test             # 48 тестов (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
@@ -146,6 +154,10 @@ Netlify проверяет локальные фото, докачивает н�
 - Сообщения моста (запечатаны): `apply {id, title, match}`, `veto {id,
   state}`, `hello {id}` от панели; `result {id, ok, error|summary}` и
   `presence {ok, obs}` от дока.
+- Код показа вето не даёт управлять OBS: нельзя переиспользовать код дока
+  или включать пароль OBS в URL источника. Сообщения показа: `veto-state {id,
+  state}`, `veto-received {id}`. Зелёный статус вето — только после подтверждения
+  текущего id от источника; статус дока не означает, что графика добавлена.
 - Снимок вето для оверлея: `{version: 1, teams, format, first, actions,
   pending, stage}` — контракт `window.vetoOverlay.setState`.
 - CSP: `script-src 'self'`, `style-src 'self'`, `img-src 'self'`. Никаких
@@ -173,7 +185,7 @@ Netlify проверяет локальные фото, докачивает н�
   closeCopy manualCopy toast
 - id сайта (`live.js`, `lobby.js`, `obs-bridge.js`): viewPrep viewLobby
   lobbyBadge prepView lobbyView camSummary watchCams camTotal sendObsBtn
-  copyJsonBtn obsSetupBtn obsDot obsState vetoLive vetoLayout copyOverlay
+  copyJsonBtn obsSetupBtn obsDot obsState vetoLive vetoLiveStatus vetoLayout copyOverlay
   obsDialog obsForm closeObs obsBridgeFields obsDockUrl copyDockUrl obsCode
   newObsCode obsDirectFields obsUrl obsPassword obsTestResult testObs
   saveObs notifyBtn soundBtn lobbyForm faceitUrl faceitKey lobbyStart

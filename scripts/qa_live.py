@@ -292,30 +292,44 @@ async def run(args):
         await dock.screenshot(path=str(output / "obs-dock.png"))
         passed("send to OBS through the dock: sealed message, applied, acknowledged")
 
-        # Live veto overlay through the same link.
+        # Veto has its own display-only encrypted stream. A green OBS dock
+        # must not claim that a missing browser source has received a move.
+        await dock.close()
         await page.check("#vetoLive")
-        await page.click('[data-map="Ancient"]')
-        def veto_events():
-            return [r["requestData"] for r in dock_obs.requests if r["requestType"] == "CallVendorRequest"]
-        for _ in range(50):
-            if veto_events() and veto_events()[-1]["requestData"]["event_data"]["actions"]:
-                break
-            await asyncio.sleep(0.1)
-        event = veto_events()[-1]
-        assert event["vendorName"] == "obs-browser" and event["requestType"] == "emit_event"
-        assert event["requestData"]["event_name"] == "oneshot-veto"
-        data = event["requestData"]["event_data"]
-        assert data["teams"] == ["6yuBoJlbl", "HYPERSPIRIT"] and data["actions"][0]["map"] == "Ancient", data
+        await expect(page.locator("#vetoLiveStatus")).to_contain_text("Ждём оверлей")
         await page.evaluate("window.__copied = []; navigator.clipboard.writeText = async t => { window.__copied.push(t); };")
+        await page.uncheck("#vetoLive")
+        await page.click("#copyOverlay")
+        assert await page.locator("#vetoLive").is_checked(), "OBS link did not enable live updates"
+        source_url = await page.evaluate("window.__copied.at(-1)")
+        assert source_url.startswith(base + "/assets/veto-overlay/overlay.html?layout=full#s="), source_url
+        assert "&r=" in source_url
+        display_code = source_url.split("&r=", 1)[1]
+        assert display_code != bridge_code, "Overlay URL leaked the OBS control code"
+        overlay = await context.new_page()
+        overlay.on("pageerror", lambda error: errors.append(str(error)))
+        await overlay.set_viewport_size({"width":1920,"height":1080})
+        await overlay.goto(source_url)
+        await overlay.wait_for_selector("body[data-ready='true']")
+        await expect(page.locator("#vetoLiveStatus")).to_contain_text("Оверлей получает вето", timeout=15000)
+        await page.click('[data-map="Ancient"]')
+        await overlay.wait_for_function("() => window.vetoOverlay.getState()?.actions.length === 1")
+        await overlay.wait_for_selector('#scene[data-animating*="Ancient"]')
+        await overlay.wait_for_selector('#scene[data-animating=""]')
+        # Initial URL has zero turns. Only live replay can restore the ban.
+        await overlay.reload()
+        await overlay.wait_for_selector("body[data-ready='true']")
+        await overlay.wait_for_function("() => window.vetoOverlay.getState()?.actions.length === 1", timeout=15000)
+        assert (await overlay.evaluate("window.vetoOverlay.getState()"))["actions"][0]["map"] == "Ancient"
         await page.fill("#matchStage", "Группа B")
         await page.click("#copyOverlay")
         overlay_link = await page.evaluate("window.__copied.at(-1)")
-        assert overlay_link.startswith(base + "/assets/veto-overlay/overlay.html?layout=full#s="), overlay_link
         await page.select_option("#vetoLayout", "strip")
         await page.click("#copyOverlay")
         assert "?layout=strip#s=" in await page.evaluate("window.__copied.at(-1)")
-        await dock.close()
-        passed("veto goes live to OBS; overlay link carries the current veto")
+        await overlay.close()
+        await page.uncheck("#vetoLive")
+        passed("live veto: real receiver acknowledgement, animated move and replay after reload; independent of the OBS control dock")
 
         # Codex's animated overlay takes the panel's veto from the link and
         # from the live obs-browser event.

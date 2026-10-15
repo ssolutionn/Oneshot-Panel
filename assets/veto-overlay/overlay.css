@@ -1,3 +1,10 @@
+@font-face {
+  font-family:"Oneshot Display";
+  src:url("/assets/fonts/Oswald-Variable.ttf") format("truetype");
+  font-weight:200 700;
+  font-style:normal;
+  font-display:block;
+}
 :root {
   color-scheme: dark;
   --preview-bg:#07131b; --preview-panel:#0c1d26; --preview-ink:#edfaff;
@@ -47,3 +54,5 @@ input { accent-color:var(--preview-accent); }
   .preview-bar { min-height:220px; }
   .preview-status { flex-basis:100%; max-width:none; text-align:center; }
 }
+
+.vdo-frame { position:fixed; left:-10px; top:-10px; width:1px; height:1px; border:0; opacity:0; pointer-events:none; }

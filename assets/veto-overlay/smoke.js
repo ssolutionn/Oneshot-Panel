@@ -32,11 +32,38 @@ void main(){
   gl_FragColor=vec4(c,1.0);
 }`;
 
+// OBS can run its browser with WebGL disabled. Keep the same cloud artwork
+// moving on a small Canvas2D surface instead of silently freezing the backdrop.
+function canvasSmoke(image) {
+  if (!image) return null;
+  const surface=document.createElement('canvas');
+  surface.width=768;surface.height=432;
+  const ctx=surface.getContext('2d');
+  if (!ctx) return null;
+  return {
+    kind:'canvas',
+    draw(seconds) {
+      const w=surface.width,h=surface.height;
+      const scale=Math.max(w/image.width,h/image.height)*1.10;
+      const dw=image.width*scale,dh=image.height*scale;
+      const x=(w-dw)/2+Math.sin(seconds*.16)*w*.025;
+      const y=(h-dh)/2+Math.cos(seconds*.12)*h*.025;
+      ctx.drawImage(image,x,y,dw,dh);
+      const glow=ctx.createRadialGradient(
+        w*(.55+Math.sin(seconds*.13)*.12),h*.35,0,w*.55,h*.45,w*.65);
+      glow.addColorStop(0,'#00cfe820');glow.addColorStop(1,'#00121c38');
+      ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);
+      return surface;
+    },
+    dispose() {}
+  };
+}
+
 export function makeSmoke(image) {
   const surface = document.createElement('canvas');
   surface.width = 768; surface.height = 432;
   const gl = surface.getContext('webgl', { alpha:false, antialias:false, depth:false, powerPreference:'low-power' });
-  if (!gl || !image) return null;
+  if (!gl || !image) return canvasSmoke(image);
   const shader = (type, source) => {
     const item = gl.createShader(type);
     gl.shaderSource(item, source); gl.compileShader(item);
@@ -47,7 +74,7 @@ export function makeSmoke(image) {
     const vs=shader(gl.VERTEX_SHADER,VERTEX), fs=shader(gl.FRAGMENT_SHADER,FRAGMENT);
     const program=gl.createProgram();
     gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);
-    if(!gl.getProgramParameter(program,gl.LINK_STATUS)) return null;
+    if(!gl.getProgramParameter(program,gl.LINK_STATUS)) return canvasSmoke(image);
     gl.useProgram(program);
     const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
     gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
@@ -61,15 +88,16 @@ export function makeSmoke(image) {
     gl.uniform1i(gl.getUniformLocation(program,'artwork'),0);
     const time=gl.getUniformLocation(program,'t');
     gl.viewport(0,0,surface.width,surface.height);
-    let lost=false;
+    let lost=false,backup=null;
     surface.addEventListener('webglcontextlost',event=>{event.preventDefault();lost=true;});
     return {
+      kind:'webgl',
       draw(seconds) {
-        if(lost) return null;
+        if(lost) { backup ||= canvasSmoke(image); return backup?.draw(seconds) || null; }
         gl.uniform1f(time,seconds);gl.drawArrays(gl.TRIANGLES,0,6);
         return surface;
       },
       dispose() {gl.deleteTexture(texture);gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.deleteShader(vs);gl.deleteShader(fs);}
     };
-  } catch { return null; }
+  } catch { return canvasSmoke(image); }
 }

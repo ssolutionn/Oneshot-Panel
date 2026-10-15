@@ -2,6 +2,7 @@ import { snapshot, demoState, nextDemoMap } from './model.js';
 import { appendVeto } from '../../core.js';
 import { artwork, VetoScene } from './scene.js';
 import { VETO_EVENT } from '../../obs.js';
+import { VdoLink, bridgeSecrets, normalizeCode } from '../../vdo.js';
 
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
 const preview=params.get('preview')==='1';
@@ -11,6 +12,7 @@ let layout=params.get('layout')==='strip'?'strip':'full';
 let count=Number(params.get('step') ?? 2);
 if(!Number.isInteger(count)||count<0||count>6)count=2;
 let current=preview?demoState(format,count):null,scene,playing=false,timer,boot=0;
+let displayLink=null;
 let motion=params.get('motion')!=='off'&&!reduced.matches;
 document.body.dataset.preview=String(preview);
 $('previewBar').hidden=!preview;
@@ -93,7 +95,10 @@ $('motion').addEventListener('change',()=>{motion=$('motion').checked;scene?.set
 $('download').addEventListener('click',action(download));
 
 async function init() {
-  const assets=await artwork(current?.teams||[]);
+  const [assets]=await Promise.all([
+    artwork(current?.teams||[]),
+    document.fonts.load('700 48px "Oneshot Display"','CYBERCLASH КАРТЫ РЕШАЮТ').catch(()=>[])
+  ]);
   scene=new VetoScene($('scene'),assets,{layout,motion,animations:params.get('animations')!=='off'&&!reduced.matches});
   if(current)scene.setState(current,{animate:false});else scene.start();
   // Renderer contract for the future shared-state transport. This interface
@@ -106,15 +111,25 @@ async function init() {
     stopMotion:()=>{motion=false;$('motion').checked=false;scene.setMotion(false);},
     description:()=>scene.description()
   };
-  window.addEventListener('pagehide',()=>{stop();scene.dispose();},{once:true});
-  // Live from the panel: «Оверлей вето в OBS вживую» fires an obs-browser
-  // event through the OBS link; the copied overlay link carries the veto at
-  // copy time after #s=. Invalid snapshots keep the previous state.
+  window.addEventListener('pagehide',()=>{stop();scene.dispose();displayLink?.close();},{once:true});
+  // Initial snapshot and display-only live channel from the copied OBS URL.
+  // Native events remain accepted for compatibility, but do not prove delivery.
   if(!preview) {
     const initial=fromHash();
     if(initial)await apply(initial,{animate:false}).catch(()=>{});
     window.addEventListener(VETO_EVENT,event=>apply(event.detail).catch(()=>{}));
     window.addEventListener('hashchange',()=>{const state=fromHash();if(state)apply(state).catch(()=>{});});
+    const code=normalizeCode(new URLSearchParams(location.hash.slice(1)).get('r'));
+    if(code) {
+      const secrets=await bridgeSecrets(code);
+      displayLink=new VdoLink(secrets,'veto',async message=>{
+        if(message.type!=='veto-state'||typeof message.id!=='string')return;
+        try {
+          await apply(message.state);
+          await displayLink?.send({type:'veto-received',id:message.id});
+        } catch { /* A malformed update must not replace the on-air state. */ }
+      });
+    }
   }
   update();document.body.dataset.ready='true';
 }

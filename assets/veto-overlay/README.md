@@ -1,88 +1,70 @@
-# CyberClash veto — isolated visual prototype
+# CyberClash live veto
 
-This branch adds new files only. It does not change app.js, core.js, index.html,
-Netlify configuration, the existing workflow, or the Claude artifact.
+1920×1080 full frame or bottom strip (transparent above y=680).
+Local event artwork, team logos and maps. Tall condensed Oswald display type
+(Latin/Cyrillic, SIL OFL) echoes the CyberClash wordmark; small captions retain
+a readable sans-serif. The font is local and loads before canvas rendering/PNG.
+ WebGL smoke with a moving Canvas2D
+fallback. Reduced-motion settings disable smoke and card transitions.
 
-Preview:
-- /assets/veto-overlay/overlay.html?preview=1
-- /assets/veto-overlay/overlay.html?preview=1&layout=strip
-- Add &step=6 for the completed demo, &format=BO1/BO2/BO3/BO5, &motion=off.
-- &animations=off disables card transitions independently of the smoke.
+## Add to OBS
 
-The preview controls use **test data**, visibly labelled in the toolbar.
-Without preview=1 the page waits for state and does not display a demo match.
+1. In the panel copy «Ссылка на оверлей для OBS».
+2. OBS → Sources → + → Browser; paste the URL, set 1920×1080.
+3. Keep the panel open with «Оверлей вето в OBS вживую» enabled
+   (copying the URL enables it).
+4. Wait for «Оверлей получает вето», then make the manual veto moves.
 
-## Included
+The Oneshot dock controls cameras. The graphic is a separate browser source.
+Its live link works independently of the OBS password and control connection.
+After upgrading an old source URL, copy a fresh link containing `&r=`.
 
-- 1920x1080 full frame and bottom strip with transparent space above y=680.
-- Existing local CyberClash background, event emblem, team logos, map pictures.
-- Slow animated smoke via a small WebGL surface; static fallback if unavailable.
-- Bans, picks, pending side choice, deciding map and map play order.
-- Seven fixed columns follow the veto turns. BO3 is always BAN, BAN, PICK,
-  PICK, BAN, BAN, DECIDER; empty columns wait for a map instead of showing
-  an unrelated map from the alphabetical pool. Pending side choices stay in
-  their pick column; undo clears that turn without moving previous cards.
-  Other formats retain their own existing veto rules.
-- 900ms ban/pick effects: gradual desaturation and a drawn red cross for bans;
-  cyan border/sweep and a brief PICK stamp for picks; delayed team/side labels.
-- Undo transitions back to the available card in 650ms. The card grid stays fixed.
-- Identical state updates preserve active transitions; changes during a transition
-  continue from its current visual state. Reload/restoration shows settled state.
-- Exact existing veto rules, imported from core.js rather than duplicated.
-- In BO2 the untouched second map is not labelled DECIDER.
-- Full-frame picks explicitly name the opposing team and their selected side.
-  The strip badge shows the picking team's own starting side.
-- PNG download once the demo is complete; actual pixels 1920x1080, alpha in strip.
-  Export clears transient card movement and uses the same renderer and artwork.
-- Keyboard controls, reduced-motion default for smoke AND cards, and mobile preview.
+## State and delivery
 
-## Connected to the panel
+- `#s=<base64url snapshot>` supplies the initial state.
+- `&r=<display code>` starts a display-only encrypted VDO.Ninja data channel.
+  The panel publishes (push); overlays view that stream and acknowledge valid
+  applied snapshots. This code is separate from the OBS control pairing code.
+- Messages: `veto-state {id,state}` and `veto-received {id}`. Only the latter
+  matching the current revision marks the graphic as receiving updates.
+- Every 2.5 seconds the panel repeats the latest full state. This covers a
+  late source, reconnect or reload. Repeated state does not restart animations.
+- Both computers need network access to VDO.Ninja. No OBS password is included
+  in the overlay URL. CSP is unchanged.
+- Native `oneshot-veto` events are accepted for compatibility. An accepted
+  obs-websocket vendor request alone does not prove browser delivery.
+- `window.vetoOverlay.setState(snapshot, {animate:true|false})`, getState,
+  png, setLayout and stopMotion remain available.
 
-Without preview=1 the page takes the panel's veto two ways:
-- `#s=<base64url snapshot>` — «Ссылка на оверлей для OBS» in the panel's veto
-  block copies the overlay URL with the current veto (`?layout=full|strip`);
-- the obs-browser event `oneshot-veto` — «Оверлей вето в OBS вживую» sends
-  every move through the panel's OBS link (obs-websocket directly or the
-  OBS dock, obs-bridge.html), so admin and OBS can be on different computers.
+Snapshot: `{version:1,teams:[A,B],format,first,actions,pending,stage}`.
+Pick sides belong to the opposing team, matching core.js. Invalid updates
+leave the previous state on air.
 
-The section below is the original design note.
+## Rendering
 
-The renderer accepts a full snapshot through:
-await window.vetoOverlay.setState({
-  version: 1,
-  teams: ["Team A", "Team B"],
-  format: "BO3",
-  first: 0,
-  actions: [{ map: "Ancient", type: "ban", team: 0 }],
-  pending: null,
-  stage: "GROUP STAGE"
-});
+Seven fixed columns follow veto turns. BO3 is always BAN BAN PICK PICK BAN
+BAN DECIDER. Empty slots wait for maps; pending side choice stays in its pick
+column, undo clears its own slot. Other formats use existing core.js rules.
 
-Pick actions carry side: "CT" or "T" for the **opposing** team, matching core.js.
-pending is an available map awaiting that side choice, or null.
-Invalid snapshots reject and retain the previous valid state.
-Rendering, PNG and layout selection consume this one snapshot.
+900ms bans desaturate the map and draw a red cross; picks have a cyan sweep,
+border and brief PICK stamp. Undo takes 650ms. PNG export uses settled
+1920×1080 pixels, including alpha in strip mode.
 
-The next integration should publish snapshots from the existing manual veto,
-use separate read-only OBS and secret write access, retain the latest state
-across OBS reloads, and keep a room bound to a match. Switching matches must not
-silently replace the on-air room. Undo, reset and pending picks must synchronize.
-A backend transport is required because admin and OBS run on different computers;
-localStorage/BroadcastChannel cannot provide that synchronization.
-
-FACEIT integration and player self-service veto are outside this prototype.
-Before integration, reconcile the latest Claude branch changes.
+Demo: `overlay.html?preview=1`, optionally layout=strip, step=0..6,
+format=BO1/BO2/BO3/BO5, motion=off, animations=off. Demo data is labelled and
+does not connect to a live display stream.
 
 ## Verification
 
-npm run check && npm test
-node --check assets/veto-overlay/overlay.js
-python3 scripts/qa_veto_overlay.py
+`npm run check && npm test`
+`python3 scripts/qa_veto_overlay.py`
+`python3 scripts/qa_live.py`
 
-The dedicated workflow checks actual drawn BO3 label order in both layouts and renders all four formats in both layouts, checks actual
-PNG dimensions/alpha, smoke movement and freezing, undo/finish, malformed updates,
-asset failure fallback, 375px overflow, and an idle page with no fake match data.
-It also samples real card pixels with smoke frozen to check ban/pick effects,
-undo, unchanged neighbours and identical updates, checks reduced-motion settings,
-and records a short browser video. It publishes PNGs, JPEGs and the 1280x720 WebM
-recording as cyberclash-veto-preview.
+The renderer QA checks real pixels, smoke movement/freeze, Canvas2D fallback,
+fixed order, ban/pick/undo transitions, PNG dimensions/alpha, reduced motion
+and missing artwork. Panel QA uses a simulated VDO network but the actual
+encrypted sender and receiver.
+
+`.github/workflows/obs-runtime.yml` additionally exercises official OBS with
+its actual CEF browser plugin over real VDO.Ninja. It checks manual moves,
+receiver acknowledgements, animated cards, moving smoke and source reload.
