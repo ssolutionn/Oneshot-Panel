@@ -119,9 +119,6 @@ async def run():
             await expect(panel.locator("#obsTestResult")).to_contain_text("OBS: подключён", timeout=20000)
             assert "#" not in panel.url
             print("PASS: QR pairing link connects independent admin browser to real OBS over real VDO", flush=True)
-            await panel.evaluate("""Object.defineProperty(navigator,'clipboard',{value:{
-              writeText:async text=>{window.copied=text;}
-            }});""")
             await activate("#closeObs")
             await activate("#copyOverlay")
             url = await panel.evaluate("window.copied")
