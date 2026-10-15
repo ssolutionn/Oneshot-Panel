@@ -47,3 +47,5 @@ input { accent-color:var(--preview-accent); }
   .preview-bar { min-height:220px; }
   .preview-status { flex-basis:100%; max-width:none; text-align:center; }
 }
+
+.vdo-frame { position:fixed; left:-10px; top:-10px; width:1px; height:1px; border:0; opacity:0; pointer-events:none; }
