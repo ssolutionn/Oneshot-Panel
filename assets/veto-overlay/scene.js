@@ -74,7 +74,7 @@ export class VetoScene {
         const from=previous?this.cardVisual(old,now).value:visual(old);
         this.changed.set(map.name,{
           started:now,duration:map.status==='available'?650:900,
-          from,to:visual(map),old
+          from,to:visual(map),old:{...old,pendingTeam:1-this.model.nextTeam}
         });
       });
     }
@@ -264,7 +264,7 @@ export class VetoScene {
         this.text(m.format==='BO2'?'Осталась в пуле':'Решающая карта',
           x+17,(strip?y+202:y+402)+dy,strip?13:16,C.muted,{max:w-33,alpha});
       } else if(pending) {
-        this.text(m.teams[1-m.nextTeam],x+17,(strip?y+202:y+402)+dy,
+        this.text(m.teams[item.pendingTeam ?? (1-m.nextTeam)],x+17,(strip?y+202:y+402)+dy,
           strip?13:16,C.muted,{max:w-33,alpha});
       }
       if(pick&&!strip) {
