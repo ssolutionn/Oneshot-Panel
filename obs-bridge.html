@@ -6,6 +6,7 @@
   <title>Oneshot · связь с OBS</title>
   <link rel="icon" type="image/png" href="/assets/favicon-night.png">
   <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/assets/obs-connection.css">
 </head>
 <body class="dock">
   <!-- OBS → Док-панели → Пользовательские док-панели браузера: this page.
@@ -21,11 +22,19 @@
     </ul>
     <form id="dockForm" class="dock-form">
       <label>Код связи из панели<input id="dockCode" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" required></label>
-      <label>Адрес OBS WebSocket<input id="dockUrl" autocomplete="off" spellcheck="false"></label>
-      <label>Пароль OBS WebSocket<input id="dockPassword" type="password" autocomplete="off"></label>
+      <label>Адрес OBS WebSocket<input id="dockUrl" placeholder="ws://127.0.0.1:4455" aria-describedby="dockAddressHint" autocomplete="off" spellcheck="false"><small id="dockAddressHint" class="dock-field-hint">Для этого компьютера: ws://127.0.0.1:4455. Если в OBS другой порт — замени 4455 на него.</small></label>
+      <label>Пароль OBS WebSocket<input id="dockPassword" type="password" aria-describedby="dockPasswordHint" autocomplete="off"><small id="dockPasswordHint" class="dock-field-hint">OBS → Сервис → Настройки сервера WebSocket → Показать сведения о подключении.</small></label>
       <button class="button primary small" type="submit">Подключить</button>
     </form>
-    <p class="dock-hint">Пароль: OBS → Инструменты → Настройки сервера WebSocket → «Включить» и «Показать сведения о подключении».</p>
+    <details class="dock-help">
+      <summary>Где найти адрес и пароль?</summary>
+      <ol>
+        <li>Открой <b>Сервис → Настройки сервера WebSocket</b> (Tools → WebSocket Server Settings).</li>
+        <li>Включи сервер WebSocket и аутентификацию.</li>
+        <li>Нажми <b>«Показать сведения о подключении»</b> / Show Connect Info. Скопируй оттуда пароль, а порт подставь в адрес выше.</li>
+        <li>Нажми <b>«Подключить»</b>. После подключения панель сможет отправлять матч и обновлять вето.</li>
+      </ol>
+    </details>
     <ol id="dockLog" class="dock-log" aria-label="Последние команды"></ol>
   </main>
   <script type="module" src="/obs-bridge.js"></script>

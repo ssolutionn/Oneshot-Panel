@@ -77,6 +77,8 @@ const bridge = { link: null, code: '', seen: 0, obsOk: false, obsText: '', waiti
 
 function obsBadge(text, kind) {
   $('obsState').textContent = text;
+  $('obsConnectionState').textContent = text;
+  $('obsConnectionState').dataset.kind = kind || '';
   $('obsDot').className = kind || '';
 }
 function renderObsState() {
@@ -151,11 +153,14 @@ function fillObsDialog() {
   for (const input of document.querySelectorAll('input[name=obsMode]')) input.checked = input.value === settings.mode;
   $('obsUrl').value = settings.url;
   $('obsPassword').value = settings.password;
-  $('obsCode').textContent = settings.code;
-  $('obsDockUrl').value = `${cardBase()}/obs-bridge.html#k=${settings.code}`;
+  fillObsLink(settings.code);
   toggleObsFields();
   $('obsTestResult').textContent = '';
   $('obsTestResult').className = 'obs-test';
+}
+function fillObsLink(code) {
+  $('obsCode').textContent = code;
+  $('obsDockUrl').value = `${cardBase()}/obs-bridge.html#k=${code}`;
 }
 function toggleObsFields() {
   const direct = document.querySelector('input[name=obsMode]:checked')?.value === 'direct';
@@ -164,31 +169,49 @@ function toggleObsFields() {
 }
 function saveObsDialog() {
   const mode = document.querySelector('input[name=obsMode]:checked')?.value === 'direct' ? 'direct' : 'bridge';
+  const code = obsSettings().code;
   write(OBS_STORE, {
-    mode, code: obsSettings().code,
+    mode, code,
     url: $('obsUrl').value.trim() || OBS_DEFAULT_URL, password: $('obsPassword').value
   });
+  fillObsLink(code);
   ensureBridge().catch(() => {});
   renderObsState();
 }
-$('obsSetupBtn').addEventListener('click', () => {
-  fillObsDialog();
-  $('obsDialog').showModal();
+function openObsSettings() {
+  const section = $('obsDialog');
+  section.open = true;
+  section.scrollIntoView({ block: 'start' });
+  const direct = document.querySelector('input[name=obsMode]:checked')?.value === 'direct';
+  $(direct ? 'obsUrl' : 'copyDockUrl').focus({ preventScroll: true });
+}
+$('obsSetupBtn').addEventListener('click', openObsSettings);
+$('closeObs').addEventListener('click', () => {
+  $('obsDialog').open = false;
+  $('obsDialog').querySelector('summary').focus({ preventScroll: true });
 });
-$('closeObs').addEventListener('click', () => $('obsDialog').close());
-for (const input of document.querySelectorAll('input[name=obsMode]')) input.addEventListener('change', toggleObsFields);
+for (const input of document.querySelectorAll('input[name=obsMode]')) input.addEventListener('change', () => {
+  toggleObsFields();
+  $('obsTestResult').textContent = '';
+  $('obsTestResult').className = 'obs-test';
+});
 $('copyDockUrl').addEventListener('click', () => panel.copy($('obsDockUrl').value));
 $('newObsCode').addEventListener('click', () => {
   if (!confirm('Новый код отключит текущий док OBS. Сменить?')) return;
   write(OBS_STORE, { ...(read(OBS_STORE) || {}), code: newBridgeCode() });
-  fillObsDialog();
+  fillObsLink(obsSettings().code);
   ensureBridge().catch(() => {});
 });
-$('obsForm').addEventListener('submit', () => {
+$('obsForm').addEventListener('submit', event => {
+  event.preventDefault();
   saveObsDialog();
+  $('obsTestResult').className = 'obs-test';
+  $('obsTestResult').textContent = 'Настройки сохранены. Нажми «Проверить связь», чтобы убедиться, что OBS отвечает.';
   panel.toast('Связь с OBS сохранена');
 });
 $('testObs').addEventListener('click', async () => {
+  const button = $('testObs');
+  button.disabled = true;
   saveObsDialog();
   $('obsTestResult').className = 'obs-test';
   $('obsTestResult').textContent = 'Проверяем…';
@@ -199,6 +222,8 @@ $('testObs').addEventListener('click', async () => {
   } catch (error) {
     $('obsTestResult').textContent = error.message;
     $('obsTestResult').className = 'obs-test bad';
+  } finally {
+    button.disabled = false;
   }
 });
 
@@ -206,8 +231,7 @@ $('sendObsBtn').addEventListener('click', async () => {
   let payload;
   try { payload = matchPayload(); } catch (error) { return panel.toast(error.message); }
   if (!obsSettings().configured) {
-    fillObsDialog();
-    return $('obsDialog').showModal();
+    return openObsSettings();
   }
   const button = $('sendObsBtn');
   button.disabled = true;
@@ -353,6 +377,8 @@ function onChange() {
   sendVeto();
 }
 document.addEventListener('oneshot:change', onChange);
+fillObsDialog();
+$('obsDialog').open = !obsSettings().configured;
 ensureBridge().catch(() => {});
 renderObsState();
 onChange();

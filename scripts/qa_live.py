@@ -24,7 +24,6 @@ from qa_browser import gviz, sample_roster  # noqa: E402
 
 OBS_URL = re.compile(r"^ws://127\.0\.0\.1:4455/?$")
 CHAMP = "8f2a5c1e-1234-4abc-9def-0123456789ab"
-CODE = "ABCD-EFGH-JKLM-NPQR"
 
 # Stands in for VDO.Ninja inside the hidden iframes. Stream IDs ending in -4
 # are "offline"; sendData is relayed between the OBS dock (push) and the
@@ -195,11 +194,43 @@ async def run(args):
         await expect(page.locator("#viewPrep")).to_be_focused()
         passed("tabs, keyboard switching and webcam status 8/10")
 
-        # Send to OBS on this computer.
-        await page.evaluate("localStorage.setItem('oneshot-obs', JSON.stringify("
-                            "{mode: 'direct', url: 'ws://127.0.0.1:4455', password: 'pw'}))")
+        # Set up through the visible form next to veto, without seeding storage.
+        await expect(page.locator("#veto #obsForm")).to_be_visible()
+        await expect(page.locator("#obsBridgeFields")).to_contain_text("Что сделать на компьютере с OBS")
+        await page.check('input[name=obsMode][value=direct]')
+        await expect(page.locator("#obsDirectFields")).to_be_visible()
+        await expect(page.locator("#obsBridgeFields")).to_be_hidden()
+        await expect(page.locator("#obsUrl")).to_have_value(OBS_URL)
+        await expect(page.locator("#obsDirectFields")).to_contain_text("Показать сведения о подключении")
+        await page.fill("#obsPassword", "wrong")
+        await page.click("#testObs")
+        await expect(page.locator("#obsTestResult")).to_contain_text("Неверный пароль OBS WebSocket")
+        await page.fill("#obsPassword", "pw")
+        await page.click("#testObs")
+        await expect(page.locator("#obsTestResult")).to_contain_text("OBS подключён")
+        await expect(page.locator("#obsTestResult")).to_have_class("obs-test good")
+        before_save = page.url
+        await page.click("#saveObs")
+        assert page.url == before_save, "Inline setup form navigated the page"
+        await expect(page.locator("#obsTestResult")).to_contain_text("Настройки сохранены")
+        await page.click("#closeObs")
+        await expect(page.locator("#obsForm")).to_be_hidden()
+        await page.click("#obsSetupBtn")
+        await expect(page.locator("#obsForm")).to_be_visible()
+        await expect(page.locator("#obsUrl")).to_be_focused()
+        await page.locator("#obsDialog").screenshot(path=str(output / "obs-connection-direct.jpg"), type="jpeg", quality=85)
+        await page.set_viewport_size({"width":375,"height":850})
+        assert not await page.evaluate("document.documentElement.scrollWidth > innerWidth")
+        await page.locator("#obsDialog").screenshot(path=str(output / "obs-connection-mobile.png"))
+        await page.set_viewport_size({"width":1440,"height":1000})
         await page.reload()
+        await expect(page.locator("#obsUrl")).to_have_value(OBS_URL)
+        await expect(page.locator("#obsPassword")).to_have_value("pw")
         await expect(page.locator("#obsState")).to_have_text("OBS на этом компьютере")
+        await expect(page.locator("#obsForm")).to_be_hidden()
+        passed("OBS setup beside veto: instructions, password check, save, reload, focus and 375px layout")
+
+        # Send to OBS on this computer.
         await page.check("#includeCards")
         await page.click("#sendObsBtn")
         await expect(page.locator("#toast")).to_contain_text("OBS обновлён: 10 камер, 10 карточек")
@@ -209,8 +240,9 @@ async def run(args):
         camera = obs.inputs[scene[1]]
         assert camera["url"].endswith("&cleanoutput&transparent") and camera["width"] == 1920
         assert obs.inputs[scene[0]]["url"].startswith(base + "/card.html?team=HYPERSPIRIT")
-        await page.evaluate("localStorage.setItem('oneshot-obs', JSON.stringify("
-                            "{mode: 'direct', url: 'ws://127.0.0.1:4455', password: 'wrong'}))")
+        await page.click("#obsSetupBtn")
+        await page.fill("#obsPassword", "wrong")
+        await page.click("#saveObs")
         await page.click("#sendObsBtn")
         await expect(page.locator("#errorBox")).to_contain_text("Неверный пароль OBS WebSocket")
         await expect(page.locator("#errorBox")).to_contain_text("скачать или скопировать")
@@ -228,16 +260,26 @@ async def run(args):
         passed("copy JSON falls back to the manual copy dialog")
 
         # OBS on another computer: the dock relays through VDO.Ninja.
-        await page.evaluate(f"localStorage.setItem('oneshot-obs', JSON.stringify({{mode: 'bridge', code: '{CODE}'}}))")
-        await page.reload()
+        await page.click("#obsSetupBtn")
+        await page.check('input[name=obsMode][value=bridge]')
+        await expect(page.locator("#obsDirectFields")).to_be_hidden()
+        await expect(page.locator("#obsBridgeFields")).to_be_visible()
+        await page.click("#saveObs")
+        bridge_code = await page.locator("#obsCode").inner_text()
         await expect(page.locator("#obsState")).to_have_text("Док OBS не на связи")
+        await expect(page.locator("#obsConnectionState")).to_have_text("Док OBS не на связи")
+        await page.locator("#obsDialog").screenshot(path=str(output / "obs-connection-remote.png"))
+        await page.click("#copyDockUrl")
+        await expect(page.locator("#copyDialog")).to_be_visible()
+        await expect(page.locator("#manualCopy")).to_have_value(f"{base}/obs-bridge.html#k={bridge_code}")
+        await page.click("#closeCopy")
         dock = await context.new_page()
         dock.on("pageerror", lambda error: errors.append(str(error)))
         dock_obs = MockObs()
         await dock.route_web_socket(OBS_URL, dock_obs.handler)
         await dock.set_viewport_size({"width": 320, "height": 700})
-        await dock.goto(f"{base}/obs-bridge.html#k={CODE}")
-        await expect(dock.locator("#dockCode")).to_have_value(CODE)
+        await dock.goto(f"{base}/obs-bridge.html#k={bridge_code}")
+        await expect(dock.locator("#dockCode")).to_have_value(bridge_code)
         await dock.fill("#dockPassword", "pw")
         await dock.click("#dockForm button[type=submit]")
         await expect(dock.locator("#dockObs")).to_contain_text("OBS: подключён")
@@ -382,6 +424,9 @@ async def run(args):
         assert not errors, errors
         await browser.close()
     print(f"{len(checks)} live scenarios passed", flush=True)
+    print("OBS_SETUP_PREVIEW_BEGIN", flush=True)
+    print(base64.b64encode((output / "obs-connection-direct.jpg").read_bytes()).decode(), flush=True)
+    print("OBS_SETUP_PREVIEW_END", flush=True)
 
 
 if __name__ == "__main__":
