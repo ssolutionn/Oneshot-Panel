@@ -108,9 +108,11 @@ jobs:
               catalog_url=preview + "/assets/players/players.json"
           )
           panel = runpy.run_path("scripts/qa_browser.py", run_name="published_panel")
-          asyncio.run(panel["run"](args))
           cards = runpy.run_path("scripts/qa_player_cards.py", run_name="published_cards")
-          asyncio.run(cards["run"](args))
+          try:
+              asyncio.run(panel["run"](args))
+          finally:
+              asyncio.run(cards["run"](args))
           PY
       - name: Upload browser screenshots and sample OBS export
         if: always()
