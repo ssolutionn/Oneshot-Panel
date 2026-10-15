@@ -258,36 +258,43 @@ async def run(args):
         data = event["requestData"]["event_data"]
         assert data["teams"] == ["6yuBoJlbl", "HYPERSPIRIT"] and data["actions"][0]["map"] == "Ancient", data
         await page.evaluate("window.__copied = []; navigator.clipboard.writeText = async t => { window.__copied.push(t); };")
+        await page.fill("#matchStage", "Группа B")
         await page.click("#copyOverlay")
         overlay_link = await page.evaluate("window.__copied.at(-1)")
-        assert overlay_link.startswith(base + "/veto-overlay.html#s="), overlay_link
+        assert overlay_link.startswith(base + "/assets/veto-overlay/overlay.html?layout=full#s="), overlay_link
+        await page.select_option("#vetoLayout", "strip")
+        await page.click("#copyOverlay")
+        assert "?layout=strip#s=" in await page.evaluate("window.__copied.at(-1)")
         await dock.close()
         passed("veto goes live to OBS; overlay link carries the current veto")
 
-        # Veto overlay page.
+        # Codex's animated overlay takes the panel's veto from the link and
+        # from the live obs-browser event.
         overlay = await context.new_page()
         overlay.on("pageerror", lambda error: errors.append(str(error)))
         await overlay.set_viewport_size({"width": 1920, "height": 1080})
         await overlay.goto(overlay_link)
-        await expect(overlay.locator(".veto-map")).to_have_count(7)
-        await expect(overlay.locator(".veto-map").first).to_have_class(re.compile(r"\bban\b"))
-        await expect(overlay.locator("#teamA b")).to_have_text("6yuBoJlbl")
-        assert await overlay.evaluate("getComputedStyle(document.body).backgroundColor") == "rgba(0, 0, 0, 0)"
-        full = {"teams": ["Rune Eaters", "PCIFIC"], "logos": ["rune-eaters.png", "pcific.png"], "format": "BO3",
-                "first": 0, "pending": "", "actions": [
+        await overlay.wait_for_selector("body[data-ready='true']")
+        state = await overlay.evaluate("window.vetoOverlay.getState()")
+        assert state["teams"] == ["6yuBoJlbl", "HYPERSPIRIT"] and state["stage"] == "Группа B", state
+        assert [a["map"] for a in state["actions"]] == ["Ancient"], state
+        full = {"version": 1, "teams": ["Rune Eaters", "PCIFIC"], "format": "BO3", "first": 0,
+                "pending": None, "stage": "Группа A", "actions": [
                     {"map": "Ancient", "type": "ban", "team": 0}, {"map": "Anubis", "type": "ban", "team": 1},
                     {"map": "Mirage", "type": "pick", "team": 0, "side": "CT"},
                     {"map": "Nuke", "type": "pick", "team": 1, "side": "T"},
                     {"map": "Cache", "type": "ban", "team": 0}, {"map": "Dust2", "type": "ban", "team": 1}]}
         await overlay.evaluate("state => dispatchEvent(new CustomEvent('oneshot-veto', { detail: state }))", full)
-        await expect(overlay.locator(".veto-map.decider .veto-name")).to_have_text("Inferno")
-        await expect(overlay.locator(".veto-map.pick").first).to_contain_text("PICK · Rune Eaters")
-        await expect(overlay.locator(".veto-map.pick").first).to_contain_text("PCIFIC CT")
+        await expect(overlay.locator("#scene")).to_have_attribute(
+            "aria-label", re.compile("Rune Eaters против PCIFIC. BO3. Вето завершено. Mirage, Nuke, Inferno"))
+        await overlay.wait_for_timeout(1200)
         await overlay.screenshot(path=str(output / "veto-overlay.png"))
+        # A broken update is ignored: the finished veto stays on air.
         await overlay.evaluate("dispatchEvent(new CustomEvent('oneshot-veto', { detail: { teams: ['A', 'A'] } }))")
-        await expect(overlay.locator("#stage")).to_be_hidden()
+        await overlay.wait_for_timeout(200)
+        assert len((await overlay.evaluate("window.vetoOverlay.getState()"))["actions"]) == 6
         await overlay.close()
-        passed("veto overlay: transparent, live updates, decider, bad state hidden")
+        passed("animated veto overlay: state from the link, live event, bad update ignored")
 
         # FACEIT lobby: alerts on map and match end, messages, tech pause.
         phase = {"value": 0}

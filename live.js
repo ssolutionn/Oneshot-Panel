@@ -308,9 +308,11 @@ $('watchCams').addEventListener('change', () => {
 function vetoState() {
   const s = panel.snapshot();
   const teams = [s.a?.name || '', s.b?.name || ''];
+  // The snapshot assets/veto-overlay/overlay.js accepts (window.vetoOverlay.setState).
   return {
-    teams, logos: teams.map(name => s.logos[name] ? s.logos[name].split('/').pop() : ''),
-    format: s.veto.format, first: s.veto.first, actions: s.veto.actions, pending: s.pending || ''
+    version: 1, teams, format: s.veto.format, first: s.veto.first,
+    actions: s.veto.actions, pending: s.pending || null,
+    stage: (s.stage || '').trim() || 'GROUP STAGE'
   };
 }
 function encodeState(state) {
@@ -319,8 +321,8 @@ function encodeState(state) {
   for (const byte of bytes) text += String.fromCharCode(byte);
   return btoa(text).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
-$('copyOverlay').addEventListener('click', () =>
-  panel.copy(`${cardBase()}/veto-overlay.html#s=${encodeState(vetoState())}`));
+$('copyOverlay').addEventListener('click', () => panel.copy(
+  `${cardBase()}/assets/veto-overlay/overlay.html?layout=${$('vetoLayout').value}#s=${encodeState(vetoState())}`));
 $('vetoLive').checked = !!read('oneshot-veto-live');
 $('vetoLive').addEventListener('change', () => {
   write('oneshot-veto-live', $('vetoLive').checked);

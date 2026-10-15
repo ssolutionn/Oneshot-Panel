@@ -106,7 +106,10 @@
       <p class="veto-status" id="vetoStatus" role="status" aria-live="polite">Выбери две разные команды.</p>
       <!-- web-only --><div class="veto-overlay-bar">
         <label class="check"><input id="vetoLive" type="checkbox" autocomplete="off"> Оверлей вето в OBS вживую</label>
-        <button id="copyOverlay" class="text-button" type="button">⧉ Ссылка на оверлей для OBS</button>
+        <span class="overlay-link">
+          <select id="vetoLayout" aria-label="Вид оверлея"><option value="full">Весь экран</option><option value="strip">Плашка снизу</option></select>
+          <button id="copyOverlay" class="text-button" type="button">⧉ Ссылка на оверлей для OBS</button>
+        </span>
       </div><!-- /web-only -->
       <div id="sideChoice" class="side-choice" hidden>
         <strong id="sideLabel"></strong>

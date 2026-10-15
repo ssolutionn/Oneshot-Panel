@@ -14,7 +14,8 @@ assets/players/; браузер карточки загружает их уже 
 Нужные файлы (больше ничего из репозитория на сайт не кладётся):
 
 ```
-index.html  app.js  core.js  theme.js  style.css  card.html  card.js  card.css  assets/
+index.html  app.js  core.js  theme.js  style.css  card.html  card.js  card.css
+live.js  obs.js  vdo.js  lobby.js  faceit.js  obs-bridge.html  obs-bridge.js  assets/
 ```
 
 - Репозиторий: https://github.com/ssolutionn/Oneshot-Panel,
@@ -45,7 +46,8 @@ sudo git clone --depth 1 -b claude/gracious-sagan-apztcc \
 sudo mkdir -p /var/www/oneshot-panel
 cd /opt/oneshot-panel
 sudo python3 scripts/fetch_player_photos.py --allow-missing
-sudo cp index.html app.js core.js theme.js style.css card.html card.js card.css /var/www/oneshot-panel/
+sudo cp index.html app.js core.js theme.js style.css card.html card.js card.css \
+  live.js obs.js vdo.js lobby.js faceit.js obs-bridge.html obs-bridge.js /var/www/oneshot-panel/
 sudo cp -R assets /var/www/oneshot-panel/
 ```
 
@@ -86,7 +88,8 @@ sudo certbot --nginx -d panel.oneshot.su   # HTTPS от Let's Encrypt
 ```sh
 cd /opt/oneshot-panel && sudo git pull
 sudo python3 scripts/fetch_player_photos.py --allow-missing
-sudo cp index.html app.js core.js theme.js style.css card.html card.js card.css /var/www/oneshot-panel/
+sudo cp index.html app.js core.js theme.js style.css card.html card.js card.css \
+  live.js obs.js vdo.js lobby.js faceit.js obs-bridge.html obs-bridge.js /var/www/oneshot-panel/
 sudo cp -R assets /var/www/oneshot-panel/
 ```
 
@@ -130,7 +133,12 @@ HTTPS Netlify выпустит сам после того, как записи �
 - в «Матч по расписанию» — матчи на сегодня и следующие дни;
 - в консоли браузера нет ошибок CSP;
 - `https://panel.oneshot.su/card.html?team=Lavked&nick=jakekeS` — карточка
-  игрока с логотипом Lavked (её OBS открывает под каждой камерой).
+  игрока с логотипом Lavked (её OBS открывает под каждой камерой);
+- `https://panel.oneshot.su/obs-bridge.html` — док для OBS открывается;
+- вкладка «Лобби» на своём сервере ходит в FACEIT напрямую из браузера.
+  Прокси `/api/faceit` есть только на Netlify и в `server.js`: если FACEIT
+  перестанет пускать браузер (CORS), на nginx лобби не заработает —
+  тогда оставить сайт на Netlify или запускать `node server.js` за nginx.
 
 ### Проверка карточек перед эфиром
 

@@ -8,8 +8,7 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const publicFiles = new Set([
   'index.html', 'app.js', 'core.js', 'style.css', 'theme.js',
   'card.html', 'card.js', 'card.css', 'live.js', 'obs.js', 'vdo.js',
-  'lobby.js', 'faceit.js', 'obs-bridge.html', 'obs-bridge.js',
-  'veto-overlay.html', 'veto-overlay.js', 'veto-overlay.css'
+  'lobby.js', 'faceit.js', 'obs-bridge.html', 'obs-bridge.js'
 ]);
 const mime = {
   '.html': 'text/html; charset=utf-8',

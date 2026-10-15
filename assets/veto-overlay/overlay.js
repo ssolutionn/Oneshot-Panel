@@ -1,6 +1,7 @@
 import { snapshot, demoState, nextDemoMap } from './model.js';
 import { appendVeto } from '../../core.js';
 import { artwork, VetoScene } from './scene.js';
+import { VETO_EVENT } from '../../obs.js';
 
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
 const preview=params.get('preview')==='1';
@@ -106,7 +107,24 @@ async function init() {
     description:()=>scene.description()
   };
   window.addEventListener('pagehide',()=>{stop();scene.dispose();},{once:true});
+  // Live from the panel: «Оверлей вето в OBS вживую» fires an obs-browser
+  // event through the OBS link; the copied overlay link carries the veto at
+  // copy time after #s=. Invalid snapshots keep the previous state.
+  if(!preview) {
+    const initial=fromHash();
+    if(initial)await apply(initial,{animate:false}).catch(()=>{});
+    window.addEventListener(VETO_EVENT,event=>apply(event.detail).catch(()=>{}));
+    window.addEventListener('hashchange',()=>{const state=fromHash();if(state)apply(state).catch(()=>{});});
+  }
   update();document.body.dataset.ready='true';
+}
+function fromHash() {
+  const packed=new URLSearchParams(location.hash.slice(1)).get('s');
+  if(!packed)return null;
+  try {
+    const text=atob(packed.replace(/-/g,'+').replace(/_/g,'/'));
+    return JSON.parse(new TextDecoder().decode(Uint8Array.from(text,c=>c.charCodeAt(0))));
+  } catch {return null;}
 }
 init().catch(error=>{
   $('sceneStatus').textContent='Не удалось загрузить оформление.';

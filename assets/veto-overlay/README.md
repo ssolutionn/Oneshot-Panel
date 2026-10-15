@@ -31,10 +31,16 @@ Without preview=1 the page waits for state and does not display a demo match.
   Export clears transient card movement and uses the same renderer and artwork.
 - Keyboard controls, reduced-motion default for smoke AND cards, and mobile preview.
 
-## Integration boundary
+## Connected to the panel
 
-**Not connected to the panel or to a cross-computer transport yet.**
-Do not use this preview as an actual live-match source.
+Without preview=1 the page takes the panel's veto two ways:
+- `#s=<base64url snapshot>` — «Ссылка на оверлей для OBS» in the panel's veto
+  block copies the overlay URL with the current veto (`?layout=full|strip`);
+- the obs-browser event `oneshot-veto` — «Оверлей вето в OBS вживую» sends
+  every move through the panel's OBS link (obs-websocket directly or the
+  OBS dock, obs-bridge.html), so admin and OBS can be on different computers.
+
+The section below is the original design note.
 
 The renderer accepts a full snapshot through:
 await window.vetoOverlay.setState({

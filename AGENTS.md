@@ -1,9 +1,11 @@
 # Заметки для ИИ-агентов (Codex, ChatGPT, Claude)
 
 Oneshot Panel — статическая веб-панель эфирной команды CyberClash.
-Читает составы и расписание из Google Sheets, раскладывает 10 вебок
-по слотам 01–05 / 06–10, отдаёт ссылки VDO.Ninja игрокам, JSON-коллекцию
-сцен OBS (1920×1080) и вето карт BO1/2/3/5 с текстом для HLTV.
+Две вкладки. «Подготовка»: составы и расписание из Google Sheets, 10 вебок
+по слотам 01–05 / 06–10, ссылки VDO.Ninja игрокам, статус вебок, OBS
+(отправка в открытый OBS или JSON-коллекция 1920×1080) и вето карт
+BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: турнир FACEIT, оповещения
+о концах карт и матчей, тексты для Discord, журнал пауз.
 Подробности для людей — в README.md.
 
 ## Карта файлов
@@ -18,9 +20,43 @@ Oneshot Panel — статическая веб-панель эфирной ко
 - `core.js` — чистая логика без DOM: разбор ответа gviz, составы, ссылки
   VDO.Ninja, тексты для копирования, имя файла, сборка OBS JSON, правила
   вето, выбор фото и логотипа для карточки. Покрыта `test/core.test.js`.
-- `app.js` — интерфейс: загрузка таблиц, отрисовка, localStorage
-  (`webcam-desk-source`, `oneshot-webcam-match-v1`), вето, копирование,
-  скачивание JSON.
+- `app.js` — интерфейс «Подготовки»: загрузка таблиц, отрисовка,
+  localStorage (`webcam-desk-source`, `oneshot-webcam-match-v1`), вето,
+  копирование, скачивание JSON. Отдаёт `window.oneshotPanel.snapshot()`
+  и событие `oneshot:change` для `live.js` и `lobby.js`; сам их не знает
+  (в артефакте Claude их нет).
+- `live.js` — только сайт: вкладки, «Отправить в OBS», «Копировать JSON»,
+  окно «Связь с OBS», статус вебок, живое вето в OBS и ссылка на оверлей.
+  localStorage: `oneshot-obs` (режим, код связи, адрес и пароль OBS),
+  `oneshot-view`, `oneshot-watch-cams`, `oneshot-veto-live`.
+- `obs.js` — без DOM: клиент obs-websocket v5 (пароль через WebCrypto),
+  `applyMatch` переводит импортированную коллекцию на новый матч
+  (CAM переименовываются и получают ссылки, CARD создаются под камерой
+  или скрываются), `emitVeto` — событие obs-browser `oneshot-veto`.
+  Покрыт `test/obs.test.js` (мок obs-websocket на сокетах Node).
+- `vdo.js` — скрытые iframe VDO.Ninja. `CamWatch`: зритель
+  `?room&scene&view=id1,id2&novideo&noaudio`, кто публикуется (getStreamIDs,
+  view-connection). `VdoLink`: канал панели и дока OBS — док публикует
+  поток только с данными (`push`), панели его смотрят (`view`); ID потока и
+  пароль VDO.Ninja выводятся из кода связи, сообщения запечатаны AES-GCM
+  (PBKDF2 от кода). Комната с `&dataonly` на выпущенном VDO.Ninja не
+  соединяет — не возвращай её.
+- `obs-bridge.html`, `obs-bridge.js` — док для OBS обсервера
+  (Пользовательские док-панели браузера, `#k=<код>`): принимает команды
+  панели и выполняет их через obs-websocket этого компьютера. localStorage
+  дока: `oneshot-obs-bridge`.
+- `faceit.js` — без DOM: разбор ссылки турнира, сводка матча, события
+  (карта, матч, отмена, PAUSED), тексты «GG» и «Next xx:MM», клиент Data API
+  с переходом на прокси `/api/faceit` при CORS. Покрыт `test/live.test.js`.
+- `lobby.js` — вкладка «Лобби»: опрос турнира каждые 20 с, звук, уведомления
+  браузера, бейдж вкладки, ручной таймер тех. паузы, журнал. localStorage:
+  `oneshot-lobby` (ссылка, ключ, шаблоны, задержка), `oneshot-lobby-log`.
+- `netlify/functions/faceit.mjs` — прокси FACEIT для браузера (только пути
+  лобби, ключ приходит от админа и дальше не хранится); `server.js`
+  отдаёт его же на `/api/faceit`.
+- `assets/veto-overlay/` — анимированный оверлей вето (Codex): `overlay.html`
+  берёт снимок вето из `#s=` и из события `oneshot-veto`; `?preview=1` —
+  демо. Свой README и `scripts/qa_veto_overlay.py` (нужен WebGL).
 - `card.html`, `card.js`, `card.css` — карточка игрока 1920×1080
   (`/card.html?team=…&nick=…`): фон `assets/card/background.jpg`, логотип CyberClash и логотип
   команды, ник, фото HLTV из `assets/players/players.json`. В OBS JSON
@@ -60,16 +96,21 @@ Oneshot Panel — статическая веб-панель эфирной ко
   скрипте, а не обходи её.
 - `claude-artifact/index.html` — старая версия «Webcam Desk», не трогать.
 - `scripts/qa_browser.py` — 25 браузерных сценариев (Python Playwright +
-  Chromium). `scripts/qa_player_cards.py` проверяет все записи подготовленного
-  каталога и 10 CARD-ссылок скачанного JSON; `test/photos_test.py` — загрузчик.
+  Chromium), VDO.Ninja в них заглушён. `scripts/qa_player_cards.py`
+  проверяет все записи подготовленного каталога и 10 CARD-ссылок
+  скачанного JSON; `test/photos_test.py` — загрузчик. `scripts/qa_live.py` —
+  7 сценариев сайта: вкладки, статус вебок, OBS напрямую и через док,
+  копирование JSON, оверлей вето, лобби FACEIT (Sheets, VDO.Ninja,
+  obs-websocket и FACEIT подменены, время лобби ускорено).
 
 ## Команды
 
 ```sh
 npm run check        # синтаксис
-npm test             # 29 тестов (node:test)
+npm test             # 45 тестов (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
+python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 claude-artifact/build_oneshot_artifact.py
 ```
 
@@ -97,9 +138,21 @@ Netlify проверяет локальные фото, докачивает н�
   Inferno, Mirage, Nuke. Текст HLTV строками вида `X removed Map`,
   `X pick Map (Y CT)` или `(Y T)` — сторона соперника, последняя —
   `Map was left over`.
+- «Отправить в OBS» меняет только сцены «Игрок 1–10» уже импортированной
+  коллекции; нет сцены — понятная ошибка до первого изменения. Имена
+  источников те же, что в JSON.
+- Сообщения моста (запечатаны): `apply {id, title, match}`, `veto {id,
+  state}`, `hello {id}` от панели; `result {id, ok, error|summary}` и
+  `presence {ok, obs}` от дока.
+- Снимок вето для оверлея: `{version: 1, teams, format, first, actions,
+  pending, stage}` — контракт `window.vetoOverlay.setState`.
 - CSP: `script-src 'self'`, `style-src 'self'`, `img-src 'self'`. Никаких
   inline-скриптов, CDN, Google Fonts и `data:`-картинок в веб-версии.
-  `connect-src` разрешает только `https://docs.google.com`.
+  `connect-src`: `'self'`, `https://docs.google.com`, `https://open.faceit.com`,
+  `ws://127.0.0.1:*`, `ws://localhost:*` (OBS на этом компьютере);
+  `frame-src https://vdo.ninja`.
+- Разметка только для сайта обёрнута в `<!-- web-only -->…<!-- /web-only -->`:
+  сборщик артефакта вырезает её. Новое для сайта в index.html — туда же.
 
 ## Редизайн
 
@@ -116,8 +169,20 @@ Netlify проверяет локальные фото, докачивает н�
   settingsForm settingsHeading closeSettings sourceError sourceUrl
   sourceGid scheduleUrl scheduleGid resetSource copyDialog copyHeading
   closeCopy manualCopy toast
+- id сайта (`live.js`, `lobby.js`, `obs-bridge.js`): viewPrep viewLobby
+  lobbyBadge prepView lobbyView camSummary watchCams camTotal sendObsBtn
+  copyJsonBtn obsSetupBtn obsDot obsState vetoLive vetoLayout copyOverlay
+  obsDialog obsForm closeObs obsBridgeFields obsDockUrl copyDockUrl obsCode
+  newObsCode obsDirectFields obsUrl obsPassword obsTestResult testObs
+  saveObs notifyBtn soundBtn lobbyForm faceitUrl faceitKey lobbyStart
+  lobbyStatus lobbyError lobbyAlert lobbyAlertText lobbyAck lobbyMatches
+  nextDelay copyThanks msgThanks nextMatch copyNext msgNext tplThanks
+  tplNext resetTemplates copyJournal lobbyLog; док: dockPanel dockPanelDot
+  dockObs dockObsDot dockForm dockCode dockUrl dockPassword dockLog
 - data-атрибуты (их ставит `app.js`): data-copy-team data-map data-player
-  data-reset data-slot data-team data-view
+  data-reset data-slot data-team data-view; `live.js`: data-cam (live, off,
+  wait, none) на `.player-row`; `lobby.js`: data-match data-pause data-side
+  data-resume data-since
 - Карточки команд, строки игроков и карты вето рисует `app.js`
   (классы `team-card`, `player-row`, `map-card` и т. п.) — их вид
   меняется в `style.css`.
@@ -144,5 +209,10 @@ Netlify проверяет локальные фото, докачивает н�
   таблицы организатора даёт ссылки на профили). hltv.org закрыт
   Cloudflare: страницы читаются только через браузерный сервис, а сами
   картинки с img-cdn.hltv.org качаются обычным запросом.
+- FACEIT: ссылка на турнир `faceit.com/<lang>/championship/<uuid>/…`,
+  Data API v4 с client-side ключом админа. Матчи турнира приходят списками
+  ongoing/upcoming/past; `results`/`detailed_results` считают карты, счёт
+  раундов — `/matches/{id}/stats` после матча. Тех. пауз в API нет (статус
+  PAUSED ловится, если FACEIT его ставит); ручной таймер — в лобби.
 - Снимки таблицы не коммитить: `claude-artifact/data/` и
   `claude-artifact/dist/` в `.gitignore`.

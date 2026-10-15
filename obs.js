@@ -199,7 +199,7 @@ export async function applyMatch(obs, match, onProgress = () => {}) {
   return { slots: plans.length, cards: plans.filter(p => p.card).length };
 }
 
-// The veto overlay (veto-overlay.html) listens for this obs-browser event.
+// The veto overlay (assets/veto-overlay/overlay.html) listens for this obs-browser event.
 export function emitVeto(obs, state) {
   return obs.request('CallVendorRequest', {
     vendorName: 'obs-browser', requestType: 'emit_event',
