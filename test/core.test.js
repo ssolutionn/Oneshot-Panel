@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   decodeGviz, parseTeams, parseSchedule, scheduleDay, defaultLineup, observerText,
-  selectedPlayers, validateMatch, playerText, viewUrl, pushUrl,
+  selectedPlayers, validateMatch, playerText, viewUrl, pushUrl, directorUrl,
   safeFilename, buildObs, cardUrl, personKey, DEFAULT_CARD_BASE, MAP_POOL, VETO_RULES,
   validateVeto, appendVeto, vetoText, photoMatches, playerPhoto, teamLogo
 } from '../core.js';
@@ -136,6 +136,21 @@ test('Player output has bold nickname and separate PUSH URL', () => {
   assert.equal((text.match(/https:\/\/vdo\.ninja\//g) || []).length, 5);
   assert.ok(!text.includes('[**'));
   assert.ok(!text.includes('director='));
+});
+
+test('Room password from column L goes into every link of that team only', () => {
+  const rows = makeRows().map(r => [...r, '', '', r[1] === 'HYPERSPIRIT' ? 'k3y 7&x' : '']);
+  const [a, b] = parseTeams(rows);
+  assert.equal(a.password, 'k3y 7&x');
+  const [p] = selectedPlayers(a, defaultLineup(a));
+  assert.equal(pushUrl(p), 'https://vdo.ninja/?room=hyperspirit&password=k3y%207%26x&broadcast&do&push=stream0-0');
+  assert.equal(viewUrl(p), 'https://vdo.ninja/?view=stream0-0&solo=1&room=hyperspirit&password=k3y%207%26x&codec=h264&cleanoutput&transparent');
+  assert.equal(directorUrl(a), 'https://vdo.ninja/?director=hyperspirit&password=k3y%207%26x');
+  assert.ok(playerText(a, selectedPlayers(a, defaultLineup(a))).includes('**Ciocardau** https://vdo.ninja/?room=hyperspirit&password=k3y%207%26x&broadcast&do&push=stream0-0'));
+  // A team without a password keeps the old links.
+  const [q] = selectedPlayers(b, defaultLineup(b));
+  assert.equal(pushUrl(q), 'https://vdo.ninja/?room=team-b&broadcast&do&push=stream1-0');
+  assert.equal(directorUrl(b), 'https://vdo.ninja/?director=team-b');
 });
 
 test('Observer text is the slot order only, without links', () => {

@@ -65,9 +65,9 @@ export function bridgeUrl({ stream, password }, role) {
 }
 // A scene-style viewer of the team's streams that takes no audio or video:
 // it only learns which stream IDs are publishing right now.
-export function watchUrl(room, ids) {
+export function watchUrl(room, ids, password = '') {
   const url = new URL(VDO);
-  url.search = new URLSearchParams({ room, view: ids.join(','), label: 'oneshot-status' }).toString() +
+  url.search = new URLSearchParams({ room, ...(password ? { password } : {}), view: ids.join(','), label: 'oneshot-status' }).toString() +
     '&scene&novideo&noaudio&cleanoutput';
   return url.href;
 }
@@ -138,8 +138,9 @@ export class CamWatch {
   watch(groups) {
     const wanted = new Map(groups.filter(g => g.room && g.ids.length)
       .map(g => [g.room, [...new Set(g.ids)].sort()]));
+    const passwords = new Map(groups.map(g => [g.room, g.password || '']));
     for (const [room, entry] of this.rooms) {
-      if (JSON.stringify(wanted.get(room)) !== JSON.stringify(entry.ids)) {
+      if (JSON.stringify(wanted.get(room)) !== JSON.stringify(entry.ids) || passwords.get(room) !== entry.password) {
         entry.iframe.remove();
         this.rooms.delete(room);
       }
@@ -147,7 +148,8 @@ export class CamWatch {
     for (const [room, ids] of wanted) {
       if (!this.rooms.has(room)) {
         this.rooms.set(room, {
-          ids, iframe: frame(watchUrl(room, ids), 'Статус вебок'), live: new Set(), answered: false
+          ids, password: passwords.get(room), live: new Set(), answered: false,
+          iframe: frame(watchUrl(room, ids, passwords.get(room)), 'Статус вебок')
         });
       }
     }

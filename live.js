@@ -400,9 +400,11 @@ function camGroups(s) {
   const groups = new Map();
   for (const p of [...s.playersA, ...s.playersB]) {
     if (!p?.room || !p?.id) continue;
-    groups.set(p.room, [...(groups.get(p.room) || []), p.id]);
+    const group = groups.get(p.room) || { room: p.room, password: p.password || '', ids: [] };
+    group.ids.push(p.id);
+    groups.set(p.room, group);
   }
-  return [...groups].map(([room, ids]) => ({ room, ids }));
+  return [...groups.values()];
 }
 function paintCams() {
   const s = panel.snapshot();

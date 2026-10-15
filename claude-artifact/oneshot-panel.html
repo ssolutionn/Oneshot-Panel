@@ -645,17 +645,18 @@ function parseTeams(rows) {
     const v = row.map(line);
     if (!v[0] || !v[1] || !v[3] ||
         !['Основной', 'Запасной', 'Тренер'].includes(v[8])) return;
-    const name = v[1], nick = v[3], id = v[4] || nick, room = v[5];
+    // L: the team's VDO.Ninja room password (sheet «Комнаты», column «Пароль»).
+    const name = v[1], nick = v[3], id = v[4] || nick, room = v[5], password = v[11] || '';
     if (!room) throw new Error(`Не указана комната команды ${name}.`);
     if (ids.has(v[0])) throw new Error(`Повтор ID в таблице: ${v[0]}`);
     ids.add(v[0]);
     if (!byName.has(name)) {
-      const team = { name, room, players: [], sourceRow: index + 1 };
+      const team = { name, room, password, players: [], sourceRow: index + 1 };
       teams.push(team);
       byName.set(name, team);
     }
     byName.get(name).players.push({
-      key: v[0], slot: v[2], nick, id, room,
+      key: v[0], slot: v[2], nick, id, room, password,
       role: v[8], sourceRow: index + 1
     });
   });
@@ -801,14 +802,19 @@ function validateMatch(a, b, ka, kb) {
 
 // &transparent and &cleanoutput: until the player connects the camera shows
 // nothing, so the player card under it (card.html) stays visible.
+// A team's room password: without it VDO.Ninja finds none of the room's
+// streams, so players of one team cannot open another team's cameras.
+function roomPassword(x) {
+  return x?.password ? `&password=${encodeURIComponent(x.password)}` : '';
+}
 function viewUrl(p) {
-  return `https://vdo.ninja/?view=${encodeURIComponent(p.id)}&solo=1&room=${encodeURIComponent(p.room)}&codec=h264&cleanoutput&transparent`;
+  return `https://vdo.ninja/?view=${encodeURIComponent(p.id)}&solo=1&room=${encodeURIComponent(p.room)}${roomPassword(p)}&codec=h264&cleanoutput&transparent`;
 }
 function pushUrl(p) {
-  return `https://vdo.ninja/?room=${encodeURIComponent(p.room)}&broadcast&do&push=${encodeURIComponent(p.id)}`;
+  return `https://vdo.ninja/?room=${encodeURIComponent(p.room)}${roomPassword(p)}&broadcast&do&push=${encodeURIComponent(p.id)}`;
 }
 function directorUrl(team) {
-  return `https://vdo.ninja/?director=${encodeURIComponent(team.room)}`;
+  return `https://vdo.ninja/?director=${encodeURIComponent(team.room)}${roomPassword(team)}`;
 }
 // The card page lives on the panel's own site; the artifact has no site of
 // its own, so its JSON points at the public panel.

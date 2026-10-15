@@ -155,7 +155,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 
 ```sh
 npm run check        # синтаксис
-npm test             # 54 теста (node:test)
+npm test             # 55 тестов (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
@@ -170,7 +170,8 @@ Netlify проверяет локальные фото, докачивает н�
 Эти форматы используют в эфире, тесты проверяют их дословно.
 
 - Текст игрокам: заголовок `## Команда` и строки
-  `**Ник** https://vdo.ninja/?room=<room>&broadcast&do&push=<id>`.
+  `**Ник** https://vdo.ninja/?room=<room>&broadcast&do&push=<id>`
+  (с паролем команды: `?room=<room>&password=<pw>&broadcast&do&push=<id>`).
 - Текст обсерверу: только порядок слотов `N. Команда — Ник`, без ссылок.
 - Имя JSON без пробелов: `16-00_Группа-B_КомандаA_vs_КомандаB.json`.
 - OBS JSON: сцены «Игрок 1–10» и «Матрица», камеры вписаны в 1920×1080,
@@ -253,7 +254,10 @@ Netlify проверяет локальные фото, докачивает н�
 
 - Составы: https://docs.google.com/spreadsheets/d/1e__ijBjufD19SWBkSJL177vmmfMh2tdykYQHAS06S8I/edit,
   лист игроков GID 1315978454 (A ID, B команда, C слот, D ник, E ID потока,
-  F room, I роль). Таблица должна быть открыта на просмотр по ссылке.
+  F room, I роль, L пароль комнаты). Таблица должна быть открыта на просмотр по ссылке.
+  Пароль комнаты (лист «Комнаты», колонка «Пароль») панель добавляет как
+  `&password=` во все ссылки команды: игрокам, OBS, директору, статусу
+  вебок. Без пароля ссылки прежние (`pushUrl`/`viewUrl`/`directorUrl`).
 - Расписание: таблица организатора
   https://docs.google.com/spreadsheets/d/1GtwcpVnyxY1YOs6ZTrXwJr5mjZqI0QxjLSKjimn9G2o/edit,
   лист «Schedule (Group Stage)» GID 815739139 (колонки по заголовкам:

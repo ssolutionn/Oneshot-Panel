@@ -278,4 +278,6 @@ test('OBS dock link: codes, derived room and sealed messages', async () => {
   assert.equal(watch.searchParams.get('view'), 'a1,b2');
   assert.equal(watch.searchParams.get('room'), 'team-room');
   assert.ok(['scene', 'novideo', 'noaudio'].every(flag => watch.searchParams.has(flag)));
+  assert.equal(new URL(watchUrl('team-room', ['a1'], 'pw')).searchParams.get('password'), 'pw');
+  assert.ok(!watch.searchParams.has('password'));
 });
