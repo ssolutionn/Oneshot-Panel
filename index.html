@@ -112,52 +112,60 @@
           <span class="obs-connection-chevron" aria-hidden="true">⌄</span>
         </summary>
         <form id="obsForm">
-          <p class="obs-mobile-guide">С телефона выбирай <b>«На другом компьютере»</b> и иди по шагам ниже. Ссылку на оверлей вето копируй с того устройства, на котором кликаешь вето.</p>
-          <p class="obs-connection-intro">Здесь настраивается отправка камер и матча в OBS. Для вето добавь отдельный источник «Браузер» по ссылке ниже. Сначала выбери, на каком компьютере открыт OBS.</p>
           <fieldset class="obs-mode">
-            <legend class="mini-label">Где открыт OBS?</legend>
-            <label class="check"><input type="radio" name="obsMode" value="bridge" checked><span><b>На другом компьютере</b><small>Через док Oneshot в OBS обсервера: без IP, из любой сети.</small></span></label>
-            <label class="check"><input type="radio" name="obsMode" value="direct"><span><b>На этом компьютере</b><small>Вставь адрес и пароль WebSocket в поля ниже.</small></span></label>
+            <legend class="mini-label">Где OBS, в который отправляем камеры?</legend>
+            <label class="check"><input type="radio" name="obsMode" value="bridge" checked><span><b>У обсервера</b><small>Другой компьютер, хоть в другом городе. С ПК или с телефона.</small></span></label>
+            <label class="check"><input type="radio" name="obsMode" value="direct"><span><b>На этом компьютере</b><small>OBS открыт здесь же, где этот сайт.</small></span></label>
           </fieldset>
           <div id="obsBridgeFields">
-            <div class="obs-dock-about">
-              <h3>Что такое док и почему нет IP</h3>
-              <p><b>Док</b> — маленькое окно Oneshot внутри OBS обсервера (в OBS это меню «Док-панели»). Его один раз добавляют на компьютере с OBS, и он выполняет команды панели: камеры, матч, проверка связи.</p>
-              <p>IP не нужен: док стоит на том же компьютере, что и OBS, и подключается к нему как 127.0.0.1. Панель находит док через интернет по коду связи — из любой сети и без проброса портов. Напрямую по IP сайт к OBS не подключится: браузер не пускает https-страницу на незащищённый ws://, а из другого города этот IP вообще не виден.</p>
+            <div class="obs-how" role="img" aria-label="Сайт связывается через интернет с окном Oneshot в OBS обсервера, а окно управляет OBS на том же компьютере">
+              <span class="obs-how-node"><b>Этот сайт</b><small>у тебя на ПК или телефоне</small></span>
+              <span class="obs-how-link" aria-hidden="true">интернет</span>
+              <span class="obs-how-node"><b>Окно Oneshot</b><small>в OBS обсервера</small></span>
+              <span class="obs-how-link" aria-hidden="true">тот же ПК</span>
+              <span class="obs-how-node"><b>OBS</b><small>обсервера</small></span>
             </div>
-            <div id="obsPairQr"></div>
-            <ol class="obs-steps">
-              <li>
-                <h3>Что сделать на компьютере с OBS</h3>
-                <p class="obs-field-hint">Отправь обсерверу ссылку. В OBS: <b>Док-панели → Пользовательские док-панели браузера</b> (Docks → Custom Browser Docks) → имя <b>Oneshot</b>, адрес — эта ссылка → <b>Применить</b>. В OBS появится окно Oneshot — это и есть док, держи его открытым весь эфир.</p>
-                <label class="obs-field" for="obsDockUrl">Ссылка для дока</label>
-                <span class="copy-line"><input id="obsDockUrl" aria-describedby="obsBridgeHint" readonly><button id="copyDockUrl" class="button small" type="button">Копировать ссылку</button><button id="shareDockUrl" class="button small" type="button" hidden>Поделиться</button></span>
-                <p id="obsBridgeHint" class="obs-field-hint">В ссылке код связи этого устройства. У каждого телефона и компьютера свой код: док, добавленный по ссылке с другого устройства, отсюда не виден.</p>
-                <p class="obs-code-line">Код связи <b id="obsCode"></b> <button id="newObsCode" class="text-button" type="button">Сменить код</button></p>
-                <details class="obs-code-entry">
-                  <summary>Док уже добавлен с другого устройства?</summary>
-                  <p class="obs-field-hint">Введи код из поля «Код связи» в доке или отсканируй QR «Подключить телефон» из дока через «Заполнить по QR» выше.</p>
-                  <span class="copy-line"><input id="obsCodeInput" aria-label="Код связи из дока" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="applyObsCode" class="button small" type="button">Подключиться к доку</button></span>
-                </details>
-              </li>
-              <li>
-                <h3>Связь с доком</h3>
-                <p id="obsBridgeStatus" class="obs-bridge-status" role="status" aria-live="polite"></p>
-              </li>
-              <li class="obs-remote">
-                <h3>Порт и пароль OBS обсервера</h3>
-                <p class="obs-field-hint">Нужны, если обсервер не вписал их в доке сам. Он открывает в OBS <b>Сервис → Настройки сервера WebSocket → Показать сведения о подключении</b> и присылает скриншот: «Заполнить по QR» → «Загрузить QR / скриншот» подставит порт и пароль. IP оттуда не нужен. Данные уходят в док зашифрованными и здесь не сохраняются.</p>
-                <div class="obs-credentials">
-                  <label class="obs-field" for="obsRemotePort">Порт OBS WebSocket<input id="obsRemotePort" inputmode="numeric" placeholder="4455" autocomplete="off" spellcheck="false"></label>
-                  <label class="obs-field" for="obsRemotePassword">Пароль OBS WebSocket<input id="obsRemotePassword" type="password" placeholder="Из сведений о подключении" autocomplete="off"></label>
-                </div>
-                <div class="obs-connection-actions"><button id="sendObsConfig" class="button" type="button">Отправить в док</button></div>
-                <p id="obsRemoteResult" class="obs-test" role="status" aria-live="polite"></p>
-              </li>
-            </ol>
+            <p class="obs-how-text">Сайт не может сам зайти в чужой OBS. Поэтому обсервер один раз добавляет в OBS окно Oneshot: оно получает команды с сайта через интернет и передаёт их своему OBS. IP, порты и одна сеть не нужны.</p>
+
+            <section class="obs-step">
+              <h3><span class="obs-step-num" aria-hidden="true">1</span>Отправь обсерверу сообщение</h3>
+              <p class="obs-field-hint">В нём ссылка и что нажать. Обсерверу нужно просто сделать по пунктам, один раз.</p>
+              <textarea id="obsDockMessage" class="obs-message" readonly rows="9" wrap="soft" aria-label="Сообщение для обсервера"></textarea>
+              <div class="obs-connection-actions">
+                <button id="copyDockUrl" class="button primary" type="button">Скопировать сообщение</button>
+                <button id="shareDockUrl" class="button" type="button" hidden>Поделиться</button>
+              </div>
+            </section>
+
+            <section class="obs-step">
+              <h3><span class="obs-step-num" aria-hidden="true">2</span>Дождись зелёного статуса</h3>
+              <p id="obsBridgeStatus" class="obs-bridge-status" role="status" aria-live="polite"></p>
+            </section>
+
+            <details id="obsRemoteBox" class="obs-step obs-more">
+              <summary>Обсервер не может вписать пароль? Впиши за него</summary>
+              <p class="obs-field-hint">Пусть пришлёт скриншот из OBS: Сервис → Настройки сервера WebSocket → «Показать сведения о подключении». Возьми оттуда порт и пароль (IP не нужен) или загрузи скриншот в «Отсканировать QR» ниже.</p>
+              <div class="obs-credentials">
+                <label class="obs-field" for="obsRemotePort">Порт<input id="obsRemotePort" inputmode="numeric" placeholder="4455" autocomplete="off" spellcheck="false"></label>
+                <label class="obs-field" for="obsRemotePassword">Пароль WebSocket<input id="obsRemotePassword" type="password" placeholder="Из сведений о подключении" autocomplete="off"></label>
+              </div>
+              <div class="obs-connection-actions"><button id="sendObsConfig" class="button" type="button">Отправить в OBS обсервера</button></div>
+              <p id="obsRemoteResult" class="obs-test" role="status" aria-live="polite"></p>
+            </details>
+
+            <details id="obsMore" class="obs-step obs-more">
+              <summary>Другие способы и код связи</summary>
+              <h4>Окно Oneshot у обсервера уже стоит?</h4>
+              <p class="obs-field-hint">Если его добавили по ссылке с другого устройства, введи код из этого окна (поле «Код связи») — и этот сайт подключится к нему.</p>
+              <span class="copy-line"><input id="obsCodeInput" aria-label="Код связи из окна Oneshot" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="applyObsCode" class="button small" type="button">Подключиться</button></span>
+              <h4>Отсканировать QR</h4>
+              <div id="obsPairQr"></div>
+              <h4>Только ссылка</h4>
+              <span class="copy-line"><input id="obsDockUrl" aria-describedby="obsBridgeHint" readonly></span>
+              <p id="obsBridgeHint" class="obs-field-hint">У каждого браузера свой код связи. Код этого: <b id="obsCode"></b> <button id="newObsCode" class="text-button" type="button">Сменить код</button> (старое окно у обсервера отключится).</p>
+            </details>
           </div>
           <div id="obsDirectFields" hidden>
-            <div id="obsNativeQr"></div>
             <div class="obs-guide">
               <h3>Где найти адрес и пароль</h3>
               <ol>

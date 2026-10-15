@@ -73,8 +73,11 @@ async def run(args):
                     baseline_styles.add(tuple(violation[key] for key in ["directive","blocked","file","line"]))
                     errors.remove(violation)
             await page.click("#obsNavBtn")
-            await page.check('input[name=obsMode][value=direct]')
-            reader = page.locator("#obsNativeQr")
+            # «У обсервера»: one reader takes the OBS QR (port and password for
+            # the observer's OBS) and the pairing QR from the Oneshot window.
+            await page.check('input[name=obsMode][value=bridge]')
+            await page.locator("#obsMore > summary").click()
+            reader = page.locator("#obsPairQr")
             await reader.locator(":scope > details > summary").click()
 
             async def png_qr(text):
@@ -88,14 +91,12 @@ async def run(args):
             native = await png_qr("obsws://192.168.1.9:4466/p%40ss%2Fword%20%23%25%3F")
             await reader.locator('input[type=file]').set_input_files(
                 {"name":"obs.png","mimeType":"image/png","buffer":native})
-            await expect(reader.locator('[role=status]')).to_contain_text("Адрес, порт и пароль заполнены")
-            await expect(page.locator("#obsUrl")).to_have_value("ws://127.0.0.1:4466")
-            await expect(page.locator("#obsPassword")).to_have_value("p@ss/word #%?")
-            assert await page.evaluate("JSON.parse(localStorage.getItem('oneshot-obs')).mode || null") is None
-            await page.fill("#obsUrl", OBS_URL)
-            await page.fill("#obsPassword", "pw")
-            await page.click("#testObs")
-            await expect(page.locator("#obsTestResult")).to_contain_text("OBS подключён")
+            await expect(reader.locator('[role=status]')).to_contain_text("Порт и пароль OBS подставлены")
+            await expect(page.locator("#obsRemoteBox")).to_have_attribute("open", "")
+            await expect(page.locator("#obsRemotePort")).to_have_value("4466")
+            await expect(page.locator("#obsRemotePassword")).to_have_value("p@ss/word #%?")
+            assert await page.evaluate("JSON.parse(localStorage.getItem('oneshot-obs') || '{}').mode || null") is None
+            await page.fill("#obsRemotePassword", "pw")
 
             await reader.locator('input[type=file]').set_input_files(
                 {"name":"bad.png","mimeType":"image/png","buffer":b"invalid image"})
@@ -104,8 +105,8 @@ async def run(args):
             await reader.locator('input[type=file]').set_input_files(
                 {"name":"other.png","mimeType":"image/png","buffer":bad_qr})
             await expect(reader.locator('[role=status]')).to_contain_text("не QR подключения OBS")
-            await expect(page.locator("#obsPassword")).to_have_value("pw")
-            await expect(page.locator("#obsUrl")).to_have_value(OBS_URL)
+            await expect(page.locator("#obsRemotePassword")).to_have_value("pw")
+            await expect(page.locator("#obsRemotePort")).to_have_value("4466")
             await page.evaluate("""Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{
               getUserMedia:async()=>{throw new DOMException('denied','NotAllowedError');}
             }});""")
@@ -128,11 +129,11 @@ async def run(args):
             }""")
             await reader.get_by_role("button",name="Сканировать камерой",exact=True).click()
             await page.wait_for_function("""() =>
-              document.getElementById('obsPassword').value==='camera-pass' ||
-              document.querySelector('#obsNativeQr [role=status]').textContent.includes('Камера не передаёт изображение')
+              document.getElementById('obsRemotePassword').value==='camera-pass' ||
+              document.querySelector('#obsPairQr [role=status]').textContent.includes('Камера не передаёт изображение')
             """, timeout=20000)
             await page.evaluate("qrStopPaint()")
-            if await page.input_value("#obsPassword") == "camera-pass":
+            if await page.input_value("#obsRemotePassword") == "camera-pass":
                 print(f"PASS {engine}: live QR video decoding", flush=True)
             else:
                 # Linux WebKit's canvas MediaStream can stay at HAVE_NOTHING;
@@ -140,7 +141,7 @@ async def run(args):
                 # decoding and the no-frame recovery must still pass.
                 assert mobile, await reader.locator('[role=status]').inner_text()
                 await expect(reader.locator('[role=status]')).to_contain_text("Камера не передаёт изображение")
-                assert await page.input_value("#obsPassword") == "pw"
+                assert await page.input_value("#obsRemotePassword") == "pw"
                 print("NOTE webkit: CI canvas stream supplies no video frames; verified timeout, image decoding and manual fallback instead of physical camera", flush=True)
             assert await page.evaluate("qrTrack.readyState") == "ended"
             assert await reader.locator("video").is_hidden()
@@ -200,6 +201,7 @@ async def run(args):
             assert await phone.evaluate("JSON.parse(localStorage.getItem('oneshot-obs')).password || ''") == ""
             assert not await phone.evaluate("document.documentElement.scrollWidth > innerWidth")
             qr_image = await png_qr(pair_url)
+            await phone.locator("#obsMore > summary").click()
             await phone.locator("#obsPairQr > details > summary").click()
             await phone.locator('#obsPairQr input[type=file]').set_input_files(
                 {"name":"pair.png","mimeType":"image/png","buffer":qr_image})

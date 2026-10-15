@@ -5,7 +5,7 @@
 import { buildObs, DEFAULT_CARD_BASE } from './core.js';
 import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto } from './obs.js';
 import { VdoLink, CamWatch, bridgeSecrets, newBridgeCode, normalizeCode } from './vdo.js';
-import { mountQrReader, parseObsQr, localObsUrl, parsePairingQr } from './assets/obs-qr.js';
+import { mountQrReader, parseObsQr, parsePairingQr } from './assets/obs-qr.js';
 
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
@@ -93,22 +93,23 @@ function obsBadge(text, kind) {
   $('obsConnectionState').dataset.kind = kind || '';
   $('obsDot').className = kind || '';
 }
-// Step 2 of «На другом компьютере»: says in plain words what the dock is doing.
+// Step 2 of «У обсервера»: says in plain words whether the Oneshot window
+// in the observer's OBS (the dock) is reachable and has its OBS connected.
 function bridgeStatus(settings) {
   const line = $('obsBridgeStatus');
   let text, kind = '';
   if (!settings.configured || settings.mode !== 'bridge') {
-    text = 'Ждём: отправь обсерверу ссылку из шага 1 или введи код его дока.';
+    text = 'Сначала отправь обсерверу сообщение из шага 1.';
   } else if (Date.now() - bridge.seen >= 25000) {
-    text = Date.now() - bridge.opened < 15000 ?
-      `Ищем док с кодом ${settings.code}…` :
-      `Док с кодом ${settings.code} не на связи. У обсервера в OBS должен быть открыт док Oneshot, добавленный по ссылке из шага 1 (или введи код его дока).`;
+    text = Date.now() - bridge.opened < 15000 ? 'Ищем окно Oneshot у обсервера…' :
+      'Ждём обсервера: окно Oneshot в его OBS ещё не открыто. Как только он сделает пункты из сообщения, здесь станет зелёным.';
     kind = 'bad';
   } else if (!bridge.obsOk) {
-    text = `Док на связи ✓, но OBS к нему не подключён${bridge.obsText ? ` (док пишет: ${bridge.obsText})` : ''}. Заполни шаг 3.`;
+    text = `Окно Oneshot у обсервера открыто ✓, но OBS к нему не подключён${bridge.obsText ? ` (${bridge.obsText})` : ''}. Обсервер должен вписать пароль WebSocket в окне Oneshot и нажать «Подключить» — или впиши его сам ниже.`;
     kind = 'bad';
+    if (!bridge.remoteShown) { bridge.remoteShown = true; $('obsRemoteBox').open = true; }
   } else {
-    text = 'Док на связи ✓ · OBS подключён ✓ — можно жать «Отправить в OBS».';
+    text = 'Всё подключено ✓ Можно жать «Отправить в OBS».';
     kind = 'good';
   }
   line.textContent = text;
@@ -181,7 +182,7 @@ async function obsCommand(message, timeout = 30000) {
       bridge.waiting.delete(id);
       reject(new Error(Date.now() - bridge.seen < 25000 ?
         'Док OBS не ответил вовремя. Попробуй ещё раз или скачай JSON.' :
-        `Док с кодом ${settings.code} не на связи: у обсервера в OBS должен быть открыт док Oneshot с этим кодом (шаг 1). Пока можно скачать JSON.`));
+        'Окно Oneshot у обсервера не на связи: он должен сделать пункты из сообщения (шаг 1). Пока можно скачать JSON.'));
     }, timeout);
     bridge.waiting.set(id, reply => {
       clearTimeout(timer);
@@ -202,9 +203,23 @@ function fillObsDialog() {
   $('obsTestResult').textContent = '';
   $('obsTestResult').className = 'obs-test';
 }
+// What the admin sends the observer: the link and the three clicks in OBS.
+function dockMessage(url) {
+  return [
+    'Нужно один раз добавить в OBS окно Oneshot — через него мы отправляем камеры и матч в твой OBS.',
+    '',
+    '1. OBS → Док-панели → Пользовательские док-панели браузера (Docks → Custom Browser Docks).',
+    `2. Имя: Oneshot. Адрес: ${url} → Применить.`,
+    '3. В появившемся окне Oneshot впиши пароль WebSocket и нажми «Подключить». Пароль: OBS → Сервис → Настройки сервера WebSocket → включить сервер → «Показать сведения о подключении».',
+    '',
+    'Окно Oneshot не закрывай до конца эфира.'
+  ].join('\n');
+}
 function fillObsLink(code) {
+  const url = `${cardBase()}/obs-bridge.html#k=${code}`;
   $('obsCode').textContent = code;
-  $('obsDockUrl').value = `${cardBase()}/obs-bridge.html#k=${code}`;
+  $('obsDockUrl').value = url;
+  $('obsDockMessage').value = dockMessage(url);
 }
 function toggleObsFields() {
   const direct = document.querySelector('input[name=obsMode]:checked')?.value === 'direct';
@@ -249,16 +264,15 @@ function useBridge() {
 }
 $('copyDockUrl').addEventListener('click', () => {
   useBridge();
-  panel.copy($('obsDockUrl').value);
+  panel.copy($('obsDockMessage').value);
 });
 if (navigator.share) {
   $('shareDockUrl').hidden = false;
   $('shareDockUrl').addEventListener('click', () => {
     useBridge();
     navigator.share({
-      title: 'Док Oneshot для OBS',
-      text: 'OBS → Док-панели → Пользовательские док-панели браузера → имя Oneshot, адрес — эта ссылка → Применить.',
-      url: $('obsDockUrl').value
+      title: 'Окно Oneshot для OBS',
+      text: $('obsDockMessage').value
     }).catch(() => {});
   });
 }
@@ -270,10 +284,10 @@ function pairWith(code) {
 }
 $('applyObsCode').addEventListener('click', () => {
   const code = normalizeCode($('obsCodeInput').value);
-  if (!code) return panel.toast('Код связи — 16 букв и цифр, как в доке: XXXX-XXXX-XXXX-XXXX.');
+  if (!code) return panel.toast('Код связи — 16 букв и цифр, как в окне Oneshot: XXXX-XXXX-XXXX-XXXX.');
   $('obsCodeInput').value = '';
   pairWith(code);
-  panel.toast('Код дока подставлен — ждём связь');
+  panel.toast('Код подставлен — смотри статус в шаге 2');
 });
 $('newObsCode').addEventListener('click', () => {
   if (!confirm('Новый код отключит текущий док OBS. Сменить?')) return;
@@ -306,32 +320,24 @@ $('testObs').addEventListener('click', async () => {
   }
 });
 
-mountQrReader($('obsNativeQr'), {
-  hint: 'QR из OBS → Сервис → Настройки сервера WebSocket → Показать сведения о подключении. QR заполняет поля; ручной ввод остаётся.',
-  onRead(text) {
-    const settings = parseObsQr(text);
-    $('obsUrl').value = localObsUrl(settings.url);
-    $('obsPassword').value = settings.password;
-    return 'Адрес, порт и пароль заполнены. Для OBS на этом компьютере используем 127.0.0.1. Можно исправить поля, затем сохранить.';
-  }
-});
 mountQrReader($('obsPairQr'), {
   title: 'Заполнить по QR',
-  hint: 'QR «Подключить телефон» из дока Oneshot подставит код связи (его можно открыть и обычной камерой телефона). QR из OBS → Сервис → Настройки сервера WebSocket → Показать сведения о подключении подставит порт и пароль для дока.',
+  hint: 'QR «Подключить телефон» из окна Oneshot у обсервера подключит этот сайт к нему (его можно открыть и обычной камерой телефона). QR из OBS («Показать сведения о подключении», можно скриншотом) подставит порт и пароль.',
   onRead(text) {
     if (/^\s*obsws:/i.test(text)) {
       const settings = parseObsQr(text);
       $('obsRemotePort').value = /:(\d+)$/.exec(settings.url)?.[1] || '4455';
       $('obsRemotePassword').value = settings.password;
-      return 'Порт и пароль OBS подставлены в поля внизу. Нажми «Отправить в док» — док подключится к OBS сам.';
+      $('obsRemoteBox').open = true;
+      return 'Порт и пароль OBS подставлены выше. Нажми «Отправить в OBS обсервера».';
     }
     let code = normalizeCode(text);
     if (!code) {
       try { code = parsePairingQr(text, cardBase()); }
-      catch { throw new Error('Это не QR из дока Oneshot и не QR подключения OBS.'); }
+      catch { throw new Error('Это не QR из окна Oneshot и не QR подключения OBS.'); }
     }
     pairWith(code);
-    return 'Код связи подставлен. Ждём док OBS; нажми «Проверить связь», когда он появится.';
+    return 'Код связи подставлен. Смотри статус в шаге 2.';
   }
 });
 
@@ -359,7 +365,7 @@ $('sendObsConfig').addEventListener('click', async () => {
     remoteResult(reply.obs || 'Док подключился к OBS.', 'good');
   } catch (error) {
     remoteResult(error.message === 'Неизвестная команда.' ?
-      'Док в OBS старой версии: обнови его (правый клик по доку → Обновить) и повтори.' : error.message, 'bad');
+      'Окно Oneshot у обсервера старой версии: пусть нажмёт по нему правой кнопкой → Обновить, и повтори.' : error.message, 'bad');
   } finally {
     button.disabled = false;
   }

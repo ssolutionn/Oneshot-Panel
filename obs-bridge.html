@@ -16,17 +16,20 @@
       <img src="/assets/oneshot-logo-night.png" alt="Oneshot" width="359" height="96">
       <span>связь с OBS</span>
     </header>
-    <p class="dock-field-hint">Это док Oneshot: держи его открытым весь эфир. Через него панель админа (с ПК или телефона) отправляет камеры и матч в этот OBS. Порт и пароль WebSocket админ может вписать сам из панели.</p>
+    <p class="dock-field-hint">Это окно Oneshot: через него админы с сайта (с ПК или телефона) отправляют камеры и матч в этот OBS. Не закрывай его до конца эфира.</p>
     <ul class="dock-status" aria-live="polite">
       <li><i id="dockPanelDot" aria-hidden="true"></i><span id="dockPanel">Панель: не подключена</span></li>
       <li><i id="dockObsDot" aria-hidden="true"></i><span id="dockObs">OBS: не подключён</span></li>
     </ul>
     <form id="dockForm" class="dock-form">
-      <div id="dockQr"></div>
-      <label>Код связи из панели<input id="dockCode" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" required></label>
-      <label>Адрес OBS WebSocket<input id="dockUrl" placeholder="ws://127.0.0.1:4455" aria-describedby="dockAddressHint" autocomplete="off" spellcheck="false"><small id="dockAddressHint" class="dock-field-hint">Для этого компьютера: ws://127.0.0.1:4455. Если в OBS другой порт — замени 4455 на него.</small></label>
-      <label>Пароль OBS WebSocket<input id="dockPassword" type="password" aria-describedby="dockPasswordHint" autocomplete="off"><small id="dockPasswordHint" class="dock-field-hint">OBS → Сервис → Настройки сервера WebSocket → Показать сведения о подключении.</small></label>
+      <label>Пароль OBS WebSocket<input id="dockPassword" type="password" aria-describedby="dockPasswordHint" autocomplete="off"><small id="dockPasswordHint" class="dock-field-hint">OBS → Сервис → Настройки сервера WebSocket → включить сервер → «Показать сведения о подключении» → пароль.</small></label>
       <button class="button primary small" type="submit">Подключить</button>
+      <div id="dockQr"></div>
+      <details class="dock-help">
+        <summary>Дополнительно: код связи и порт</summary>
+        <label>Код связи (из ссылки админа)<input id="dockCode" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX"></label>
+        <label>Адрес OBS WebSocket<input id="dockUrl" placeholder="ws://127.0.0.1:4455" aria-describedby="dockAddressHint" autocomplete="off" spellcheck="false"><small id="dockAddressHint" class="dock-field-hint">Обычно не трогать. Если в OBS другой порт — замени 4455 на него.</small></label>
+      </details>
     </form>
     <details class="dock-pair" id="dockPair">
       <summary>Подключить телефон по QR</summary>

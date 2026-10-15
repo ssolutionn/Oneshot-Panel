@@ -35,10 +35,14 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 - `assets/obs-qr.js` — только сайт: локальное чтение QR камерой/из файла,
   парсер native `obsws://host:port/password`, QR связи телефона с доком.
   QR только заполняет ручные поля; локальный адрес — 127.0.0.1 с портом из QR.
-  В режиме «На другом компьютере» один сканер принимает оба QR: QR дока
-  даёт код связи, QR OBS — порт и пароль для дока (шаг 3). Блок разбит на
-  «что такое док и почему нет IP» и три шага: ссылка/код дока, живой статус
-  дока (`obsBridgeStatus`), порт и пароль.
+  Сканер есть только в режиме «У обсервера» (`obsPairQr` в «Другие
+  способы», `obsMore`): QR окна Oneshot даёт код связи, QR OBS — порт и
+  пароль (`obsRemoteBox`). В режиме «На этом компьютере» QR нет. Блок «У
+  обсервера» для людей без опыта: схема «сайт ⇄ окно Oneshot ⇄ OBS», шаг 1
+  — готовое сообщение обсерверу со ссылкой и тремя пунктами
+  (`obsDockMessage`, кнопка `copyDockUrl` копирует его), шаг 2 — статус
+  (`obsBridgeStatus`), остальное свёрнуто. В текстах для людей док
+  называется «окно Oneshot».
   Пароль не включать в URL Oneshot и не логировать содержимое native QR.
   Локальные QR-библиотеки и лицензии — `assets/vendor/`, без npm/CDN.
 - `obs.js` — без DOM: клиент obs-websocket v5 (пароль через WebCrypto),
@@ -217,7 +221,8 @@ Netlify проверяет локальные фото, докачивает н�
   copyJsonBtn obsNavBtn obsSetupBtn obsDot obsState vetoLive vetoLiveStatus vetoLayout copyOverlay
   obsDialog obsForm closeObs vetoBroadcast overlaySizeHint obsBridgeFields obsDockUrl copyDockUrl obsCode
   newObsCode obsRemotePort obsRemotePassword sendObsConfig obsRemoteResult
-  obsBridgeStatus obsCodeInput applyObsCode shareDockUrl
+  obsBridgeStatus obsCodeInput applyObsCode shareDockUrl obsDockMessage
+  obsRemoteBox obsMore
   obsDirectFields obsUrl obsPassword obsTestResult testObs
   saveObs notifyBtn soundBtn lobbyForm faceitUrl faceitKey lobbyStart
   lobbyStatus lobbyError lobbyAlert lobbyAlertText lobbyAck lobbyMatches

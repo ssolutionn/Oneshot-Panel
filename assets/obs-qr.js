@@ -226,8 +226,11 @@ export function mountQrReader(root, { title = 'Заполнить по QR', hint
   root.closest('form')?.addEventListener('change', event => {
     if (event.target.name === 'obsMode') stopCamera();
   });
-  const parent = root.closest('details');
-  parent?.addEventListener('toggle', () => { if (!parent.open) stopCamera(); });
+  // Folding any section around the reader turns the camera off.
+  for (let parent = root.parentElement?.closest('details'); parent; parent = parent.parentElement?.closest('details')) {
+    const section = parent;
+    section.addEventListener('toggle', () => { if (!section.open) stopCamera(); });
+  }
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopCamera(); });
   document.addEventListener('oneshot:view', event => { if (event.detail !== 'prep') stopCamera(); });
   window.addEventListener('pagehide', stopCamera);
