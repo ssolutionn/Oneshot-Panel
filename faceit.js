@@ -177,13 +177,17 @@ export class FaceitClient {
     const direct = new URL(FACEIT_API + path);
     for (const [name, value] of Object.entries(params)) direct.searchParams.set(name, value);
     let response;
-    if (!this.viaProxy) {
+    let viaProxy = this.viaProxy;
+    if (!viaProxy) {
       try { response = await this.send(direct.href); } catch (error) {
         if (!this.proxy || error?.name === 'TimeoutError') throw new Error('FACEIT не отвечает. Проверь интернет.');
-        this.viaProxy = true;
+        this.viaProxy = viaProxy = true;
       }
+      // A client-side key may be refused for this site's address: the same
+      // request through the site's proxy leaves from the server instead.
+      if (!viaProxy && this.proxy && [400, 401, 403].includes(response.status)) viaProxy = true;
     }
-    if (this.viaProxy) {
+    if (viaProxy) {
       const proxied = new URL(this.proxy);
       proxied.search = new URLSearchParams({ path, ...params }).toString();
       try { response = await this.send(proxied.href); } catch {
@@ -193,11 +197,21 @@ export class FaceitClient {
         throw new Error('Браузер не пускает запросы к FACEIT, а у сайта нет прокси /api/faceit (он есть на Netlify и в server.js).');
       }
     }
-    if (response.ok) return response.json();
-    // FACEIT explains errors as {errors: [{message}]}, the proxy as {error, message}.
-    let body = {};
-    try { body = await response.json(); } catch { /* no details */ }
-    const detail = String(body?.errors?.[0]?.message || body?.message || '').slice(0, 200);
+    if (response.ok) {
+      if (viaProxy && !this.viaProxy) this.viaProxy = true;
+      return response.json();
+    }
+    // FACEIT explains errors as {errors: [{message}]}, the proxy as {error, message};
+    // anything else is shown as it came, so a refusal always says why.
+    let body = {}, raw = '';
+    try {
+      raw = typeof response.text === 'function' ? await response.text() : JSON.stringify(await response.json());
+      body = JSON.parse(raw);
+    } catch { /* not JSON */ }
+    const request = `${path.split('/').filter(Boolean).slice(-1)[0]}${params.type ? ' ' + params.type : ''}`;
+    const detail = String(body?.errors?.[0]?.message || body?.message || body?.error ||
+      raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || 'пустой ответ').slice(0, 200) +
+      ` [${request}${viaProxy ? ', через прокси' : ''}]`;
     if (body?.error === 'no-key') {
       throw new Error('Нужен API-ключ FACEIT: впиши его в поле или добавь секрет FACEIT_API_KEY в настройках хостинга.');
     }

@@ -119,7 +119,21 @@ test('FACEIT client sends the key and explains errors', async () => {
   await assert.rejects(new FaceitClient('', fake(200)).match('1-a'), /Нужен API-ключ/);
   // FACEIT's own explanation reaches the admin.
   const explained = async () => ({ ok: false, status: 400, json: async () => ({ errors: [{ message: 'championship is not started' }] }) });
-  await assert.rejects(new FaceitClient('k', explained).match('1-a'), /ошибкой 400: championship is not started/);
+  await assert.rejects(new FaceitClient('k', explained).match('1-a'), /ошибкой 400: championship is not started \[1-a\]/);
+  // Refused for this site (400/401/403): retried once through the proxy.
+  const tried = [];
+  const refusedDirect = async url => {
+    tried.push(url);
+    return url.startsWith('https://open.faceit.com') ?
+      { ok: false, status: 400, text: async () => '' } :
+      { ok: true, status: 200, headers: new Headers({ 'content-type': 'application/json' }), json: async () => ({ items: [{ match_id: 'p' }] }) };
+  };
+  assert.deepEqual(await new FaceitClient('k', refusedDirect, { proxy: 'https://panel.example/api/faceit' }).matches(CHAMP, 'ongoing'),
+    [{ match_id: 'p' }]);
+  assert.equal(tried.length, 2);
+  const bothRefuse = async () => ({ ok: false, status: 400, headers: new Headers({ 'content-type': 'application/json; charset=utf-8' }), text: async () => 'Bad Request' });
+  await assert.rejects(new FaceitClient('k', bothRefuse, { proxy: 'https://panel.example/api/faceit' }).matches(CHAMP, 'past'),
+    /ошибкой 400: Bad Request \[matches past, через прокси\]/);
   // Without a key in the panel, requests go to the site's proxy without one.
   const proxied = [];
   const viaProxy = async (url, options) => {
