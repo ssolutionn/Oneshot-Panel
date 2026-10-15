@@ -26,11 +26,23 @@ async def run(args):
                 viewport={"width": 375, "height": 812} if mobile else {"width": 1440, "height": 1000},
                 **({"is_mobile": True, "has_touch": True, "device_scale_factor": 2} if mobile else {}))
             errors = []
-            await context.expose_binding("reportQrCsp", lambda source, text:
-                errors.append("CSP " + text) if source["frame"] == source["page"].main_frame else None)
+            automation_styles = []
+            def report_csp(source, violation):
+                if source["frame"] != source["page"].main_frame:
+                    return
+                # WebKit reports Playwright's injected fill/screenshot styles.
+                # Keep application-source violations fatal and audit the DOM
+                # after automation removes its temporary nodes.
+                injected_style = (mobile and violation["blocked"] == "inline"
+                    and violation["directive"].startswith("style-src")
+                    and not violation["file"].startswith(base + "/"))
+                (automation_styles if injected_style else errors).append(violation)
+            await context.expose_binding("reportQrCsp", report_csp)
             await context.add_init_script("""
                 localStorage.setItem('oneshot-watch-cams', 'false');
-                addEventListener('securitypolicyviolation', e => reportQrCsp(e.violatedDirective+' '+e.blockedURI));
+                addEventListener('securitypolicyviolation', e => reportQrCsp({
+                  directive:e.violatedDirective,blocked:e.blockedURI,file:e.sourceFile,line:e.lineNumber
+                }));
             """)
             await context.route("https://docs.google.com/**/gviz/**", lambda route:
                 route.fulfill(content_type="application/javascript", body=
@@ -128,7 +140,7 @@ async def run(args):
             await page.evaluate("resolveQrCamera(lateCameraStream)")
             await page.wait_for_function("lateCameraTrack.readyState==='ended'")
             await page.click("#obsNavBtn")
-            await page.locator("#obsDialog").screenshot(path=str(output / f"{engine}-autofill.jpg"), type="jpeg")
+            await page.locator("#obsDialog").screenshot(path=str(output / f"{engine}-autofill.jpg"), type="jpeg", caret="initial")
             assert not await page.evaluate("document.documentElement.scrollWidth > innerWidth")
 
             dock = await context.new_page()
@@ -177,6 +189,12 @@ async def run(args):
                 {"name":"pair.png","mimeType":"image/png","buffer":qr_image})
             await expect(phone.locator("#obsPairQr [role=status]")).to_contain_text("Код связи подставлен")
             await expect(phone.locator("#obsCode")).to_have_text(code)
+            for current_page in [page, dock, phone]:
+                assert await current_page.locator('style,[style]').count() == 0
+            if automation_styles:
+                print("NOTE WebKit automation style reports:", list({
+                    str(value) for value in automation_styles
+                }), flush=True)
             assert not errors, errors
             await browser.close()
             print(f"PASS {engine}: QR image/autofill, manual edits, invalid QR, denied camera, live scanner cleanup, dock QR and independent phone pairing", flush=True)
