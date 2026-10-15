@@ -29,18 +29,22 @@
     </div>
   </header>
   <nav class="panel-nav" aria-label="Разделы панели">
-    <a href="#match">Матч</a>
-    <a class="active" href="#webcams" aria-current="location">Веб-камеры</a>
-    <a href="#veto">Вето карт</a>
+    <!-- web-only --><div class="view-tabs" role="tablist" aria-label="Режим панели">
+      <button id="viewPrep" class="view-tab active" type="button" role="tab" aria-selected="true" aria-controls="prepView">Подготовка</button>
+      <button id="viewLobby" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="lobbyView" tabindex="-1">Лобби<span id="lobbyBadge" class="tab-badge" hidden></span></button>
+    </div><!-- /web-only -->
     <div class="nav-tools">
       <button id="refreshBtn" class="nav-button" type="button" title="Обновить данные">↻ Обновить</button>
       <button id="settingsBtn" class="nav-button" type="button">Источник данных</button>
     </div>
   </nav>
   <main>
+    <div id="prepView" role="tabpanel" aria-labelledby="viewPrep">
     <section class="intro" id="webcams" aria-labelledby="workspaceHeading">
-      <h1 id="workspaceHeading" class="visually-hidden">Панель веб-камер ONESHOT</h1>
-      <span class="workspace-label">CYBERCLASH <span aria-hidden="true">/</span> MATCH CONTROL</span>
+      <h1 id="workspaceHeading" class="visually-hidden">Подготовка матча ONESHOT</h1>
+      <nav class="section-nav" aria-label="Разделы подготовки">
+        <a href="#match">Матч</a><a href="#teamGrid">Веб-камеры</a><a href="#veto">Вето карт</a><a href="#copy">Ссылки</a>
+      </nav>
       <div class="sync-card">
         <span id="syncTitle">Подключаем таблицу</span>
         <span class="sync-separator" aria-hidden="true">·</span>
@@ -63,15 +67,21 @@
       <button id="swapBtn" class="button small" disabled><span aria-hidden="true">⇄</span><span class="visually-hidden">Поменять стороны команд</span></button>
     </section>
 
+    <!-- web-only --><div class="cam-summary" id="camSummary" aria-live="polite">
+      <label class="check"><input id="watchCams" type="checkbox" autocomplete="off"> Следить за вебками</label>
+      <span id="camTotal" class="cam-total">Статус вебок выключен</span>
+    </div><!-- /web-only -->
+
     <section id="teamGrid" class="team-grid" aria-label="Составы двух команд">
       <div class="empty-panel">Загружаем составы…</div>
     </section>
 
     <section id="exportBar" class="export-bar" aria-label="Экспорт и ссылки">
       <div class="export-actions">
-        <button class="button primary" id="downloadBtn" disabled><span aria-hidden="true">↓</span> Скачать JSON для OBS</button>
-        <a class="button observer-link" href="#copy"><span aria-hidden="true">↗</span> Ссылки и порядок слотов</a>
-        <span class="canvas-size">1920 × 1080<span>OBS SCENE COLLECTION</span></span>
+        <!-- web-only --><button class="button primary" id="sendObsBtn" type="button" disabled><span aria-hidden="true">▶</span> Отправить в OBS</button><!-- /web-only -->
+        <button class="button" id="downloadBtn" disabled><span aria-hidden="true">↓</span> Скачать JSON</button>
+        <!-- web-only --><button class="button" id="copyJsonBtn" type="button" disabled><span aria-hidden="true">⧉</span> Копировать JSON</button>
+        <button class="button small obs-setup" id="obsSetupBtn" type="button"><i id="obsDot" aria-hidden="true"></i><span id="obsState">OBS не настроен</span></button><!-- /web-only -->
       </div>
       <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
       <div class="export-meta">
@@ -94,6 +104,10 @@
         </div>
       </div>
       <p class="veto-status" id="vetoStatus" role="status" aria-live="polite">Выбери две разные команды.</p>
+      <!-- web-only --><div class="veto-overlay-bar">
+        <label class="check"><input id="vetoLive" type="checkbox" autocomplete="off"> Оверлей вето в OBS вживую</label>
+        <button id="copyOverlay" class="text-button" type="button">⧉ Ссылка на оверлей для OBS</button>
+      </div><!-- /web-only -->
       <div id="sideChoice" class="side-choice" hidden>
         <strong id="sideLabel"></strong>
         <button id="chooseCT" class="button dark">CT</button>
@@ -133,6 +147,73 @@
         <p class="copy-foot" id="copyFoot">Ники, ссылки и JSON используют один порядок слотов.</p>
       </div>
     </section>
+
+    </div>
+
+    <!-- web-only --><div id="lobbyView" class="lobby" role="tabpanel" aria-labelledby="viewLobby" hidden>
+      <section class="lobby-panel" aria-labelledby="lobbyHeading">
+        <div class="panel-heading">
+          <div><span class="eyebrow">FACEIT LOBBY</span><h2 id="lobbyHeading">Лобби турнира</h2></div>
+          <div class="lobby-alerts">
+            <button id="notifyBtn" class="button small" type="button">Включить уведомления</button>
+            <button id="soundBtn" class="button small" type="button">Проверить звук</button>
+          </div>
+        </div>
+        <form id="lobbyForm" class="lobby-form">
+          <label class="lobby-url"><span class="mini-label">Ссылка на турнир FACEIT</span>
+            <input id="faceitUrl" type="url" autocomplete="off" spellcheck="false" placeholder="https://www.faceit.com/ru/championship/…" required></label>
+          <label class="lobby-key"><span class="mini-label">API-ключ FACEIT (client side)</span>
+            <input id="faceitKey" type="password" autocomplete="off" spellcheck="false" required></label>
+          <button id="lobbyStart" class="button primary" type="submit">Следить</button>
+        </form>
+        <p id="lobbyStatus" class="lobby-status" role="status">Вставь ссылку на турнир и ключ — панель будет проверять матчи каждые 20 секунд.</p>
+        <div id="lobbyError" class="error-box" role="alert" hidden></div>
+      </section>
+
+      <div id="lobbyAlert" class="lobby-alert" role="alert" hidden>
+        <strong id="lobbyAlertText"></strong>
+        <button id="lobbyAck" class="button dark small" type="button">Принял</button>
+      </div>
+
+      <section id="lobbyMatches" class="lobby-matches" aria-label="Матчи турнира">
+        <div class="empty-panel">Матчи появятся после подключения турнира.</div>
+      </section>
+
+      <section class="lobby-panel" aria-labelledby="messagesHeading">
+        <div class="panel-heading">
+          <div><span class="eyebrow">DISCORD</span><h2 id="messagesHeading">Сообщения игрокам</h2></div>
+          <label class="lobby-delay">Следующий через<input id="nextDelay" type="number" min="0" max="120" step="1" value="10"> мин</label>
+        </div>
+        <div class="message-grid">
+          <div class="message-box">
+            <div class="preview-head"><span>Спасибо за игру</span><button id="copyThanks" class="button dark small" type="button">Копировать</button></div>
+            <textarea id="msgThanks" aria-label="Сообщение после матча" spellcheck="false"></textarea>
+          </div>
+          <div class="message-box">
+            <div class="preview-head">
+              <label class="next-pick">Следующий матч<select id="nextMatch"></select></label>
+              <button id="copyNext" class="button dark small" type="button">Копировать</button>
+            </div>
+            <textarea id="msgNext" aria-label="Сообщение следующим командам" spellcheck="false"></textarea>
+          </div>
+        </div>
+        <details class="templates">
+          <summary>Шаблоны сообщений</summary>
+          <p class="copy-foot">Подстановки: {team1}, {team2}, {time} — «xx:MM», {score} — счёт серии, {maps} — счёт карт после матча.</p>
+          <label>После матча<textarea id="tplThanks" spellcheck="false"></textarea></label>
+          <label>Следующий матч<textarea id="tplNext" spellcheck="false"></textarea></label>
+          <button id="resetTemplates" class="text-button" type="button">Вернуть стандартные</button>
+        </details>
+      </section>
+
+      <section class="lobby-panel" aria-labelledby="journalHeading">
+        <div class="panel-heading">
+          <div><span class="eyebrow">LOG</span><h2 id="journalHeading">Журнал</h2></div>
+          <button id="copyJournal" class="button small" type="button">Копировать журнал</button>
+        </div>
+        <ol id="lobbyLog" class="lobby-log"></ol>
+      </section>
+    </div><!-- /web-only -->
 
     <footer>
       Oneshot Panel
@@ -177,7 +258,41 @@
     <textarea id="manualCopy" readonly aria-label="Текст для ручного копирования"></textarea>
   </dialog>
 
+  <!-- web-only --><dialog id="obsDialog" aria-labelledby="obsHeading">
+    <form id="obsForm" method="dialog">
+      <div class="dialog-head">
+        <h2 id="obsHeading">Связь с OBS</h2>
+        <button class="icon-button" type="button" id="closeObs" aria-label="Закрыть">×</button>
+      </div>
+      <fieldset class="obs-mode">
+        <legend class="mini-label">Где OBS</legend>
+        <label class="check"><input type="radio" name="obsMode" value="bridge" checked> На другом компьютере (док в OBS)</label>
+        <label class="check"><input type="radio" name="obsMode" value="direct"> На этом компьютере</label>
+      </fieldset>
+      <div id="obsBridgeFields">
+        <p>Обсервер один раз добавляет док: OBS → <b>Док-панели</b> → <b>Пользовательские док-панели браузера</b>, имя «Oneshot», адрес — ссылка ниже. В доке вводит пароль своего OBS WebSocket.</p>
+        <label>Ссылка для дока OBS
+          <span class="copy-line"><input id="obsDockUrl" readonly><button id="copyDockUrl" class="button small" type="button">Копировать</button></span>
+        </label>
+        <p class="muted">Код связи <b id="obsCode"></b> — тот же в доке и в панели. Новый код отключит старый док.
+          <button id="newObsCode" class="text-button" type="button">Сменить код</button></p>
+      </div>
+      <div id="obsDirectFields" hidden>
+        <label>Адрес OBS WebSocket<input id="obsUrl" autocomplete="off" spellcheck="false"></label>
+        <label>Пароль OBS WebSocket<input id="obsPassword" type="password" autocomplete="off"></label>
+        <p class="muted">OBS → Инструменты → Настройки сервера WebSocket: «Включить», пароль — в «Показать сведения о подключении».</p>
+      </div>
+      <p id="obsTestResult" class="obs-test" role="status"></p>
+      <div class="dialog-actions">
+        <button type="button" class="button" id="testObs">Проверить связь</button>
+        <button type="submit" class="button primary" id="saveObs">Сохранить</button>
+      </div>
+    </form>
+  </dialog><!-- /web-only -->
+
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   <script type="module" src="/app.js"></script>
+  <!-- web-only --><script type="module" src="/live.js"></script>
+  <script type="module" src="/lobby.js"></script><!-- /web-only -->
 </body>
 </html>

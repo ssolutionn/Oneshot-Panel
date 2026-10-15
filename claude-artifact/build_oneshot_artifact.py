@@ -57,6 +57,11 @@ css += ("#pasteArea{min-height:140px}"
 html = (ROOT / "index.html").read_text(encoding="utf-8")
 body = html[html.index("<body>") + len("<body>"):html.index("</body>")]
 body = body.replace('<script type="module" src="/app.js"></script>', "")
+# OBS link, webcam status, veto overlay and the FACEIT lobby need the site's
+# own pages and network access; the artifact keeps the JSON download.
+body, stripped = re.subn(r"<!-- web-only -->.*?<!-- /web-only -->", "", body, flags=re.S)
+if not stripped or "web-only" in body:
+    raise SystemExit("web-only markers in index.html are unbalanced")
 # Logos travel inside the page: a link opened as a plain tab has no asset host.
 for logo in ("oneshot-logo-day.png", "oneshot-logo-night.png"):
     data = base64.b64encode((ROOT / "assets" / logo).read_bytes()).decode()
@@ -64,12 +69,13 @@ for logo in ("oneshot-logo-day.png", "oneshot-logo-night.png"):
 # Download: the main button always downloads; access and copy are fallbacks.
 body = replace_once(body, '<p id="filenamePreview"></p>',
                     '<p id="filenamePreview"></p>\n          <p id="downloadNote" class="download-note" role="status" hidden></p>')
-download_button = '<button class="button primary" id="downloadBtn" disabled><span aria-hidden="true">↓</span> Скачать JSON для OBS</button>'
+download_button = '<button class="button" id="downloadBtn" disabled><span aria-hidden="true">↓</span> Скачать JSON</button>'
 body = replace_once(body, download_button,
                     '<div class="artifact-download-actions">'
                     '<button class="button" id="downloadAccess" hidden>Разрешить скачивание</button>'
                     '<button class="button" id="copyJsonBtn" hidden>Скопировать JSON</button>'
-                    + download_button + '</div>')
+                    + download_button.replace('class="button"', 'class="button primary"')
+                    .replace('Скачать JSON', 'Скачать JSON для OBS') + '</div>')
 body = replace_once(body, '<a class="brand" href="/"', '<a class="brand" href="#webcams"')
 settings = '''<dialog id="settingsDialog" aria-labelledby="settingsHeading">
     <form id="settingsForm">

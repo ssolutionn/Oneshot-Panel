@@ -2,11 +2,14 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import faceitProxy from './netlify/functions/faceit.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicFiles = new Set([
   'index.html', 'app.js', 'core.js', 'style.css', 'theme.js',
-  'card.html', 'card.js', 'card.css'
+  'card.html', 'card.js', 'card.css', 'live.js', 'obs.js', 'vdo.js',
+  'lobby.js', 'faceit.js', 'obs-bridge.html', 'obs-bridge.js',
+  'veto-overlay.html', 'veto-overlay.js', 'veto-overlay.css'
 ]);
 const mime = {
   '.html': 'text/html; charset=utf-8',
@@ -20,10 +23,19 @@ export function createServer() {
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     response.setHeader('Content-Security-Policy',
-      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://open.faceit.com ws://127.0.0.1:* ws://localhost:*; frame-src https://vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
     if (!['GET', 'HEAD'].includes(request.method)) {
       response.writeHead(405, { Allow: 'GET, HEAD' });
       response.end();
+      return;
+    }
+    // The Netlify function, served here too so the lobby works locally.
+    if (request.url.startsWith('/api/faceit?') && request.method === 'GET') {
+      const reply = await faceitProxy(new Request('http://localhost' + request.url, {
+        headers: { authorization: request.headers.authorization || '' }
+      }));
+      response.writeHead(reply.status, Object.fromEntries(reply.headers));
+      response.end(Buffer.from(await reply.arrayBuffer()));
       return;
     }
     try {

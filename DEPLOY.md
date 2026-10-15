@@ -62,7 +62,7 @@ server {
 
     # Те же заголовки, что на Netlify: скрипты и стили только свои,
     # сеть — только к Google Sheets.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://open.faceit.com ws://127.0.0.1:* ws://localhost:*; frame-src https://vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 

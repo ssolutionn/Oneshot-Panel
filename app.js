@@ -110,6 +110,23 @@ function showError(text) {
   $('errorBox').textContent = text;
   $('errorBox').hidden = !text;
 }
+// The site's live.js (OBS, webcam status, veto overlay) and lobby.js follow
+// the panel through this snapshot; the Claude artifact has neither.
+function snapshot() {
+  return {
+    a: getTeam('a'), b: getTeam('b'), playersA: chosen('a'), playersB: chosen('b'),
+    keysA: [...state.keysA], keysB: [...state.keysB],
+    matchError: valid(), template: state.template, templateError: state.templateError,
+    includeCards: $('includeCards').checked, logos: state.logos,
+    veto: { ...state.veto, actions: [...state.veto.actions] }, pending: state.pending,
+    schedule: state.schedule, matchKey: state.matchKey,
+    time: $('matchTime').value, stage: $('matchStage').value
+  };
+}
+function notify() {
+  document.dispatchEvent(new CustomEvent('oneshot:change'));
+}
+window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError };
 // The header opens the organizer's sheet (the schedule source), not the
 // roster sheet: the panel is public and the rosters are ours to edit.
 function updateSourceLinks() {
@@ -441,6 +458,7 @@ function renderOutput() {
   $('copyFoot').textContent = playersTab ?
     'Только выбранные игроки. Ссылки директора сюда не попадают.' :
     'Порядок совпадает со сценами «Игрок 1–10» в JSON для OBS.';
+  notify();
 }
 
 async function copy(text) {
@@ -537,6 +555,7 @@ function renderVeto() {
   $('copyVeto').disabled = !ready || actions.length === 0 || !!state.pending;
   $('vetoUndo').disabled = !state.pending && actions.length === 0;
   $('vetoReset').disabled = !state.pending && actions.length === 0;
+  notify();
 }
 function commitVeto(map, side) {
   try {

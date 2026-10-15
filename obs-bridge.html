@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru" data-mode="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Oneshot · связь с OBS</title>
+  <link rel="icon" type="image/png" href="/assets/favicon-night.png">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="dock">
+  <!-- OBS → Док-панели → Пользовательские док-панели браузера: this page.
+       It takes commands from Oneshot Panel and applies them to this OBS. -->
+  <main class="dock-main">
+    <header class="dock-head">
+      <img src="/assets/oneshot-logo-night.png" alt="Oneshot" width="359" height="96">
+      <span>связь с OBS</span>
+    </header>
+    <ul class="dock-status" aria-live="polite">
+      <li><i id="dockPanelDot" aria-hidden="true"></i><span id="dockPanel">Панель: не подключена</span></li>
+      <li><i id="dockObsDot" aria-hidden="true"></i><span id="dockObs">OBS: не подключён</span></li>
+    </ul>
+    <form id="dockForm" class="dock-form">
+      <label>Код связи из панели<input id="dockCode" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" required></label>
+      <label>Адрес OBS WebSocket<input id="dockUrl" autocomplete="off" spellcheck="false"></label>
+      <label>Пароль OBS WebSocket<input id="dockPassword" type="password" autocomplete="off"></label>
+      <button class="button primary small" type="submit">Подключить</button>
+    </form>
+    <p class="dock-hint">Пароль: OBS → Инструменты → Настройки сервера WebSocket → «Включить» и «Показать сведения о подключении».</p>
+    <ol id="dockLog" class="dock-log" aria-label="Последние команды"></ol>
+  </main>
+  <script type="module" src="/obs-bridge.js"></script>
+</body>
+</html>

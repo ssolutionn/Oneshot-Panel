@@ -65,6 +65,8 @@ jobs:
           asyncio.run(qa["run"](args))
           cards = runpy.run_path("scripts/qa_player_cards.py", run_name="player_card_qa")
           asyncio.run(cards["run"](args))
+          live = runpy.run_path("scripts/qa_live.py", run_name="live_qa")
+          asyncio.run(live["run"](args))
           PY
       - name: Verify the published Netlify site
         # Production follows only this branch; same-repo pull requests get a preview.
@@ -124,8 +126,10 @@ jobs:
           )
           panel = runpy.run_path("scripts/qa_browser.py", run_name="published_panel")
           cards = runpy.run_path("scripts/qa_player_cards.py", run_name="published_cards")
+          live = runpy.run_path("scripts/qa_live.py", run_name="published_live")
           try:
               asyncio.run(panel["run"](args))
+              asyncio.run(live["run"](args))
           finally:
               asyncio.run(cards["run"](args))
           PY

@@ -67,6 +67,16 @@ async def run(args):
         browser = await p.chromium.launch(
             executable_path=args.chromium, headless=True
         )
+        # The panel watches webcams through VDO.Ninja iframes; QA never
+        # contacts the real service (scripts/qa_live.py tests that part).
+        real_new_context = browser.new_context
+
+        async def new_context(**options):
+            ctx = await real_new_context(**options)
+            await ctx.route("https://vdo.ninja/**", lambda route: route.fulfill(
+                content_type="text/html", body="<!doctype html><title>VDO.Ninja stub</title>"))
+            return ctx
+        browser.new_context = new_context
         context = await browser.new_context(
             viewport={"width": 1440, "height": 1000},
             locale="ru-RU", timezone_id="Europe/Moscow",

@@ -2,13 +2,13 @@
 # (test/server.test.js checks the list) into public/ and publish that.
 # build.txt holds the deployed commit; CI waits for it before checking the site.
 [build]
-  command = "python3 scripts/fetch_player_photos.py --allow-missing && rm -rf public && mkdir public && cp index.html app.js core.js theme.js style.css card.html card.js card.css public/ && cp -R assets public/ && echo \"$COMMIT_REF\" > public/build.txt"
+  command = "python3 scripts/fetch_player_photos.py --allow-missing && rm -rf public && mkdir public && cp index.html app.js core.js theme.js style.css card.html card.js card.css live.js obs.js vdo.js lobby.js faceit.js obs-bridge.html obs-bridge.js veto-overlay.html veto-overlay.js veto-overlay.css public/ && cp -R assets public/ && echo \"$COMMIT_REF\" > public/build.txt"
   publish = "public"
 
 # Same security headers as server.js (test/server.test.js keeps them in sync).
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://open.faceit.com ws://127.0.0.1:* ws://localhost:*; frame-src https://vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
