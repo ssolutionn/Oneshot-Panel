@@ -1,16 +1,29 @@
-// Same-origin proxy for the FACEIT Data API, used only when the browser may
-// not call open.faceit.com directly (CORS). It keeps nothing: the admin's own
-// key arrives in the Authorization header and goes straight to FACEIT. Only
-// the lobby's read-only paths are forwarded. server.js serves it locally.
+// Same-origin proxy for the FACEIT Data API. It forwards only the lobby's
+// read-only paths. The admin's own key (Authorization header) goes straight to
+// FACEIT; without one, the site's key from the hosting secret FACEIT_API_KEY
+// is used — it stays on the server and is never sent to a browser, and only
+// pages of this site may use it. server.js serves the same proxy locally.
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const ALLOWED = new RegExp(`^/(championships/${UUID}(/matches)?|matches/1-${UUID}(/stats)?)$`, 'i');
 
-export default async function faceit(request) {
+export async function proxyFaceit(request, serverKey = '') {
   const url = new URL(request.url);
   const path = url.searchParams.get('path') || '';
-  const key = request.headers.get('authorization') || '';
-  if (request.method !== 'GET' || !ALLOWED.test(path) || !/^Bearer \S+$/.test(key)) {
-    return Response.json({ error: 'Not allowed' }, { status: 400 });
+  const sent = request.headers.get('authorization') || '';
+  if (request.method !== 'GET' || !ALLOWED.test(path)) {
+    return Response.json({ error: 'not-allowed', message: 'Прокси пропускает только запросы лобби.' }, { status: 400 });
+  }
+  let key = /^Bearer \S+$/.test(sent) ? sent : '';
+  if (!key && String(serverKey || '').trim()) {
+    // Other websites must not spend the site's key through their visitors.
+    const site = request.headers.get('sec-fetch-site');
+    if (site && site !== 'same-origin') {
+      return Response.json({ error: 'not-allowed', message: 'Ключ сайта доступен только самой панели.' }, { status: 403 });
+    }
+    key = `Bearer ${String(serverKey).trim()}`;
+  }
+  if (!key) {
+    return Response.json({ error: 'no-key', message: 'На сайте не задан ключ FACEIT_API_KEY.' }, { status: 401 });
   }
   const target = new URL('https://open.faceit.com/data/v4' + path);
   for (const name of ['type', 'offset', 'limit']) {
@@ -31,5 +44,8 @@ export default async function faceit(request) {
     headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }
   });
 }
+
+export default request => proxyFaceit(request,
+  globalThis.Netlify?.env?.get?.('FACEIT_API_KEY') || globalThis.process?.env?.FACEIT_API_KEY || '');
 
 export const config = { path: '/api/faceit' };

@@ -106,6 +106,21 @@ test('FACEIT client sends the key and explains errors', async () => {
   await assert.rejects(new FaceitClient('k', fake(401)).match('1-a'), /API-ключ/);
   await assert.rejects(new FaceitClient('k', fake(404)).match('1-a'), /не нашёл/);
   await assert.rejects(new FaceitClient('', fake(200)).match('1-a'), /Нужен API-ключ/);
+  // FACEIT's own explanation reaches the admin.
+  const explained = async () => ({ ok: false, status: 400, json: async () => ({ errors: [{ message: 'championship is not started' }] }) });
+  await assert.rejects(new FaceitClient('k', explained).match('1-a'), /ошибкой 400: championship is not started/);
+  // Without a key in the panel, requests go to the site's proxy without one.
+  const proxied = [];
+  const viaProxy = async (url, options) => {
+    proxied.push({ url, auth: options.headers.Authorization });
+    return { ok: true, status: 200, headers: new Headers({ 'content-type': 'application/json' }), json: async () => ({ items: [] }) };
+  };
+  await new FaceitClient('', viaProxy, { proxy: 'https://panel.example/api/faceit' }).matches(CHAMP, 'ongoing');
+  assert.ok(proxied[0].url.startsWith('https://panel.example/api/faceit?path='));
+  assert.equal(proxied[0].auth, undefined);
+  const noSiteKey = async () => ({ ok: false, status: 401, headers: new Headers({ 'content-type': 'application/json' }),
+    json: async () => ({ error: 'no-key' }) });
+  await assert.rejects(new FaceitClient('', noSiteKey, { proxy: 'https://panel.example/api/faceit' }).match('1-a'), /FACEIT_API_KEY/);
   // Blocked by CORS (fetch throws): the same request goes through the proxy.
   const seen = [];
   const blocked = async url => {
@@ -142,7 +157,9 @@ test('FACEIT proxy forwards only lobby paths, with the caller\'s key', async () 
     for (const bad of ['path=/players/me', 'path=/championships/x', `path=/championships/${CHAMP}/../../players`]) {
       assert.equal((await ask(bad)).status, 400, bad);
     }
-    assert.equal((await ask(`path=/championships/${CHAMP}`, '')).status, 400);
+    const noKey = await ask(`path=/championships/${CHAMP}`, '');
+    assert.equal(noKey.status, 401);
+    assert.equal((await noKey.json()).error, 'no-key');
     assert.equal(calls.length, 2);
     // Cloudflare Pages runs the same proxy as a Pages Function.
     const cloudflare = await cloudflareFaceit({ request: new Request(
@@ -151,6 +168,17 @@ test('FACEIT proxy forwards only lobby paths, with the caller\'s key', async () 
     assert.deepEqual(calls[2], { url: `https://open.faceit.com/data/v4/matches/1-${CHAMP}`, auth: 'Bearer k' });
     assert.equal((await cloudflareFaceit({ request: new Request('https://panel.example/api/faceit?path=/players/me',
       { headers: { authorization: 'Bearer k' } }) })).status, 400);
+    // The site's own key (hosting secret): used only without the caller's key,
+    // only for this site's pages, and never echoed back.
+    const site = (headers = {}) => cloudflareFaceit({ env: { FACEIT_API_KEY: 'site-key' },
+      request: new Request(`https://panel.example/api/faceit?path=/championships/${CHAMP}`, { headers }) });
+    const viaSite = await site({ 'sec-fetch-site': 'same-origin' });
+    assert.equal(viaSite.status, 200);
+    assert.equal(calls.at(-1).auth, 'Bearer site-key');
+    assert.ok(!(await viaSite.text()).includes('site-key'));
+    assert.equal((await site({ 'sec-fetch-site': 'cross-site' })).status, 403);
+    await site({ authorization: 'Bearer mine', 'sec-fetch-site': 'same-origin' });
+    assert.equal(calls.at(-1).auth, 'Bearer mine');
   } finally { globalThis.fetch = original; }
 });
 

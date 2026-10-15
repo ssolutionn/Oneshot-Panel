@@ -319,7 +319,7 @@ function start() {
   lobby.champ = '';
   lobby.matches = new Map();
   lobby.tick = 0;
-  if (!target || !key) return renderMatches();
+  if (!target) return renderMatches();
   if (target.kind !== 'championship') {
     $('lobbyError').textContent = 'Нужна ссылка на турнир (championship), а не на отдельный матч.';
     $('lobbyError').hidden = false;

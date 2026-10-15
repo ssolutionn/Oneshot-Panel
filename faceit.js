@@ -155,13 +155,14 @@ export class FaceitClient {
     Object.assign(this, { key: String(key || '').trim(), fetchImpl, proxy, viaProxy: false });
   }
   send(url) {
-    return this.fetchImpl(url, {
-      headers: { Authorization: `Bearer ${this.key}`, Accept: 'application/json' },
-      signal: AbortSignal.timeout(15000)
-    });
+    const headers = { Accept: 'application/json' };
+    if (this.key) headers.Authorization = `Bearer ${this.key}`;
+    return this.fetchImpl(url, { headers, signal: AbortSignal.timeout(15000) });
   }
   async get(path, params = {}) {
-    if (!this.key) throw new Error('Нужен API-ключ FACEIT.');
+    if (!this.key && !this.proxy) throw new Error('Нужен API-ключ FACEIT.');
+    // No key in the panel: the site's proxy uses its own (hosting secret).
+    if (!this.key) this.viaProxy = true;
     const direct = new URL(FACEIT_API + path);
     for (const [name, value] of Object.entries(params)) direct.searchParams.set(name, value);
     let response;
@@ -181,13 +182,20 @@ export class FaceitClient {
         throw new Error('Браузер не пускает запросы к FACEIT, а у сайта нет прокси /api/faceit (он есть на Netlify и в server.js).');
       }
     }
+    if (response.ok) return response.json();
+    // FACEIT explains errors as {errors: [{message}]}, the proxy as {error, message}.
+    let body = {};
+    try { body = await response.json(); } catch { /* no details */ }
+    const detail = String(body?.errors?.[0]?.message || body?.message || '').slice(0, 200);
+    if (body?.error === 'no-key') {
+      throw new Error('Нужен API-ключ FACEIT: впиши его в поле или добавь секрет FACEIT_API_KEY в настройках хостинга.');
+    }
     if (response.status === 401 || response.status === 403) {
-      throw new Error('FACEIT не принял API-ключ: проверь ключ и разрешённые сайты в App Studio.');
+      throw new Error('FACEIT не принял API-ключ: проверь ключ и разрешённые сайты в App Studio.' + (detail ? ` (${detail})` : ''));
     }
     if (response.status === 404) throw new Error('FACEIT не нашёл турнир или матч по этой ссылке.');
     if (response.status === 429) throw new Error('FACEIT просит реже обновлять: слишком много запросов.');
-    if (!response.ok) throw new Error(`FACEIT ответил ошибкой ${response.status}.`);
-    return response.json();
+    throw new Error(`FACEIT ответил ошибкой ${response.status}${detail ? `: ${detail}` : '.'}`);
   }
   championship(id) { return this.get(`/championships/${id}`); }
   matches(id, type, limit = 20) {

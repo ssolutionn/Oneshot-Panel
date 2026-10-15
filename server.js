@@ -2,7 +2,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import faceitProxy from './netlify/functions/faceit.mjs';
+import { proxyFaceit } from './netlify/functions/faceit.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicFiles = new Set([
@@ -31,9 +31,12 @@ export function createServer() {
     }
     // The Netlify function, served here too so the lobby works locally.
     if (request.url.startsWith('/api/faceit?') && request.method === 'GET') {
-      const reply = await faceitProxy(new Request('http://localhost' + request.url, {
-        headers: { authorization: request.headers.authorization || '' }
-      }));
+      const reply = await proxyFaceit(new Request('http://localhost' + request.url, {
+        headers: {
+          authorization: request.headers.authorization || '',
+          'sec-fetch-site': request.headers['sec-fetch-site'] || ''
+        }
+      }), process.env.FACEIT_API_KEY);
       response.writeHead(reply.status, Object.fromEntries(reply.headers));
       response.end(Buffer.from(await reply.arrayBuffer()));
       return;
