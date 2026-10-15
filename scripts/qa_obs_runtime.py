@@ -4,10 +4,10 @@ import base64
 import json
 import os
 import subprocess
+from urllib.request import urlopen
 from pathlib import Path
 
 import websockets
-from playwright.async_api import async_playwright
 
 OUT = Path("artifacts/obs-runtime")
 BASE = "http://127.0.0.1:3000"
@@ -64,46 +64,59 @@ async def run():
                                      "inputKind": "browser_source", "sceneItemEnabled": True,
                                      "inputSettings": {"url": url, "width": 1920, "height": 1080,
                                                        "shutdown": False, "fps": 30, "fps_custom": True}})
-        async with async_playwright() as p:
-            for _ in range(30):
-                try:
-                    cef = await p.chromium.connect_over_cdp("http://127.0.0.1:9222")
+        target = None
+        for _ in range(30):
+            try:
+                with urlopen("http://127.0.0.1:9222/json/list", timeout=2) as response:
+                    pages = json.load(response)
+                target = next((item for item in pages if "/veto-overlay/overlay.html" in item.get("url", "")), None)
+                if target:
                     break
-                except Exception:
-                    await asyncio.sleep(1)
-            else:
-                raise RuntimeError("OBS CDP missing: " + (OUT / "obs.log").read_text()[-9000:])
-            overlay = None
-            for _ in range(30):
-                pages = [page for ctx in cef.contexts for page in ctx.pages if "/veto-overlay/overlay.html" in page.url]
-                if pages:
-                    overlay = pages[0]
-                    break
-                await asyncio.sleep(1)
-            assert overlay, [(page.url) for ctx in cef.contexts for page in ctx.pages]
-            errors = []
-            overlay.on("console", lambda msg: print("CEF", msg.type, msg.text, flush=True))
-            overlay.on("pageerror", lambda error: errors.append(str(error)))
-            await overlay.wait_for_function("document.body.dataset.ready === 'true'", timeout=30000)
-            print("OBS INITIAL", await overlay.evaluate("({state: vetoOverlay.getState(), scene: {...document.getElementById('scene').dataset}, reduced: matchMedia('(prefers-reduced-motion: reduce)').matches})"), flush=True)
-            sample = """() => {
-              const c=document.getElementById('scene'), d=c.getContext('2d').getImageData(700,45,400,100).data;
-              let h=2166136261;for(let i=0;i<d.length;i+=4)h=Math.imul(h^d[i]^d[i+1]^d[i+2],16777619);
-              return h>>>0;
-            }"""
-            before = await overlay.evaluate(sample)
-            await asyncio.sleep(1.5)
-            print("SMOKE MOVES", before != await overlay.evaluate(sample), flush=True)
-            state["actions"] = [{"map": "Ancient", "type": "ban", "team": 0}]
-            print("EMIT", await request("CallVendorRequest", {"vendorName": "obs-browser", "requestType": "emit_event",
-                      "requestData": {"event_name": "oneshot-veto", "event_data": state}}), flush=True)
-            await asyncio.sleep(.3)
-            print("AFTER NATIVE EVENT", await overlay.evaluate("({state: vetoOverlay.getState(),scene: {...document.getElementById('scene').dataset}})"), flush=True)
-            await overlay.screenshot(path=str(OUT / "native-ban.png"))
-            assert (await overlay.evaluate("vetoOverlay.getState()"))["actions"] == state["actions"], "OBS accepted event but source never received it"
-            print("PASS: actual OBS delivers veto to browser source", flush=True)
-            assert not errors, errors
-            await cef.close()
+            except Exception as error:
+                print("CDP waiting", str(error), flush=True)
+            await asyncio.sleep(1)
+        assert target, "OBS browser target missing"
+        cdp = await websockets.connect(target["webSocketDebuggerUrl"], max_size=16 * 1024 * 1024)
+        cid = 0
+
+        async def evaluate(expression):
+            nonlocal cid
+            cid += 1
+            await cdp.send(json.dumps({"id": cid, "method": "Runtime.evaluate",
+                                      "params": {"expression": expression, "returnByValue": True, "awaitPromise": True}}))
+            while True:
+                reply = json.loads(await cdp.recv())
+                if reply.get("id") == cid:
+                    assert "error" not in reply, reply
+                    result = reply["result"]
+                    assert "exceptionDetails" not in result, result
+                    return result["result"].get("value")
+
+        for _ in range(100):
+            if await evaluate("document.body?.dataset.ready === 'true'"):
+                break
+            await asyncio.sleep(.2)
+        else:
+            raise RuntimeError("Overlay did not initialize")
+        print("OBS INITIAL", await evaluate("({state: vetoOverlay.getState(), scene: {...document.getElementById('scene').dataset}, reduced: matchMedia('(prefers-reduced-motion: reduce)').matches})"), flush=True)
+        sample = """(() => {
+          const c=document.getElementById('scene'), d=c.getContext('2d').getImageData(700,45,400,100).data;
+          let h=2166136261;for(let i=0;i<d.length;i+=4)h=Math.imul(h^d[i]^d[i+1]^d[i+2],16777619);
+          return h>>>0;
+        })()"""
+        before = await evaluate(sample)
+        await asyncio.sleep(1.5)
+        print("SMOKE MOVES", before != await evaluate(sample), flush=True)
+        state["actions"] = [{"map": "Ancient", "type": "ban", "team": 0}]
+        print("EMIT", await request("CallVendorRequest", {"vendorName": "obs-browser", "requestType": "emit_event",
+                  "requestData": {"event_name": "oneshot-veto", "event_data": state}}), flush=True)
+        await asyncio.sleep(.3)
+        print("AFTER NATIVE EVENT", await evaluate("({state: vetoOverlay.getState(),scene: {...document.getElementById('scene').dataset}})"), flush=True)
+        shot = await request("GetSourceScreenshot", {"sourceName": "Veto", "imageFormat": "png", "imageWidth": 1920, "imageHeight": 1080})
+        (OUT / "native-ban.png").write_bytes(base64.b64decode(shot["imageData"].split(",", 1)[1]))
+        assert (await evaluate("vetoOverlay.getState()"))["actions"] == state["actions"], "OBS accepted event but source never received it"
+        print("PASS: actual OBS delivers veto to browser source", flush=True)
+        await cdp.close()
         await ws.close()
     finally:
         proc.terminate()
