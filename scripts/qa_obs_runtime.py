@@ -81,20 +81,24 @@ async def run():
                 await route.fulfill(content_type="application/javascript", body=body)
             await context.route("https://docs.google.com/**/gviz/**", sheets)
             panel = await context.new_page()
+            activate = panel.tap if mobile else panel.click
             await panel.goto(BASE)
             await expect(panel.locator("#syncTitle")).to_contain_text("команд из таблицы")
+            if mobile:
+                menu = await panel.locator("#obsNavBtn").bounding_box()
+                assert menu and menu["y"] + menu["height"] <= 812, menu
             await panel.evaluate("""Object.defineProperty(navigator,'clipboard',{value:{
               writeText:async text=>{window.copied=text;}
             }});""")
-            await panel.click("#viewLobby")
+            await activate("#viewLobby")
             await expect(panel.locator("#obsNavBtn")).to_be_visible()
-            await panel.click("#obsNavBtn")
+            await activate("#obsNavBtn")
             await expect(panel.locator("#obsForm")).to_be_visible()
             await expect(panel.locator("#obsBridgeFields")).to_be_visible()
             assert not await panel.evaluate("document.documentElement.scrollWidth > innerWidth")
             await panel.locator("#obsDialog").screenshot(path=str(OUT / "obs-menu.png"))
-            await panel.click("#closeObs")
-            await panel.click("#copyOverlay")
+            await activate("#closeObs")
+            await activate("#copyOverlay")
             url = await panel.evaluate("window.copied")
             assert "&r=" in url
             # No OBS credentials are configured in the panel: graphics are read-only.
@@ -154,11 +158,11 @@ async def run():
             await asyncio.sleep(1.5)
             assert before != await evaluate(sample), "OBS smoke is frozen"
             print("PASS: real OBS smoke pixels move", flush=True)
-            await panel.click('[data-map="Ancient"]')
+            await activate('[data-map="Ancient"]')
             await until("vetoOverlay.getState()?.actions.length === 1")
             assert "Ancient" in await evaluate("document.getElementById('scene').dataset.animating")
             await asyncio.sleep(1)
-            await panel.click('[data-map="Anubis"]')
+            await activate('[data-map="Anubis"]')
             await until("vetoOverlay.getState()?.actions.length === 2")
             await asyncio.sleep(1)
             await evaluate("""(() => {
@@ -169,14 +173,14 @@ async def run():
                 return draw(text,...args);
               };
             })()""")
-            await panel.click('[data-map="Mirage"]')
+            await activate('[data-map="Mirage"]')
             await until("vetoOverlay.getState()?.pending === 'Mirage'")
             await expect(panel.locator("#sideLabel")).to_contain_text("HYPERSPIRIT")
             await until("window.pickStamps > 0")
             print("PASS: PICK reaches OBS before the opposing team chooses CT/T", flush=True)
             await asyncio.sleep(1)
             await evaluate("window.pickStamps=0")
-            await panel.click("#chooseCT")
+            await activate("#chooseCT")
             await until("vetoOverlay.getState()?.actions.length === 3")
             assert "Mirage" in await evaluate("document.getElementById('scene').dataset.animating")
             print("PASS: manual bans, pending pick, side choice and card animations reach actual OBS", flush=True)
@@ -193,6 +197,27 @@ async def run():
             await asyncio.sleep(1)
             await until("window.vetoOverlay?.getState()?.actions.length === 3", timeout=40)
             print("PASS: refreshed OBS source recovers current veto without another admin click", flush=True)
+            await activate('[data-map="Nuke"]')
+            await until("vetoOverlay.getState()?.pending === 'Nuke'")
+            await expect(panel.locator("#sideLabel")).to_contain_text("6yuBoJlbl")
+            await activate("#chooseT")
+            await until("vetoOverlay.getState()?.actions.length === 4")
+            await activate('[data-map="Dust2"]')
+            await until("vetoOverlay.getState()?.actions.length === 5")
+            await activate('[data-map="Cache"]')
+            await until("vetoOverlay.getState()?.actions.length === 6")
+            await until("document.getElementById('scene').dataset.phase === 'last-move'")
+            await asyncio.sleep(1)
+            assert await evaluate("document.getElementById('scene').dataset.phase") == "last-move"
+            await until("document.getElementById('scene').dataset.phase === 'finished'")
+            order = await panel.locator("#mapGrid [data-map]").evaluate_all("els=>els.map(el=>el.dataset.map)")
+            assert order == ["Ancient","Anubis","Mirage","Nuke","Dust2","Cache","Inferno"], order
+            print("PASS: touch/browser veto stays in turn order; actual OBS delays the decider after the last ban", flush=True)
+            await panel.select_option("#vetoLayout", "strip")
+            await activate("#copyOverlay")
+            cropped_url = await panel.evaluate("window.copied")
+            assert "layout=strip&crop=1" in cropped_url
+            await expect(panel.locator("#overlaySizeHint")).to_contain_text("1920, высота 400")
             await panel.uncheck("#vetoLive")
             await cdp.close()
             await browser.close()

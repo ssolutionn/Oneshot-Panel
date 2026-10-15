@@ -1,6 +1,8 @@
 # CyberClash live veto
 
-1920×1080 full frame or bottom strip (transparent above y=680).
+1920×1080 full frame. New layout=strip&crop=1 links are a native 1920×400
+bottom strip; place the source at X=0,Y=680 in a 1080p scene, with camera sources
+below it in OBS layer order. Legacy strip URLs keep the transparent 1080p frame.
 Local event artwork, team logos and maps. Tall condensed Oswald display type
 (Latin/Cyrillic, SIL OFL) echoes the CyberClash wordmark; small captions retain
 a readable sans-serif. The font is local and loads before canvas rendering/PNG.
@@ -47,7 +49,11 @@ BAN DECIDER. Empty slots wait for maps; pending side choice stays in its pick
 column, undo clears its own slot. Other formats use existing core.js rules.
 
 900ms bans desaturate the map and draw a red cross; picks have a cyan sweep,
-border and brief PICK stamp. Undo takes 650ms. PNG export uses settled
+border and brief PICK stamp. The stamp appears on the pending map choice,
+before the opposing team selects CT/T; completing that choice preserves an
+already running reveal and does not replay it. The decider waits 1500ms after
+the final move; repeated snapshots preserve the deadline. Restored snapshots
+and PNG exports show the settled outcome. Undo takes 650ms. PNG export uses settled
 1920×1080 pixels, including alpha in strip mode.
 
 Demo: `overlay.html?preview=1`, optionally layout=strip, step=0..6,
