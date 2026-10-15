@@ -54,9 +54,9 @@ export async function artwork(teams) {
 }
 
 export class VetoScene {
-  constructor(canvas,assets,{layout='full',motion=true,animations=true}={}) {
+  constructor(canvas,assets,{layout='full',motion=true,animations=true,cropped=false}={}) {
     this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:true});
-    this.assets=assets;this.layout=layout;this.motion=motion;this.animations=animations;this.changed=new Map();
+    this.assets=assets;this.layout=layout;this.cropped=!!cropped;this.resize();this.motion=motion;this.animations=animations;this.changed=new Map();
     this.smoke=makeSmoke(assets.get('/background'));this.raf=0;this.lastFrame=0;
     this.frozenTime=12;this.started=performance.now();this.model=null;
     this.paint=this.paint.bind(this);
@@ -74,7 +74,7 @@ export class VetoScene {
         const from=previous?this.cardVisual(old,now).value:visual(old);
         this.changed.set(map.id,{
           name:map.name||old.name,started:now,duration:map.status==='available'?650:900,
-          from,to:visual(map),old:{...old,pendingTeam:1-this.model.nextTeam}
+          from,to:visual(map),old:{...old}
         });
       });
     }
@@ -97,9 +97,14 @@ export class VetoScene {
   description() {
     const m=this.model;
     return m ? `${m.teams.join(' против ')}. ${m.format}. ${m.finished ? 'Вето завершено. '+m.series.join(', ') :
-      m.pending ? 'Выбор стороны на '+m.pending : 'Ход '+(m.actions.length+1)+': '+m.teams[m.nextTeam]+', '+m.nextType}.` : 'Ожидание вето.';
+      m.pending ? 'Выбор стороны на '+m.pending+': '+m.teams[1-m.nextTeam] : 'Ход '+(m.actions.length+1)+': '+m.teams[m.nextTeam]+', '+m.nextType}.` : 'Ожидание вето.';
   }
-  setLayout(layout) {this.layout=layout==='strip'?'strip':'full';this.start();}
+  resize() {
+    const crop=this.cropped&&this.layout==='strip';
+    this.canvas.width=W;this.canvas.height=crop?400:H;
+    this.canvas.dataset.cropped=String(crop);
+  }
+  setLayout(layout) {this.layout=layout==='strip'?'strip':'full';this.resize();this.start();}
   setMotion(enabled) {
     if(!enabled) this.frozenTime=(performance.now()-this.started)/1000+12;
     else this.started=performance.now()-(this.frozenTime-12)*1000;
@@ -202,8 +207,9 @@ export class VetoScene {
     const {value:v,p,change}=this.cardVisual(map,now),active=!!change&&p<1;
     const color=tint(tint(tint(C.faint,C.ban,v.ban),C.accent,v.accent),C.gold,v.white);
     const accent=map.status==='pick'||map.status==='pending';
-    const enteringPick=active&&map.status==='pick'&&change.old.status!=='pick';
-    const entering=active&&map.status!=='available';
+    const sideOnly=active&&change.old.status==='pending'&&map.status==='pick'&&change.old.name===map.name;
+    const enteringPick=active&&accent&&!['pick','pending'].includes(change.old.status);
+    const entering=active&&map.status!=='available'&&!sideOnly;
     const energy=active?Math.sin(Math.PI*p):0;
     // Cards remain anchored: only the artwork moves, never the seven-column grid.
     this.rect(x,y,w,h,C.panel,3);
@@ -279,7 +285,7 @@ export class VetoScene {
         this.text(m.format==='BO2'?'Осталась в пуле':'Решающая карта',
           x+17,(strip?y+202:y+402)+dy,strip?13:16,C.muted,{max:w-33,alpha});
       } else if(pending) {
-        this.text(m.teams[item.pendingTeam ?? (1-m.nextTeam)],x+17,(strip?y+202:y+402)+dy,
+        this.text(m.teams[m.nextTeam],x+17,(strip?y+202:y+402)+dy,
           strip?13:16,C.muted,{max:w-33,alpha});
       } else {
         this.text('Карта не выбрана',x+17,(strip?y+202:y+402)+dy,
@@ -354,18 +360,20 @@ export class VetoScene {
     const c=this.ctx,strip=this.layout==='strip';
     this.canvas.dataset.animating=[...this.changed].filter(([,item])=>
       now-item.started<item.duration).map(([,item])=>item.name).join(',');
-    c.clearRect(0,0,W,H);
+    c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,this.canvas.width,this.canvas.height);
+    c.save();if(this.cropped&&strip)c.translate(0,-680);
     const seconds=this.motion?(now-this.started)/1000+12:this.frozenTime;
     this.background(seconds,strip);
     const m=this.model;
     if(!m) {
       this.logo('/event',800,360,320,180);
       this.text('ОЖИДАНИЕ ВЕТО',960,strip?920:650,44,C.ink,{align:'center'});
-      return;
+      c.restore();return;
     }
     if(strip)this.stripHeader(m);else this.fullHeader(m);
     m.slots.forEach((map,i)=>this.card(map,i,m,now,strip));
     if(strip)this.stripFooter(m);else this.fullFooter(m);
+    c.restore();
     this.canvas.dataset.layout=this.layout;
     this.canvas.dataset.smoke=this.smoke?.kind||'static';
     this.canvas.dataset.ready='true';

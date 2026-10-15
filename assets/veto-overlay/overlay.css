@@ -56,3 +56,5 @@ input { accent-color:var(--preview-accent); }
 }
 
 .vdo-frame { position:fixed; left:-10px; top:-10px; width:1px; height:1px; border:0; opacity:0; pointer-events:none; }
+
+#scene[data-cropped="true"] { aspect-ratio:24/5; }

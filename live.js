@@ -394,9 +394,16 @@ function enableLiveVeto() {
 }
 $('copyOverlay').addEventListener('click', () => {
   // This display-only code cannot operate OBS. Never reuse its control code.
-  panel.copy(`${cardBase()}/assets/veto-overlay/overlay.html?layout=${$('vetoLayout').value}#s=${encodeState(vetoState())}&r=${vetoCode}`);
+  panel.copy(`${cardBase()}/assets/veto-overlay/overlay.html?layout=${$('vetoLayout').value}${$('vetoLayout').value === 'strip' ? '&crop=1' : ''}#s=${encodeState(vetoState())}&r=${vetoCode}`);
   enableLiveVeto();
 });
+function overlaySizeHint() {
+  $('overlaySizeHint').textContent = $('vetoLayout').value === 'strip' ?
+    'Источник «Браузер» в OBS: ширина 1920, высота 400. В сцене 1920 × 1080 поставь X = 0, Y = 680; верх останется под камеры и другое содержимое. Ссылку копируй с устройства, на котором кликаешь вето.' :
+    'Источник «Браузер» в OBS: ширина 1920, высота 1080. Ссылку копируй с устройства, на котором кликаешь вето. Живому вето не нужен пароль OBS.';
+}
+$('vetoLayout').addEventListener('change', overlaySizeHint);
+overlaySizeHint();
 $('vetoLive').checked = !!read('oneshot-veto-live');
 $('vetoLive').addEventListener('change', () => {
   write('oneshot-veto-live', $('vetoLive').checked);
