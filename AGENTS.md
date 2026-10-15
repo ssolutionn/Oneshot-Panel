@@ -67,7 +67,9 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 - `faceit.js` — без DOM: разбор ссылки турнира, сводка матча, события
   (карта, матч, отмена, PAUSED), тексты «GG» и «Next xx:MM», клиент Data API
   с переходом на прокси `/api/faceit` при CORS. Покрыт `test/live.test.js`.
-- `lobby.js` — вкладка «Лобби»: опрос турнира каждые 20 с, звук, уведомления
+- `lobby.js` — вкладка «Лобби»: опрос турнира и/или комнат матчей
+  (`parseFaceitTargets`; каждый запрос отдельно, отказ одного не роняет
+  остальные) каждые 20 с, звук, уведомления
   браузера, бейдж вкладки, ручной таймер тех. паузы, журнал. localStorage:
   `oneshot-lobby` (ссылка, ключ, шаблоны, задержка), `oneshot-lobby-log`.
 - `netlify/functions/faceit.mjs` — прокси FACEIT для браузера (только пути
@@ -148,7 +150,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 
 ```sh
 npm run check        # синтаксис
-npm test             # 52 теста (node:test)
+npm test             # 53 теста (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome

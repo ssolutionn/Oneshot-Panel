@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseFaceitUrl, summarizeMatch, matchEvents, mapsPlayed, eventText,
-  nextStart, fillTemplate, DEFAULT_TEMPLATES, FaceitClient, mapScores, mapName
+  nextStart, fillTemplate, DEFAULT_TEMPLATES, FaceitClient, mapScores, mapName, parseFaceitTargets
 } from '../faceit.js';
 import faceitProxy from '../netlify/functions/faceit.mjs';
 import { onRequest as cloudflareFaceit } from '../functions/api/faceit.js';
@@ -27,6 +27,17 @@ test('FACEIT links: tournament, matchroom or a bare id', () => {
   assert.deepEqual(parseFaceitUrl(`https://www.faceit.com/ru/cs2/room/1-${CHAMP}`),
     { kind: 'match', id: `1-${CHAMP}` });
   assert.equal(parseFaceitUrl('https://www.faceit.com/ru/players/someone'), null);
+});
+
+test('Lobby field: a tournament, match rooms or both', () => {
+  const room = `1-${CHAMP}`, other = '1-11111111-2222-4333-8444-555555555555';
+  assert.deepEqual(parseFaceitTargets(`https://www.faceit.com/ru/championship/${CHAMP}/CyberClash%20Season%202%20%7C%20Upgrade%20vs%20Lavked/matches`),
+    { champ: CHAMP, rooms: [] });
+  assert.deepEqual(parseFaceitTargets(`https://www.faceit.com/ru/cs2/room/${room}  https://www.faceit.com/ru/cs2/room/${other}/scoreboard`),
+    { champ: '', rooms: [room, other] });
+  assert.deepEqual(parseFaceitTargets(` ${room.toUpperCase()} `), { champ: '', rooms: [room] });
+  assert.deepEqual(parseFaceitTargets(CHAMP), { champ: CHAMP, rooms: [] });
+  assert.equal(parseFaceitTargets('https://www.faceit.com/ru/players/someone'), null);
 });
 
 test('Map and match ends are found between two polls', () => {

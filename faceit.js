@@ -22,6 +22,17 @@ export function parseFaceitUrl(value) {
   return null;
 }
 
+// The lobby field: a tournament link and/or match room links (several are
+// allowed, separated by spaces or new lines).
+export function parseFaceitTargets(value) {
+  const text = String(value || '');
+  const rooms = [...new Set([...text.matchAll(new RegExp(`(?:/room/|^|\\s)(1-${UUID})`, 'gi'))]
+    .map(m => m[1].toLowerCase()))];
+  const champ = new RegExp(`/championships?/(${UUID})`, 'i').exec(text)?.[1].toLowerCase() ||
+    new RegExp(`^\\s*(${UUID})\\s*$`, 'i').exec(text)?.[1].toLowerCase() || '';
+  return champ || rooms.length ? { champ, rooms } : null;
+}
+
 export const STATUS_RU = {
   SCHEDULED: 'по расписанию', CHECK_IN: 'чек-ин', CREATED: 'создан',
   VOTING: 'вето', CONFIGURING: 'настройка сервера', READY: 'готов к старту',

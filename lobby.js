@@ -2,7 +2,7 @@
 // (sound, browser notification, tab badge) and prepares the Discord texts.
 // Tech pauses are logged by hand: FACEIT's API does not report them.
 import {
-  FaceitClient, FACEIT_PROXY, parseFaceitUrl, summarizeMatch, matchEvents, eventText,
+  FaceitClient, FACEIT_PROXY, parseFaceitTargets, summarizeMatch, matchEvents, eventText,
   nextStart, fillTemplate, DEFAULT_TEMPLATES, scoreLine, mapScores
 } from './faceit.js';
 import { personKey } from './core.js';
@@ -262,18 +262,23 @@ async function finalScores(match) {
 }
 
 async function poll() {
-  const client = lobby.client, champ = lobby.champ;
-  if (!client || !champ) return;
+  const client = lobby.client, champ = lobby.champ, rooms = lobby.rooms || [];
+  if (!client || (!champ && !rooms.length)) return;
   const full = lobby.tick++ % 3 === 0;
   try {
-    const lists = await Promise.all([
-      client.matches(champ, 'ongoing', 20),
-      full ? client.matches(champ, 'upcoming', 20) : null,
-      full ? client.matches(champ, 'past', 10) : null
+    // Each request stands alone: one refused list must not hide the others.
+    const results = await Promise.allSettled([
+      champ ? client.matches(champ, 'ongoing', 20) : null,
+      champ && full ? client.matches(champ, 'upcoming', 20) : null,
+      champ && full ? client.matches(champ, 'past', 10) : null,
+      ...rooms.map(id => client.match(id))
     ]);
     if (client !== lobby.client) return;
+    const failed = results.find(r => r.status === 'rejected')?.reason;
+    const answered = results.filter(r => r.status === 'fulfilled' && r.value);
+    if (failed && !answered.length) throw failed;
     const seen = new Map();
-    for (const raw of lists.flat().filter(Boolean)) {
+    for (const raw of answered.flatMap(r => r.value).filter(Boolean)) {
       const m = summarizeMatch(raw);
       if (m.id) seen.set(m.id, m);
     }
@@ -295,12 +300,14 @@ async function poll() {
     const live = [...lobby.matches.values()].filter(m => m.live).length;
     const soon = [...lobby.matches.values()].filter(m => !m.live && !m.done).length;
     $('lobbyStatus').textContent = `Обновлено ${clock(Date.now())} · идут: ${live} · впереди: ${soon} · проверка каждые ${POLL / 1000} с`;
-    $('lobbyError').hidden = true;
+    $('lobbyError').textContent = failed ? `Часть запросов FACEIT не прошла: ${failed.message}` : '';
+    $('lobbyError').hidden = !failed;
     renderMatches();
     renderMessages();
   } catch (error) {
     if (client !== lobby.client) return;
-    $('lobbyError').textContent = error.message;
+    $('lobbyError').textContent = error.message + (champ && !rooms.length && /ошибкой 4\d\d/.test(error.message) ?
+      ' Если FACEIT не отдаёт турнир, вставь ссылку на комнату матча (faceit.com/…/room/1-…): лобби будет следить за матчем напрямую.' : '');
     $('lobbyError').hidden = false;
     if (/реже/.test(error.message)) lobby.interval = Math.min(lobby.interval * 2, 120000);
   } finally {
@@ -313,21 +320,18 @@ async function poll() {
 
 function start() {
   const { url, key } = read(STORE, {});
-  const target = parseFaceitUrl(url);
+  const target = parseFaceitTargets(url);
   clearTimeout(lobby.timer);
   lobby.client = null;
   lobby.champ = '';
+  lobby.rooms = [];
   lobby.matches = new Map();
   lobby.tick = 0;
   if (!target) return renderMatches();
-  if (target.kind !== 'championship') {
-    $('lobbyError').textContent = 'Нужна ссылка на турнир (championship), а не на отдельный матч.';
-    $('lobbyError').hidden = false;
-    return renderMatches();
-  }
   lobby.client = new FaceitClient(key, undefined, { proxy: new URL(FACEIT_PROXY, location.origin).href });
-  lobby.champ = target.id;
-  $('lobbyStatus').textContent = 'Подключаем турнир…';
+  lobby.champ = target.champ;
+  lobby.rooms = target.rooms;
+  $('lobbyStatus').textContent = target.champ ? 'Подключаем турнир…' : 'Подключаем матч…';
   poll();
 }
 
@@ -335,8 +339,8 @@ $('lobbyForm').addEventListener('submit', event => {
   event.preventDefault();
   unlockAudio();
   const url = $('faceitUrl').value.trim(), key = $('faceitKey').value.trim();
-  if (!parseFaceitUrl(url)) {
-    $('lobbyError').textContent = 'Не похоже на ссылку турнира FACEIT: нужна ссылка вида faceit.com/…/championship/<id>/…';
+  if (!parseFaceitTargets(url)) {
+    $('lobbyError').textContent = 'Не похоже на ссылку FACEIT: нужна ссылка на турнир (faceit.com/…/championship/<id>/…) или на комнату матча (faceit.com/…/room/1-…).';
     $('lobbyError').hidden = false;
     return;
   }
