@@ -64,14 +64,16 @@ function obsJson() {
 }
 
 // ---------- OBS link ----------
-const pairingHash = new URLSearchParams(location.hash.slice(1));
-let importedPairCode = '';
-if (pairingHash.has('obs')) {
-  try { importedPairCode = parsePairingQr(location.href, cardBase()); } catch { /* leave existing settings intact */ }
+function consumePairingHash() {
+  if (!new URLSearchParams(location.hash.slice(1)).has('obs')) return '';
+  let code = '';
+  try { code = parsePairingQr(location.href, cardBase()); } catch { /* leave existing settings intact */ }
   // Pairing codes belong in the fragment, and are consumed before other links are copied.
   history.replaceState(null, '', location.pathname + location.search);
+  if (code) write(OBS_STORE, { ...(read(OBS_STORE) || {}), mode: 'bridge', code });
+  return code;
 }
-if (importedPairCode) write(OBS_STORE, { ...(read(OBS_STORE) || {}), mode: 'bridge', code: importedPairCode });
+const importedPairCode = consumePairingHash();
 
 function obsSettings() {
   const saved = read(OBS_STORE) || {};
@@ -494,10 +496,20 @@ function onChange() {
 document.addEventListener('oneshot:change', onChange);
 fillObsDialog();
 $('obsDialog').open = !obsSettings().configured || !!importedPairCode;
-if (importedPairCode) {
+function revealPairing() {
+  fillObsDialog();
   showView('prep');
+  $('obsDialog').open = true;
   $('obsTestResult').textContent = 'Код связи из QR подставлен. Подключаемся к доку OBS…';
 }
+if (importedPairCode) revealPairing();
+// Scanning a link into a tab already at "/" may only change the fragment.
+window.addEventListener('hashchange', () => {
+  if (!consumePairingHash()) return;
+  revealPairing();
+  ensureBridge().catch(() => {});
+  renderObsState();
+});
 ensureBridge().catch(() => {});
 renderObsState();
 onChange();

@@ -9,7 +9,9 @@ from playwright.async_api import async_playwright, expect
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from qa_browser import sample_roster, gviz
-from qa_live import FAKE_VDO, MockObs, OBS_URL
+from qa_live import FAKE_VDO, MockObs, OBS_URL as OBS_ROUTE
+
+OBS_URL = 'ws://127.0.0.1:4455'
 
 
 async def run(args):
@@ -39,7 +41,7 @@ async def run(args):
                 route.fulfill(content_type="text/html", body=FAKE_VDO))
             page = await context.new_page()
             page.on("pageerror", lambda error: errors.append(str(error)))
-            await page.route_web_socket(OBS_URL, MockObs().handler)
+            await page.route_web_socket(OBS_ROUTE, MockObs().handler)
             await page.goto(base)
             await expect(page.locator("#syncTitle")).to_contain_text("команд из таблицы")
             await page.click("#obsNavBtn")
@@ -95,12 +97,24 @@ async def run(args):
             await expect(page.locator("#obsPassword")).to_have_value("camera-pass", timeout=15000)
             assert await page.evaluate("qrTrack.readyState") == "ended"
             assert await reader.locator("video").is_hidden()
+            # Switching tabs while camera permission is pending must cancel it.
+            await page.evaluate("""() => {
+              const c=document.createElement('canvas');
+              window.lateCameraStream=c.captureStream(1);
+              window.lateCameraTrack=lateCameraStream.getVideoTracks()[0];
+              navigator.mediaDevices.getUserMedia=()=>new Promise(resolve=>window.resolveQrCamera=resolve);
+            }""")
+            await reader.get_by_role("button",name="Сканировать камерой",exact=True).click()
+            await page.click("#viewLobby")
+            await page.evaluate("resolveQrCamera(lateCameraStream)")
+            await page.wait_for_function("lateCameraTrack.readyState==='ended'")
+            await page.click("#obsNavBtn")
             await page.locator("#obsDialog").screenshot(path=str(output / f"{engine}-autofill.jpg"), type="jpeg")
             assert not await page.evaluate("document.documentElement.scrollWidth > innerWidth")
 
             dock = await context.new_page()
             dock.on("pageerror", lambda error: errors.append(str(error)))
-            await dock.route_web_socket(OBS_URL, MockObs().handler)
+            await dock.route_web_socket(OBS_ROUTE, MockObs().handler)
             await dock.goto(base + "/obs-bridge.html")
             dock_reader = dock.locator("#dockQr")
             await dock_reader.locator(":scope > details > summary").click()

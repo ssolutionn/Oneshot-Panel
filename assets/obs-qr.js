@@ -222,6 +222,7 @@ export function mountQrReader(root, { title = 'Заполнить по QR', hint
   const parent = root.closest('details');
   parent?.addEventListener('toggle', () => { if (!parent.open) stopCamera(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopCamera(); });
+  document.addEventListener('oneshot:view', event => { if (event.detail !== 'prep') stopCamera(); });
   window.addEventListener('pagehide', stopCamera);
   return { stop: stopCamera };
 }
