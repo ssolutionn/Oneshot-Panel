@@ -215,6 +215,10 @@ export class FaceitClient {
     if (body?.error === 'no-key') {
       throw new Error('Нужен API-ключ FACEIT: впиши его в поле или добавь секрет FACEIT_API_KEY в настройках хостинга.');
     }
+    if (/invalid_token/i.test(detail)) {
+      throw new Error('FACEIT не принял API-ключ (invalid_token): ключ неверный или не подходит для запросов с сервера. ' +
+        'Создай в App Studio ключ Server side, положи его секретом FACEIT_API_KEY в настройках хостинга, а поле ключа в лобби оставь пустым.');
+    }
     if (response.status === 401 || response.status === 403) {
       throw new Error('FACEIT не принял API-ключ: проверь ключ и разрешённые сайты в App Studio.' + (detail ? ` (${detail})` : ''));
     }

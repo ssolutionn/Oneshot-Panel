@@ -120,6 +120,8 @@ test('FACEIT client sends the key and explains errors', async () => {
   // FACEIT's own explanation reaches the admin.
   const explained = async () => ({ ok: false, status: 400, json: async () => ({ errors: [{ message: 'championship is not started' }] }) });
   await assert.rejects(new FaceitClient('k', explained).match('1-a'), /ошибкой 400: championship is not started \[1-a\]/);
+  const badToken = async () => ({ ok: false, status: 400, json: async () => ({ errors: [{ message: 'invalid_token' }] }) });
+  await assert.rejects(new FaceitClient('k', badToken).match('1-a'), /invalid_token.*Server side.*FACEIT_API_KEY/);
   // Refused for this site (400/401/403): retried once through the proxy.
   const tried = [];
   const refusedDirect = async url => {
