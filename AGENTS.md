@@ -21,7 +21,11 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   VDO.Ninja, тексты для копирования, имя файла, сборка OBS JSON, правила
   вето, выбор фото и логотипа для карточки. Покрыта `test/core.test.js`.
 - `app.js` — интерфейс «Подготовки»: загрузка таблиц, отрисовка,
-  localStorage (`webcam-desk-source`, `oneshot-webcam-match-v1`), вето,
+  localStorage (`webcam-desk-source`, `oneshot-webcam-match-v1`,
+  `oneshot-stream-ids` — новые ID потоков от кнопки ↻ справа от игрока:
+  два нажатия, новый ID `ник_xxxxxx` (`newStreamId`), сообщение игроку
+  копируется сразу; действует, пока в таблице прежний ID, —
+  `applyStreamIds`; «вернуть» в строке отменяет), вето,
   копирование, скачивание JSON. Отдаёт `window.oneshotPanel.snapshot()`
   и событие `oneshot:change` для `live.js` и `lobby.js`; сам их не знает
   (в артефакте Claude их нет).
@@ -152,7 +156,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   на `replace_once`/`cut`, исходный кусок изменился — поправь замену в
   скрипте, а не обходи её.
 - `claude-artifact/index.html` — старая версия «Webcam Desk», не трогать.
-- `scripts/qa_browser.py` — 25 браузерных сценариев (Python Playwright +
+- `scripts/qa_browser.py` — 26 браузерных сценариев (Python Playwright +
   Chromium), VDO.Ninja в них заглушён. `scripts/qa_player_cards.py`
   проверяет все записи подготовленного каталога и 10 CARD-ссылок
   скачанного JSON; `test/photos_test.py` — загрузчик. `scripts/qa_live.py` —
@@ -173,7 +177,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 
 ```sh
 npm run check        # синтаксис
-npm test             # 62 теста (node:test)
+npm test             # 64 теста (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
@@ -259,7 +263,8 @@ Netlify проверяет локальные фото, докачивает н�
   nextDelay copyThanks msgThanks nextMatch copyNext msgNext tplThanks
   tplNext resetTemplates copyJournal lobbyLog; док: dockPanel dockPanelDot
   dockObs dockObsDot dockForm dockCode dockUrl dockPassword dockLog
-- data-атрибуты (их ставит `app.js`): data-copy-team data-map data-player
+- data-атрибуты (их ставит `app.js`): data-regen data-unregen (id
+  regen-a-0…regen-b-4) data-copy-team data-map data-player
   data-reset data-slot data-team data-view; `live.js`: data-cam (live, off,
   wait, none) на `.player-row`; `lobby.js`: data-match data-pause data-side
   data-resume data-since

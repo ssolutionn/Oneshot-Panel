@@ -7,3 +7,4 @@ claude-artifact/dist/
 public/
 claude-artifact/data/
 work/
+.claude/settings.local.json

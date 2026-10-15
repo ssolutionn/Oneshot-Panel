@@ -442,3 +442,38 @@ test('Veto rejects duplicates, bad formats, wrong turn and missing side', () => 
   ], 'BO3', 0), /порядок/);
   assert.throws(() => vetoText(['A', 'A'], []), /разные команды/);
 });
+
+test('newStreamId: nick letters plus a random tail VDO.Ninja keeps as is', async () => {
+  const { newStreamId } = await import('../core.js');
+  const fixed = n => new Uint8Array(n).fill(1);
+  assert.equal(newStreamId('zs0lt1-', fixed), 'zs0lt1_bbbbbb');
+  assert.equal(newStreamId('Q-Q', fixed), 'QQ_bbbbbb');
+  assert.equal(newStreamId('Honvéd ñ', fixed), 'Honvedn_bbbbbb');
+  assert.equal(newStreamId('', fixed), 'cam_bbbbbb');
+  assert.match(newStreamId('synyx'), /^synyx_[a-z2-9]{6}$/);
+  assert.notEqual(newStreamId('synyx'), newStreamId('synyx'));
+});
+
+test('applyStreamIds: a new ID holds until the sheet changes, then the sheet wins', async () => {
+  const { applyStreamIds, viewUrl, pushUrl } = await import('../core.js');
+  const teams = [{ name: 'UPGRADE', room: 'upgrade', players: [
+    { key: 'UPGRADE|1', nick: 'synyx', id: 'synyx', room: 'upgrade' },
+    { key: 'UPGRADE|2', nick: 'SquEzxc', id: 'SquEzxc', room: 'upgrade' }
+  ] }];
+  const saved = { 'UPGRADE|1': { id: 'synyx_k7q2ab', was: 'synyx' }, 'Gone|1': { id: 'x_aaaaaa', was: 'x' } };
+  const { teams: out, saved: kept } = applyStreamIds(teams, saved);
+  assert.equal(out[0].players[0].id, 'synyx_k7q2ab');
+  assert.equal(out[0].players[0].sheetId, 'synyx');
+  assert.equal(out[0].players[1].id, 'SquEzxc');
+  assert.deepEqual(kept, { 'UPGRADE|1': { id: 'synyx_k7q2ab', was: 'synyx' } });
+  assert.equal(teams[0].players[0].id, 'synyx', 'input untouched');
+  assert.match(pushUrl(out[0].players[0]), /&push=synyx_k7q2ab$/);
+  assert.match(viewUrl(out[0].players[0]), /\?view=synyx_k7q2ab&/);
+  // Someone wrote the new ID into the sheet: entry no longer needed.
+  const written = [{ ...teams[0], players: [{ ...teams[0].players[0], id: 'synyx_k7q2ab' }] }];
+  assert.deepEqual(applyStreamIds(written, kept).saved, {});
+  assert.equal(applyStreamIds(written, kept).teams[0].players[0].sheetId, undefined);
+  // Junk in storage is ignored.
+  assert.deepEqual(applyStreamIds(teams, { 'UPGRADE|1': { id: '<x>', was: 'synyx' } }).saved, {});
+  assert.deepEqual(applyStreamIds(teams, null).saved, {});
+});

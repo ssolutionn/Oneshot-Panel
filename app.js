@@ -2,6 +2,7 @@ import {
   DEFAULT_SOURCE, decodeGviz, parseTeams, parseSchedule, scheduleDay,
   defaultLineup, lineupCandidates, roleSuffix, selectedPlayers,
   validatePlayers, validateMatch, viewUrl, directorUrl,
+  newStreamId, applyStreamIds,
   observerText, playerText, buildObs, safeFilename, validateMetadata,
   MAP_POOL, VETO_RULES, validateVeto, appendVeto, vetoText
 } from './core.js';
@@ -13,9 +14,9 @@ const state = {
   scheduleDay: '',
   source: { ...DEFAULT_SOURCE }, template: null, templateError: '', logos: {},
   veto: { format: 'BO3', first: 0, actions: [], matchKey: '' },
-  pending: null
+  pending: null, sheetTeams: [], streamIds: {}, regenAsk: ''
 };
-let toastTimer, refreshId = 0, controller, templatePromise;
+let toastTimer, regenTimer, refreshId = 0, controller, templatePromise;
 
 function readStorage(key) {
   try { return JSON.parse(localStorage.getItem(key)); }
@@ -45,6 +46,8 @@ if (savedSource &&
     state.source.scheduleGid = DEFAULT_SOURCE.scheduleGid;
   }
 }
+// New stream IDs made with ↻ next to a player (core.applyStreamIds).
+state.streamIds = readStorage('oneshot-stream-ids') || {};
 const savedMatch = readStorage('oneshot-webcam-match-v1');
 if (savedMatch && savedMatch.source === JSON.stringify(state.source)) {
   for (const key of ['a', 'b', 'matchKey']) {
@@ -94,6 +97,35 @@ function escapeHtml(value) {
     '&': '&amp;', '<': '&lt;', '>': '&gt;',
     '"': '&quot;', "'": '&#39;'
   })[c]);
+}
+function applyIds() {
+  const applied = applyStreamIds(state.sheetTeams, state.streamIds);
+  state.teams = applied.teams;
+  state.streamIds = applied.saved;
+  writeStorage('oneshot-stream-ids', state.streamIds);
+}
+// ↻ next to a player: a new stream ID, so a leaked link stops being theirs.
+// The new message for the player is copied right away.
+function regenerate(side, slot) {
+  const team = getTeam(side), player = chosen(side)[slot];
+  if (!team || !player) return;
+  state.streamIds[player.key] = { id: newStreamId(player.nick), was: player.sheetId ?? player.id };
+  applyIds();
+  render();
+  const fresh = chosen(side)[slot];
+  copy(playerText(getTeam(side), [fresh])).then(() => toast(
+    `Новая ссылка для ${fresh.nick} скопирована — отправь игроку. Старая больше не его. ` +
+    'В OBS камеру обновит «Отправить в OBS» (или новый JSON).'));
+  document.dispatchEvent(new CustomEvent('oneshot:stream-id', { detail: { team: team.name, nick: fresh.nick } }));
+}
+function unregenerate(side, slot) {
+  const player = chosen(side)[slot];
+  if (!player?.sheetId) return;
+  delete state.streamIds[player.key];
+  applyIds();
+  render();
+  toast(`У ${player.nick} снова ссылка из таблицы.`);
+  document.dispatchEvent(new CustomEvent('oneshot:stream-id', { detail: { nick: player.nick } }));
 }
 function getTeam(side) {
   return state.teams.find(t => t.name === state[side]);
@@ -191,7 +223,7 @@ async function refresh() {
   if (!state.template) loadTemplate();
   try {
     const [roster, schedule] = await Promise.allSettled([
-      sheetRows(source, source.gid, 'A1:K2000', signal),
+      sheetRows(source, source.gid, 'A1:L2000', signal),
       source.scheduleGid ?
         // Header row as labels: the organizer's columns are found by name.
         sheetRows(source, source.scheduleGid, 'A1:N300',
@@ -200,9 +232,10 @@ async function refresh() {
     ]);
     if (request !== refreshId) return;
     if (roster.status !== 'fulfilled') throw roster.reason;
-    const teams = parseTeams(roster.value);
+    state.sheetTeams = parseTeams(roster.value);
+    applyIds();
+    const teams = state.teams;
     const names = teams.map(t => t.name);
-    state.teams = teams;
     state.schedule = upcoming(schedule.status === 'fulfilled' ?
       parseSchedule(schedule.value) : state.schedule, names);
 
@@ -358,9 +391,20 @@ function render() {
               >${escapeHtml(p.nick + roleSuffix(p))}</option>`).join('')}
             </select>
             <span class="player-subline">${player ?
+              (player.sheetId ? `<b class="new-id">Новый ID</b> <button type="button" class="link-button"
+                data-unregen="${side}" data-slot="${i}"
+                title="Вернуть ID из таблицы (${escapeHtml(player.sheetId)})">вернуть</button> · ` : '') +
               escapeHtml(viewUrl(player)) :
               'Место не заполнено'}</span>
           </div>
+          <button class="copy-icon regen-icon${state.regenAsk === `${side}${i}` ? ' asking' : ''}"
+            id="regen-${side}-${i}" type="button" data-regen="${side}" data-slot="${i}"
+            aria-label="${state.regenAsk === `${side}${i}` ?
+              `Нажми ещё раз: новая ссылка для ${player ? escapeHtml(player.nick) : ''}` :
+              `Новая ссылка игроку ${player ? escapeHtml(player.nick) : ''}`}"
+            title="${state.regenAsk === `${side}${i}` ? 'Нажми ещё раз — сделать новую ссылку' :
+              'Новая ссылка игроку (если старая утекла)'}" ${!player ? 'disabled' : ''}
+            >${state.regenAsk === `${side}${i}` ? '✓?' : '↻'}</button>
           <button class="copy-icon" data-view="${side}" data-slot="${i}"
             aria-label="Скопировать VIEW ${player ? escapeHtml(player.nick) : ''}"
             title="Копировать VIEW" ${!player ? 'disabled' : ''}>⧉</button>
@@ -401,6 +445,21 @@ function render() {
       render();
       toast('Порядок восстановлен из таблицы');
     }));
+  // Two clicks: the first arms the button for 4 s, the second makes the link.
+  $('teamGrid').querySelectorAll('[data-regen]').forEach(el =>
+    el.addEventListener('click', () => {
+      const id = el.dataset.regen + el.dataset.slot;
+      clearTimeout(regenTimer);
+      if (state.regenAsk !== id) {
+        state.regenAsk = id;
+        regenTimer = setTimeout(() => { state.regenAsk = ''; render(); }, 4000);
+        return render();
+      }
+      state.regenAsk = '';
+      regenerate(el.dataset.regen, Number(el.dataset.slot));
+    }));
+  $('teamGrid').querySelectorAll('[data-unregen]').forEach(el =>
+    el.addEventListener('click', () => unregenerate(el.dataset.unregen, Number(el.dataset.slot))));
   $('teamGrid').querySelectorAll('[data-view]').forEach(el =>
     el.addEventListener('click', () => {
       const player = chosen(el.dataset.view)[Number(el.dataset.slot)];

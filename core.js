@@ -202,6 +202,32 @@ export function pushUrl(p) {
 export function directorUrl(team) {
   return `https://vdo.ninja/?director=${encodeURIComponent(team.room)}${roomPassword(team)}`;
 }
+// A fresh stream ID for one player when their link leaked: nick letters
+// (VDO.Ninja keeps only letters, digits and _) plus 6 random characters.
+export function newStreamId(nick, random = n => crypto.getRandomValues(new Uint8Array(n))) {
+  const base = line(nick).normalize('NFKD').replace(/[^A-Za-z0-9]/g, '').slice(0, 16) || 'cam';
+  const tail = [...random(6)].map(b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
+  return `${base}_${tail}`;
+}
+// New IDs live in the browser until someone writes them into the sheet
+// (column E). saved: { [player.key]: { id, was } }. An entry counts only
+// while the sheet still has the ID it replaced; once the sheet holds the
+// new ID, or anything else, the sheet wins and the entry is dropped.
+export function applyStreamIds(teams, saved) {
+  const kept = {};
+  const entries = saved && typeof saved === 'object' ? saved : {};
+  const result = teams.map(team => ({
+    ...team,
+    players: team.players.map(p => {
+      const entry = Object.hasOwn(entries, p.key) ? entries[p.key] : null;
+      if (!entry || typeof entry.id !== 'string' || !/^[A-Za-z0-9_]{3,40}$/.test(entry.id) ||
+          entry.was !== p.id) return p;
+      kept[p.key] = { id: entry.id, was: entry.was };
+      return { ...p, id: entry.id, sheetId: p.id };
+    })
+  }));
+  return { teams: result, saved: kept };
+}
 // The card page lives on the panel's own site; the artifact has no site of
 // its own, so its JSON points at the public panel.
 export const DEFAULT_CARD_BASE = 'https://onepanel.netlify.app';

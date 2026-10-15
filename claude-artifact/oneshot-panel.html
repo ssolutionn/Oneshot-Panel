@@ -199,6 +199,12 @@ h2 { font-size:17px; line-height:1.4; letter-spacing:-.3px; margin-bottom:0; }
 .player-subline { display:block; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:9px; color:var(--muted); }
 .copy-icon { display:grid; place-items:center; flex-shrink:0; width:30px; height:32px; border:0; border-radius:5px; background:transparent; color:var(--muted); font-size:20px; }
 .copy-icon:hover { background:var(--soft); color:var(--ink); }
+.regen-icon { font-size:17px; }
+.regen-icon.asking { width:auto; padding:0 7px; background:var(--red); color:var(--on-accent); font-size:12px; font-weight:800; }
+.regen-icon.asking:hover { background:var(--red-hover); color:var(--on-accent); }
+.new-id { color:var(--red); font-weight:800; }
+.link-button { border:0; padding:0; background:transparent; color:var(--ink); font:inherit; text-decoration:underline; cursor:pointer; }
+#sendObsBtn[data-attention] { box-shadow:0 0 0 3px var(--accent-soft),0 0 0 5px var(--red); }
 .card-actions { display:flex; align-items:center; gap:8px; padding:8px 12px 12px; }
 a.text-button { display:inline-flex; align-items:center; }
 .text-button { border:0; border-radius:5px; background:transparent; color:var(--muted); font-size:11px; padding:7px 5px; text-decoration:none; min-height:32px; }
@@ -817,6 +823,32 @@ function pushUrl(p) {
 function directorUrl(team) {
   return `https://vdo.ninja/?director=${encodeURIComponent(team.room)}${roomPassword(team)}`;
 }
+// A fresh stream ID for one player when their link leaked: nick letters
+// (VDO.Ninja keeps only letters, digits and _) plus 6 random characters.
+function newStreamId(nick, random = n => crypto.getRandomValues(new Uint8Array(n))) {
+  const base = line(nick).normalize('NFKD').replace(/[^A-Za-z0-9]/g, '').slice(0, 16) || 'cam';
+  const tail = [...random(6)].map(b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
+  return `${base}_${tail}`;
+}
+// New IDs live in the browser until someone writes them into the sheet
+// (column E). saved: { [player.key]: { id, was } }. An entry counts only
+// while the sheet still has the ID it replaced; once the sheet holds the
+// new ID, or anything else, the sheet wins and the entry is dropped.
+function applyStreamIds(teams, saved) {
+  const kept = {};
+  const entries = saved && typeof saved === 'object' ? saved : {};
+  const result = teams.map(team => ({
+    ...team,
+    players: team.players.map(p => {
+      const entry = Object.hasOwn(entries, p.key) ? entries[p.key] : null;
+      if (!entry || typeof entry.id !== 'string' || !/^[A-Za-z0-9_]{3,40}$/.test(entry.id) ||
+          entry.was !== p.id) return p;
+      kept[p.key] = { id: entry.id, was: entry.was };
+      return { ...p, id: entry.id, sheetId: p.id };
+    })
+  }));
+  return { teams: result, saved: kept };
+}
 // The card page lives on the panel's own site; the artifact has no site of
 // its own, so its JSON points at the public panel.
 const DEFAULT_CARD_BASE = 'https://onepanel.netlify.app';
@@ -1236,9 +1268,9 @@ const state = {
   scheduleDay: '',
   source: { ...DEFAULT_SOURCE }, template: null, templateError: '', logos: {},
   veto: { format: 'BO3', first: 0, actions: [], matchKey: '' },
-  pending: null, cache: null
+  pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', cache: null
 };
-let toastTimer, refreshId = 0, controller, templatePromise;
+let toastTimer, regenTimer, refreshId = 0, controller, templatePromise;
 
 function readStorage(key) {
   try { return JSON.parse(localStorage.getItem(key)); }
@@ -1268,6 +1300,8 @@ if (savedSource &&
     state.source.scheduleGid = DEFAULT_SOURCE.scheduleGid;
   }
 }
+// New stream IDs made with ↻ next to a player (core.applyStreamIds).
+state.streamIds = readStorage('oneshot-stream-ids') || {};
 const savedMatch = readStorage('oneshot-webcam-match-v1');
 if (savedMatch && savedMatch.source === JSON.stringify(state.source)) {
   for (const key of ['a', 'b', 'matchKey']) {
@@ -1317,6 +1351,35 @@ function escapeHtml(value) {
     '&': '&amp;', '<': '&lt;', '>': '&gt;',
     '"': '&quot;', "'": '&#39;'
   })[c]);
+}
+function applyIds() {
+  const applied = applyStreamIds(state.sheetTeams, state.streamIds);
+  state.teams = applied.teams;
+  state.streamIds = applied.saved;
+  writeStorage('oneshot-stream-ids', state.streamIds);
+}
+// ↻ next to a player: a new stream ID, so a leaked link stops being theirs.
+// The new message for the player is copied right away.
+function regenerate(side, slot) {
+  const team = getTeam(side), player = chosen(side)[slot];
+  if (!team || !player) return;
+  state.streamIds[player.key] = { id: newStreamId(player.nick), was: player.sheetId ?? player.id };
+  applyIds();
+  render();
+  const fresh = chosen(side)[slot];
+  copy(playerText(getTeam(side), [fresh])).then(() => toast(
+    `Новая ссылка для ${fresh.nick} скопирована — отправь игроку. Старая больше не его. ` +
+    'В OBS камеру обновит «Отправить в OBS» (или новый JSON).'));
+  document.dispatchEvent(new CustomEvent('oneshot:stream-id', { detail: { team: team.name, nick: fresh.nick } }));
+}
+function unregenerate(side, slot) {
+  const player = chosen(side)[slot];
+  if (!player?.sheetId) return;
+  delete state.streamIds[player.key];
+  applyIds();
+  render();
+  toast(`У ${player.nick} снова ссылка из таблицы.`);
+  document.dispatchEvent(new CustomEvent('oneshot:stream-id', { detail: { nick: player.nick } }));
 }
 function getTeam(side) {
   return state.teams.find(t => t.name === state[side]);
@@ -1639,9 +1702,20 @@ function render() {
               >${escapeHtml(p.nick + roleSuffix(p))}</option>`).join('')}
             </select>
             <span class="player-subline">${player ?
+              (player.sheetId ? `<b class="new-id">Новый ID</b> <button type="button" class="link-button"
+                data-unregen="${side}" data-slot="${i}"
+                title="Вернуть ID из таблицы (${escapeHtml(player.sheetId)})">вернуть</button> · ` : '') +
               escapeHtml(viewUrl(player)) :
               'Место не заполнено'}</span>
           </div>
+          <button class="copy-icon regen-icon${state.regenAsk === `${side}${i}` ? ' asking' : ''}"
+            id="regen-${side}-${i}" type="button" data-regen="${side}" data-slot="${i}"
+            aria-label="${state.regenAsk === `${side}${i}` ?
+              `Нажми ещё раз: новая ссылка для ${player ? escapeHtml(player.nick) : ''}` :
+              `Новая ссылка игроку ${player ? escapeHtml(player.nick) : ''}`}"
+            title="${state.regenAsk === `${side}${i}` ? 'Нажми ещё раз — сделать новую ссылку' :
+              'Новая ссылка игроку (если старая утекла)'}" ${!player ? 'disabled' : ''}
+            >${state.regenAsk === `${side}${i}` ? '✓?' : '↻'}</button>
           <button class="copy-icon" data-view="${side}" data-slot="${i}"
             aria-label="Скопировать VIEW ${player ? escapeHtml(player.nick) : ''}"
             title="Копировать VIEW" ${!player ? 'disabled' : ''}>⧉</button>
@@ -1682,6 +1756,21 @@ function render() {
       render();
       toast('Порядок восстановлен из таблицы');
     }));
+  // Two clicks: the first arms the button for 4 s, the second makes the link.
+  $('teamGrid').querySelectorAll('[data-regen]').forEach(el =>
+    el.addEventListener('click', () => {
+      const id = el.dataset.regen + el.dataset.slot;
+      clearTimeout(regenTimer);
+      if (state.regenAsk !== id) {
+        state.regenAsk = id;
+        regenTimer = setTimeout(() => { state.regenAsk = ''; render(); }, 4000);
+        return render();
+      }
+      state.regenAsk = '';
+      regenerate(el.dataset.regen, Number(el.dataset.slot));
+    }));
+  $('teamGrid').querySelectorAll('[data-unregen]').forEach(el =>
+    el.addEventListener('click', () => unregenerate(el.dataset.unregen, Number(el.dataset.slot))));
   $('teamGrid').querySelectorAll('[data-view]').forEach(el =>
     el.addEventListener('click', () => {
       const player = chosen(el.dataset.view)[Number(el.dataset.slot)];

@@ -330,6 +330,40 @@ async def run(args):
         await page.click("#closeCopy")
         passed("denied clipboard shows exact requested text")
 
+        # ↻ next to a player: two clicks, new stream ID, message copied,
+        # kept after reload, «вернуть» restores the sheet's ID.
+        regen = page.locator('[data-regen="a"][data-slot="0"]')
+        subline = page.locator('.player-row').first.locator('.player-subline')
+        old_view = await subline.inner_text()
+        old_id = re.search(r"view=([^&]+)", old_view).group(1)
+        await regen.click()
+        await expect(regen).to_have_text("✓?")
+        assert await page.locator("#copyDialog").is_hidden()
+        await regen.click()
+        await expect(page.locator("#copyDialog")).to_be_visible()
+        message = await page.input_value("#manualCopy")
+        new_id = re.search(r"&push=([A-Za-z0-9_]+)$", message).group(1)
+        nick = re.search(r"\*\*(.+?)\*\*", message).group(1)
+        assert re.fullmatch(re.sub(r"[^A-Za-z0-9]", "", nick)[:16] + r"_[a-z2-9]{6}", new_id), message
+        assert new_id != old_id
+        assert message.startswith("## ") and f"**" in message and message.count("https://") == 1
+        await page.click("#closeCopy")
+        await expect(subline).to_contain_text("Новый ID")
+        await expect(subline).to_contain_text(f"view={new_id}&")
+        await page.click("#tabPlayers")
+        assert f"&push={new_id}" in await page.input_value("#output")
+        await page.reload()
+        await expect(page.locator("#syncTitle")).to_contain_text("команд")
+        await expect(subline).to_contain_text(f"view={new_id}&")
+        await page.click('[data-unregen="a"][data-slot="0"]')
+        await expect(subline).to_have_text(old_view)
+        passed("player link regenerated on the right of the row, kept, reverted")
+        await page.evaluate(
+            "Object.defineProperty(navigator, 'clipboard', {value: "
+            "{writeText: async () => {throw Error('denied')}}}); "
+            "document.execCommand = () => false;"
+        )
+
         await page.click("#swapBtn")
         assert await page.input_value("#vetoOutput") == ""
         assert await page.input_value("#team-a") == "HYPERSPIRIT"

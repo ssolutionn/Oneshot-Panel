@@ -657,7 +657,8 @@ json.loads(template_json)  # Validate without rewriting the canonical template.
 template_json = template_json.replace("</", "<\\/")
 app = replace_once(app, "fetch('/assets/obs-template.json')",
                    "Promise.resolve({ok:true,json:async()=>(" + template_json + ")})")
-app = replace_once(app, "  pending: null\n};", "  pending: null, cache: null\n};")
+app = replace_once(app, "  pending: null, sheetTeams: [], streamIds: {}, regenAsk: ''\n};",
+                   "  pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', cache: null\n};")
 # The artifact has no asset directory; only the artifact embeds these files.
 map_images = {}
 for map_name in ("Ancient", "Anubis", "Cache", "Dust2", "Inferno", "Mirage", "Nuke"):

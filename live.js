@@ -382,6 +382,8 @@ $('sendObsBtn').addEventListener('click', async () => {
   obsBadge('Отправляем в OBS…', 'wait');
   try {
     const { summary } = await obsCommand({ type: 'apply', ...payload });
+    delete button.dataset.attention;
+    button.title = '';
     panel.toast(`OBS обновлён: ${summary.slots} камер${summary.cards ? `, ${summary.cards} карточек` : ''}.`);
   } catch (error) {
     panel.showError(`${error.message} JSON для импорта можно скачать или скопировать рядом.`);
@@ -389,6 +391,15 @@ $('sendObsBtn').addEventListener('click', async () => {
     button.disabled = !!panel.snapshot().matchError;
     renderObsState();
   }
+});
+// ↻ next to a player made a new stream ID: the camera in OBS still has the
+// old one until the match is sent again.
+document.addEventListener('oneshot:stream-id', event => {
+  const s = panel.snapshot();
+  const inMatch = [...s.playersA, ...s.playersB].some(p => p?.nick === event.detail?.nick);
+  if (!inMatch || !obsSettings().configured) return;
+  $('sendObsBtn').dataset.attention = '1';
+  $('sendObsBtn').title = `У ${event.detail.nick} новая ссылка — отправь матч в OBS ещё раз`;
 });
 $('copyJsonBtn').addEventListener('click', () => {
   try { panel.copy(obsJson()); } catch (error) { panel.showError(error.message); }
