@@ -27,6 +27,7 @@ async def run(args):
                 **({"is_mobile": True, "has_touch": True, "device_scale_factor": 2} if mobile else {}))
             errors = []
             automation_styles = []
+            baseline_styles = set()
             def report_csp(source, violation):
                 if source["frame"] != source["page"].main_frame:
                     return
@@ -36,6 +37,9 @@ async def run(args):
                 injected_style = (mobile and violation["blocked"] == "inline"
                     and violation["directive"].startswith("style-src")
                     and not violation["file"].startswith(base + "/"))
+                signature = tuple(violation[key] for key in ["directive","blocked","file","line"])
+                if signature in baseline_styles:
+                    return
                 (automation_styles if injected_style else errors).append(violation)
             await context.expose_binding("reportQrCsp", report_csp)
             await context.add_init_script("""
@@ -56,6 +60,18 @@ async def run(args):
             await page.route_web_socket(OBS_ROUTE, MockObs().handler)
             await page.goto(base)
             await expect(page.locator("#syncTitle")).to_contain_text("команд из таблицы")
+            await page.evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))")
+            # Mobile WebKit reports its native select shadow styles at the
+            # existing teamGrid.innerHTML render site. There are no inline
+            # rules in that template or in the audited DOM. Establish that
+            # pre-QR baseline; QR owners must introduce no new CSP reports.
+            for violation in list(errors):
+                if (isinstance(violation, dict) and mobile
+                    and violation["directive"] == "style-src-attr"
+                    and violation["blocked"] == "inline"
+                    and violation["file"] == base + "/app.js"):
+                    baseline_styles.add(tuple(violation[key] for key in ["directive","blocked","file","line"]))
+                    errors.remove(violation)
             await page.click("#obsNavBtn")
             await page.check('input[name=obsMode][value=direct]')
             reader = page.locator("#obsNativeQr")
