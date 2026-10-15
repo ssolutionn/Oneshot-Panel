@@ -158,9 +158,16 @@ async def run(args):
         await context.route("https://docs.google.com/**/gviz/**", sheets)
         await context.route("https://vdo.ninja/**", lambda route: route.fulfill(content_type="text/html", body=FAKE_VDO))
         errors = []
+        # CSP violations of our own pages only: the published site also gets
+        # Netlify's injected badge iframe, whose inline script is not ours.
+        await context.expose_binding("reportCsp", lambda source, text:
+                                     errors.append(f"CSP {source['page'].url}: {text}")
+                                     if source["frame"] == source["page"].main_frame else None)
+        await context.add_init_script("""
+            addEventListener('securitypolicyviolation', event =>
+              window.reportCsp?.(`${event.violatedDirective} ${event.blockedURI}`));""")
         page = await context.new_page()
         page.on("pageerror", lambda error: errors.append(str(error)))
-        page.on("console", lambda m: m.type == "error" and "Content Security Policy" in m.text and errors.append(m.text))
         obs = MockObs()
         await page.route_web_socket(OBS_URL, obs.handler)
         await page.goto(base + "/")
