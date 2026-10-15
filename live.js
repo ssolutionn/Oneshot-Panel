@@ -186,7 +186,6 @@ function saveObsDialog() {
   fillObsLink(code);
   ensureBridge().catch(() => {});
   renderObsState();
-  sendVeto(true);
 }
 function openObsSettings() {
   const section = $('obsDialog');
@@ -355,67 +354,85 @@ function encodeState(state) {
   for (const byte of bytes) text += String.fromCharCode(byte);
   return btoa(text).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
+const VETO_CHANNEL_STORE = 'oneshot-veto-channel';
+const savedVetoCode = normalizeCode(read(VETO_CHANNEL_STORE));
+const vetoCode = savedVetoCode || newBridgeCode();
+write(VETO_CHANNEL_STORE, vetoCode);
+let vetoLink = null, vetoOpening = null, vetoTimer, lastVeto = '', vetoId = '', vetoAck = '', vetoSeen = 0;
 function setVetoStatus(text, kind = '') {
   $('vetoLiveStatus').textContent = text;
   $('vetoLiveStatus').dataset.kind = kind;
 }
+function paintVetoStatus() {
+  if (!$('vetoLive').checked) return setVetoStatus('Живое обновление выключено. Копирование ссылки включает его автоматически.');
+  if (vetoAck === vetoId && vetoSeen && Date.now() - vetoSeen < 12000) {
+    return setVetoStatus('Оверлей получает вето · ' + new Date(vetoSeen).toLocaleTimeString('ru-RU'), 'good');
+  }
+  setVetoStatus('Ждём оверлей. В OBS добавь Источники → + → Браузер, вставь ссылку на оверлей и задай 1920 × 1080.', 'wait');
+}
+function ensureVetoLink() {
+  if (vetoLink) return Promise.resolve(vetoLink);
+  if (vetoOpening) return vetoOpening;
+  vetoOpening = bridgeSecrets(vetoCode).then(secrets => {
+    if (!$('vetoLive').checked) return null;
+    vetoLink = new VdoLink(secrets, 'dock', message => {
+      if (message.type !== 'veto-received' || message.id !== vetoId) return;
+      vetoAck = message.id;
+      vetoSeen = Date.now();
+      paintVetoStatus();
+    });
+    return vetoLink;
+  }).finally(() => { vetoOpening = null; });
+  return vetoOpening;
+}
 function enableLiveVeto() {
   $('vetoLive').checked = true;
   write('oneshot-veto-live', true);
-  lastVeto = '';
-  sendVeto(true);
+  sendVeto();
 }
 $('copyOverlay').addEventListener('click', () => {
-  // A link intended for OBS should start receiving moves without a second,
-  // easily missed checkbox. The copied snapshot also covers its first load.
-  panel.copy(`${cardBase()}/assets/veto-overlay/overlay.html?layout=${$('vetoLayout').value}#s=${encodeState(vetoState())}`);
+  // This display-only code cannot operate OBS. Never reuse its control code.
+  panel.copy(`${cardBase()}/assets/veto-overlay/overlay.html?layout=${$('vetoLayout').value}#s=${encodeState(vetoState())}&r=${vetoCode}`);
   enableLiveVeto();
 });
 $('vetoLive').checked = !!read('oneshot-veto-live');
 $('vetoLive').addEventListener('change', () => {
   write('oneshot-veto-live', $('vetoLive').checked);
-  lastVeto = '';
-  sendVeto(true);
+  if (!$('vetoLive').checked) {
+    vetoLink?.close();
+    vetoLink = null;
+    vetoSeen = 0;
+  }
+  sendVeto();
 });
-// One ordered stream of full snapshots. Repeat the latest state after source
-// reloads, scene activation, a late dock connection or a missed browser event.
-// Identical snapshots do not restart card animations.
-let lastVeto = '', vetoTimer, vetoSending = false, vetoAgain = false;
 async function flushVeto() {
-  if (!$('vetoLive').checked || !obsSettings().configured) return;
-  if (vetoSending) { vetoAgain = true; return; }
-  const state = vetoState(), key = JSON.stringify(state);
-  vetoSending = true;
-  setVetoStatus('Передаём вето в OBS…', 'wait');
+  if (!$('vetoLive').checked) return;
   try {
-    await obsCommand({ type: 'veto', state }, 15000);
-    lastVeto = key;
-    setVetoStatus('Вето передано в OBS · ' + new Date().toLocaleTimeString('ru-RU'), 'good');
-  } catch (error) {
-    setVetoStatus(error.message + ' Повторим автоматически.', 'bad');
-  } finally {
-    vetoSending = false;
-    if (!$('vetoLive').checked) setVetoStatus('Живое обновление выключено. Включи его перед вето.');
-    else if (vetoAgain || JSON.stringify(vetoState()) !== key) {
-      vetoAgain = false;
-      sendVeto(true);
+    const state = vetoState(), key = JSON.stringify(state);
+    if (key !== lastVeto) {
+      lastVeto = key;
+      vetoId = crypto.randomUUID();
     }
+    const link = await ensureVetoLink();
+    if (!link || !$('vetoLive').checked) return;
+    await link.send({ type: 'veto-state', id: vetoId, state });
+    paintVetoStatus();
+  } catch (error) {
+    setVetoStatus('Оверлей: ' + error.message + ' Повторим автоматически.', 'bad');
   }
 }
-function sendVeto(force = false) {
+function sendVeto() {
   clearTimeout(vetoTimer);
-  if (!$('vetoLive').checked) {
-    return setVetoStatus('Живое обновление выключено. Копирование ссылки включает его автоматически.');
-  }
-  if (!obsSettings().configured) {
-    return setVetoStatus('Для живого обновления сохрани подключение к OBS выше.', 'wait');
-  }
-  if (!force && JSON.stringify(vetoState()) === lastVeto) return;
+  if (!$('vetoLive').checked) return paintVetoStatus();
+  paintVetoStatus();
   vetoTimer = setTimeout(flushVeto, 150);
 }
+// Replay only the current full snapshot. Late/reloaded sources recover;
+// identical updates preserve ongoing transitions in the renderer.
 setInterval(() => {
-  if ($('vetoLive').checked && !vetoSending) sendVeto(true);
-}, 5000);
+  paintVetoStatus();
+  if ($('vetoLive').checked) flushVeto();
+}, 2500);
 
 // ---------- follow the panel ----------
 function onChange() {

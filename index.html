@@ -112,7 +112,7 @@
           <span class="obs-connection-chevron" aria-hidden="true">⌄</span>
         </summary>
         <form id="obsForm">
-          <p class="obs-connection-intro">Здесь настраивается связь для живого вето и отправки матча в OBS. Сначала выбери, на каком компьютере открыт OBS.</p>
+          <p class="obs-connection-intro">Здесь настраивается отправка камер и матча в OBS. Для вето добавь отдельный источник «Браузер» по ссылке ниже. Сначала выбери, на каком компьютере открыт OBS.</p>
           <fieldset class="obs-mode">
             <legend class="mini-label">Где открыт OBS?</legend>
             <label class="check"><input type="radio" name="obsMode" value="bridge" checked><span><b>На другом компьютере</b><small>Подключаем через док внутри OBS обсервера.</small></span></label>
@@ -165,7 +165,7 @@
         </span>
       </div>
       <p id="vetoLiveStatus" class="veto-live-status" role="status" aria-live="polite"></p>
-      <p class="obs-field-hint">В OBS добавь именно <b>Источники → + → Браузер</b>, вставь ссылку на оверлей и задай <b>1920 × 1080</b>. Док Oneshot управляет связью; отдельный источник показывает графику в кадре.</p><!-- /web-only -->
+      <p class="obs-field-hint">В OBS добавь именно <b>Источники → + → Браузер</b>, вставь ссылку на оверлей и задай <b>1920 × 1080</b>. Док Oneshot управляет камерами; отдельный источник показывает графику в кадре. Живое вето соединяется с панелью по своей ссылке и не требует пароля OBS.</p><!-- /web-only -->
       <div id="sideChoice" class="side-choice" hidden>
         <strong id="sideLabel"></strong>
         <button id="chooseCT" class="button dark">CT</button>

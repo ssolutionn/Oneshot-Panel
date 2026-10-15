@@ -199,26 +199,10 @@ export async function applyMatch(obs, match, onProgress = () => {}) {
   return { slots: plans.length, cards: plans.filter(p => p.card).length };
 }
 
-// A working WebSocket does not imply a live overlay exists in this collection.
-// Never report successful veto delivery when only the control dock is present.
-export async function emitVeto(obs, state) {
-  const { inputs = [] } = await obs.request('GetInputList', { inputKind: 'browser_source' });
-  let sources = 0, demo = false;
-  for (const input of inputs) {
-    const { inputSettings = {} } = await obs.request('GetInputSettings', { inputName: input.inputName });
-    if (inputSettings.is_local_file) continue;
-    let url;
-    try { url = new URL(inputSettings.url); } catch { continue; }
-    if (url.pathname !== '/assets/veto-overlay/overlay.html') continue;
-    if (url.searchParams.get('preview') === '1') { demo = true; continue; }
-    sources++;
-  }
-  if (!sources) throw new Error(demo ?
-    'В OBS добавлена демоверсия вето. Замени URL источника ссылкой «Ссылка на оверлей для OBS» с панели.' :
-    'В OBS нет браузерного источника вето. Скопируй «Ссылку на оверлей для OBS» и добавь её через Источники → + → Браузер (1920 × 1080).');
-  await obs.request('CallVendorRequest', {
+// The veto overlay (assets/veto-overlay/overlay.html) listens for this obs-browser event.
+export function emitVeto(obs, state) {
+  return obs.request('CallVendorRequest', {
     vendorName: 'obs-browser', requestType: 'emit_event',
     requestData: { event_name: VETO_EVENT, event_data: state }
   });
-  return { sources };
 }

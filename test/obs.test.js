@@ -22,13 +22,6 @@ function mockObs({ password = '', scenes = 10, cameraName = i => `Камера $
   const items = scene => state.scenes.get(scene).map((it, index) => ({ ...it, sceneItemIndex: index }));
   const salt = 'c2FsdA==', challenge = 'Y2hhbGxlbmdl';
   const handlers = {
-    GetInputList() {
-      return { inputs: [...state.inputs].filter(([,input]) => input.kind === 'browser_source')
-        .map(([inputName]) => ({ inputName, inputKind: 'browser_source' })) };
-    },
-    GetInputSettings({ inputName }) {
-      return { inputSettings: state.inputs.get(inputName).settings };
-    },
     GetSceneItemList({ sceneName }) {
       if (!state.scenes.has(sceneName)) throw [600, 'No source was found'];
       return { sceneItems: items(sceneName) };
@@ -168,9 +161,6 @@ test('Sending a match updates cameras and puts cards right under them', async ()
     await applyMatch(client, { ...next, includeCards: true });
     assert.deepEqual(ordered(obs, 'Игрок 1').slice(2), ['CARD 01 | C | nick20', 'CAM 01 | C | nick20']);
     assert.equal(obs.state.scenes.get('Игрок 1')[2].enabled, true);
-    obs.state.inputs.set('Veto', { kind: 'browser_source', settings: {
-      url: 'https://panel.example/assets/veto-overlay/overlay.html?layout=full#s=test'
-    } });
     await emitVeto(client, { maps: [] });
     assert.deepEqual(obs.state.vendor[0], { vendorName: 'obs-browser', requestType: 'emit_event',
       requestData: { event_name: VETO_EVENT, event_data: { maps: [] } } });
@@ -207,24 +197,4 @@ test('Card placement keeps the card directly under the camera', () => {
   ], players()[0], { includeCards: false });
   assert.equal(plan.camera.item.sourceName, 'CAM 01 | A | old');
   assert.equal(plan.hideCard.sourceName, 'CARD 01 | A | old');
-});
-
-test('Live veto rejects missing or demo sources even when OBS is connected', async () => {
-  const obs = await mockObs();
-  const client = await new ObsClient(obs.url).connect();
-  try {
-    await assert.rejects(emitVeto(client, {}), /нет браузерного источника вето/);
-    assert.equal(obs.state.vendor.length, 0);
-    obs.state.inputs.set('Veto', { kind: 'browser_source', settings: {
-      url: 'https://panel.example/assets/veto-overlay/overlay.html?preview=1'
-    } });
-    await assert.rejects(emitVeto(client, {}), /демоверсия/);
-    assert.equal(obs.state.vendor.length, 0);
-    obs.state.inputs.get('Veto').settings.url = 'https://panel.example/assets/veto-overlay/overlay.html?layout=strip';
-    assert.deepEqual(await emitVeto(client, { version: 1 }), { sources: 1 });
-    assert.equal(obs.state.vendor.length, 1);
-  } finally {
-    client.close();
-    obs.close();
-  }
 });
