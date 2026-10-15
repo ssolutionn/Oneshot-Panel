@@ -422,6 +422,14 @@ body.dock { background:var(--bg); font-size:12px; }
   html { scroll-behavior:auto; }
   *,*::before,*::after { transition:none!important; }
 }
+
+/* Selected maps form the chronological veto; remaining cards follow them. */
+.map-turn,.map-team { position:relative; z-index:1; }
+.map-turn { position:absolute; top:6px; left:5px; padding:4px 5px; border-radius:3px; background:var(--map-shade); color:var(--map-ink); font-size:9px; line-height:1.2; font-weight:700; }
+.map-team { padding:0 8px 7px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:9px; line-height:1.3; color:var(--map-ink); text-shadow:0 1px 4px var(--map-shade); }
+.map-card.ban img { filter:grayscale(1) brightness(.65); }
+.map-card.pick .map-name,.map-card.ban .map-name { padding-bottom:3px; }
+.map-card.pending { border-color:var(--map-pick); }
 body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}.toast{bottom:calc(24px + env(safe-area-inset-bottom,0px))}footer{padding-bottom:max(20px,env(safe-area-inset-bottom,0px))}#pasteArea{min-height:140px}.artifact-download-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.download-note{color:var(--warn-ink)!important;background:var(--warn);border:1px solid var(--warn-line);border-radius:4px;padding:8px 10px;line-height:1.6}@media(max-width:800px){.artifact-download-actions .button{flex:1}.artifact-download-actions{grid-column:1/-1}}.dialog-section{border-top:1px solid var(--line);margin-top:22px}
 </style>
 <a class="skip-link" href="#webcams">К составам команд</a>
@@ -1750,6 +1758,7 @@ async function copy(text, message = 'Скопировано в буфер обм
   $('manualCopy').select();
 }
 
+let vetoPresentation = { match: '', count: 0, revealAt: 0, timer: null };
 function renderVeto() {
   const identity = JSON.stringify([state.a, state.b, state.matchKey]);
   if (state.veto.matchKey !== identity) {
@@ -1762,6 +1771,17 @@ function renderVeto() {
   const { actions, format, first } = state.veto;
   const ready = !!getTeam('a') && !!getTeam('b') && state.a !== state.b;
   const finished = actions.length === 6;
+  if (vetoPresentation.match === identity && vetoPresentation.count < 6 && finished) {
+    vetoPresentation.revealAt = performance.now() + 1500;
+    clearTimeout(vetoPresentation.timer);
+    vetoPresentation.timer = setTimeout(renderVeto, 1500);
+  } else if (vetoPresentation.match !== identity || !finished) {
+    clearTimeout(vetoPresentation.timer);
+    vetoPresentation.revealAt = 0;
+  }
+  vetoPresentation.match = identity;
+  vetoPresentation.count = actions.length;
+  const showDecider = finished && performance.now() >= vetoPresentation.revealAt;
   $('vetoFormat').value = format;
   $('vetoFormat').disabled = actions.length > 0 || !!state.pending;
   $('vetoFirst').innerHTML =
@@ -1784,23 +1804,33 @@ function renderVeto() {
   $('sideLabel').textContent = state.pending ?
     `${teams[1 - team]} начинает на ${state.pending}:` : '';
 
-  $('mapGrid').innerHTML = MAP_POOL.map(map => {
-    const action = actions.find(a => a.map === map);
-    const leftover = finished && !action;
+  const selectedMaps = [...actions.map(action => action.map), ...(state.pending ? [state.pending] : [])];
+  const orderedMaps = [...selectedMaps, ...MAP_POOL.filter(map => !selectedMaps.includes(map))];
+  $('mapGrid').innerHTML = orderedMaps.map(map => {
+    const actionIndex = actions.findIndex(action => action.map === map);
+    const action = actions[actionIndex];
+    const pending = state.pending === map;
+    const leftover = showDecider && !action;
+    const turn = action ? actionIndex + 1 : pending ? actions.length + 1 : leftover ? 7 : null;
+    const role = action?.type || (pending ? 'pick' : leftover ? 'leftover' : '');
+    const owner = action ? teams[action.team] : pending ? teams[team] : '';
     const label = action ?
       `${action.type === 'pick' ? 'PICK' : 'BAN'} · ${teams[action.team]}${action.type === 'pick' ?
         ` · ${teams[1 - action.team]} ${action.side}` : ''}` :
-      leftover ? 'DECIDER · was left over' :
-      state.pending === map ? 'Выбор стороны…' : 'Выбрать карту';
+      pending ? `PICK · ${owner} · сторону выбирает ${teams[1 - team]}` :
+      leftover ? 'DECIDER · was left over' : 'Выбрать карту';
     const status = action ? action.type === 'pick' ? '✓ Пик' : '⊘ Бан' :
-      leftover ? '— Решающая' : state.pending === map ? 'Сторона…' : 'Выбрать';
+      leftover ? '— Решающая' : pending ? '✓ Пик · сторона…' : 'Выбрать';
+    const turnLabel = role === 'leftover' ? 'DECIDER' : role.toUpperCase();
     return `<button
-      class="map-card ${action ? action.type : leftover ? 'leftover' : ''}"
+      class="map-card ${role} ${pending ? 'pending' : ''}"
       data-map="${map}"
       ${!ready || !!action || finished || !!state.pending ? 'disabled' : ''}
       aria-label="${escapeHtml(map + ': ' + label)}">
       <img src="${ARTIFACT_MAPS[map]}" alt="" loading="lazy" width="960" height="180">
+      ${turn ? `<span class="map-turn">${String(turn).padStart(2, '0')} · ${turnLabel}</span>` : ''}
       <span class="map-name">${map}</span>
+      ${owner ? `<span class="map-team" title="${escapeHtml(owner)}">${escapeHtml(owner)}</span>` : ''}
       <span class="map-action" title="${escapeHtml(label)}">${status}</span>
     </button>`;
   }).join('');

@@ -484,6 +484,7 @@ async function copy(text) {
   $('manualCopy').select();
 }
 
+let vetoPresentation = { match: '', count: 0, revealAt: 0, timer: null };
 function renderVeto() {
   const identity = JSON.stringify([state.a, state.b, state.matchKey]);
   if (state.veto.matchKey !== identity) {
@@ -496,6 +497,17 @@ function renderVeto() {
   const { actions, format, first } = state.veto;
   const ready = !!getTeam('a') && !!getTeam('b') && state.a !== state.b;
   const finished = actions.length === 6;
+  if (vetoPresentation.match === identity && vetoPresentation.count < 6 && finished) {
+    vetoPresentation.revealAt = performance.now() + 1500;
+    clearTimeout(vetoPresentation.timer);
+    vetoPresentation.timer = setTimeout(renderVeto, 1500);
+  } else if (vetoPresentation.match !== identity || !finished) {
+    clearTimeout(vetoPresentation.timer);
+    vetoPresentation.revealAt = 0;
+  }
+  vetoPresentation.match = identity;
+  vetoPresentation.count = actions.length;
+  const showDecider = finished && performance.now() >= vetoPresentation.revealAt;
   $('vetoFormat').value = format;
   $('vetoFormat').disabled = actions.length > 0 || !!state.pending;
   $('vetoFirst').innerHTML =
@@ -518,23 +530,33 @@ function renderVeto() {
   $('sideLabel').textContent = state.pending ?
     `${teams[1 - team]} начинает на ${state.pending}:` : '';
 
-  $('mapGrid').innerHTML = MAP_POOL.map(map => {
-    const action = actions.find(a => a.map === map);
-    const leftover = finished && !action;
+  const selectedMaps = [...actions.map(action => action.map), ...(state.pending ? [state.pending] : [])];
+  const orderedMaps = [...selectedMaps, ...MAP_POOL.filter(map => !selectedMaps.includes(map))];
+  $('mapGrid').innerHTML = orderedMaps.map(map => {
+    const actionIndex = actions.findIndex(action => action.map === map);
+    const action = actions[actionIndex];
+    const pending = state.pending === map;
+    const leftover = showDecider && !action;
+    const turn = action ? actionIndex + 1 : pending ? actions.length + 1 : leftover ? 7 : null;
+    const role = action?.type || (pending ? 'pick' : leftover ? 'leftover' : '');
+    const owner = action ? teams[action.team] : pending ? teams[team] : '';
     const label = action ?
       `${action.type === 'pick' ? 'PICK' : 'BAN'} · ${teams[action.team]}${action.type === 'pick' ?
         ` · ${teams[1 - action.team]} ${action.side}` : ''}` :
-      leftover ? 'DECIDER · was left over' :
-      state.pending === map ? 'Выбор стороны…' : 'Выбрать карту';
+      pending ? `PICK · ${owner} · сторону выбирает ${teams[1 - team]}` :
+      leftover ? 'DECIDER · was left over' : 'Выбрать карту';
     const status = action ? action.type === 'pick' ? '✓ Пик' : '⊘ Бан' :
-      leftover ? '— Решающая' : state.pending === map ? 'Сторона…' : 'Выбрать';
+      leftover ? '— Решающая' : pending ? '✓ Пик · сторона…' : 'Выбрать';
+    const turnLabel = role === 'leftover' ? 'DECIDER' : role.toUpperCase();
     return `<button
-      class="map-card ${action ? action.type : leftover ? 'leftover' : ''}"
+      class="map-card ${role} ${pending ? 'pending' : ''}"
       data-map="${map}"
       ${!ready || !!action || finished || !!state.pending ? 'disabled' : ''}
       aria-label="${escapeHtml(map + ': ' + label)}">
       <img src="/assets/maps/${map}.jpg" alt="" loading="lazy" width="960" height="180">
+      ${turn ? `<span class="map-turn">${String(turn).padStart(2, '0')} · ${turnLabel}</span>` : ''}
       <span class="map-name">${map}</span>
+      ${owner ? `<span class="map-team" title="${escapeHtml(owner)}">${escapeHtml(owner)}</span>` : ''}
       <span class="map-action" title="${escapeHtml(label)}">${status}</span>
     </button>`;
   }).join('');

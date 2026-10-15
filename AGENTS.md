@@ -112,6 +112,10 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   `scripts/qa_obs_runtime.py` / workflow «OBS runtime regression» проверяет
   официальный OBS с настоящим CEF и VDO.Ninja: ручные ходы, подтверждение,
   анимации и восстановление после reload; только Sheets подменены.
+  Матрица Chromium / мобильный WebKit проверяет касания, доступность меню,
+  порядок ходов, PICK до стороны соперника и задержку десайдера. На CI у CEF
+  отключён GPU из-за нестабильности виртуального драйвера; WebGL проверяется
+  отдельно через qa_veto_overlay.py.
 
 ## Команды
 
@@ -158,6 +162,11 @@ Netlify проверяет локальные фото, докачивает н�
   или включать пароль OBS в URL источника. Сообщения показа: `veto-state {id,
   state}`, `veto-received {id}`. Зелёный статус вето — только после подтверждения
   текущего id от источника; статус дока не означает, что графика добавлена.
+- Порядок карточек панели: завершённые ходы, pending-пик, затем остаток пула.
+  PICK виден до выбора стороны; side по-прежнему относится к сопернику.
+  Задержка десайдера 1500 мс — только показ, без изменения core.js/текста HLTV.
+  Новые URL layout=strip&crop=1 дают 1920×400; старые strip URL — прежние
+  1920×1080 с прозрачным верхом. Для OBS ниже плашки остаётся место под камеры.
 - Снимок вето для оверлея: `{version: 1, teams, format, first, actions,
   pending, stage}` — контракт `window.vetoOverlay.setState`.
 - CSP: `script-src 'self'`, `style-src 'self'`, `img-src 'self'`. Никаких
@@ -185,8 +194,8 @@ Netlify проверяет локальные фото, докачивает н�
   closeCopy manualCopy toast
 - id сайта (`live.js`, `lobby.js`, `obs-bridge.js`): viewPrep viewLobby
   lobbyBadge prepView lobbyView camSummary watchCams camTotal sendObsBtn
-  copyJsonBtn obsSetupBtn obsDot obsState vetoLive vetoLiveStatus vetoLayout copyOverlay
-  obsDialog obsForm closeObs obsBridgeFields obsDockUrl copyDockUrl obsCode
+  copyJsonBtn obsNavBtn obsSetupBtn obsDot obsState vetoLive vetoLiveStatus vetoLayout copyOverlay
+  obsDialog obsForm closeObs vetoBroadcast overlaySizeHint obsBridgeFields obsDockUrl copyDockUrl obsCode
   newObsCode obsDirectFields obsUrl obsPassword obsTestResult testObs
   saveObs notifyBtn soundBtn lobbyForm faceitUrl faceitKey lobbyStart
   lobbyStatus lobbyError lobbyAlert lobbyAlertText lobbyAck lobbyMatches

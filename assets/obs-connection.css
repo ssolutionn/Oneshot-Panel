@@ -60,3 +60,12 @@
 .veto-live-status { margin: 10px 0 6px; color: var(--muted); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 .veto-live-status[data-kind="good"] { color: var(--success-ink); }
 .veto-live-status[data-kind="bad"] { color: var(--red); }
+
+/* Connection entry remains visible even when the Lobby tab is restored. */
+.obs-nav-button { color:var(--ink); font-weight:700; min-height:44px; }
+.obs-mobile-guide { margin:0 0 14px; padding:12px; color:var(--sub); background:var(--surface); border:1px solid var(--line); border-radius:6px; font-size:12px; line-height:1.7; }
+@media(max-width:680px) {
+  .nav-tools .nav-button { min-height:44px; }
+  .nav-tools .obs-nav-button { font-size:13px; }
+  .obs-connection input:not([type=radio]) { font-size:16px; }
+}

@@ -43,8 +43,8 @@ export function viewModel(value) {
     return {
       name, status:action?.type || (left ? 'leftover' : state.pending === name ? 'pending' : 'available'),
       step:index < 0 ? (left ? 7 : null) : index + 1,
-      team:action?.team ?? null,
-      sideTeam:action?.type === 'pick' ? 1 - action.team : null,
+      team:action?.team ?? (state.pending === name ? nextTeam : null),
+      sideTeam:action?.type === 'pick' ? 1 - action.team : state.pending === name ? 1 - nextTeam : null,
       side:action?.side || null,
       ownSide:action?.type === 'pick' ? (action.side === 'CT' ? 'T' : 'CT') : null
     };

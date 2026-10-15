@@ -38,7 +38,10 @@ test('pending picks remain uncommitted until a starting side is chosen',()=>{
   const m=viewModel({...base,pending:'Mirage'});
   assert.equal(m.actions.length,2);
   assert.equal(m.series.length,0);
-  assert.equal(m.maps.find(map=>map.name==='Mirage').status,'pending');
+  const pick=m.maps.find(map=>map.name==='Mirage');
+  assert.equal(pick.status,'pending');
+  assert.equal(pick.team,0);
+  assert.equal(pick.sideTeam,1);
   assert.throws(()=>snapshot({...base,pending:'Ancient'}));
   assert.throws(()=>snapshot({...demoState('BO3',0),pending:'Mirage'}));
 });

@@ -92,6 +92,53 @@ async def run(base, output):
             assert middle != before and middle != settled, "Pick sweep/stamp is not visible"
             checks.append(f"{kind}: ban/pick pixels animate; undo restores; unchanged cards and duplicate updates stay stable")
 
+
+        # PICK is a map choice; the opponent's side is a later UI step.
+        for kind in ["full", "strip"]:
+            await ready(layout=kind, step=2)
+            await page.evaluate("""() => {
+              window.pickStamps=0;
+              const ctx=document.getElementById('scene').getContext('2d'),draw=ctx.fillText.bind(ctx);
+              ctx.fillText=function(text,...args) {
+                if(text==='PICK' && /(?:25|34)px/.test(this.font))window.pickStamps++;
+                return draw(text,...args);
+              };
+            }""")
+            await page.evaluate("""async () => {
+              const state=vetoOverlay.getState();
+              await vetoOverlay.setState({...state,pending:'Mirage'});
+            }""")
+            await page.wait_for_selector('#scene[data-animating*="Mirage"]')
+            await page.wait_for_timeout(400)
+            assert await page.evaluate("window.pickStamps > 0"), "PICK reveal waited for CT/T"
+            owner = await page.evaluate("""async () => {
+              const {viewModel}=await import('/assets/veto-overlay/model.js');
+              return viewModel(vetoOverlay.getState()).slots[2];
+            }""")
+            assert owner["team"] == 0 and owner["sideTeam"] == 1 and owner["side"] is None
+            await page.wait_for_selector('#scene[data-animating=""]')
+            await page.evaluate("window.pickStamps=0")
+            await page.evaluate("""async () => {
+              const state=vetoOverlay.getState(),{appendVeto}=await import('/core.js');
+              await vetoOverlay.setState({...state,pending:null,
+                actions:appendVeto(state.actions,state.format,state.first,'Mirage','CT')});
+            }""")
+            await page.wait_for_timeout(500)
+            assert await page.evaluate("window.pickStamps === 0"), "Side choice replayed PICK"
+            checks.append(f"{kind}: immediate PICK, opponent side choice, no repeated stamp")
+
+        # The deciding map appears only after attention has stayed on the last ban.
+        await ready(step=5)
+        await page.click("#next")
+        await page.wait_for_selector('#scene[data-phase="last-move"]')
+        await page.wait_for_timeout(1100)
+        assert await page.locator("#scene").get_attribute("data-phase") == "last-move"
+        await page.evaluate("vetoOverlay.setState(vetoOverlay.getState())")
+        await page.wait_for_selector('#scene[data-phase="finished"]', timeout=1200)
+        await page.wait_for_selector('#scene[data-animating*="Inferno"]')
+        await page.wait_for_selector('#scene[data-animating=""]')
+        checks.append("Decider waits 1.5s after the last ban; duplicate snapshots do not reset the delay")
+
         for layout in ["full", "strip"]:
             for fmt in ["BO1", "BO2", "BO3", "BO5"]:
                 await ready(layout=layout, fmt=fmt)
@@ -116,6 +163,41 @@ async def run(base, output):
                     await page.screenshot(path=str(output / f"veto-{layout}-preview.jpg"), type="jpeg", quality=85)
                     await page.set_viewport_size({"width":1920,"height":1164})
             checks.append(f"{layout}: all four formats export a 1920x1080 PNG; alpha correct")
+
+
+        await ready(layout="strip", step=6)
+        legacy = await page.evaluate("""() => {
+          const d=document.getElementById('scene').getContext('2d').getImageData(0,680,1920,400).data,s=[];
+          for(let y=5;y<400;y+=17)for(let x=5;x<1920;x+=31) {
+            const i=(y*1920+x)*4;s.push(d[i],d[i+1],d[i+2],d[i+3]);
+          }
+          return s;
+        }""")
+        await page.goto(path + "?preview=1&layout=strip&crop=1&step=6&motion=off")
+        await page.wait_for_selector("#scene[data-ready='true']")
+        cropped = await page.evaluate("""() => {
+          const c=document.getElementById('scene'),d=c.getContext('2d').getImageData(0,0,1920,400).data,s=[];
+          for(let y=5;y<400;y+=17)for(let x=5;x<1920;x+=31) {
+            const i=(y*1920+x)*4;s.push(d[i],d[i+1],d[i+2],d[i+3]);
+          }
+          return {width:c.width,height:c.height,sample:s,alpha:d[3]};
+        }""")
+        assert (cropped["width"],cropped["height"],cropped["alpha"]) == (1920,400,255)
+        # Separate canvas origins can round antialiasing differently.
+        difference = sum(abs(a-b) for a,b in zip(legacy,cropped["sample"])) / len(legacy)
+        assert difference < 2, f"Compact strip differs from the legacy lower frame: {difference}"
+        async with page.expect_download() as pending:
+            await page.click("#download")
+        download = await pending.value
+        target = output / "CyberClash-veto-1920x400.png"
+        await download.save_as(str(target))
+        raw = target.read_bytes()
+        assert int.from_bytes(raw[16:20],"big") == 1920 and int.from_bytes(raw[20:24],"big") == 400
+        checks.append(f"Compact strip: 1920x400, lower frame mean pixel error {difference:.3f}, 400px PNG")
+        print("COMPACT_PREVIEW_BEGIN", flush=True)
+        print(await page.evaluate("document.getElementById('scene').toDataURL('image/jpeg',.85).split(',')[1]"), flush=True)
+        print("COMPACT_PREVIEW_END", flush=True)
+
         # Observe actual canvas labels and their horizontal positions, rather
         # than only the view model, in both OBS layouts and exported scenes.
         for kind in ["full", "strip"]:

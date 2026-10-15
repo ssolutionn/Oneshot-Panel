@@ -34,7 +34,7 @@
       <button id="viewPrep" class="view-tab active" type="button" role="tab" aria-selected="true" aria-controls="prepView">Подготовка</button>
       <button id="viewLobby" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="lobbyView" tabindex="-1">Лобби<span id="lobbyBadge" class="tab-badge" hidden></span></button>
     </div><!-- /web-only -->
-    <div class="nav-tools">
+    <div class="nav-tools"><!-- web-only --><button id="obsNavBtn" class="nav-button obs-nav-button" type="button" aria-controls="obsDialog">OBS / эфир</button><!-- /web-only -->
       <button id="refreshBtn" class="nav-button" type="button" title="Обновить данные">↻ Обновить</button>
       <button id="settingsBtn" class="nav-button" type="button">Источник данных</button>
     </div>
@@ -112,6 +112,7 @@
           <span class="obs-connection-chevron" aria-hidden="true">⌄</span>
         </summary>
         <form id="obsForm">
+          <p class="obs-mobile-guide">С телефона выбирай <b>«На другом компьютере»</b>. Ссылки для дока и оверлея копируй именно с телефона и вставляй в OBS на ПК: у каждого браузера свой код связи.</p>
           <p class="obs-connection-intro">Здесь настраивается отправка камер и матча в OBS. Для вето добавь отдельный источник «Браузер» по ссылке ниже. Сначала выбери, на каком компьютере открыт OBS.</p>
           <fieldset class="obs-mode">
             <legend class="mini-label">Где открыт OBS?</legend>
@@ -157,7 +158,7 @@
           </div>
         </form>
       </details>
-      <div class="veto-overlay-bar">
+      <div class="veto-overlay-bar" id="vetoBroadcast">
         <label class="check"><input id="vetoLive" type="checkbox" autocomplete="off"> Оверлей вето в OBS вживую</label>
         <span class="overlay-link">
           <select id="vetoLayout" aria-label="Вид оверлея"><option value="full">Весь экран</option><option value="strip">Плашка снизу</option></select>
@@ -165,7 +166,7 @@
         </span>
       </div>
       <p id="vetoLiveStatus" class="veto-live-status" role="status" aria-live="polite"></p>
-      <p class="obs-field-hint">В OBS добавь именно <b>Источники → + → Браузер</b>, вставь ссылку на оверлей и задай <b>1920 × 1080</b>. Док Oneshot управляет камерами; отдельный источник показывает графику в кадре. Живое вето соединяется с панелью по своей ссылке и не требует пароля OBS.</p><!-- /web-only -->
+      <p class="obs-field-hint" id="overlaySizeHint">В OBS добавь именно <b>Источники → + → Браузер</b>, вставь ссылку на оверлей и задай <b>1920 × 1080</b>. Док Oneshot управляет камерами; отдельный источник показывает графику в кадре. Живое вето соединяется с панелью по своей ссылке и не требует пароля OBS.</p><!-- /web-only -->
       <div id="sideChoice" class="side-choice" hidden>
         <strong id="sideLabel"></strong>
         <button id="chooseCT" class="button dark">CT</button>

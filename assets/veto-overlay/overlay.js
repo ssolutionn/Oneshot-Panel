@@ -6,6 +6,7 @@ import { VdoLink, bridgeSecrets, normalizeCode } from '../../vdo.js';
 
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
 const preview=params.get('preview')==='1';
+const cropped=params.get('crop')==='1';
 const reduced=matchMedia('(prefers-reduced-motion: reduce)');
 let format=['BO1','BO2','BO3','BO5'].includes(params.get('format'))?params.get('format'):'BO3';
 let layout=params.get('layout')==='strip'?'strip':'full';
@@ -99,7 +100,7 @@ async function init() {
     artwork(current?.teams||[]),
     document.fonts.load('700 48px "Oneshot Display"','CYBERCLASH КАРТЫ РЕШАЮТ').catch(()=>[])
   ]);
-  scene=new VetoScene($('scene'),assets,{layout,motion,animations:params.get('animations')!=='off'&&!reduced.matches});
+  scene=new VetoScene($('scene'),assets,{layout,motion,cropped,animations:params.get('animations')!=='off'&&!reduced.matches});
   if(current)scene.setState(current,{animate:false});else scene.start();
   // Renderer contract for the future shared-state transport. This interface
   // itself does not synchronize browsers or publish to other computers.
