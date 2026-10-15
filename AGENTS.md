@@ -64,6 +64,22 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   127.0.0.1/localhost/[::1] (`loopbackObsUrl` в `obs.js`) и сохраняет их,
   лишь когда OBS их принял. Панель этот пароль не хранит. localStorage
   дока: `oneshot-obs-bridge`.
+- `veto.html`, `veto.js`, `veto.css`, `veto-room.js` — сайт вето для
+  капитанов (только сайт). Без `#v=` — форма админа (`#new&a=&b=&f=` от
+  кнопки `playerVeto` панели): три ссылки — капитану каждой команды (в ЛС)
+  и зрителям. В ссылке капитана его личный ключ ECDSA P-256; ход
+  засчитывается, только если подписан капитаном, чей сейчас ход
+  (`verifyLog`), кто бы ни переслал журнал. Монетку бросает форма (`c`),
+  победитель выбирает, кто банит первым; после пика сторону выбирает
+  соперник (как в core: `Y CT`). 5 минут — только счётчик от выбора
+  порядка, без автоходов. Связь: каждый капитан публикует свой поток
+  VDO.Ninja только с данными и смотрит поток соперника, зрители смотрят
+  оба; ID потоков, пароль и ключ AES-GCM выводятся из кода комнаты.
+  Журнал рассылается целиком каждые 2,5 с; при расхождении побеждает
+  длинный, при равенстве — меньшая подпись. localStorage:
+  `oneshot-player-veto` (последние ссылки админа),
+  `oneshot-veto-log:<код>`. Логика покрыта `test/veto-room.test.js`,
+  страница — `scripts/qa_veto_site.py` (три отдельных браузера).
 - `faceit.js` — без DOM: разбор ссылки турнира, сводка матча, события
   (карта, матч, отмена, PAUSED), тексты «GG» и «Next xx:MM», клиент Data API.
   Пока карта идёт, FACEIT кладёт в results.score раунды этой карты
@@ -143,6 +159,8 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   8 сценариев сайта: настройка OBS рядом с вето, вкладки, статус вебок, OBS напрямую и через док,
   копирование JSON, оверлей вето, лобби FACEIT (Sheets, VDO.Ninja,
   obs-websocket и FACEIT подменены, время лобби ускорено).
+  `scripts/qa_veto_site.py` — 5 сценариев сайта вето капитанов: ссылки,
+  монетка, весь BO3 в трёх браузерах, reload, 375px.
   `scripts/qa_obs_runtime.py` / workflow «OBS runtime regression» проверяет
   официальный OBS с настоящим CEF и VDO.Ninja: ручные ходы, подтверждение,
   анимации и восстановление после reload; только Sheets подменены.
@@ -155,10 +173,11 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 
 ```sh
 npm run check        # синтаксис
-npm test             # 55 тестов (node:test)
+npm test             # 62 теста (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
+python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 claude-artifact/build_oneshot_artifact.py
 ```
 
@@ -233,7 +252,7 @@ Netlify проверяет локальные фото, докачивает н�
   obsDialog obsForm closeObs vetoBroadcast overlaySizeHint obsBridgeFields obsDockUrl copyDockUrl obsCode
   newObsCode obsRemotePort obsRemotePassword sendObsConfig obsRemoteResult
   obsBridgeStatus obsCodeInput applyObsCode shareDockUrl obsDockMessage
-  obsRemoteBox obsMore
+  obsRemoteBox obsMore playerVeto
   obsDirectFields obsUrl obsPassword obsTestResult testObs
   saveObs notifyBtn soundBtn lobbyForm faceitUrl faceitKey lobbyStart
   lobbyStatus lobbyError lobbyAlert lobbyAlertText lobbyAck lobbyMatches

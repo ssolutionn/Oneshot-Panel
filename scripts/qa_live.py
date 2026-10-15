@@ -368,6 +368,8 @@ async def run(args):
         assert "?layout=strip&crop=1#s=" in await page.evaluate("window.__copied.at(-1)")
         await overlay.close()
         await page.uncheck("#vetoLive")
+        player_veto = await page.get_attribute("#playerVeto", "href")
+        assert player_veto.startswith("/veto.html#new&a=6yuBoJlbl&b=HYPERSPIRIT&f=BO"), player_veto
         passed("live veto: real receiver acknowledgement, animated move and replay after reload; independent of the OBS control dock")
 
         # Codex's animated overlay takes the panel's veto from the link and

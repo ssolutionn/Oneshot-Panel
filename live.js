@@ -593,6 +593,12 @@ function onChange() {
   $('copyJsonBtn').disabled = !!s.matchError || !s.template;
   syncWatcher();
   sendVeto();
+  playerVetoLink(s);
+}
+// The captains' veto site (veto.html) opens with this match's teams and format.
+function playerVetoLink(s) {
+  const params = new URLSearchParams({ a: s.a?.name || '', b: s.b?.name || '', f: s.veto.format });
+  $('playerVeto').href = '/veto.html#new&' + params;
 }
 document.addEventListener('oneshot:change', onChange);
 fillObsDialog();

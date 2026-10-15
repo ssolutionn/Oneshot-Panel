@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Вето карт · CyberClash</title>
+  <link rel="icon" type="image/png" sizes="256x256" href="/assets/favicon-night.png">
+  <link rel="stylesheet" href="/veto.css">
+  <script type="module" src="/veto.js"></script>
+</head>
+<body>
+  <header class="vt-top">
+    <img class="vt-event" src="/assets/card/cyberclash-logo.png" alt="CyberClash" width="265" height="134">
+    <div class="vt-heading">
+      <span class="vt-eyebrow" id="vtEyebrow">MAP VETO · CS2</span>
+      <h1 id="vtTitle">Вето карт</h1>
+    </div>
+    <div class="vt-clock" id="vtClock" hidden>
+      <span class="vt-clock-label">на вето</span>
+      <span class="vt-clock-time" id="vtClockTime">5:00</span>
+    </div>
+  </header>
+
+  <main class="vt-main">
+    <p class="vt-error" id="vtError" role="alert" hidden></p>
+
+    <section class="vt-create" id="vtCreate" hidden aria-labelledby="vtCreateHeading">
+      <h2 id="vtCreateHeading">Новое вето для капитанов</h2>
+      <p class="vt-note">Сайт сделает три ссылки: по одной каждому капитану (в личку в Discord) и одну для зрителей и админа. Монетку сайт подбросит сам.</p>
+      <form id="vtForm" class="vt-form">
+        <label>Команда 1<input id="vtTeamA" list="vtTeamList" required autocomplete="off"></label>
+        <label>Команда 2<input id="vtTeamB" list="vtTeamList" required autocomplete="off"></label>
+        <label>Формат
+          <select id="vtFormat"><option>BO1</option><option>BO2</option><option selected>BO3</option><option>BO5</option></select>
+        </label>
+        <datalist id="vtTeamList"></datalist>
+        <button class="vt-button vt-primary" type="submit">Создать ссылки</button>
+      </form>
+      <div class="vt-links" id="vtLinks" hidden>
+        <article class="vt-link">
+          <h3>Капитану <span id="vtLinkNameA"></span> <small>в личку</small></h3>
+          <textarea id="vtMsgA" readonly rows="8" aria-label="Сообщение для первого капитана"></textarea>
+          <button class="vt-button" type="button" data-copy="vtMsgA">Скопировать сообщение</button>
+        </article>
+        <article class="vt-link">
+          <h3>Капитану <span id="vtLinkNameB"></span> <small>в личку</small></h3>
+          <textarea id="vtMsgB" readonly rows="8" aria-label="Сообщение для второго капитана"></textarea>
+          <button class="vt-button" type="button" data-copy="vtMsgB">Скопировать сообщение</button>
+        </article>
+        <article class="vt-link">
+          <h3>Зрителям и админу <small>можно в общий канал</small></h3>
+          <textarea id="vtMsgS" readonly rows="3" aria-label="Ссылка для зрителей"></textarea>
+          <div class="vt-row">
+            <button class="vt-button" type="button" data-copy="vtMsgS">Скопировать ссылку</button>
+            <a class="vt-button vt-primary" id="vtWatch" target="_blank" rel="noopener">Смотреть вето ↗</a>
+          </div>
+        </article>
+        <p class="vt-note">Ссылка капитана личная: по ней можно ходить за его команду. Если ошиблись — просто создай новые ссылки.</p>
+      </div>
+    </section>
+
+    <section class="vt-room" id="vtRoom" hidden aria-label="Вето">
+      <div class="vt-teams">
+        <article class="vt-team" id="vtTeam0" data-team="0">
+          <span class="vt-logo"><img alt="" hidden></span>
+          <div><b class="vt-team-name"></b><span class="vt-presence">не в сети</span></div>
+          <span class="vt-you" hidden>ТЫ</span>
+        </article>
+        <span class="vt-versus" aria-hidden="true">VS</span>
+        <article class="vt-team" id="vtTeam1" data-team="1">
+          <span class="vt-logo"><img alt="" hidden></span>
+          <div><b class="vt-team-name"></b><span class="vt-presence">не в сети</span></div>
+          <span class="vt-you" hidden>ТЫ</span>
+        </article>
+      </div>
+
+      <div class="vt-stage" id="vtStage" data-phase="wait" aria-live="polite">
+        <div class="vt-coin" id="vtCoin" aria-hidden="true">
+          <span class="vt-coin-face vt-coin-0"></span>
+          <span class="vt-coin-face vt-coin-1"></span>
+        </div>
+        <div class="vt-stage-text">
+          <span class="vt-stage-kicker" id="vtKicker">Монетка</span>
+          <h2 id="vtPrompt">Ждём капитанов</h2>
+          <p id="vtHint"></p>
+        </div>
+        <div class="vt-actions" id="vtActions"></div>
+      </div>
+
+      <div class="vt-maps" id="vtMaps"></div>
+
+      <section class="vt-result" id="vtResult" hidden aria-labelledby="vtResultHeading">
+        <h2 id="vtResultHeading">Итог вето</h2>
+        <pre id="vtResultText"></pre>
+        <button class="vt-button" type="button" data-copy="vtResultText">Скопировать для HLTV</button>
+      </section>
+
+      <ol class="vt-log" id="vtLog" aria-label="Ходы"></ol>
+      <p class="vt-foot" id="vtFoot"></p>
+    </section>
+  </main>
+  <div class="vt-toast" id="vtToast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

@@ -69,6 +69,8 @@ jobs:
           asyncio.run(live["run"](args))
           qr = runpy.run_path("scripts/qa_obs_qr.py", run_name="qr_qa")
           asyncio.run(qr["run"](args))
+          veto = runpy.run_path("scripts/qa_veto_site.py", run_name="veto_site_qa")
+          asyncio.run(veto["run"](args))
           PY
       - name: Verify the published site
         # Production follows only this branch; same-repo pull requests get a preview.
@@ -132,9 +134,11 @@ jobs:
           panel = runpy.run_path("scripts/qa_browser.py", run_name="published_panel")
           cards = runpy.run_path("scripts/qa_player_cards.py", run_name="published_cards")
           live = runpy.run_path("scripts/qa_live.py", run_name="published_live")
+          veto = runpy.run_path("scripts/qa_veto_site.py", run_name="published_veto")
           try:
               asyncio.run(panel["run"](args))
               asyncio.run(live["run"](args))
+              asyncio.run(veto["run"](args))
           finally:
               asyncio.run(cards["run"](args))
           PY

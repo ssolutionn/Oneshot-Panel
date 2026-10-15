@@ -129,6 +129,7 @@ h2 { font-size:17px; line-height:1.4; letter-spacing:-.3px; margin-bottom:0; }
 .copy-icon { display:grid; place-items:center; flex-shrink:0; width:30px; height:32px; border:0; border-radius:5px; background:transparent; color:var(--muted); font-size:20px; }
 .copy-icon:hover { background:var(--soft); color:var(--ink); }
 .card-actions { display:flex; align-items:center; gap:8px; padding:8px 12px 12px; }
+a.text-button { display:inline-flex; align-items:center; }
 .text-button { border:0; border-radius:5px; background:transparent; color:var(--muted); font-size:11px; padding:7px 5px; text-decoration:none; min-height:32px; }
 .text-button:hover:not(:disabled) { background:var(--hover); color:var(--ink); }
 .team-copy { flex:1; display:flex; gap:8px; align-items:center; justify-content:center; background:var(--soft); color:var(--sub); font-size:11px; font-weight:500; }
