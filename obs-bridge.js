@@ -1,4 +1,4 @@
-import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto } from './obs.js';
+import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto, loopbackObsUrl } from './obs.js';
 import { VdoLink, bridgeSecrets, normalizeCode, newBridgeCode } from './vdo.js';
 import { mountQrReader, parseObsQr, localObsUrl, pairingUrl, drawQr } from './assets/obs-qr.js';
 
@@ -46,6 +46,24 @@ function connectObs() {
   return connecting;
 }
 
+// The panel (often a phone) may send this dock's OBS port and password.
+// They are kept only once OBS accepts them; until then the old ones stay.
+async function adoptObs({ url, password }) {
+  const target = loopbackObsUrl(url);
+  const secret = typeof password === 'string' ? password : '';
+  const client = await new ObsClient(target, secret).connect();
+  obs?.close();
+  obs = client;
+  connecting = Promise.resolve(client);
+  save({ ...read(), url: target, password: secret });
+  $('dockUrl').value = target;
+  $('dockPassword').value = secret;
+  status('dockObs', `OBS: подключён${client.version ? ` · WebSocket ${client.version}` : ''}`, 'good');
+  log('Подключение к OBS настроено из панели', 'good');
+  announce();
+  return { ok: true, obs: $('dockObs').textContent };
+}
+
 async function handle(message) {
   panelSeen = Date.now();
   status('dockPanel', 'Панель: на связи', 'good');
@@ -56,6 +74,7 @@ async function handle(message) {
       await connectObs().catch(() => {});
       return reply({ ok: !!obs, obs: $('dockObs').textContent });
     }
+    if (message.type === 'obs-config') return reply(await adoptObs(message));
     const client = await connectObs();
     if (message.type === 'apply') {
       const summary = await applyMatch(client, message.match);

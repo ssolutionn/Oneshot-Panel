@@ -260,15 +260,53 @@ mountQrReader($('obsNativeQr'), {
   }
 });
 mountQrReader($('obsPairQr'), {
-  title: 'Подключить по QR из дока Oneshot',
-  hint: 'Открой «Подключить телефон» в доке Oneshot на компьютере с OBS. Сканируй QR здесь или обычной камерой телефона.',
+  title: 'Заполнить по QR',
+  hint: 'QR «Подключить телефон» из дока Oneshot подставит код связи (его можно открыть и обычной камерой телефона). QR из OBS → Сервис → Настройки сервера WebSocket → Показать сведения о подключении подставит порт и пароль для дока.',
   onRead(text) {
-    const code = parsePairingQr(text, cardBase());
+    if (/^\s*obsws:/i.test(text)) {
+      const settings = parseObsQr(text);
+      $('obsRemotePort').value = /:(\d+)$/.exec(settings.url)?.[1] || '4455';
+      $('obsRemotePassword').value = settings.password;
+      return 'Порт и пароль OBS подставлены в поля внизу. Нажми «Отправить в док» — док подключится к OBS сам.';
+    }
+    let code;
+    try { code = parsePairingQr(text, cardBase()); }
+    catch { throw new Error('Это не QR из дока Oneshot и не QR подключения OBS.'); }
     write(OBS_STORE, { ...(read(OBS_STORE) || {}), mode: 'bridge', code });
     fillObsDialog();
     ensureBridge().catch(() => {});
     renderObsState();
     return 'Код связи подставлен. Ждём док OBS; нажми «Проверить связь», когда он появится.';
+  }
+});
+
+// Port and password of the observer's OBS, typed or scanned on this device
+// (often a phone). They go to the dock sealed with the pairing code and are
+// not kept here; the dock keeps them only once its OBS accepts them.
+function remoteResult(text, kind = '') {
+  $('obsRemoteResult').textContent = text;
+  $('obsRemoteResult').className = 'obs-test ' + kind;
+}
+$('sendObsConfig').addEventListener('click', async () => {
+  const port = $('obsRemotePort').value.trim() || '4455';
+  if (!/^\d{1,5}$/.test(port) || +port < 1 || +port > 65535) {
+    return remoteResult('Порт — число от 1 до 65535, обычно 4455.', 'bad');
+  }
+  const button = $('sendObsConfig');
+  button.disabled = true;
+  saveObsDialog();
+  remoteResult('Отправляем в док…');
+  try {
+    const reply = await obsCommand({
+      type: 'obs-config', url: `ws://127.0.0.1:${+port}`, password: $('obsRemotePassword').value
+    }, 20000);
+    $('obsRemotePassword').value = '';
+    remoteResult(reply.obs || 'Док подключился к OBS.', 'good');
+  } catch (error) {
+    remoteResult(error.message === 'Неизвестная команда.' ?
+      'Док в OBS старой версии: обнови его (правый клик по доку → Обновить) и повтори.' : error.message, 'bad');
+  } finally {
+    button.disabled = false;
   }
 });
 

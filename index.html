@@ -112,7 +112,7 @@
           <span class="obs-connection-chevron" aria-hidden="true">⌄</span>
         </summary>
         <form id="obsForm">
-          <p class="obs-mobile-guide">С телефона выбирай <b>«На другом компьютере»</b>. В доке Oneshot на ПК открой <b>«Подключить телефон»</b> и отсканируй QR: код связи подставится сам. Ссылку на оверлей по-прежнему копируй с устройства, на котором кликаешь вето.</p>
+          <p class="obs-mobile-guide">С телефона выбирай <b>«На другом компьютере»</b>. В доке Oneshot на ПК открой <b>«Подключить телефон»</b> и отсканируй QR: код связи подставится сам. Порт и пароль OBS обсервера можно вписать или отсканировать ниже — док подключится к OBS без обсервера. Ссылку на оверлей по-прежнему копируй с устройства, на котором кликаешь вето.</p>
           <p class="obs-connection-intro">Здесь настраивается отправка камер и матча в OBS. Для вето добавь отдельный источник «Браузер» по ссылке ниже. Сначала выбери, на каком компьютере открыт OBS.</p>
           <fieldset class="obs-mode">
             <legend class="mini-label">Где открыт OBS?</legend>
@@ -127,13 +127,23 @@
                 <li>В OBS открой <b>Сервис → Настройки сервера WebSocket</b> (в английской версии: <b>Tools → WebSocket Server Settings</b>). Включи сервер и аутентификацию.</li>
                 <li>Нажми <b>«Показать сведения о подключении»</b> / <b>Show Connect Info</b>. Там находятся порт сервера и пароль.</li>
                 <li>Скопируй ссылку ниже. В OBS открой <b>Док-панели → Пользовательские док-панели браузера</b>, добавь док с именем <b>Oneshot</b> и этой ссылкой.</li>
-                <li>В появившемся доке укажи <b>адрес WebSocket и пароль</b> из OBS, нажми <b>«Подключить»</b>. Затем нажми <b>«Проверить связь»</b> здесь, на сайте.</li>
+                <li>В появившемся доке укажи <b>адрес WebSocket и пароль</b> из OBS, нажми <b>«Подключить»</b>. Или впиши порт и пароль внизу этого блока и нажми <b>«Отправить в док»</b>. Затем нажми <b>«Проверить связь»</b>.</li>
               </ol>
             </div>
             <label class="obs-field" for="obsDockUrl">Ссылка для дока — вставить в OBS на компьютере обсервера</label>
             <span class="copy-line"><input id="obsDockUrl" aria-describedby="obsBridgeHint" readonly><button id="copyDockUrl" class="button small" type="button">Копировать ссылку</button></span>
-            <p id="obsBridgeHint" class="obs-field-hint">Адрес и пароль WebSocket вводятся в доке OBS. Код связи уже включён в ссылку.</p>
+            <p id="obsBridgeHint" class="obs-field-hint">Адрес и пароль WebSocket вводятся в доке OBS или отправляются в док из блока ниже. Код связи уже включён в ссылку.</p>
             <p class="obs-code-line">Код связи <b id="obsCode"></b> <button id="newObsCode" class="text-button" type="button">Сменить код</button></p>
+            <div class="obs-remote">
+              <h3>OBS обсервера — порт и пароль</h3>
+              <p class="obs-field-hint">Док должен быть открыт в OBS. Данные уходят в док зашифрованными кодом связи и здесь не сохраняются. QR из OBS («Показать сведения о подключении») заполняет поля через «Заполнить по QR» выше.</p>
+              <div class="obs-credentials">
+                <label class="obs-field" for="obsRemotePort">Порт OBS WebSocket<input id="obsRemotePort" inputmode="numeric" placeholder="4455" autocomplete="off" spellcheck="false"></label>
+                <label class="obs-field" for="obsRemotePassword">Пароль OBS WebSocket<input id="obsRemotePassword" type="password" placeholder="Из сведений о подключении" autocomplete="off"></label>
+              </div>
+              <div class="obs-connection-actions"><button id="sendObsConfig" class="button" type="button">Отправить в док</button></div>
+              <p id="obsRemoteResult" class="obs-test" role="status" aria-live="polite"></p>
+            </div>
           </div>
           <div id="obsDirectFields" hidden>
             <div id="obsNativeQr"></div>

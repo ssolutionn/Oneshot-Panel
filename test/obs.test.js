@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import crypto from 'node:crypto';
-import { ObsClient, obsAuth, applyMatch, slotPlan, cardIndex, emitVeto, VETO_EVENT } from '../obs.js';
+import { ObsClient, obsAuth, applyMatch, slotPlan, cardIndex, emitVeto, VETO_EVENT, loopbackObsUrl } from '../obs.js';
 import { viewUrl, cardUrl } from '../core.js';
 
 // A small obs-websocket v5 server: enough of the protocol and of OBS scenes
@@ -197,4 +197,15 @@ test('Card placement keeps the card directly under the camera', () => {
   ], players()[0], { includeCards: false });
   assert.equal(plan.camera.item.sourceName, 'CAM 01 | A | old');
   assert.equal(plan.hideCard.sourceName, 'CARD 01 | A | old');
+});
+
+test('The dock takes OBS settings from a panel only for its own computer', () => {
+  assert.equal(loopbackObsUrl('ws://127.0.0.1:4466'), 'ws://127.0.0.1:4466');
+  assert.equal(loopbackObsUrl(' ws://localhost:4455/ '), 'ws://localhost:4455');
+  assert.equal(loopbackObsUrl('ws://[::1]:4455'), 'ws://[::1]:4455');
+  assert.equal(loopbackObsUrl(''), 'ws://127.0.0.1:4455');
+  for (const bad of ['ws://192.168.1.9:4455', 'ws://evil.example:4455', 'ws://127.0.0.1.evil.example:4455',
+    'http://127.0.0.1:4455', 'ws://127.0.0.1:4455/x', 'ws://u:p@127.0.0.1:4455', 'ws://127.0.0.1:4455?x', 'nonsense']) {
+    assert.throws(() => loopbackObsUrl(bad), /своём компьютере|Неверный адрес/, bad);
+  }
 });

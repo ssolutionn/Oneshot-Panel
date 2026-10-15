@@ -21,6 +21,19 @@ function base64(bytes) {
 async function sha256(text) {
   return base64(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
 }
+// The dock runs inside OBS, so it only ever talks to OBS on its own computer.
+// Settings sent from a panel (often a phone) are held to that.
+export function loopbackObsUrl(value) {
+  let url;
+  try { url = new URL(String(value ?? '').trim() || OBS_DEFAULT_URL); }
+  catch { throw new Error('Неверный адрес OBS WebSocket.'); }
+  if (!/^wss?:$/.test(url.protocol) || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) ||
+      url.pathname.length > 1 || url.search || url.hash || url.username || url.password) {
+    throw new Error('Док подключается только к OBS на своём компьютере: ws://127.0.0.1:порт.');
+  }
+  return `${url.protocol}//${url.host}`;
+}
+
 // obs-websocket: base64(sha256(base64(sha256(password + salt)) + challenge)).
 export async function obsAuth(password, salt, challenge) {
   return sha256(await sha256(password + salt) + challenge);

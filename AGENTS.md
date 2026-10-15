@@ -35,6 +35,8 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 - `assets/obs-qr.js` — только сайт: локальное чтение QR камерой/из файла,
   парсер native `obsws://host:port/password`, QR связи телефона с доком.
   QR только заполняет ручные поля; локальный адрес — 127.0.0.1 с портом из QR.
+  В режиме «На другом компьютере» один сканер принимает оба QR: QR дока
+  даёт код связи, QR OBS — порт и пароль для дока (блок «OBS обсервера»).
   Пароль не включать в URL Oneshot и не логировать содержимое native QR.
   Локальные QR-библиотеки и лицензии — `assets/vendor/`, без npm/CDN.
 - `obs.js` — без DOM: клиент obs-websocket v5 (пароль через WebCrypto),
@@ -51,7 +53,10 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   соединяет — не возвращай её.
 - `obs-bridge.html`, `obs-bridge.js` — док для OBS обсервера
   (Пользовательские док-панели браузера, `#k=<код>`): принимает команды
-  панели и выполняет их через obs-websocket этого компьютера. localStorage
+  панели и выполняет их через obs-websocket этого компьютера. Порт и
+  пароль OBS может прислать панель (`obs-config`): док берёт только
+  127.0.0.1/localhost/[::1] (`loopbackObsUrl` в `obs.js`) и сохраняет их,
+  лишь когда OBS их принял. Панель этот пароль не хранит. localStorage
   дока: `oneshot-obs-bridge`.
 - `faceit.js` — без DOM: разбор ссылки турнира, сводка матча, события
   (карта, матч, отмена, PAUSED), тексты «GG» и «Next xx:MM», клиент Data API
@@ -126,7 +131,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 
 ```sh
 npm run check        # синтаксис
-npm test             # 51 тест (node:test)
+npm test             # 52 теста (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
@@ -161,7 +166,7 @@ Netlify проверяет локальные фото, докачивает н�
   коллекции; нет сцены — понятная ошибка до первого изменения. Имена
   источников те же, что в JSON.
 - Сообщения моста (запечатаны): `apply {id, title, match}`, `veto {id,
-  state}`, `hello {id}` от панели; `result {id, ok, error|summary}` и
+  state}`, `hello {id}`, `obs-config {id, url, password}` от панели; `result {id, ok, error|summary}` и
   `presence {ok, obs}` от дока.
 - Код показа вето не даёт управлять OBS: нельзя переиспользовать код дока
   или включать пароль OBS в URL источника. Сообщения показа: `veto-state {id,
@@ -201,7 +206,8 @@ Netlify проверяет локальные фото, докачивает н�
   lobbyBadge prepView lobbyView camSummary watchCams camTotal sendObsBtn
   copyJsonBtn obsNavBtn obsSetupBtn obsDot obsState vetoLive vetoLiveStatus vetoLayout copyOverlay
   obsDialog obsForm closeObs vetoBroadcast overlaySizeHint obsBridgeFields obsDockUrl copyDockUrl obsCode
-  newObsCode obsDirectFields obsUrl obsPassword obsTestResult testObs
+  newObsCode obsRemotePort obsRemotePassword sendObsConfig obsRemoteResult
+  obsDirectFields obsUrl obsPassword obsTestResult testObs
   saveObs notifyBtn soundBtn lobbyForm faceitUrl faceitKey lobbyStart
   lobbyStatus lobbyError lobbyAlert lobbyAlertText lobbyAck lobbyMatches
   nextDelay copyThanks msgThanks nextMatch copyNext msgNext tplThanks

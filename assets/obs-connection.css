@@ -93,3 +93,9 @@
   .obs-qr-actions .button { flex:1 1 130px; }
   .dock-form input { font-size:16px; }
 }
+
+/* The observer's OBS port and password, sent from the panel (often a phone) to the dock. */
+.obs-remote { margin-top:16px; padding:14px 16px; border:1px solid var(--divider-2); border-radius:6px; background:var(--surface); }
+.obs-remote h3 { margin:0 0 6px; color:var(--ink); font-size:13px; font-weight:700; }
+.obs-remote .obs-field-hint { margin:0 0 12px; }
+@media(max-width:650px) { .obs-remote { padding:12px; } }
