@@ -6,7 +6,7 @@ import html
 import json
 import shutil
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from playwright.async_api import async_playwright, expect
 
 async def run(args):
@@ -32,7 +32,11 @@ async def run(args):
                 await expect(page.locator("#cardPhoto")).to_be_visible()
             else:
                 await expect(page.locator("#cardPhoto")).to_be_hidden()
-                await expect(page.locator("#cardEmblem")).to_be_visible()
+                # The team emblem stands in for the photo; without a logo, text only.
+                if player["logo"]:
+                    await expect(page.locator("#cardEmblem")).to_be_visible()
+                else:
+                    await expect(page.locator("#cardEmblem")).to_be_hidden()
             await page.screenshot(path=str(root / player["card"]), type="jpeg", quality=95)
             expected[player["id"]] = player
         assert not errors, errors
@@ -65,7 +69,10 @@ async def run(args):
             for source, key in zip(sources, match["players"]):
                 image = base64.b64encode((root / expected[key]["card"]).read_bytes()).decode()
                 markup = '<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#031b24}img{display:block;width:100%;height:100%;object-fit:contain}</style></head><body><img src="data:image/jpeg;base64,' + image + '"></body></html>'
-                source["settings"]["url"] = "data:text/html;base64," + base64.b64encode(markup.encode()).decode()
+                # Percent-encode the page instead of a second base64 pass: base64
+                # characters stay as they are, so the URL is ~1.33x the JPEG.
+                source["settings"]["url"] = "data:text/html;charset=utf-8," + quote(
+                    markup, safe="/+=:;,?@!$&'()*")
                 assert len(source["settings"]["url"]) < 2_000_000, "Embedded browser URL is too large."
                 await embedded_page.goto(source["settings"]["url"])
                 await embedded_page.wait_for_function("document.images.length === 1 && document.images[0].complete && document.images[0].naturalWidth === 1920")

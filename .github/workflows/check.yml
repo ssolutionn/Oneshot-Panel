@@ -12,7 +12,7 @@ permissions:
 jobs:
   panel:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,6 +26,8 @@ jobs:
       - name: Photo preparation regression checks
         run: python3 -m unittest discover -s test -p '*_test.py'
       - name: Prepare the published static site
+        env:
+          COMMIT_REF: ${{ github.sha }}
         run: |
           python3 - <<'PY'
           import subprocess
@@ -34,7 +36,7 @@ jobs:
 
           config = tomllib.loads(Path("netlify.toml").read_text())
           subprocess.run(config["build"]["command"], shell=True, check=True)
-          assert Path("public/assets/card/background.png").is_file()
+          assert Path("public/assets/card/background.jpg").is_file()
           assert Path("public/assets/card/cyberclash-logo.png").is_file()
           PY
       - name: Syntax and Node tests
@@ -65,63 +67,55 @@ jobs:
           asyncio.run(cards["run"](args))
           PY
       - name: Verify the published Netlify site
-        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+        # Production follows only this branch; same-repo pull requests get a preview.
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/claude/gracious-sagan-apztcc') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         env:
           PREVIEW_URL: ${{ github.event_name == 'pull_request' && format('https://deploy-preview-{0}--onepanel.netlify.app', github.event.pull_request.number) || 'https://onepanel.netlify.app' }}
+          # Netlify writes COMMIT_REF (the pushed or PR head commit) to build.txt.
+          EXPECTED_COMMIT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
           python3 - <<'PY'
           import argparse
           import asyncio
           import os
-          import json
           import runpy
           import time
-          from urllib.error import HTTPError
+          from urllib.error import HTTPError, URLError
           from urllib.request import Request, urlopen
 
           preview = os.environ["PREVIEW_URL"]
+          expected = os.environ["EXPECTED_COMMIT"]
           production = "https://onepanel.netlify.app"
-          def published_senka():
-              request = Request(production + "/assets/players/players.json",
-                                headers={"Cache-Control": "no-cache"})
-              with urlopen(request, timeout=20) as response:
-                  players = json.load(response)["players"]
-              entry = next(p for p in players if p["nick"].lower() == "senka")
-              print("PUBLISHED_SENKA:", json.dumps(entry), flush=True)
-              return entry
 
-          if preview == production:
-              # Wait for the new manifest, not just HTML retained from an older deploy.
-              for attempt in range(10):
-                  senka = published_senka()
-                  if senka.get("photo") and senka.get("file"):
-                      break
-                  if attempt < 9:
-                      time.sleep(10)
-              assert senka.get("file") and senka.get("photo"), "Published senka photo is not ready."
-          else:
-              published_senka()
-          # Deploy previews may require a Netlify login. OBS must use the public site.
-          try:
-              response = urlopen(preview + "/card.html", timeout=20)
-          except HTTPError as error:
-              if error.code != 401 or preview == production:
-                  raise
-              with urlopen(production + "/card.html", timeout=20) as live:
-                  assert live.status == 200
-              print("::notice::Netlify preview requires authentication; production is publicly accessible. Full browser QA passed on the prepared site.")
-              raise SystemExit(0)
-          with response:
-              updated = "card-identity" in response.read().decode()
-              if preview == production and not updated:
-                  # Netlify and Actions start together after merge; wait for that deploy.
-                  for attempt in range(9):
-                      time.sleep(10)
-                      with urlopen(production + "/card.html", timeout=20) as live:
-                          updated = "card-identity" in live.read().decode()
-                      if updated:
-                          break
-              assert updated, "Published card is not updated yet."
+          def published_commit():
+              request = Request(preview + "/build.txt", headers={"Cache-Control": "no-cache"})
+              with urlopen(request, timeout=20) as response:
+                  return response.read().decode().strip()
+
+          # Netlify and Actions start together: wait for the deploy of this commit,
+          # not for an older one that is still live.
+          deadline = time.monotonic() + 360
+          while True:
+              try:
+                  live = published_commit()
+              except HTTPError as error:
+                  if error.code == 401 and preview != production:
+                      # Deploy previews may require a Netlify login. OBS must use the public site.
+                      with urlopen(production + "/card.html", timeout=20) as public:
+                          assert public.status == 200
+                      print("::notice::Netlify preview requires authentication; production is publicly accessible. Full browser QA passed on the prepared site.")
+                      raise SystemExit(0)
+                  if error.code != 404:
+                      raise
+                  live = "(no build.txt yet)"
+              except URLError as error:
+                  live = f"(unreachable: {error.reason})"
+              print("PUBLISHED_COMMIT:", live, flush=True)
+              if live == expected:
+                  break
+              assert time.monotonic() < deadline, f"Netlify has not published {expected} within 6 minutes."
+              time.sleep(10)
+          with urlopen(preview + "/card.html", timeout=20) as response:
               assert "img-src 'self'" in response.headers.get("Content-Security-Policy", "")
           args = argparse.Namespace(
               url=preview, chromium=None, roster=None, schedule=None,

@@ -645,6 +645,16 @@ async def run(args):
                               route.fulfill(content_type="image/png", body=stand_in))
         base = args.url.rstrip("/")
 
+        # Every file the card asks its own site for must exist: background,
+        # tournament logo, catalogs and team logos. Players without a photo or
+        # teams without a logo request nothing, so any 4xx/5xx is a missing
+        # asset. Other frames (the Netlify badge iframe) are not the card.
+        def card_response(response):
+            if (response.status >= 400 and response.frame == card_page.main_frame
+                    and urlsplit(response.url).netloc == urlsplit(base).netloc):
+                card_errors.append(f"{response.status} {response.url}")
+        card_page.on("response", card_response)
+
         async def open_card(query):
             await card_page.goto(f"{base}/card.html?{query}")
             await card_page.wait_for_selector("body[data-ready=true]")

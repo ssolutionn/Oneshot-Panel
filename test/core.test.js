@@ -5,7 +5,7 @@ import {
   decodeGviz, parseTeams, parseSchedule, scheduleDay, defaultLineup, observerText,
   selectedPlayers, validateMatch, playerText, viewUrl, pushUrl,
   safeFilename, buildObs, cardUrl, personKey, DEFAULT_CARD_BASE, MAP_POOL, VETO_RULES,
-  validateVeto, appendVeto, vetoText
+  validateVeto, appendVeto, vetoText, photoMatches, playerPhoto, teamLogo
 } from '../core.js';
 
 const makeRows = () => ['HYPERSPIRIT', '6yuBoJlbl'].flatMap((team, t) =>
@@ -339,6 +339,44 @@ test('Shared camera sources become independent', () => {
   const result = buildObs(shared, ...fixture(), uuidFn());
   const cameras = result.sources.filter(s => s.name.startsWith('CAM '));
   assert.equal(new Set(cameras.map(s => s.settings.url)).size, 10);
+});
+
+test('Card photo and logo: same identity rules as card.html', () => {
+  const players = [
+    { team: 'Nuclear TigeRES', nick: 'flouzer', file: 'flouzer-1.png' },
+    { team: 'Honvéd', nick: 'es0r7', aliases: ['esor'], file: 'esor-2.jpg' },
+    { team: 'Lavked', nick: 'senka', file: null },
+    { team: 'Other', nick: 'senka', file: 'senka-3.png' },
+    { team: 'Twins', nick: 'dup', file: 'dup-a.png' },
+    { team: 'Twins', nick: 'DUP', file: 'dup-b.png' },
+    { team: 'Bad', nick: 'up', file: '../core.js' },
+    { team: 'Bad', nick: 'svg', file: 'x.svg' },
+    { team: 'Bad', nick: 'dir', file: 'a/b.png' },
+    null, 'junk'
+  ];
+  // Case, spaces and the HLTV alias do not matter.
+  assert.equal(playerPhoto(players, 'nuclear tigeres', 'FLOUZER'), 'flouzer-1.png');
+  assert.equal(playerPhoto(players, 'Honvéd', 'esor'), 'esor-2.jpg');
+  // A namesake in another team never stands in for a missing photo.
+  assert.equal(playerPhoto(players, 'Lavked', 'senka'), '');
+  assert.equal(playerPhoto(players, 'Lavked', 'flouzer'), '');
+  // Without a team any single match counts; two matches are ambiguous.
+  assert.equal(playerPhoto(players, '', 'flouzer'), 'flouzer-1.png');
+  assert.equal(playerPhoto(players, '', 'senka'), '');
+  assert.equal(photoMatches(players, 'Twins', 'dup').length, 2);
+  assert.equal(playerPhoto(players, 'Twins', 'dup'), '');
+  // File names never leave assets/players.
+  for (const nick of ['up', 'svg', 'dir']) assert.equal(playerPhoto(players, 'Bad', nick), '');
+  assert.equal(playerPhoto(players, 'Nuclear TigeRES', ''), '');
+  assert.equal(playerPhoto(null, 'A', 'b'), '');
+  assert.deepEqual(photoMatches({ players }, 'A', 'b'), []);
+
+  const logos = { 'Nuclear TigeRES': 'nuclear.png', Evil: '../evil.png', Svg: 'x.svg' };
+  assert.equal(teamLogo(logos, 'nuclear-tigeres'), 'nuclear.png');
+  assert.equal(teamLogo(logos, 'Evil'), '');
+  assert.equal(teamLogo(logos, 'Svg'), '');
+  assert.equal(teamLogo(logos, 'Nobody'), '');
+  assert.equal(teamLogo(null, 'Nuclear TigeRES'), '');
 });
 
 test('Invalid template fails rather than exporting broken JSON', () => {

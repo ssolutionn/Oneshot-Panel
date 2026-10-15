@@ -211,6 +211,32 @@ export function personKey(value) {
   return line(value).normalize('NFKC').toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, '');
 }
+// card.js and scripts/build_match_packages.mjs pick the same files.
+// A file name from the catalogs never leaves its assets folder.
+const assetFile = file =>
+  typeof file === 'string' && /^[\w.-]+\.(png|jpe?g|webp)$/i.test(file);
+// Entries of assets/players/players.json for one player: nick or alias, in the
+// same team when one is given. Identity comes before file availability: a
+// namesake in another team never supplies a photo when this one has none.
+export function photoMatches(players, team, nick) {
+  const key = personKey(nick);
+  if (!key || !Array.isArray(players)) return [];
+  return players.filter(p => p && typeof p === 'object' &&
+    (!line(team) || personKey(p.team) === personKey(team)) &&
+    [p.nick, ...(Array.isArray(p.aliases) ? p.aliases : [])]
+      .some(name => personKey(name) === key));
+}
+export function playerPhoto(players, team, nick) {
+  const matches = photoMatches(players, team, nick);
+  return matches.length === 1 && assetFile(matches[0].file) ? matches[0].file : '';
+}
+// assets/teams/teams.json maps a team name to its logo file.
+export function teamLogo(logos, team) {
+  if (!logos || typeof logos !== 'object') return '';
+  const found = Object.entries(logos).find(([name, file]) =>
+    personKey(name) === personKey(team) && assetFile(file));
+  return found ? found[1] : '';
+}
 // Slot order only: the observer gets the cameras from the OBS JSON.
 export function observerText(a, b, pa, pb) {
   const slot = (p, i) => `${i + 1}. ${i < 5 ? a.name : b.name} — ${p.nick}`;

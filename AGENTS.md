@@ -17,16 +17,17 @@ Oneshot Panel — статическая веб-панель эфирной ко
   вспышки; выбор в localStorage `oneshot-theme`, атрибут `data-mode`.
 - `core.js` — чистая логика без DOM: разбор ответа gviz, составы, ссылки
   VDO.Ninja, тексты для копирования, имя файла, сборка OBS JSON, правила
-  вето. Покрыта `test/core.test.js`.
+  вето, выбор фото и логотипа для карточки. Покрыта `test/core.test.js`.
 - `app.js` — интерфейс: загрузка таблиц, отрисовка, localStorage
   (`webcam-desk-source`, `oneshot-webcam-match-v1`), вето, копирование,
   скачивание JSON.
 - `card.html`, `card.js`, `card.css` — карточка игрока 1920×1080
-  (`/card.html?team=…&nick=…`): фон `assets/card/background.png`, логотип CyberClash и логотип
+  (`/card.html?team=…&nick=…`): фон `assets/card/background.jpg`, логотип CyberClash и логотип
   команды, ник, фото HLTV из `assets/players/players.json`. В OBS JSON
   добавляется под каждой камерой только при включённом includeCards
-  (`CARD NN | Команда | Ник`); `card.js`
-  импортирует `personKey` из `core.js`. Оформление — токены `--card-*`.
+  (`CARD NN | Команда | Ник`); фото и логотип `card.js` выбирает через
+  `playerPhoto`/`teamLogo` из `core.js` (их же использует
+  `scripts/build_match_packages.mjs`). Оформление — токены `--card-*`.
   Фото крупно по центру; при отсутствии/ошибке фото — эмблема команды
   и ник по центру. Совпадение ника в другой команде не даёт фото.
 - `scripts/build_match_packages.mjs` и `scripts/render_match_cards.py` —
@@ -45,7 +46,8 @@ Oneshot Panel — статическая веб-панель эфирной ко
 - `DEPLOY.md` — размещение на своём сервере (nginx) или домене; при смене
   списка файлов сайта или заголовков обнови и его.
 - `netlify.toml` — хостинг на Netlify, те же заголовки безопасности, что в
-  `server.js` (тест сверяет, что они совпадают).
+  `server.js` (тест сверяет, что они совпадают). Сборка пишет коммит в
+  `build.txt`; `check.yml` ждёт его перед проверкой опубликованного сайта.
 - `assets/` — `obs-template.json` (оригинальный шаблон OBS, не
   переформатировать), `oneshot-logo-day.png` / `oneshot-logo-night.png`,
   `favicon.png`. Карты `assets/maps/*.jpg` — локальные миниатюры; происхождение и
@@ -65,7 +67,7 @@ Oneshot Panel — статическая веб-панель эфирной ко
 
 ```sh
 npm run check        # синтаксис
-npm test             # 28 тестов (node:test)
+npm test             # 29 тестов (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 claude-artifact/build_oneshot_artifact.py

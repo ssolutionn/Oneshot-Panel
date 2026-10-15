@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import {
   DEFAULT_SOURCE, decodeGviz, parseTeams, parseSchedule, defaultLineup,
   selectedPlayers, validateMatch, buildObs, safeFilename, personKey,
-  playerText, observerText
+  playerText, observerText, photoMatches, playerPhoto, teamLogo
 } from '../core.js';
 
 const day = process.argv.find(a => a.startsWith('--day='))?.slice(6) || '15.10';
@@ -42,11 +42,10 @@ for (const match of matches) {
   for (const [team, selected] of [[a, pa], [b, pb]]) {
     for (const p of selected) {
       const id = personKey(team.name) + '__' + personKey(p.nick);
-      const candidates = catalog.filter(x => personKey(x.team) === personKey(team.name) &&
-        [x.nick, ...(x.aliases || [])].some(n => personKey(n) === personKey(p.nick)));
-      if (candidates.length > 1) throw new Error('Ambiguous photo identity: ' + id);
-      const photo = candidates[0]?.file || null;
-      const logo = Object.entries(logos).find(([name]) => personKey(name) === personKey(team.name))?.[1] || null;
+      // Same matching as card.js, so the rendered card shows exactly this photo.
+      if (photoMatches(catalog, team.name, p.nick).length > 1) throw new Error('Ambiguous photo identity: ' + id);
+      const photo = playerPhoto(catalog, team.name, p.nick) || null;
+      const logo = teamLogo(logos, team.name) || null;
       players.set(id, {id, team:team.name, nick:p.nick, slot:p.slot,
         card:'cards/' + id + '.jpg', photo, logo});
     }
@@ -87,7 +86,7 @@ for (const name of ['prepare_local.py','prepare_local.ps1','PREPARE_WINDOWS.cmd'
   await copyFile(path.join('scripts/match-package', name), path.join(output, name));
 }
 await mkdir(path.join(output, 'artwork'), {recursive:true});
-await copyFile('assets/card/background.png', path.join(output, 'artwork/background.png'));
+await copyFile('assets/card/background.jpg', path.join(output, 'artwork/background.jpg'));
 await copyFile('assets/card/cyberclash-logo.png', path.join(output, 'artwork/cyberclash-logo.png'));
 const result = {day, timezone:'Europe/Moscow', generatedAt:new Date().toISOString(),
   source:'Organizer Schedule (Group Stage) and Все игроки; primary five from current roster',

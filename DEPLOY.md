@@ -101,6 +101,9 @@ sudo cp -R assets /var/www/oneshot-panel/
 | TXT | `subdomain-owner-verification` | `5ccfcd546e508a963c7d237e9f693e6b` |
 | CNAME | `panel` | `onepanel.netlify.app` |
 
+`build.txt` в корне сайта на Netlify — коммит сборки для проверки в
+GitHub Actions; на свой сервер его копировать не нужно.
+
 HTTPS Netlify выпустит сам после того, как записи появятся. Netlify DNS
 (перенос NS-серверов) **не включать**: перестанут работать veto.oneshot.su
 и почта.

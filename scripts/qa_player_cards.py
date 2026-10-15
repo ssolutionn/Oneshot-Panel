@@ -17,15 +17,16 @@ async def run(args):
             catalog = json.load(response)["players"]
     else:
         catalog = json.loads((root / "assets/players/players.json").read_text())["players"]
-    senka = next(p for p in catalog if p["nick"].lower() == "senka")
-    assert senka.get("photo") and senka.get("file"), "senka must have a prepared photo."
     output = Path(args.artifacts)
     output.mkdir(parents=True, exist_ok=True)
     base = args.url.rstrip("/")
+    # One portrait card and one no-photo card, whoever they are in the catalog.
     with_photo = next((p for p in catalog if p.get("file")), None)
-    no_photo = next(p for p in catalog if p["nick"] == "maeggi")
-    if any(p.get("photo") for p in catalog):
-        assert with_photo is not None, "No HLTV photo was prepared; check build download logs."
+    no_photo = next((p for p in catalog if not p.get("file")), None)
+    assert with_photo is not None, (
+        "No catalog player has a prepared photo file; check the photo download logs.")
+    assert no_photo is not None, (
+        "Every catalog player has a photo file; the no-photo card has no real player to check.")
     errors, external_images = [], []
 
     async with async_playwright() as p:
@@ -63,9 +64,7 @@ async def run(args):
             else:
                 await expect(page.locator("#cardPhoto")).to_be_hidden()
 
-        for player, label in [(with_photo, "photo"), (senka, "senka"), (no_photo, "no-photo")]:
-            if player is None:
-                continue
+        for player, label in [(with_photo, "photo"), (no_photo, "no-photo")]:
             await open_card(player)
             await page.screenshot(path=str(output / f"card-{label}.png"))
             await page.set_viewport_size({"width": 480, "height": 270})
