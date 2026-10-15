@@ -66,8 +66,13 @@ async def run():
         await request("CreateScene", {"sceneName": "Veto QA"})
         await request("SetCurrentProgramScene", {"sceneName": "Veto QA"})
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            context = await browser.new_context(viewport={"width":1440,"height":1000})
+            engine = os.environ.get("QA_BROWSER", "chromium")
+            browser = await getattr(p, engine).launch(headless=True)
+            mobile = engine == "webkit"
+            options = {"viewport":{"width":375,"height":812},"is_mobile":True,"has_touch":True,
+                       "device_scale_factor":2} if mobile else {"viewport":{"width":1440,"height":1000}}
+            context = await browser.new_context(**options)
+            print("ADMIN ENGINE", engine, "mobile" if mobile else "desktop", flush=True)
             await context.add_init_script("localStorage.setItem('oneshot-watch-cams', 'false')")
             async def sheets(route):
                 schedule = parse_qs(urlsplit(route.request.url).query).get("gid") == ["815739139"]
@@ -81,6 +86,14 @@ async def run():
             await panel.evaluate("""Object.defineProperty(navigator,'clipboard',{value:{
               writeText:async text=>{window.copied=text;}
             }});""")
+            await panel.click("#viewLobby")
+            await expect(panel.locator("#obsNavBtn")).to_be_visible()
+            await panel.click("#obsNavBtn")
+            await expect(panel.locator("#obsForm")).to_be_visible()
+            await expect(panel.locator("#obsBridgeFields")).to_be_visible()
+            assert not await panel.evaluate("document.documentElement.scrollWidth > innerWidth")
+            await panel.locator("#obsDialog").screenshot(path=str(OUT / "obs-menu.png"))
+            await panel.click("#closeObs")
             await panel.click("#copyOverlay")
             url = await panel.evaluate("window.copied")
             assert "&r=" in url

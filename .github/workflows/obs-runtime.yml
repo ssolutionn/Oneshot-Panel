@@ -11,6 +11,10 @@ permissions:
 jobs:
   obs:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
@@ -28,17 +32,18 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y /tmp/obs-studio.deb xvfb libgl1-mesa-dri
           python3 -m pip install playwright websockets
-          python3 -m playwright install --with-deps chromium
+          python3 -m playwright install --with-deps ${{ matrix.browser }}
       - name: Test actual OBS browser source and WebSocket events
         env:
           LIBGL_ALWAYS_SOFTWARE: "1"
           QT_QPA_PLATFORM: xcb
+          QA_BROWSER: ${{ matrix.browser }}
         run: |
           node server.js > /tmp/oneshot-server.log 2>&1 &
           xvfb-run -a -s "-screen 0 1920x1080x24" python3 scripts/qa_obs_runtime.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: obs-runtime-qa
+          name: obs-runtime-qa-${{ matrix.browser }}
           path: artifacts/obs-runtime/
           if-no-files-found: warn

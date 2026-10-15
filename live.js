@@ -188,6 +188,7 @@ function saveObsDialog() {
   renderObsState();
 }
 function openObsSettings() {
+  showView('prep');
   const section = $('obsDialog');
   section.open = true;
   section.scrollIntoView({ block: 'start' });
@@ -195,6 +196,7 @@ function openObsSettings() {
   $(direct ? 'obsUrl' : 'copyDockUrl').focus({ preventScroll: true });
 }
 $('obsSetupBtn').addEventListener('click', openObsSettings);
+$('obsNavBtn').addEventListener('click', openObsSettings);
 $('closeObs').addEventListener('click', () => {
   $('obsDialog').open = false;
   $('obsDialog').querySelector('summary').focus({ preventScroll: true });
