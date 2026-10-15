@@ -94,8 +94,22 @@
   .dock-form input { font-size:16px; }
 }
 
-/* The observer's OBS port and password, sent from the panel (often a phone) to the dock. */
-.obs-remote { margin-top:16px; padding:14px 16px; border:1px solid var(--divider-2); border-radius:6px; background:var(--surface); }
-.obs-remote h3 { margin:0 0 6px; color:var(--ink); font-size:13px; font-weight:700; }
-.obs-remote .obs-field-hint { margin:0 0 12px; }
-@media(max-width:650px) { .obs-remote { padding:12px; } }
+/* «На другом компьютере»: what the dock is, then three numbered steps. */
+.obs-dock-about { margin:0 0 14px; padding:12px 14px; border:1px solid var(--line); border-radius:6px; background:var(--surface); color:var(--sub); font-size:12px; line-height:1.7; }
+.obs-dock-about h3,.obs-steps h3 { margin:0 0 6px; color:var(--ink); font-size:13px; font-weight:700; }
+.obs-dock-about p { margin:0; }
+.obs-dock-about p+p { margin-top:8px; }
+.obs-steps { display:grid; gap:12px; margin:0; padding:0; list-style:none; counter-reset:obs-step; }
+.obs-steps>li { position:relative; min-width:0; padding:14px 16px 14px 52px; border:1px solid var(--divider-2); border-radius:6px; background:var(--surface); counter-increment:obs-step; }
+.obs-steps>li::before { content:counter(obs-step); position:absolute; left:16px; top:12px; width:24px; height:24px; border-radius:50%; background:var(--red); color:var(--on-accent); font-size:12px; font-weight:750; line-height:24px; text-align:center; }
+.obs-steps .obs-field-hint { margin:0 0 10px; }
+.obs-bridge-status { margin:0; color:var(--muted); font-size:13px; line-height:1.6; overflow-wrap:anywhere; }
+.obs-bridge-status[data-kind=good] { color:var(--success-ink); }
+.obs-bridge-status[data-kind=bad] { color:var(--red); }
+.obs-code-entry { margin-top:10px; color:var(--muted); font-size:12px; }
+.obs-code-entry>summary { cursor:pointer; font-weight:600; }
+.obs-code-entry .obs-field-hint { margin:8px 0; }
+@media(max-width:650px) {
+  .obs-steps>li { padding:12px 12px 12px 44px; }
+  .obs-steps>li::before { left:12px; }
+}

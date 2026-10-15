@@ -36,7 +36,9 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   парсер native `obsws://host:port/password`, QR связи телефона с доком.
   QR только заполняет ручные поля; локальный адрес — 127.0.0.1 с портом из QR.
   В режиме «На другом компьютере» один сканер принимает оба QR: QR дока
-  даёт код связи, QR OBS — порт и пароль для дока (блок «OBS обсервера»).
+  даёт код связи, QR OBS — порт и пароль для дока (шаг 3). Блок разбит на
+  «что такое док и почему нет IP» и три шага: ссылка/код дока, живой статус
+  дока (`obsBridgeStatus`), порт и пароль.
   Пароль не включать в URL Oneshot и не логировать содержимое native QR.
   Локальные QR-библиотеки и лицензии — `assets/vendor/`, без npm/CDN.
 - `obs.js` — без DOM: клиент obs-websocket v5 (пароль через WebCrypto),
@@ -207,6 +209,7 @@ Netlify проверяет локальные фото, докачивает н�
   copyJsonBtn obsNavBtn obsSetupBtn obsDot obsState vetoLive vetoLiveStatus vetoLayout copyOverlay
   obsDialog obsForm closeObs vetoBroadcast overlaySizeHint obsBridgeFields obsDockUrl copyDockUrl obsCode
   newObsCode obsRemotePort obsRemotePassword sendObsConfig obsRemoteResult
+  obsBridgeStatus obsCodeInput applyObsCode shareDockUrl
   obsDirectFields obsUrl obsPassword obsTestResult testObs
   saveObs notifyBtn soundBtn lobbyForm faceitUrl faceitKey lobbyStart
   lobbyStatus lobbyError lobbyAlert lobbyAlertText lobbyAck lobbyMatches

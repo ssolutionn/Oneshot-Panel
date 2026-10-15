@@ -85,7 +85,7 @@ function obsSettings() {
   if (saved.code !== code) write(OBS_STORE, { ...saved, code });
   return settings;
 }
-const bridge = { link: null, opening: null, code: '', seen: 0, obsOk: false, obsText: '', waiting: new Map() };
+const bridge = { link: null, opening: null, code: '', opened: 0, seen: 0, obsOk: false, obsText: '', waiting: new Map() };
 
 function obsBadge(text, kind) {
   $('obsState').textContent = text;
@@ -93,8 +93,30 @@ function obsBadge(text, kind) {
   $('obsConnectionState').dataset.kind = kind || '';
   $('obsDot').className = kind || '';
 }
+// Step 2 of «На другом компьютере»: says in plain words what the dock is doing.
+function bridgeStatus(settings) {
+  const line = $('obsBridgeStatus');
+  let text, kind = '';
+  if (!settings.configured || settings.mode !== 'bridge') {
+    text = 'Ждём: отправь обсерверу ссылку из шага 1 или введи код его дока.';
+  } else if (Date.now() - bridge.seen >= 25000) {
+    text = Date.now() - bridge.opened < 15000 ?
+      `Ищем док с кодом ${settings.code}…` :
+      `Док с кодом ${settings.code} не на связи. У обсервера в OBS должен быть открыт док Oneshot, добавленный по ссылке из шага 1 (или введи код его дока).`;
+    kind = 'bad';
+  } else if (!bridge.obsOk) {
+    text = `Док на связи ✓, но OBS к нему не подключён${bridge.obsText ? ` (док пишет: ${bridge.obsText})` : ''}. Заполни шаг 3.`;
+    kind = 'bad';
+  } else {
+    text = 'Док на связи ✓ · OBS подключён ✓ — можно жать «Отправить в OBS».';
+    kind = 'good';
+  }
+  line.textContent = text;
+  line.dataset.kind = kind;
+}
 function renderObsState() {
   const settings = obsSettings();
+  bridgeStatus(settings);
   if (!settings.configured) return obsBadge('OBS не настроен', '');
   if (settings.mode === 'direct') return obsBadge('OBS на этом компьютере', '');
   const fresh = Date.now() - bridge.seen < 25000;
@@ -115,6 +137,7 @@ async function ensureBridge() {
   bridge.link = null;
   bridge.code = settings.code;
   bridge.seen = 0;
+  bridge.opened = Date.now();
   const opening = bridgeSecrets(settings.code).then(secrets => {
     if (bridge.code !== settings.code || obsSettings().mode !== 'bridge') return null;
     bridge.link = new VdoLink(secrets, 'panel', message => {
@@ -158,7 +181,7 @@ async function obsCommand(message, timeout = 30000) {
       bridge.waiting.delete(id);
       reject(new Error(Date.now() - bridge.seen < 25000 ?
         'Док OBS не ответил вовремя. Попробуй ещё раз или скачай JSON.' :
-        'Док OBS не на связи: проверь, что он открыт в OBS и код совпадает. Пока можно скачать JSON.'));
+        `Док с кодом ${settings.code} не на связи: у обсервера в OBS должен быть открыт док Oneshot с этим кодом (шаг 1). Пока можно скачать JSON.`));
     }, timeout);
     bridge.waiting.set(id, reply => {
       clearTimeout(timer);
@@ -218,7 +241,40 @@ for (const input of document.querySelectorAll('input[name=obsMode]')) input.addE
   $('obsTestResult').textContent = '';
   $('obsTestResult').className = 'obs-test';
 });
-$('copyDockUrl').addEventListener('click', () => panel.copy($('obsDockUrl').value));
+// Handing out the dock link means OBS is on another computer: start
+// listening for that dock right away so step 2 shows when it appears.
+function useBridge() {
+  if (obsSettings().configured && obsSettings().mode === 'bridge') return;
+  saveObsDialog();
+}
+$('copyDockUrl').addEventListener('click', () => {
+  useBridge();
+  panel.copy($('obsDockUrl').value);
+});
+if (navigator.share) {
+  $('shareDockUrl').hidden = false;
+  $('shareDockUrl').addEventListener('click', () => {
+    useBridge();
+    navigator.share({
+      title: 'Док Oneshot для OBS',
+      text: 'OBS → Док-панели → Пользовательские док-панели браузера → имя Oneshot, адрес — эта ссылка → Применить.',
+      url: $('obsDockUrl').value
+    }).catch(() => {});
+  });
+}
+function pairWith(code) {
+  write(OBS_STORE, { ...(read(OBS_STORE) || {}), mode: 'bridge', code });
+  fillObsDialog();
+  ensureBridge().catch(() => {});
+  renderObsState();
+}
+$('applyObsCode').addEventListener('click', () => {
+  const code = normalizeCode($('obsCodeInput').value);
+  if (!code) return panel.toast('Код связи — 16 букв и цифр, как в доке: XXXX-XXXX-XXXX-XXXX.');
+  $('obsCodeInput').value = '';
+  pairWith(code);
+  panel.toast('Код дока подставлен — ждём связь');
+});
 $('newObsCode').addEventListener('click', () => {
   if (!confirm('Новый код отключит текущий док OBS. Сменить?')) return;
   write(OBS_STORE, { ...(read(OBS_STORE) || {}), code: newBridgeCode() });
@@ -269,13 +325,12 @@ mountQrReader($('obsPairQr'), {
       $('obsRemotePassword').value = settings.password;
       return 'Порт и пароль OBS подставлены в поля внизу. Нажми «Отправить в док» — док подключится к OBS сам.';
     }
-    let code;
-    try { code = parsePairingQr(text, cardBase()); }
-    catch { throw new Error('Это не QR из дока Oneshot и не QR подключения OBS.'); }
-    write(OBS_STORE, { ...(read(OBS_STORE) || {}), mode: 'bridge', code });
-    fillObsDialog();
-    ensureBridge().catch(() => {});
-    renderObsState();
+    let code = normalizeCode(text);
+    if (!code) {
+      try { code = parsePairingQr(text, cardBase()); }
+      catch { throw new Error('Это не QR из дока Oneshot и не QR подключения OBS.'); }
+    }
+    pairWith(code);
     return 'Код связи подставлен. Ждём док OBS; нажми «Проверить связь», когда он появится.';
   }
 });

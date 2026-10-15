@@ -278,14 +278,24 @@ async def run(args):
         await expect(page.locator("#copyDialog")).to_be_visible()
         await expect(page.locator("#manualCopy")).to_have_value(f"{base}/obs-bridge.html#k={bridge_code}")
         await page.click("#closeCopy")
+        await expect(page.locator("#obsBridgeStatus")).to_contain_text(f"Док с кодом {bridge_code} не на связи", timeout=25000)
+        # The dock was added from another device: it has its own code, which
+        # is typed into this panel.
         dock = await context.new_page()
         dock.on("pageerror", lambda error: errors.append(str(error)))
         dock_obs = MockObs()
         await dock.route_web_socket(OBS_URL, dock_obs.handler)
         await dock.set_viewport_size({"width": 320, "height": 700})
-        await dock.goto(f"{base}/obs-bridge.html#k={bridge_code}")
-        await expect(dock.locator("#dockCode")).to_have_value(bridge_code)
+        await dock.goto(f"{base}/obs-bridge.html")
+        bridge_code = await dock.input_value("#dockCode")
+        assert re.fullmatch(r"[A-Z2-9]{4}(-[A-Z2-9]{4}){3}", bridge_code)
         await expect(dock.locator("#dockObs")).to_contain_text("OBS просит пароль")
+        await page.locator(".obs-code-entry > summary").click()
+        await page.fill("#obsCodeInput", bridge_code.lower().replace("-", " "))
+        await page.click("#applyObsCode")
+        await expect(page.locator("#obsCode")).to_have_text(bridge_code)
+        await expect(page.locator("#obsBridgeStatus")).to_contain_text("Док на связи ✓, но OBS к нему не подключён", timeout=20000)
+        await expect(page.locator("#obsBridgeStatus")).to_contain_text("OBS просит пароль")
         # Port and password come from the panel (a phone): a wrong password
         # changes nothing in the dock; the OBS QR fills the fields.
         await page.fill("#obsRemotePort", "4455")
@@ -309,6 +319,7 @@ async def run(args):
         await expect(dock.locator("#dockPassword")).to_have_value("pw")
         await expect(dock.locator("#dockUrl")).to_have_value("ws://127.0.0.1:4455")
         await expect(dock.locator("#dockLog")).to_contain_text("Подключение к OBS настроено из панели")
+        await expect(page.locator("#obsBridgeStatus")).to_contain_text("Док на связи ✓ · OBS подключён ✓")
         await page.locator("#obsDialog").screenshot(path=str(output / "obs-connection-phone-config.png"))
         await page.check("#includeCards")
         await page.click("#sendObsBtn")
@@ -317,7 +328,7 @@ async def run(args):
         await expect(page.locator("#obsState")).to_have_text("Док OBS на связи")
         assert len(dock_obs.names("CAM ")) == 10 and len(dock_obs.names("CARD ")) == 10
         await dock.screenshot(path=str(output / "obs-dock.png"))
-        passed("send to OBS through the dock: OBS port and password from the panel (QR), sealed match, applied, acknowledged")
+        passed("send to OBS through the dock: code typed from the dock, status per step, OBS port and password from the panel (QR), sealed match")
 
         # Veto has its own display-only encrypted stream. A green OBS dock
         # must not claim that a missing browser source has received a move.
