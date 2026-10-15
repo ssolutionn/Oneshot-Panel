@@ -1,5 +1,6 @@
 import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto } from './obs.js';
-import { VdoLink, bridgeSecrets, normalizeCode } from './vdo.js';
+import { VdoLink, bridgeSecrets, normalizeCode, newBridgeCode } from './vdo.js';
+import { mountQrReader, parseObsQr, localObsUrl, pairingUrl, drawQr } from './assets/obs-qr.js';
 
 // The OBS dock: receives sealed commands from the panel over VDO.Ninja and
 // runs them against this computer's obs-websocket.
@@ -98,6 +99,7 @@ async function start() {
 const fromHash = normalizeCode(new URLSearchParams(location.hash.slice(1)).get('k'));
 const initial = read();
 if (fromHash && fromHash !== initial.code) save({ ...initial, code: fromHash });
+else if (!normalizeCode(initial.code)) save({ ...initial, code: newBridgeCode() });
 const current = read();
 $('dockCode').value = current.code || '';
 $('dockUrl').value = current.url || OBS_DEFAULT_URL;
@@ -112,5 +114,34 @@ $('dockForm').addEventListener('submit', event => {
   connecting = null;
   log('Настройки сохранены');
   start();
+  refreshPairing();
 });
+let pairRevision = 0;
+function refreshPairing() {
+  const url = pairingUrl(location.origin, read().code);
+  $('dockPairUrl').value = url;
+  if (!$('dockPair').open) return;
+  const revision = ++pairRevision;
+  // Render away from the visible canvas so a changed code cannot leave a stale QR.
+  const canvas = document.createElement('canvas');
+  $('dockPairCanvas').hidden = true;
+  drawQr(canvas, url).then(() => {
+    if (revision !== pairRevision) return;
+    const target = $('dockPairCanvas');
+    target.width = canvas.width; target.height = canvas.height;
+    target.getContext('2d').drawImage(canvas, 0, 0);
+    target.hidden = false;
+  }).catch(() => { $('dockPairHint').textContent = 'QR не удалось показать. Скопируй ссылку для телефона выше.'; });
+}
+$('dockPair').addEventListener('toggle', () => { if ($('dockPair').open) refreshPairing(); });
+mountQrReader($('dockQr'), {
+  hint: 'Загрузи скриншот QR из OBS → Сервис → Настройки сервера WebSocket → Показать сведения о подключении. Все поля можно заполнять и менять вручную.',
+  onRead(text) {
+    const settings = parseObsQr(text);
+    $('dockUrl').value = localObsUrl(settings.url);
+    $('dockPassword').value = settings.password;
+    return 'Адрес, порт и пароль заполнены. 127.0.0.1 — этот компьютер. Проверь поля и нажми «Подключить».';
+  }
+});
+refreshPairing();
 start();

@@ -112,7 +112,7 @@
           <span class="obs-connection-chevron" aria-hidden="true">⌄</span>
         </summary>
         <form id="obsForm">
-          <p class="obs-mobile-guide">С телефона выбирай <b>«На другом компьютере»</b>. Ссылки для дока и оверлея копируй именно с телефона и вставляй в OBS на ПК: у каждого браузера свой код связи.</p>
+          <p class="obs-mobile-guide">С телефона выбирай <b>«На другом компьютере»</b>. В доке Oneshot на ПК открой <b>«Подключить телефон»</b> и отсканируй QR: код связи подставится сам. Ссылку на оверлей по-прежнему копируй с устройства, на котором кликаешь вето.</p>
           <p class="obs-connection-intro">Здесь настраивается отправка камер и матча в OBS. Для вето добавь отдельный источник «Браузер» по ссылке ниже. Сначала выбери, на каком компьютере открыт OBS.</p>
           <fieldset class="obs-mode">
             <legend class="mini-label">Где открыт OBS?</legend>
@@ -120,6 +120,7 @@
             <label class="check"><input type="radio" name="obsMode" value="direct"><span><b>На этом компьютере</b><small>Вставь адрес и пароль WebSocket в поля ниже.</small></span></label>
           </fieldset>
           <div id="obsBridgeFields">
+            <div id="obsPairQr"></div>
             <div class="obs-guide">
               <h3>Что сделать на компьютере с OBS</h3>
               <ol>
@@ -135,6 +136,7 @@
             <p class="obs-code-line">Код связи <b id="obsCode"></b> <button id="newObsCode" class="text-button" type="button">Сменить код</button></p>
           </div>
           <div id="obsDirectFields" hidden>
+            <div id="obsNativeQr"></div>
             <div class="obs-guide">
               <h3>Где найти адрес и пароль</h3>
               <ol>
