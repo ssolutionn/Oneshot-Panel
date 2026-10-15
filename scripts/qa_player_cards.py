@@ -4,13 +4,19 @@ import asyncio
 import json
 from pathlib import Path
 from urllib.parse import urlencode, urlsplit
+from urllib.request import urlopen
 
 from playwright.async_api import async_playwright, expect
 
 
 async def run(args):
     root = Path(__file__).resolve().parent.parent
-    catalog = json.loads((root / "assets/players/players.json").read_text())["players"]
+    catalog_url = getattr(args, "catalog_url", None)
+    if catalog_url:
+        with urlopen(catalog_url, timeout=20) as response:
+            catalog = json.load(response)["players"]
+    else:
+        catalog = json.loads((root / "assets/players/players.json").read_text())["players"]
     output = Path(args.artifacts)
     output.mkdir(parents=True, exist_ok=True)
     base = args.url.rstrip("/")
@@ -127,4 +133,5 @@ if __name__ == "__main__":
     parser.add_argument("--url", default="http://127.0.0.1:3000")
     parser.add_argument("--chromium", default=None)
     parser.add_argument("--artifacts", default="artifacts")
+    parser.add_argument("--catalog-url", default=None)
     asyncio.run(run(parser.parse_args()))
