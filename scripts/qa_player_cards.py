@@ -18,7 +18,7 @@ async def run(args):
     else:
         catalog = json.loads((root / "assets/players/players.json").read_text())["players"]
     senka = next(p for p in catalog if p["nick"].lower() == "senka")
-    assert not senka.get("photo") and not senka.get("file"), "senka uses the no-photo card."
+    assert senka.get("photo") and senka.get("file"), "senka must have a prepared photo."
     output = Path(args.artifacts)
     output.mkdir(parents=True, exist_ok=True)
     base = args.url.rstrip("/")
@@ -63,7 +63,7 @@ async def run(args):
             else:
                 await expect(page.locator("#cardPhoto")).to_be_hidden()
 
-        for player, label in [(with_photo, "photo"), (no_photo, "no-photo")]:
+        for player, label in [(with_photo, "photo"), (senka, "senka"), (no_photo, "no-photo")]:
             if player is None:
                 continue
             await open_card(player)
