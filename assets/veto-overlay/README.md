@@ -18,6 +18,11 @@ Without preview=1 the page waits for state and does not display a demo match.
 - Existing local CyberClash background, event emblem, team logos, map pictures.
 - Slow animated smoke via a small WebGL surface; static fallback if unavailable.
 - Bans, picks, pending side choice, deciding map and map play order.
+- Seven fixed columns follow the veto turns. BO3 is always BAN, BAN, PICK,
+  PICK, BAN, BAN, DECIDER; empty columns wait for a map instead of showing
+  an unrelated map from the alphabetical pool. Pending side choices stay in
+  their pick column; undo clears that turn without moving previous cards.
+  Other formats retain their own existing veto rules.
 - 900ms ban/pick effects: gradual desaturation and a drawn red cross for bans;
   cyan border/sweep and a brief PICK stamp for picks; delayed team/side labels.
 - Undo transitions back to the available card in 650ms. The card grid stays fixed.
@@ -74,7 +79,7 @@ npm run check && npm test
 node --check assets/veto-overlay/overlay.js
 python3 scripts/qa_veto_overlay.py
 
-The dedicated workflow renders all four formats in both layouts, checks actual
+The dedicated workflow checks actual drawn BO3 label order in both layouts and renders all four formats in both layouts, checks actual
 PNG dimensions/alpha, smoke movement and freezing, undo/finish, malformed updates,
 asset failure fallback, 375px overflow, and an idle page with no fake match data.
 It also samples real card pixels with smoke frozen to check ban/pick effects,

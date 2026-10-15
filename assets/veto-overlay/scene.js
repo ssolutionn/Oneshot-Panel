@@ -13,7 +13,7 @@ const visual=map=>({
   accent:['pick','pending'].includes(map.status)?1:0,
   white:map.status==='leftover'?1:0
 });
-const sameMap=(a,b)=>['status','side','team','step','sideTeam','ownSide'].every(key=>a?.[key]===b?.[key]);
+const sameMap=(a,b)=>['name','status','side','team','step','sideTeam','ownSide'].every(key=>a?.[key]===b?.[key]);
 const mix=(a,b,p)=>Object.fromEntries(Object.keys(b).map(key=>[key,a[key]+(b[key]-a[key])*p]));
 function tint(a,b,p) {
   const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
@@ -41,7 +41,7 @@ async function logos() {
 export async function artwork(teams) {
   const manifest=await logos();
   const list=[
-    ['/background','/assets/card/background.png'],
+    ['/background','/assets/card/background.jpg'],
     ['/event','/assets/card/cyberclash-logo.png'],
     ...MAP_POOL.map(map=>[map,`/assets/maps/${map}.jpg`]),
     ...teams.map(team=>{
@@ -67,13 +67,13 @@ export class VetoScene {
       JSON.stringify([next.teams,next.format,next.first]);
     if(!animate || !this.animations || !sameMatch)this.changed.clear();
     else {
-      next.maps.forEach(map=>{
-        const old=this.model.maps.find(old=>old.name===map.name);
+      next.slots.forEach(map=>{
+        const old=this.model.slots.find(old=>old.id===map.id);
         if(sameMap(old,map))return; // Polling identical state must not restart or cancel an animation.
-        const previous=this.changed.get(map.name);
+        const previous=this.changed.get(map.id);
         const from=previous?this.cardVisual(old,now).value:visual(old);
-        this.changed.set(map.name,{
-          started:now,duration:map.status==='available'?650:900,
+        this.changed.set(map.id,{
+          name:map.name||old.name,started:now,duration:map.status==='available'?650:900,
           from,to:visual(map),old:{...old,pendingTeam:1-this.model.nextTeam}
         });
       });
@@ -84,7 +84,7 @@ export class VetoScene {
     this.start();
   }
   cardVisual(map,now) {
-    const change=this.changed.get(map.name);
+    const change=this.changed.get(map.id);
     if(!change)return {value:visual(map),p:1,change:null};
     const p=clamp((now-change.started)/change.duration);
     return {value:mix(change.from,change.to,ease(p)),p,change};
@@ -209,8 +209,16 @@ export class VetoScene {
     const imageY=strip?y:y+51,imageH=strip?133:249;
     c.save();
     c.filter=`grayscale(${v.ban}) saturate(.85) brightness(${.9-v.ban*.32})`;
-    this.cover(this.assets.get(map.name),x,imageY,w,imageH,1+(entering?energy*.025:0));
+    if(active && change.old.name!==map.name)c.globalAlpha=map.name ? ease(p) : 1-ease(p);
+    const artworkName=map.name || (active ? change.old.name : '');
+    this.cover(this.assets.get(artworkName),x,imageY,w,imageH,1+(entering?energy*.025:0));
     c.restore();
+    const nameChanged=active && change.old.name!==map.name;
+    const emptyAlpha=map.name ? (nameChanged ? 1-ease(p) : 0) : (nameChanged ? ease(p) : 1);
+    if(emptyAlpha>0) {
+      this.text(String(index+1).padStart(2,'0'),x+w/2,imageY+imageH*.62,
+        strip?54:88,C.muted,{align:'center',weight:900,alpha:emptyAlpha*.17});
+    }
     const fade=c.createLinearGradient(0,imageY,0,imageY+imageH+15);
     fade.addColorStop(0,'#04131d00');fade.addColorStop(.55,'#04131d10');fade.addColorStop(1,C.panel);
     this.rect(x,imageY,w,imageH+15,fade);
@@ -244,19 +252,24 @@ export class VetoScene {
       this.text('PICK',0,strip?10:14,strip?25:34,C.deep,{weight:900,align:'center',alpha:reveal});
       c.restore();
     }
-    this.text(map.name.toUpperCase(),x+16,strip?y+150:y+337,strip?29:39,
-      tint(C.ink,'#b0bec5',v.ban),{weight:900,max:w-30});
+    const title=(item,alpha=1)=>{
+      this.text(item.name ? item.name.toUpperCase() : 'КАРТА '+String(index+1).padStart(2,'0'),
+        x+16,strip?y+150:y+337,strip?29:39,
+        item.name ? tint(C.ink,'#b0bec5',v.ban) : C.muted,{weight:900,max:w-30,alpha});
+    };
+    if(active && change.old.name!==map.name) {
+      title(change.old,1-ease(p/.5));title(map,ease((p-.2)/.6));
+    } else title(map);
+    const roleInk=map.role==='ban'?C.ban:map.role==='pick'?C.accent:C.gold;
+    const roleLabel=map.role==='ban'?'BAN':map.role==='pick'?'PICK':m.leftoverLabel;
+    if(!strip) {
+      this.text(String(index+1).padStart(2,'0'),x+18,y+31,18,roleInk);
+      this.text(roleLabel,x+w-16,y+31,14,roleInk,{align:'right',max:w-70});
+    }
+    this.text(roleLabel,x+17,strip?y+181:y+373,strip?17:19,roleInk,{weight:900,max:w-32});
     const captions=(item,alpha,dy=0)=>{
       if(alpha<=0)return;
       const ban=item.status==='ban',pick=item.status==='pick',left=item.status==='leftover',pending=item.status==='pending';
-      const ink=ban?C.ban:pick||pending?C.accent:left?C.gold:C.faint;
-      if(!strip) {
-        this.text(item.step?String(item.step).padStart(2,'0'):'—',x+18,y+31+dy,18,ink,{alpha});
-        this.text(ban?'BAN':pick?'PICK':left?m.leftoverLabel:pending?'ВЫБОР СТОРОНЫ':'В ПУЛЕ',
-          x+w-16,y+31+dy,14,ink,{align:'right',max:w-70,alpha});
-      }
-      this.text(ban?'BAN':pick?'PICK':left?m.leftoverLabel:pending?'СТОРОНА':'ДОСТУПНА',
-        x+17,(strip?y+181:y+373)+dy,strip?17:19,ink,{weight:900,max:w-32,alpha});
       if(item.team!==null) {
         this.text(m.teams[item.team],x+17,(strip?y+202:y+401)+dy,strip?13:16,
           ban?C.muted:C.ink,{max:w-33,alpha});
@@ -265,6 +278,9 @@ export class VetoScene {
           x+17,(strip?y+202:y+402)+dy,strip?13:16,C.muted,{max:w-33,alpha});
       } else if(pending) {
         this.text(m.teams[item.pendingTeam ?? (1-m.nextTeam)],x+17,(strip?y+202:y+402)+dy,
+          strip?13:16,C.muted,{max:w-33,alpha});
+      } else {
+        this.text('Карта не выбрана',x+17,(strip?y+202:y+402)+dy,
           strip?13:16,C.muted,{max:w-33,alpha});
       }
       if(pick&&!strip) {
@@ -335,7 +351,7 @@ export class VetoScene {
   draw(now=performance.now()) {
     const c=this.ctx,strip=this.layout==='strip';
     this.canvas.dataset.animating=[...this.changed].filter(([,item])=>
-      now-item.started<item.duration).map(([name])=>name).join(',');
+      now-item.started<item.duration).map(([,item])=>item.name).join(',');
     c.clearRect(0,0,W,H);
     const seconds=this.motion?(now-this.started)/1000+12:this.frozenTime;
     this.background(seconds,strip);
@@ -346,7 +362,7 @@ export class VetoScene {
       return;
     }
     if(strip)this.stripHeader(m);else this.fullHeader(m);
-    m.maps.forEach((map,i)=>this.card(map,i,m,now,strip));
+    m.slots.forEach((map,i)=>this.card(map,i,m,now,strip));
     if(strip)this.stripFooter(m);else this.fullFooter(m);
     this.canvas.dataset.layout=this.layout;
     this.canvas.dataset.smoke=this.smoke?'webgl':'static';
