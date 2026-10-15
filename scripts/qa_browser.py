@@ -645,6 +645,13 @@ async def run(args):
         box = await card_page.locator("#card").bounding_box()
         assert abs(box["width"] - 480) < 1 and abs(box["height"] - 270) < 1
         assert box["x"] >= -0.5 and box["y"] >= -0.5
+        if card_errors:
+            diagnostics = await card_page.evaluate("""() => ({
+                inlineScripts: [...document.querySelectorAll('script:not([src])')].map(el => el.textContent.slice(0, 1000)),
+                inlineStyles: [...document.querySelectorAll('style')].map(el => el.textContent.slice(0, 400)),
+                externalScripts: [...document.querySelectorAll('script[src]')].map(el => el.src)
+            })""")
+            print("CARD_CSP_DIAGNOSTICS:", json.dumps(diagnostics), flush=True)
         await cards.close()
         assert not card_errors, card_errors
         passed("player card: photo, alias, logo fallback, long nick, 480×270 tile")
