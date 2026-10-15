@@ -11,7 +11,7 @@ on:
         default: "15.10"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   package:
@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          persist-credentials: true
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -84,3 +84,20 @@ jobs:
             work/match-package/previews/
             work/match-package/verification.json
           if-no-files-found: error
+      - name: Save verified photos for static publishing
+        if: github.event_name == 'push' && github.ref == 'refs/heads/codex/matchday-player-packages'
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          folder = Path("assets/players")
+          files = [folder / "players.json", *sorted(p for p in folder.iterdir()
+                   if p.suffix.lower() in (".png", ".jpg", ".webp"))]
+          subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=True)
+          subprocess.run(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
+          subprocess.run(["git", "add", "--", *map(str, files)], check=True)
+          changed = subprocess.run(["git", "diff", "--cached", "--quiet"]).returncode
+          if changed:
+              subprocess.run(["git", "commit", "-m", "Publish verified local HLTV photos with their manifest"], check=True)
+              subprocess.run(["git", "push", "origin", "HEAD:refs/heads/codex/matchday-player-packages"], check=True)
+          PY
