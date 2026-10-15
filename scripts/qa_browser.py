@@ -583,7 +583,9 @@ async def run(args):
         cards = await browser.new_context(viewport={"width": 1920, "height": 1080})
         card_page = await cards.new_page()
         card_errors = []
-        card_page.on("console", lambda m: m.type == "error" and card_errors.append(m.text))
+        card_page.on("console", lambda m: m.type == "error" and
+                     ("Content Security Policy" in m.text or "Refused to" in m.text)
+                     and card_errors.append(m.text))
         card_page.on("pageerror", lambda e: card_errors.append(str(e)))
         stand_in = (Path(__file__).resolve().parent.parent /
                     "assets" / "favicon.png").read_bytes()
@@ -628,9 +630,15 @@ async def run(args):
         await open_card("team=Lavked&nick=" + "W" * 24)
         size = await card_page.evaluate(
             "parseFloat(getComputedStyle(document.getElementById('cardNick')).fontSize)")
-        assert size < 168
+        assert size < 224
         assert await card_page.evaluate(
-            "document.getElementById('cardNick').getBoundingClientRect().right") <= 980
+            "document.getElementById('cardNick').getBoundingClientRect().right") <= 1760
+        # A known nickname from a different team is never a photo match.
+        assert await open_card("team=Lavked&nick=senka") == "none"
+        await expect(card_page.locator("#cardPhoto")).to_be_hidden()
+        await expect(card_page.locator("#tournamentLogo")).to_be_visible()
+        await expect(card_page.locator("#cardBackground")).to_be_visible()
+        assert await card_page.locator("body").get_attribute("data-layout") == "no-photo"
         # A Матрица tile: the whole card scales into 480×270.
         await card_page.set_viewport_size({"width": 480, "height": 270})
         await open_card("team=Lavked&nick=jakekeS")

@@ -8,20 +8,25 @@
   <link rel="stylesheet" href="/card.css">
   <script type="module" src="/card.js"></script>
 </head>
-<body>
-  <!-- 1920×1080, as the OBS browser source; a smaller window scales it down.
-       Opened as /card.html?team=Команда&nick=Ник -->
-  <main class="card" id="card">
-    <div class="card-text">
-      <div class="card-team">
-        <span class="card-logo" id="cardLogo" hidden><img alt=""></span>
-        <span id="cardTeam"></span>
-      </div>
-      <h1 class="card-nick" id="cardNick"></h1>
-      <span class="card-rule" aria-hidden="true"></span>
+<body data-layout="no-photo">
+  <main class="card" id="card" aria-label="Карточка игрока CyberClash">
+    <img class="card-background" id="cardBackground" alt="" hidden>
+    <div class="card-portrait" aria-hidden="true">
+      <img class="card-photo" id="cardPhoto" alt="" hidden>
     </div>
-    <img class="card-photo" id="cardPhoto" alt="" hidden>
-    <img class="card-emblem" id="cardEmblem" alt="" hidden>
+    <div class="card-shade" aria-hidden="true"></div>
+    <img class="card-event" id="tournamentLogo" alt="CyberClash" hidden>
+    <section class="card-identity" aria-label="Игрок и команда">
+      <img class="card-emblem" id="cardEmblem" alt="" hidden>
+      <div class="card-text">
+        <div class="card-team">
+          <span class="card-logo" id="cardLogo" hidden><img alt=""></span>
+          <span id="cardTeam"></span>
+        </div>
+        <h1 class="card-nick" id="cardNick">Игрок</h1>
+        <span class="card-rule" aria-hidden="true"></span>
+      </div>
+    </section>
   </main>
 </body>
 </html>

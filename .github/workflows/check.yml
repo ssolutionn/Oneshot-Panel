@@ -23,6 +23,20 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Photo preparation regression checks
+        run: python3 -m unittest discover -s test -p '*_test.py'
+      - name: Prepare the published static site
+        run: |
+          python3 - <<'PY'
+          import subprocess
+          import tomllib
+          from pathlib import Path
+
+          config = tomllib.loads(Path("netlify.toml").read_text())
+          subprocess.run(config["build"]["command"], shell=True, check=True)
+          assert Path("public/assets/card/background.png").is_file()
+          assert Path("public/assets/card/cyberclash-logo.png").is_file()
+          PY
       - name: Syntax and Node tests
         run: npm run check && npm test
       - name: Rebuild Claude artifact
@@ -47,6 +61,8 @@ jobs:
               roster=None, schedule=None, artifacts="artifacts"
           )
           asyncio.run(qa["run"](args))
+          cards = runpy.run_path("scripts/qa_player_cards.py", run_name="player_card_qa")
+          asyncio.run(cards["run"](args))
           PY
       - name: Upload browser screenshots and sample OBS export
         if: always()
@@ -55,3 +71,10 @@ jobs:
           name: panel-browser-qa
           path: artifacts/
           if-no-files-found: ignore
+      - name: Upload ready-to-publish static site
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oneshot-panel-site
+          path: public/
+          if-no-files-found: error

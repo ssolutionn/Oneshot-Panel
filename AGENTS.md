@@ -22,12 +22,16 @@ Oneshot Panel — статическая веб-панель эфирной ко
   (`webcam-desk-source`, `oneshot-webcam-match-v1`), вето, копирование,
   скачивание JSON.
 - `card.html`, `card.js`, `card.css` — карточка игрока 1920×1080
-  (`/card.html?team=…&nick=…`): фон `assets/card/background.jpg`, логотип
+  (`/card.html?team=…&nick=…`): фон `assets/card/background.png`, логотип CyberClash и логотип
   команды, ник, фото HLTV из `assets/players/players.json`. В OBS JSON
   стоит под каждой камерой (`CARD NN | Команда | Ник`); `card.js`
   импортирует `personKey` из `core.js`. Оформление — токены `--card-*`.
+  Фото крупно по центру; при отсутствии/ошибке фото — эмблема команды
+  и ник по центру. Совпадение ника в другой команде не даёт фото.
 - `scripts/fetch_player_photos.py` — скачивает фото HLTV из
   `players.json` (поле `photo`) в `assets/players/` и заполняет `file`.
+  Netlify запускает его с `--allow-missing` до копирования сайта: ошибки
+  отдельных фото дают заглушку; веб-страница не обращается к HLTV.
 - `server.js` — локальный статический сервер. Отдаёт только файлы из
   `publicFiles` и `assets/`: новый файл в корне добавь в `publicFiles`.
 - `DEPLOY.md` — размещение на своём сервере (nginx) или домене; при смене
@@ -46,7 +50,8 @@ Oneshot Panel — статическая веб-панель эфирной ко
   скрипте, а не обходи её.
 - `claude-artifact/index.html` — старая версия «Webcam Desk», не трогать.
 - `scripts/qa_browser.py` — 25 браузерных сценариев (Python Playwright +
-  Chromium).
+  Chromium). `scripts/qa_player_cards.py` проверяет все записи подготовленного
+  каталога и 10 CARD-ссылок скачанного JSON; `test/photos_test.py` — загрузчик.
 
 ## Команды
 
