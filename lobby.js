@@ -10,7 +10,8 @@ import { personKey } from './core.js';
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
 const STORE = 'oneshot-lobby', LOG_STORE = 'oneshot-lobby-log';
-const POLL = 20000, REPEAT = 20000, REPEAT_LIMIT = 15;
+// The siren: at most 3 more beeps (1 minute), and it stops as soon as someone looks.
+const POLL = 20000, REPEAT = 20000, REPEAT_LIMIT = 3;
 const lobby = {
   client: null, champ: '', timer: null, tick: 0, interval: POLL,
   matches: new Map(), pauses: new Map(), finished: null,
@@ -114,6 +115,9 @@ function alertAdmins(text, tag, { loud = true } = {}) {
     document.title = on ? `● ${text}` : title;
   }, 1000);
 }
+function hush() { clearInterval(lobby.repeatTimer); }
+window.addEventListener('focus', hush);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) hush(); });
 function acknowledge() {
   lobby.alert = null;
   lobby.unread = 0;
