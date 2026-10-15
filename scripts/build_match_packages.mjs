@@ -57,7 +57,9 @@ for (const match of matches) {
   const cards = online.sources.filter(s => s.name.startsWith('CARD '));
   if (cards.length !== 10) throw new Error('Expected 10 CARD sources.');
   await save('OBS_ONLINE/' + filename, JSON.stringify(online, null, 2) + '\n');
-  const offline = structuredClone(online);
+  const offline = buildObs(template, a, b, ka, kb, randomUUID, {cardBase:site});
+  const embedded = buildObs(template, a, b, ka, kb, randomUUID, {cardBase:site});
+  await save('EMBEDDED_TEMPLATES/' + filename, JSON.stringify(embedded, null, 2) + '\n');
   const ordered = [...pa.map(p => ({...p, team:a.name})), ...pb.map(p => ({...p, team:b.name}))];
   offline.sources.filter(s => s.name.startsWith('CARD ')).forEach((s, i) => {
     const player = players.get(personKey(ordered[i].team) + '__' + personKey(ordered[i].nick));
@@ -95,10 +97,14 @@ const photoCount = [...players.values()].filter(p => p.photo).length;
 await save('README.txt', [
   'CYBERCLASH — ' + day + '.2026 — время МСК',
   '',
-  '1. Распакуйте ZIP целиком в постоянную папку.',
-  '2. Windows: запустите PREPARE_WINDOWS.cmd.',
-  '   macOS/Linux: python3 prepare_local.py',
-  '3. В OBS: Коллекция сцен → Импорт → JSON из папки OBS_LOCAL.',
+  'Основной вариант: OBS → Коллекция сцен → Импорт → JSON из OBS_READY.',
+  'В каждом JSON уже лежат десять готовых карточек с фото/заглушками и фоном.',
+  'Для карточек не нужны сайт, HLTV, отдельные файлы или настройка путей.',
+  'Источники камер VDO.Ninja по-прежнему работают через интернет.',
+  '',
+  'Запасной вариант с отдельными JPG: распакуйте ZIP целиком в постоянную папку.',
+  'Windows: запустите PREPARE_WINDOWS.cmd; macOS/Linux: python3 prepare_local.py.',
+  'Затем импортируйте JSON из появившейся папки OBS_LOCAL.',
   'Карточки уже собраны в JPG 1920×1080 и работают без сайта и HLTV.',
   'Не перемещайте папку после подготовки JSON; после переноса запустите подготовку заново.',
   '',

@@ -4,6 +4,7 @@ import asyncio
 import base64
 import html
 import json
+import shutil
 from pathlib import Path
 from urllib.parse import urlencode
 from playwright.async_api import async_playwright, expect
@@ -47,6 +48,41 @@ async def run(args):
             await preview.evaluate("Promise.all([...document.images].map(i => i.decode()))")
             await preview.screenshot(path=str(root / "previews" / match["filename"].replace(".json", ".jpg")),
                                   type="jpeg", quality=95)
+        # Browser CARD sources can carry their own image document. Validate every
+        # embedded source with the browser network disabled before delivering JSON.
+        ready = root / "OBS_READY"
+        ready.mkdir(exist_ok=True)
+        embedded_context = await browser.new_context(
+            viewport={"width":1920, "height":1080}, offline=True)
+        embedded_page = await embedded_context.new_page()
+        network_requests = []
+        embedded_page.on("request", lambda req: network_requests.append(req.url)
+                         if req.url.startswith(("http:", "https:")) else None)
+        for match in manifest["matches"]:
+            document = json.loads((root / "EMBEDDED_TEMPLATES" / match["filename"]).read_text(encoding="utf-8"))
+            sources = [s for s in document["sources"] if s["name"].startswith("CARD ")]
+            assert len(sources) == 10
+            for source, key in zip(sources, match["players"]):
+                image = base64.b64encode((root / expected[key]["card"]).read_bytes()).decode()
+                markup = '<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#031b24}img{display:block;width:100%;height:100%;object-fit:contain}</style></head><body><img src="data:image/jpeg;base64,' + image + '"></body></html>'
+                source["settings"]["url"] = "data:text/html;base64," + base64.b64encode(markup.encode()).decode()
+                assert len(source["settings"]["url"]) < 2_000_000, "Embedded browser URL is too large."
+                await embedded_page.goto(source["settings"]["url"])
+                await embedded_page.wait_for_function("document.images.length === 1 && document.images[0].complete && document.images[0].naturalWidth === 1920")
+                box = await embedded_page.locator("img").bounding_box()
+                assert box["x"] == 0 and box["y"] == 0
+                assert box["width"] == 1920 and box["height"] == 1080
+            (ready / match["filename"]).write_text(
+                json.dumps(document,ensure_ascii=False,indent=2) + "\n",encoding="utf-8")
+        assert not network_requests, "Embedded cards must not contact a website."
+        (ready / "README-OBS.txt").write_text(
+            "CyberClash — " + manifest["day"] + ".2026\n"
+            "OBS → Коллекция сцен → Импорт → выберите JSON нужного матча.\n"
+            "Фото, фон и подписи уже внутри каждого JSON. Пути к картинкам настраивать не нужно.\n"
+            "Карточки проверены в Chromium без сети. Перед эфиром проверьте импорт и включение/отключение камер в вашем OBS.\n",
+            encoding="utf-8")
+        await embedded_context.close()
+        shutil.rmtree(root / "EMBEDDED_TEMPLATES")
         await browser.close()
     # Resolve offline paths with the same helper included for the operator.
     import importlib.util
@@ -70,7 +106,9 @@ async def run(args):
               "cards":len(manifest["players"]),
               "photos":sum(bool(p["photo"]) for p in manifest["players"]),
               "fallback":[p["team"] + " — " + p["nick"] for p in manifest["players"] if not p["photo"]],
-              "offlineCollectionsValidated":len(generated), "javascriptErrors":errors}
+              "offlineCollectionsValidated":len(generated),
+              "embeddedSourcesVerifiedWithoutNetwork":len(manifest["matches"]) * 10,
+              "embeddedExternalRequests":len(network_requests), "javascriptErrors":errors}
     (root / "verification.json").write_text(json.dumps(report,ensure_ascii=False,indent=2) + "\n", encoding="utf-8")
     print("MATCH_PACKAGE_VERIFIED:", json.dumps(report,ensure_ascii=False), flush=True)
 

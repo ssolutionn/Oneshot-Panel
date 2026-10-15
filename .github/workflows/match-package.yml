@@ -64,6 +64,12 @@ jobs:
               assert all(Path(s["settings"]["file"]).is_file() for s in cards)
           shutil.rmtree(root / "OBS_LOCAL")
           PY
+      - name: Upload self-contained OBS collections
+        uses: actions/upload-artifact@v4
+        with:
+          name: CyberClash-${{ env.MATCH_DAY }}-2026-OBS
+          path: work/match-package/OBS_READY/
+          if-no-files-found: error
       - name: Upload ready broadcast package
         uses: actions/upload-artifact@v4
         with:
