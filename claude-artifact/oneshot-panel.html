@@ -203,6 +203,8 @@ h2 { font-size:17px; line-height:1.4; letter-spacing:-.3px; margin-bottom:0; }
 .card-bottom { display:flex; align-items:center; gap:4px; }
 .roster-action { width:28px; padding:5px; font-size:17px; text-align:center; }
 .export-bar { margin:12px 0 16px; }
+.export-option { margin-top:10px; font-size:12px; line-height:1.5; cursor:pointer; }
+.export-option input { flex:none; width:16px; height:16px; }
 .export-actions { display:flex; align-items:center; gap:10px; }
 #downloadBtn { min-width:245px; }
 #downloadBtn>span { font-size:21px; line-height:1; font-weight:400; }
@@ -381,6 +383,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
         <a class="button observer-link" href="#copy"><span aria-hidden="true">↗</span> Ссылки и порядок слотов</a>
         <span class="canvas-size">1920 × 1080<span>OBS SCENE COLLECTION</span></span>
       </div>
+      <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
       <div class="export-meta">
         <p id="exportHint">10 вебок, сцены «Игрок 1–10» и «Матрица»</p>
         <p id="filenamePreview"></p>
@@ -762,7 +765,7 @@ function fitItem(item, x = 0, y = 0, width = 1920, height = 1080) {
 
 function buildObs(template, a, b, ka, kb,
                          uuidFn = () => crypto.randomUUID(),
-                         { cardBase = DEFAULT_CARD_BASE } = {}) {
+                         { cardBase = DEFAULT_CARD_BASE, includeCards = false } = {}) {
   const error = validateMatch(a, b, ka, kb);
   if (error) throw new Error(error);
   if (!Array.isArray(template?.sources)) {
@@ -789,7 +792,7 @@ function buildObs(template, a, b, ka, kb,
       throw new Error('В сцене игрока должен быть ровно один источник браузера.');
     }
     const item = items[0];
-    const cardSource = structuredClone(byId.get(item.source_uuid));
+    const cardSource = includeCards ? structuredClone(byId.get(item.source_uuid)) : null;
     let browser = byId.get(item.source_uuid);
     if (used.has(browser.uuid)) {
       browser = structuredClone(browser);
@@ -808,22 +811,24 @@ function buildObs(template, a, b, ka, kb,
     names.set(browser.name, `CAM ${slot} | ${p.team} | ${p.nick}`);
     fitItem(item);
 
-    // The player card sits right under the camera: it is seen whenever
-    // VDO.Ninja has no video (not connected yet, or dropped).
-    Object.assign(cardSource, {
-      uuid: uuidFn(), name: `CARD ${slot} | ${p.team} | ${p.nick}`,
-      settings: { url: cardUrl(p, cardBase), width: 1920, height: 1080 },
-      muted: true
-    });
-    d.sources.push(cardSource);
-    byId.set(cardSource.uuid, cardSource);
-    const cardItem = {
-      ...structuredClone(item), name: cardSource.name,
-      source_uuid: cardSource.uuid, visible: true,
-      id: Math.max(...scene.settings.items.map(it => Number(it.id) || 0)) + 1
-    };
-    fitItem(cardItem);
-    scene.settings.items.splice(scene.settings.items.indexOf(item), 0, cardItem);
+    if (includeCards) {
+      // The player card sits right under the camera: it is seen whenever
+      // VDO.Ninja has no video (not connected yet, or dropped).
+      Object.assign(cardSource, {
+        uuid: uuidFn(), name: `CARD ${slot} | ${p.team} | ${p.nick}`,
+        settings: { url: cardUrl(p, cardBase), width: 1920, height: 1080 },
+        muted: true
+      });
+      d.sources.push(cardSource);
+      byId.set(cardSource.uuid, cardSource);
+      const cardItem = {
+        ...structuredClone(item), name: cardSource.name,
+        source_uuid: cardSource.uuid, visible: true,
+        id: Math.max(...scene.settings.items.map(it => Number(it.id) || 0)) + 1
+      };
+      fitItem(cardItem);
+      scene.settings.items.splice(scene.settings.items.indexOf(item), 0, cardItem);
+    }
   });
 
   const matrix = byName.get('Матрица');
@@ -1771,7 +1776,8 @@ function obsFile() {
   const filename = safeFilename(state.a, state.b,
     $('matchTime').value, $('matchStage').value);
   const text = JSON.stringify(buildObs(state.template,
-    getTeam('a'), getTeam('b'), state.keysA, state.keysB), null, 2) + '\n';
+    getTeam('a'), getTeam('b'), state.keysA, state.keysB, undefined,
+    { includeCards: $('includeCards').checked }), null, 2) + '\n';
   return { filename, text };
 }
 function downloadNote(text) {

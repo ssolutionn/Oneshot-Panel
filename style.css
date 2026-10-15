@@ -132,6 +132,8 @@ h2 { font-size:17px; line-height:1.4; letter-spacing:-.3px; margin-bottom:0; }
 .card-bottom { display:flex; align-items:center; gap:4px; }
 .roster-action { width:28px; padding:5px; font-size:17px; text-align:center; }
 .export-bar { margin:12px 0 16px; }
+.export-option { margin-top:10px; font-size:12px; line-height:1.5; cursor:pointer; }
+.export-option input { flex:none; width:16px; height:16px; }
 .export-actions { display:flex; align-items:center; gap:10px; }
 #downloadBtn { min-width:245px; }
 #downloadBtn>span { font-size:21px; line-height:1; font-weight:400; }
