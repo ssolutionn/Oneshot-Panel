@@ -67,16 +67,23 @@ export function summarizeMatch(raw) {
   const picks = raw?.voting?.map?.pick;
   const entities = Array.isArray(raw?.voting?.map?.entities) ? raw.voting.map.entities : [];
   const status = String(raw?.status || '').toUpperCase();
+  const bestOf = Number(raw?.best_of) || null;
+  const live = LIVE.has(status), done = DONE.has(status);
+  const given = [Number(score[f1]) || 0, Number(score[f2]) || 0];
+  const wins = [0, 1].map(t => maps.filter(m => m.winner === t).length);
+  // While a map is played FACEIT puts that map's rounds into results.score;
+  // the series score then comes from the finished maps.
+  const rounds = live && !(given[0] === wins[0] && given[1] === wins[1]) ? given : null;
   return {
     id: String(raw?.match_id || ''),
     url: String(raw?.faceit_url || '').replace('{lang}', 'ru'),
     status, statusText: STATUS_RU[status] || status.toLowerCase(),
-    live: LIVE.has(status), done: DONE.has(status),
+    live, done,
     teams: [factionName(raw, f1), factionName(raw, f2)],
     factions: [f1, f2],
-    score: [Number(score[f1]) || 0, Number(score[f2]) || 0],
+    score: rounds ? wins : given, rounds,
     winner: raw?.results?.winner === f1 ? 0 : raw?.results?.winner === f2 ? 1 : null,
-    maps, bestOf: Number(raw?.best_of) || null,
+    maps, bestOf,
     picks: Array.isArray(picks) ? picks.map(guid => mapName(guid, entities)) : [],
     round: raw?.round ?? null, group: raw?.group ?? null,
     scheduledAt: when(raw?.scheduled_at), startedAt: when(raw?.started_at),
@@ -90,21 +97,75 @@ export function mapsPlayed(match) {
   return Math.max(match.score[0] + match.score[1], match.maps.filter(m => m.winner !== null).length);
 }
 
-// Events between two polls of the same match. A map that ends the series is
-// reported once, as the end of the match.
+// CS2 (MR12): a map is won at 13; from 12:12 overtime is played in sixes,
+// first to 4 (16, 19, 22, …), always by at least two rounds.
+export function mapWon(a, b) {
+  const hi = Math.max(a, b), lo = Math.min(a, b);
+  return hi >= 13 && (hi - 13) % 3 === 0 && hi - lo >= 2;
+}
+// The team one round away from taking the map, or null.
+export function mapPointTeam(a, b) {
+  if (mapWon(a, b)) return null;
+  return mapWon(a + 1, b) ? 0 : mapWon(a, b + 1) ? 1 : null;
+}
+
+// Events between two polls of the same match. Each map gives at most one
+// "map point" and one "map taken"; the map that decides the series is
+// reported once, as the end of the match. `after.sent` remembers what was
+// reported, so repeated polls never repeat an alert.
 export function matchEvents(before, after) {
   if (!after?.id) return [];
-  if (!before) return [];
+  const sent = after.sent = new Set(before?.sent || []);
+  const decided = after.maps.filter(m => m.winner !== null).length;
+  // The map being played: rounds dropping back means the next map started.
+  const rounds = after.rounds, prev = before?.rounds;
+  after.liveMap = Math.max(decided + 1, !before ? 1 :
+    (before.liveMap || 1) + (rounds && prev && rounds[0] + rounds[1] < prev[0] + prev[1] ? 1 : 0));
+  if (!before) {
+    // First sight: remember what has already happened, alert nothing.
+    for (let map = 1; map <= mapsPlayed(after); map++) sent.add(`map:${map}`);
+    if (after.done) sent.add('match');
+    return [];
+  }
   const events = [];
   const ended = !before.done && after.done;
-  const played = mapsPlayed(after), was = mapsPlayed(before);
-  if (played > was && !ended) {
-    for (let map = was + 1; map <= played; map++) {
-      const result = after.maps[map - 1];
-      events.push({ type: 'map', match: after, map, winner: result?.winner ?? null });
+  const seriesMax = Math.ceil((after.bestOf || 1) / 2);
+  const played = mapsPlayed(after);
+  if (!ended) {
+    for (let map = 1; map <= played; map++) {
+      if (sent.has(`map:${map}`)) continue;
+      sent.add(`map:${map}`);
+      const winner = after.maps[map - 1]?.winner ?? null;
+      if (winner !== null && after.score[winner] >= seriesMax) continue; // the match event says it
+      events.push({ type: 'map', match: after, map, winner });
     }
   }
-  if (ended) events.push({ type: after.status === 'FINISHED' ? 'match' : 'cancelled', match: after });
+  if (after.live && rounds && !ended) {
+    const map = after.liveMap, [a, b] = rounds;
+    if (mapWon(a, b) && !sent.has(`map:${map}`)) {
+      sent.add(`map:${map}`).add(`point:${map}`);
+      const winner = a > b ? 0 : 1;
+      const score = [0, 1].map(t => after.score[t] + (t === winner && decided < map ? 1 : 0));
+      const view = { ...after, score };
+      if (score[winner] >= seriesMax && !sent.has('match')) {
+        sent.add('match');
+        events.push({ type: 'match', match: view, map, rounds });
+      } else if (score[winner] < seriesMax) {
+        events.push({ type: 'map', match: view, map, winner, rounds });
+      }
+    } else {
+      const team = mapPointTeam(a, b);
+      if (team !== null && !sent.has(`point:${map}`) && !sent.has(`map:${map}`)) {
+        sent.add(`point:${map}`);
+        events.push({ type: 'mappoint', match: after, map, team, rounds });
+      }
+    }
+  }
+  if (ended && after.status === 'FINISHED') {
+    // Reported already from the rounds: only the bookkeeping (texts, stats) is left.
+    events.push({ type: sent.has('match') ? 'final' : 'match', match: after });
+    sent.add('match');
+  } else if (ended) events.push({ type: 'cancelled', match: after });
   else if (after.status === 'PAUSED' && before.status !== 'PAUSED') events.push({ type: 'paused', match: after });
   else if (before.status === 'PAUSED' && after.status !== 'PAUSED') events.push({ type: 'resumed', match: after });
   else if (!before.live && after.live && after.status !== before.status) {
@@ -134,11 +195,17 @@ export function scoreLine(match) {
 }
 export function eventText(event) {
   const m = event.match;
-  if (event.type === 'map') {
-    const winner = event.winner === null ? '' : ` — карту взяли ${m.teams[event.winner]}`;
-    return `Карта ${event.map}${m.picks[event.map - 1] ? ` (${m.picks[event.map - 1]})` : ''} закончилась${winner}. Счёт: ${scoreLine(m)}`;
+  const mapLabel = `Карта ${event.map}${m.picks?.[event.map - 1] ? ` (${m.picks[event.map - 1]})` : ''}`;
+  const rounds = event.rounds ? `, ${Math.max(...event.rounds)}:${Math.min(...event.rounds)}` : '';
+  if (event.type === 'mappoint') {
+    return `${mapLabel}: мап-поинт у ${m.teams[event.team]} — ${event.rounds[0]}:${event.rounds[1]}`;
   }
-  if (event.type === 'match') return `Матч закончился: ${scoreLine(m)}`;
+  if (event.type === 'map') {
+    const winner = event.winner === null ? '' : ` — карту взяли ${m.teams[event.winner]}${rounds}`;
+    return `${mapLabel} закончилась${winner}. Счёт по картам: ${scoreLine(m)}`;
+  }
+  if (event.type === 'match') return `Матч закончился: ${scoreLine(m)}${rounds ? ` (последняя карта${rounds})` : ''}`;
+  if (event.type === 'final') return `Итог матча на FACEIT: ${scoreLine(m)}`;
   if (event.type === 'paused') return `Пауза в матче ${m.teams[0]} vs ${m.teams[1]} (FACEIT)`;
   if (event.type === 'resumed') return `Матч ${m.teams[0]} vs ${m.teams[1]} продолжился`;
   if (event.type === 'cancelled') return `Матч ${m.teams[0]} vs ${m.teams[1]}: ${m.statusText}`;

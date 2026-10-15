@@ -65,7 +65,12 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   лишь когда OBS их принял. Панель этот пароль не хранит. localStorage
   дока: `oneshot-obs-bridge`.
 - `faceit.js` — без DOM: разбор ссылки турнира, сводка матча, события
-  (карта, матч, отмена, PAUSED), тексты «GG» и «Next xx:MM», клиент Data API
+  (карта, матч, отмена, PAUSED), тексты «GG» и «Next xx:MM», клиент Data API.
+  Пока карта идёт, FACEIT кладёт в results.score раунды этой карты
+  (`rounds`), а счёт по картам берётся из detailed_results. По раундам:
+  один тихий «мап-поинт» и одно «карта взята» на карту (MR12, овертайм до 4
+  из 6 — `mapWon`), решающая карта — сразу «матч закончился»; `sent` хранит
+  уже сказанное, повторов нет. Клиент Data API
   с переходом на прокси `/api/faceit` при CORS. Покрыт `test/live.test.js`.
 - `lobby.js` — вкладка «Лобби»: опрос турнира и/или комнат матчей
   (`parseFaceitTargets`; каждый запрос отдельно, отказ одного не роняет
@@ -150,7 +155,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 
 ```sh
 npm run check        # синтаксис
-npm test             # 53 теста (node:test)
+npm test             # 54 теста (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome

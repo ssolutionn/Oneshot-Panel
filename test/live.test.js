@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseFaceitUrl, summarizeMatch, matchEvents, mapsPlayed, eventText,
-  nextStart, fillTemplate, DEFAULT_TEMPLATES, FaceitClient, mapScores, mapName, parseFaceitTargets
+  nextStart, fillTemplate, DEFAULT_TEMPLATES, FaceitClient, mapScores, mapName, parseFaceitTargets,
+  mapWon, mapPointTeam
 } from '../faceit.js';
 import faceitProxy from '../netlify/functions/faceit.mjs';
 import { onRequest as cloudflareFaceit } from '../functions/api/faceit.js';
@@ -53,7 +54,7 @@ test('Map and match ends are found between two polls', () => {
   assert.equal(events.length, 1);
   assert.equal(events[0].type, 'map');
   assert.equal(eventText(events[0]),
-    'Карта 1 (Mirage) закончилась — карту взяли Rune Eaters. Счёт: Rune Eaters 1:0 PCIFIC');
+    'Карта 1 (Mirage) закончилась — карту взяли Rune Eaters. Счёт по картам: Rune Eaters 1:0 PCIFIC');
   assert.deepEqual(matchEvents(map1, map1), []);
   // The last map ends the series: one "match" event, no extra "map" event.
   const done = summarizeMatch(raw({
@@ -79,6 +80,48 @@ test('Map and match ends are found between two polls', () => {
   // An ongoing BO1 has no results yet.
   const bo1 = summarizeMatch(raw({ results: null, detailed_results: null, best_of: 1 }));
   assert.deepEqual([bo1.score, bo1.maps, mapsPlayed(bo1)], [[0, 0], [], 0]);
+});
+
+test('Live rounds: no alert per round, one map point, one map taken, overtime', () => {
+  assert.ok(mapWon(13, 11) && mapWon(16, 14) && mapWon(16, 13) && mapWon(19, 17));
+  assert.ok(!mapWon(9, 11) && !mapWon(13, 12) && !mapWon(14, 12) && !mapWon(15, 15));
+  assert.equal(mapPointTeam(12, 9), 0);
+  assert.equal(mapPointTeam(12, 12), null);
+  assert.equal(mapPointTeam(14, 15), 1);
+  // A live BO3 map: FACEIT reports its rounds in results.score.
+  const at = (a, b, over = {}) => summarizeMatch(raw({ results: { score: { faction1: a, faction2: b } }, ...over }));
+  let prev = at(0, 0);
+  matchEvents(null, prev);
+  const step = (a, b, over) => { const next = at(a, b, over); const e = matchEvents(prev, next); prev = next; return e.map(x => x.type); };
+  assert.deepEqual(step(9, 10), []);
+  assert.deepEqual(step(9, 11), []);
+  assert.deepEqual(prev.score, [0, 0]);
+  assert.deepEqual(prev.rounds, [9, 11]);
+  assert.deepEqual(step(10, 12), ['mappoint']);
+  assert.deepEqual(step(11, 12), []);
+  assert.deepEqual(step(12, 12), []);
+  assert.deepEqual(step(15, 14), []);            // overtime map point: the map already had one
+  const end = at(16, 14), mapEnd = matchEvents(prev, end); prev = end;
+  assert.deepEqual(mapEnd.map(e => e.type), ['map']);
+  assert.equal(eventText(mapEnd[0]), 'Карта 1 (Mirage) закончилась — карту взяли Rune Eaters, 16:14. Счёт по картам: Rune Eaters 1:0 PCIFIC');
+  // FACEIT then fills in the finished map: no second alert.
+  assert.deepEqual(step(0, 0, { detailed_results: [{ winner: 'faction1' }] }), []);
+  assert.deepEqual(step(12, 3, { detailed_results: [{ winner: 'faction1' }] }), ['mappoint']);
+  // The map that decides the series is the end of the match, said once.
+  const last = at(13, 3, { detailed_results: [{ winner: 'faction1' }] });
+  const decided = matchEvents(prev, last); prev = last;
+  assert.deepEqual(decided.map(e => e.type), ['match']);
+  assert.equal(eventText(decided[0]), 'Матч закончился: Rune Eaters 2:0 PCIFIC (последняя карта, 13:3)');
+  const finished = summarizeMatch(raw({ status: 'FINISHED', results: { winner: 'faction1', score: { faction1: 2, faction2: 0 } },
+    detailed_results: [{ winner: 'faction1' }, { winner: 'faction1' }] }));
+  assert.deepEqual(matchEvents(prev, finished).map(e => e.type), ['final']);
+  // BO1: map point, then only the match end.
+  let one = summarizeMatch(raw({ best_of: 1, results: { score: { faction1: 11, faction2: 5 } } }));
+  matchEvents(null, one);
+  const bo1 = summarizeMatch(raw({ best_of: 1, results: { score: { faction1: 12, faction2: 5 } } }));
+  assert.deepEqual(matchEvents(one, bo1).map(e => e.type), ['mappoint']);
+  const bo1End = summarizeMatch(raw({ best_of: 1, results: { score: { faction1: 13, faction2: 5 } } }));
+  assert.deepEqual(matchEvents(bo1, bo1End).map(e => e.type), ['match']);
 });
 
 test('Map names and per-map scores from FACEIT', () => {

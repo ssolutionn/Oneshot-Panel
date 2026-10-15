@@ -450,7 +450,7 @@ async def run(args):
         phase["value"] = 1
         await lobby.clock.run_for(21000)
         await expect(lobby.locator("#lobbyAlert")).to_contain_text(
-            "Карта 1 (Mirage) закончилась — карту взяли Rune Eaters. Счёт: Rune Eaters 1:0 PCIFIC")
+            "Карта 1 (Mirage) закончилась — карту взяли Rune Eaters. Счёт по картам: Rune Eaters 1:0 PCIFIC")
         notes = await lobby.evaluate("window.__notes")
         assert len(notes) == 1 and notes[0]["requireInteraction"], notes
         await lobby.click("#lobbyAck")

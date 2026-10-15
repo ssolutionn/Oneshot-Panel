@@ -84,7 +84,8 @@ function badge() {
   $('lobbyBadge').hidden = !lobby.unread || lobby.view === 'lobby';
   $('lobbyBadge').textContent = String(lobby.unread);
 }
-function alertAdmins(text, tag) {
+// loud: the siren repeats until «Принял»; quiet: one beep and a notification.
+function alertAdmins(text, tag, { loud = true } = {}) {
   lobby.alert = text;
   lobby.unread++;
   badge();
@@ -99,6 +100,7 @@ function alertAdmins(text, tag) {
     } catch { /* some browsers only notify from a service worker */ }
   }
   beep();
+  if (!loud) return;
   lobby.repeats = 0;
   clearInterval(lobby.repeatTimer);
   lobby.repeatTimer = setInterval(() => {
@@ -196,7 +198,7 @@ function renderMatches() {
       </div>
       <div class="lm-teams">
         <span class="lm-team ${m.winner === 0 ? 'won' : ''}">${escapeHtml(m.teams[0])}</span>
-        <b class="lm-score">${m.score[0]} : ${m.score[1]}</b>
+        <b class="lm-score">${m.score[0]} : ${m.score[1]}${m.rounds ? `<small> · раунды ${m.rounds[0]}:${m.rounds[1]}</small>` : ''}</b>
         <span class="lm-team right ${m.winner === 1 ? 'won' : ''}">${escapeHtml(m.teams[1])}</span>
       </div>
       ${maps.length ? `<ol class="lm-maps">${maps.map((name, i) => {
@@ -239,8 +241,9 @@ function handle(event) {
   const text = eventText(event);
   if (!text) return;
   if (event.type === 'start' || event.type === 'resumed') return log(text, 'start');
-  log(text, event.type === 'paused' ? 'pause' : event.type);
-  if (event.type === 'match') {
+  log(text, event.type === 'paused' ? 'pause' : event.type === 'final' ? 'match' :
+    event.type === 'mappoint' ? 'map' : event.type);
+  if (event.type === 'match' || event.type === 'final') {
     lobby.finished = event.match;
     lobby.pauses.delete(event.match.id);
     renderMessages();
@@ -248,6 +251,8 @@ function handle(event) {
   }
   if (['map', 'match', 'paused'].includes(event.type)) {
     alertAdmins(text, `${event.match.id}:${event.type}:${event.map || ''}`);
+  } else if (event.type === 'mappoint') {
+    alertAdmins(text, `${event.match.id}:point:${event.map}`, { loud: false });
   }
 }
 // Round scores per map come from /stats once FACEIT has them.
