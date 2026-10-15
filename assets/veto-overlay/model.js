@@ -49,9 +49,20 @@ export function viewModel(value) {
       ownSide:action?.type === 'pick' ? (action.side === 'CT' ? 'T' : 'CT') : null
     };
   });
+  // Broadcast columns are turns, not the alphabetical map pool. Their identity
+  // survives pending choices, undo and replacing a map in the same turn.
+  const slots = [...VETO_RULES[state.format], 'leftover'].map((role, index) => {
+    const name = index === 6 ? (finished ? remaining[0] : '') :
+      state.actions[index]?.map || (index === state.actions.length ? state.pending || '' : '');
+    const map = maps.find(item => item.name === name);
+    return {
+      ...(map || { name:'', status:'available', team:null, sideTeam:null, side:null, ownSide:null }),
+      id:`turn-${index + 1}`, role, step:index + 1
+    };
+  });
   const series = state.actions.filter(a => a.type === 'pick').map(a => a.map);
   if (finished) series.push(remaining[0]);
-  return { ...state, maps, series, finished, nextTeam, nextType, remaining,
+  return { ...state, maps, slots, series, finished, nextTeam, nextType, remaining,
     // BO2 has two maps and no deciding map. The untouched map is still played.
     leftoverLabel:state.format === 'BO2' ? 'MAP 02' : 'DECIDER'
   };

@@ -79,14 +79,14 @@ async def run(base, output):
             await page.wait_for_selector('#scene[data-animating=""]')
             assert before == await card_sample(0, kind), "Undo did not restore the card"
             await ready(layout=kind, step=2)
-            before = await card_sample(5, kind)
+            before = await card_sample(2, kind)
             await page.click("#next")
             await page.wait_for_selector('#scene[data-animating*="Mirage"]')
             await page.wait_for_timeout(350)
-            middle = await card_sample(5, kind)
+            middle = await card_sample(2, kind)
             await page.screenshot(path=str(output / f"veto-pick-mid-{kind}.png"))
             await page.wait_for_selector('#scene[data-animating=""]')
-            settled = await card_sample(5, kind)
+            settled = await card_sample(2, kind)
             assert middle != before and middle != settled, "Pick sweep/stamp is not visible"
             checks.append(f"{kind}: ban/pick pixels animate; undo restores; unchanged cards and duplicate updates stay stable")
 
@@ -114,6 +114,26 @@ async def run(base, output):
                     await page.screenshot(path=str(output / f"veto-{layout}-preview.jpg"), type="jpeg", quality=85)
                     await page.set_viewport_size({"width":1920,"height":1164})
             checks.append(f"{layout}: all four formats export a 1920x1080 PNG; alpha correct")
+        # Observe actual canvas labels and their horizontal positions, rather
+        # than only the view model, in both OBS layouts and exported scenes.
+        for kind in ["full", "strip"]:
+            await ready(layout=kind)
+            labels = await page.evaluate("""async strip => {
+              const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
+              const original=ctx.fillText.bind(ctx),labels=[];
+              ctx.fillText=function(text,...args) {
+                const point=this.getTransform();
+                if(Math.abs(point.f-(strip?987:413))<.1 &&
+                  ['BAN','PICK','DECIDER'].includes(text))labels.push({text,x:point.e});
+                return original(text,...args);
+              };
+              await window.vetoOverlay.setState(window.vetoOverlay.getState(),{animate:false});
+              await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+              ctx.fillText=original;
+              return labels.slice(-7).sort((a,b)=>a.x-b.x).map(item=>item.text);
+            }""", kind=="strip")
+            assert labels == ["BAN","BAN","PICK","PICK","BAN","BAN","DECIDER"], labels
+        checks.append("Both rendered layouts keep BAN BAN PICK PICK BAN BAN DECIDER left to right")
         await ready(step=2)
         rejected = await page.evaluate("""async () => {
           const before=window.vetoOverlay.getState();
@@ -177,7 +197,7 @@ async def run(base, output):
         # Check graceful asset failures separately from the clean-load assertions.
         fallback = await browser.new_page(viewport={"width":960,"height":540})
         await fallback.route("**/assets/maps/*", lambda route: route.abort())
-        await fallback.route("**/assets/card/background.png", lambda route: route.abort())
+        await fallback.route("**/assets/card/background.jpg", lambda route: route.abort())
         await fallback.goto(path + "?preview=1&step=6&motion=off")
         await fallback.wait_for_selector("body[data-ready='true']")
         await fallback.wait_for_selector("#scene[data-ready='true']")

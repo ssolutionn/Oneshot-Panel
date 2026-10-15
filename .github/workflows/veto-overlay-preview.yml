@@ -3,6 +3,13 @@ name: Veto overlay preview
 on:
   push:
     branches: ["codex/veto-overlay-design"]
+  pull_request:
+    branches: ["claude/gracious-sagan-apztcc"]
+    paths:
+      - "assets/veto-overlay/**"
+      - "scripts/qa_veto_overlay.py"
+      - "test/veto-overlay.test.js"
+      - ".github/workflows/veto-overlay-preview.yml"
 
 permissions:
   contents: read
