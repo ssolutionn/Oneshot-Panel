@@ -5,6 +5,7 @@
 import { buildObs, DEFAULT_CARD_BASE } from './core.js';
 import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto } from './obs.js';
 import { VdoLink, CamWatch, bridgeSecrets, newBridgeCode, normalizeCode } from './vdo.js';
+import { mountQrReader, parseObsQr, localObsUrl, parsePairingQr } from './assets/obs-qr.js';
 
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
@@ -63,6 +64,15 @@ function obsJson() {
 }
 
 // ---------- OBS link ----------
+const pairingHash = new URLSearchParams(location.hash.slice(1));
+let importedPairCode = '';
+if (pairingHash.has('obs')) {
+  try { importedPairCode = parsePairingQr(location.href, cardBase()); } catch { /* leave existing settings intact */ }
+  // Pairing codes belong in the fragment, and are consumed before other links are copied.
+  history.replaceState(null, '', location.pathname + location.search);
+}
+if (importedPairCode) write(OBS_STORE, { ...(read(OBS_STORE) || {}), mode: 'bridge', code: importedPairCode });
+
 function obsSettings() {
   const saved = read(OBS_STORE) || {};
   const code = normalizeCode(saved.code) || newBridgeCode();
@@ -235,6 +245,28 @@ $('testObs').addEventListener('click', async () => {
     $('obsTestResult').className = 'obs-test bad';
   } finally {
     button.disabled = false;
+  }
+});
+
+mountQrReader($('obsNativeQr'), {
+  hint: 'QR из OBS → Сервис → Настройки сервера WebSocket → Показать сведения о подключении. QR заполняет поля; ручной ввод остаётся.',
+  onRead(text) {
+    const settings = parseObsQr(text);
+    $('obsUrl').value = localObsUrl(settings.url);
+    $('obsPassword').value = settings.password;
+    return 'Адрес, порт и пароль заполнены. Для OBS на этом компьютере используем 127.0.0.1. Можно исправить поля, затем сохранить.';
+  }
+});
+mountQrReader($('obsPairQr'), {
+  title: 'Подключить по QR из дока Oneshot',
+  hint: 'Открой «Подключить телефон» в доке Oneshot на компьютере с OBS. Сканируй QR здесь или обычной камерой телефона.',
+  onRead(text) {
+    const code = parsePairingQr(text, cardBase());
+    write(OBS_STORE, { ...(read(OBS_STORE) || {}), mode: 'bridge', code });
+    fillObsDialog();
+    ensureBridge().catch(() => {});
+    renderObsState();
+    return 'Код связи подставлен. Ждём док OBS; нажми «Проверить связь», когда он появится.';
   }
 });
 
@@ -461,7 +493,11 @@ function onChange() {
 }
 document.addEventListener('oneshot:change', onChange);
 fillObsDialog();
-$('obsDialog').open = !obsSettings().configured;
+$('obsDialog').open = !obsSettings().configured || !!importedPairCode;
+if (importedPairCode) {
+  showView('prep');
+  $('obsTestResult').textContent = 'Код связи из QR подставлен. Подключаемся к доку OBS…';
+}
 ensureBridge().catch(() => {});
 renderObsState();
 onChange();

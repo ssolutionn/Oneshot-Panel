@@ -21,18 +21,26 @@
       <li><i id="dockObsDot" aria-hidden="true"></i><span id="dockObs">OBS: не подключён</span></li>
     </ul>
     <form id="dockForm" class="dock-form">
+      <div id="dockQr"></div>
       <label>Код связи из панели<input id="dockCode" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" required></label>
       <label>Адрес OBS WebSocket<input id="dockUrl" placeholder="ws://127.0.0.1:4455" aria-describedby="dockAddressHint" autocomplete="off" spellcheck="false"><small id="dockAddressHint" class="dock-field-hint">Для этого компьютера: ws://127.0.0.1:4455. Если в OBS другой порт — замени 4455 на него.</small></label>
       <label>Пароль OBS WebSocket<input id="dockPassword" type="password" aria-describedby="dockPasswordHint" autocomplete="off"><small id="dockPasswordHint" class="dock-field-hint">OBS → Сервис → Настройки сервера WebSocket → Показать сведения о подключении.</small></label>
       <button class="button primary small" type="submit">Подключить</button>
     </form>
+    <details class="dock-pair" id="dockPair">
+      <summary>Подключить телефон по QR</summary>
+      <p class="dock-field-hint">Сначала подключи OBS в полях выше. Затем открой камеру телефона и наведи на этот QR. Сайт подставит код связи; пароль OBS останется на компьютере.</p>
+      <canvas id="dockPairCanvas" class="obs-pair-canvas" role="img" aria-label="QR для подключения телефона к этому доку"></canvas>
+      <label class="dock-field-hint">Ссылка для телефона<input id="dockPairUrl" readonly aria-label="Ссылка подключения телефона"></label>
+      <p class="dock-field-hint" id="dockPairHint">Ссылка даёт управление OBS — отправляй её только своей эфирной команде. Для графики вето скопируй отдельную ссылку на оверлей с телефона.</p>
+    </details>
     <details class="dock-help">
       <summary>Где найти адрес и пароль?</summary>
       <ol>
         <li>Открой <b>Сервис → Настройки сервера WebSocket</b> (Tools → WebSocket Server Settings).</li>
         <li>Включи сервер WebSocket и аутентификацию.</li>
         <li>Нажми <b>«Показать сведения о подключении»</b> / Show Connect Info. Скопируй оттуда пароль, а порт подставь в адрес выше.</li>
-        <li>Нажми <b>«Подключить»</b>. После подключения панель сможет отправлять матч и обновлять вето.</li>
+        <li>Нажми <b>«Подключить»</b>. После подключения панель сможет отправлять камеры и матч. Для вето добавь отдельный источник «Браузер» по ссылке из панели.</li>
       </ol>
     </details>
     <ol id="dockLog" class="dock-log" aria-label="Последние команды"></ol>

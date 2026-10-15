@@ -32,6 +32,11 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   `oneshot-veto-channel` (отдельный код показа графики, не код управления OBS).
   `obsDialog` — раскрываемый `details` с единственной формой подключения;
   оформление формы и подсказок — `assets/obs-connection.css`.
+- `assets/obs-qr.js` — только сайт: локальное чтение QR камерой/из файла,
+  парсер native `obsws://host:port/password`, QR связи телефона с доком.
+  QR только заполняет ручные поля; локальный адрес — 127.0.0.1 с портом из QR.
+  Пароль не включать в URL Oneshot и не логировать содержимое native QR.
+  Локальные QR-библиотеки и лицензии — `assets/vendor/`, без npm/CDN.
 - `obs.js` — без DOM: клиент obs-websocket v5 (пароль через WebCrypto),
   `applyMatch` переводит импортированную коллекцию на новый матч
   (CAM переименовываются и получают ссылки, CARD создаются под камерой
@@ -121,7 +126,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 
 ```sh
 npm run check        # синтаксис
-npm test             # 48 тестов (node:test)
+npm test             # 51 тест (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome

@@ -97,6 +97,31 @@ async def run():
             await expect(panel.locator("#obsBridgeFields")).to_be_visible()
             assert not await panel.evaluate("document.documentElement.scrollWidth > innerWidth")
             await panel.locator("#obsDialog").screenshot(path=str(OUT / "obs-menu.png"))
+            # Real dock connection from an independent admin browser, paired
+            # by the URL encoded in its QR, before publishing veto from phone.
+            dock_context = await browser.new_context()
+            dock = await dock_context.new_page()
+            await dock.goto(BASE + "/obs-bridge.html")
+            await dock.locator("#dockQr > details > summary").click()
+            await dock.locator("#dockQr .obs-qr-manual > summary").click()
+            await dock.fill("#dockQr .obs-qr-manual input", "obsws://192.168.1.9:4455")
+            await dock.locator("#dockQr .obs-qr-manual button").click()
+            await expect(dock.locator("#dockUrl")).to_have_value("ws://127.0.0.1:4455")
+            await dock.click("#dockForm button[type=submit]")
+            await expect(dock.locator("#dockObs")).to_contain_text("OBS: подключён")
+            await dock.locator("#dockPair > summary").click()
+            await expect(dock.locator("#dockPairCanvas")).to_be_visible()
+            pair_url = await dock.input_value("#dockPairUrl")
+            await panel.goto(pair_url)
+            await expect(panel.locator("#obsForm")).to_be_visible()
+            await expect(panel.locator("#obsState")).to_have_text("Док OBS на связи", timeout=60000)
+            await activate("#testObs")
+            await expect(panel.locator("#obsTestResult")).to_contain_text("OBS: подключён", timeout=20000)
+            assert "#" not in panel.url
+            print("PASS: QR pairing link connects independent admin browser to real OBS over real VDO", flush=True)
+            await panel.evaluate("""Object.defineProperty(navigator,'clipboard',{value:{
+              writeText:async text=>{window.copied=text;}
+            }});""")
             await activate("#closeObs")
             await activate("#copyOverlay")
             url = await panel.evaluate("window.copied")

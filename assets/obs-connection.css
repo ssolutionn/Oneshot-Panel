@@ -69,3 +69,27 @@
   .nav-tools .obs-nav-button { font-size:13px; }
   .obs-connection input:not([type=radio]) { font-size:16px; }
 }
+
+/* QR only fills the existing form; all credentials stay editable. */
+.obs-qr-reader,.dock-pair { min-width:0; padding:12px; margin:0 0 14px; border:1px solid var(--line); border-radius:6px; background:var(--surface); }
+.obs-qr-reader>summary,.dock-pair>summary { cursor:pointer; font-size:13px; font-weight:700; }
+.obs-qr-reader .obs-field-hint { margin:10px 0; }
+.obs-qr-actions { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
+.obs-qr-actions .button { min-height:44px; white-space:normal; }
+.obs-qr-video { display:block; width:100%; max-height:300px; object-fit:cover; border-radius:5px; background:var(--surface-2); }
+.obs-qr-video[hidden],.obs-qr-actions input[hidden] { display:none; }
+.obs-qr-manual { margin-top:12px; font-size:12px; color:var(--muted); }
+.obs-qr-manual>summary { cursor:pointer; }
+.obs-qr-manual label { display:block; margin:10px 0; line-height:1.6; }
+.obs-qr-manual input,.dock-pair input { display:block; box-sizing:border-box; width:100%; min-width:0; padding:10px; margin-top:6px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font-size:16px; }
+.obs-qr-status { margin:10px 0 0; font-size:12px; line-height:1.7; overflow-wrap:anywhere; color:var(--sub); }
+.obs-qr-status:empty { display:none; }
+.obs-qr-status[data-kind=bad] { color:var(--red); }
+.obs-pair-canvas { display:block; width:100%; max-width:280px; height:auto; margin:12px auto; image-rendering:pixelated; }
+.obs-pair-canvas[hidden] { display:none; }
+.dock-pair { margin-top:16px; }
+.dock-form input { min-width:0; }
+@media(max-width:680px) {
+  .obs-qr-actions .button { flex:1 1 130px; }
+  .dock-form input { font-size:16px; }
+}
