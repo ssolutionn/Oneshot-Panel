@@ -358,14 +358,14 @@ const VETO_CHANNEL_STORE = 'oneshot-veto-channel';
 const savedVetoCode = normalizeCode(read(VETO_CHANNEL_STORE));
 const vetoCode = savedVetoCode || newBridgeCode();
 write(VETO_CHANNEL_STORE, vetoCode);
-let vetoLink = null, vetoOpening = null, vetoTimer, lastVeto = '', vetoId = '', vetoAck = '', vetoSeen = 0;
+let vetoLink = null, vetoOpening = null, vetoTimer, lastVeto = '', vetoId = '', vetoAck = '', vetoSeen = 0, vetoSending = false;
 function setVetoStatus(text, kind = '') {
   $('vetoLiveStatus').textContent = text;
   $('vetoLiveStatus').dataset.kind = kind;
 }
 function paintVetoStatus() {
   if (!$('vetoLive').checked) return setVetoStatus('Живое обновление выключено. Копирование ссылки включает его автоматически.');
-  if (vetoAck === vetoId && vetoSeen && Date.now() - vetoSeen < 12000) {
+  if (JSON.stringify(vetoState()) === lastVeto && vetoAck === vetoId && vetoSeen && Date.now() - vetoSeen < 12000) {
     return setVetoStatus('Оверлей получает вето · ' + new Date(vetoSeen).toLocaleTimeString('ru-RU'), 'good');
   }
   setVetoStatus('Ждём оверлей. В OBS добавь Источники → + → Браузер, вставь ссылку на оверлей и задай 1920 × 1080.', 'wait');
@@ -406,19 +406,25 @@ $('vetoLive').addEventListener('change', () => {
   sendVeto();
 });
 async function flushVeto() {
-  if (!$('vetoLive').checked) return;
+  if (!$('vetoLive').checked || vetoSending) return;
+  vetoSending = true;
   try {
+    const link = await ensureVetoLink();
+    if (!link || !$('vetoLive').checked) return;
+    // Capture after connection setup so an older queued move cannot acquire
+    // the latest revision ID or overtake a newer snapshot.
     const state = vetoState(), key = JSON.stringify(state);
     if (key !== lastVeto) {
       lastVeto = key;
       vetoId = crypto.randomUUID();
     }
-    const link = await ensureVetoLink();
-    if (!link || !$('vetoLive').checked) return;
     await link.send({ type: 'veto-state', id: vetoId, state });
     paintVetoStatus();
   } catch (error) {
     setVetoStatus('Оверлей: ' + error.message + ' Повторим автоматически.', 'bad');
+  } finally {
+    vetoSending = false;
+    if ($('vetoLive').checked && JSON.stringify(vetoState()) !== lastVeto) sendVeto();
   }
 }
 function sendVeto() {
