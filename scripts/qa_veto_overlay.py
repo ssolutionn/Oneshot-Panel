@@ -151,6 +151,30 @@ async def run(base, output):
         await ready(step=2)
         assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         checks.append("375px preview has no horizontal scrolling")
+        # OBS installations without WebGL still receive moving clouds.
+        fallback_motion = await browser.new_page(viewport={"width":960,"height":540})
+        await fallback_motion.add_init_script("""
+            const original=HTMLCanvasElement.prototype.getContext;
+            HTMLCanvasElement.prototype.getContext=function(type,...args) {
+              return type==='webgl' ? null : original.call(this,type,...args);
+            };
+        """)
+        await fallback_motion.goto(path + "?preview=1&step=0")
+        await fallback_motion.wait_for_selector("#scene[data-ready='true']")
+        assert await fallback_motion.locator("#scene").get_attribute("data-smoke") == "canvas"
+        async def fallback_sample():
+            return await fallback_motion.evaluate("""() => {
+              const d=document.getElementById('scene').getContext('2d').getImageData(700,45,400,100).data;
+              let h=2166136261;for(let i=0;i<d.length;i+=4)h=Math.imul(h^d[i]^d[i+1]^d[i+2],16777619);
+              return h>>>0;
+            }""")
+        before = await fallback_sample()
+        await fallback_motion.wait_for_timeout(1300)
+        assert before != await fallback_sample(), "Canvas fallback smoke is frozen"
+        await fallback_motion.screenshot(path=str(output / "veto-canvas-smoke.png"))
+        await fallback_motion.close()
+        checks.append("Clouds keep moving with WebGL unavailable in OBS")
+
         # Reduced-motion settings disable card effects as well as the smoke.
         reduced = await browser.new_page(viewport={"width":960,"height":624}, reduced_motion="reduce")
         await reduced.goto(path + "?preview=1&step=0")

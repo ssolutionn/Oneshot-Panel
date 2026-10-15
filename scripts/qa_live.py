@@ -51,6 +51,7 @@ class MockObs:
 
     def __init__(self, password="pw"):
         self.password, self.requests, self.next_id = password, [], 100
+        self.on_veto = None
         self.inputs = {f"Камера {i}": {} for i in range(1, 11)}
         self.scenes = {f"Игрок {i}": [{"sceneItemId": 4, "sourceName": f"Камера {i}",
                                        "inputKind": "browser_source"}] for i in range(1, 11)}
@@ -83,6 +84,14 @@ class MockObs:
         ws.on_message(on_message)
 
     def answer(self, kind, data):
+        if kind == "GetInputList":
+            return {"inputs": [{"inputName": name, "inputKind": "browser_source"} for name in self.inputs]}
+        if kind == "GetInputSettings":
+            return {"inputSettings": self.inputs[data["inputName"]]}
+        if kind == "CallVendorRequest":
+            if self.on_veto and data.get("requestData", {}).get("event_name") == "oneshot-veto":
+                asyncio.ensure_future(self.on_veto(data["requestData"]["event_data"]))
+            return {}
         if kind == "GetSceneItemList":
             return {"sceneItems": [{**it, "sceneItemIndex": i} for i, it in enumerate(self.scenes[data["sceneName"]])]}
         if kind == "SetInputSettings":
@@ -107,7 +116,7 @@ class MockObs:
             items.remove(item)
             items.insert(data["sceneItemIndex"], item)
             return {}
-        if kind in ("SetSceneItemTransform", "SetSceneItemEnabled", "CallVendorRequest"):
+        if kind in ("SetSceneItemTransform", "SetSceneItemEnabled"):
             return {}
         raise KeyError(kind)
 
@@ -292,9 +301,34 @@ async def run(args):
         await dock.screenshot(path=str(output / "obs-dock.png"))
         passed("send to OBS through the dock: sealed message, applied, acknowledged")
 
-        # Live veto overlay through the same link.
+        # A connected control dock alone is insufficient: show the missing
+        # on-air source, then recover without another admin click.
         await page.check("#vetoLive")
+        await expect(page.locator("#vetoLiveStatus")).to_contain_text("нет браузерного источника вето", timeout=15000)
+        overlay = await context.new_page()
+        overlay.on("pageerror", lambda error: errors.append(str(error)))
+        await overlay.set_viewport_size({"width": 1920, "height": 1080})
+        initial_veto = {"version": 1, "teams": ["6yuBoJlbl", "HYPERSPIRIT"], "format": "BO3",
+                        "first": 0, "pending": None, "stage": "Группа B", "actions": []}
+        source_url = base + "/assets/veto-overlay/overlay.html?layout=full#s=" + pack(initial_veto)
+        await overlay.goto(source_url)
+        await overlay.wait_for_selector("body[data-ready='true']")
+        dock_obs.inputs["Veto"] = {"url": source_url}
+        async def relay_veto(state):
+            await overlay.evaluate("state => dispatchEvent(new CustomEvent('oneshot-veto', {detail: state}))", state)
+        dock_obs.on_veto = relay_veto
+        await expect(page.locator("#vetoLiveStatus")).to_contain_text("Вето передано в OBS", timeout=15000)
         await page.click('[data-map="Ancient"]')
+        await overlay.wait_for_function("vetoOverlay.getState()?.actions.length === 1")
+        await overlay.wait_for_selector('#scene[data-animating*="Ancient"]')
+        await overlay.wait_for_selector('#scene[data-animating=""]')
+        # The URL still has zero turns: only replay can restore the last move.
+        await overlay.reload()
+        await overlay.wait_for_selector("body[data-ready='true']")
+        await overlay.wait_for_function("vetoOverlay.getState()?.actions.length === 1", timeout=15000)
+        passed("missing OBS source is explained; late source and reload recover the latest veto automatically")
+        await overlay.close()
+        dock_obs.on_veto = None
         def veto_events():
             return [r["requestData"] for r in dock_obs.requests if r["requestType"] == "CallVendorRequest"]
         for _ in range(50):
@@ -308,7 +342,9 @@ async def run(args):
         assert data["teams"] == ["6yuBoJlbl", "HYPERSPIRIT"] and data["actions"][0]["map"] == "Ancient", data
         await page.evaluate("window.__copied = []; navigator.clipboard.writeText = async t => { window.__copied.push(t); };")
         await page.fill("#matchStage", "Группа B")
+        await page.uncheck("#vetoLive")
         await page.click("#copyOverlay")
+        assert await page.locator("#vetoLive").is_checked(), "OBS link did not enable live updates"
         overlay_link = await page.evaluate("window.__copied.at(-1)")
         assert overlay_link.startswith(base + "/assets/veto-overlay/overlay.html?layout=full#s="), overlay_link
         await page.select_option("#vetoLayout", "strip")

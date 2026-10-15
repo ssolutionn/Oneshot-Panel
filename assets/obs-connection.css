@@ -56,3 +56,7 @@
   .obs-connection-actions .button { flex:1; }
 }
 @media(prefers-reduced-motion:reduce) { .obs-connection-chevron { transition:none; } }
+
+.veto-live-status { margin: 10px 0 6px; color: var(--muted); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.veto-live-status[data-kind="good"] { color: var(--success-ink); }
+.veto-live-status[data-kind="bad"] { color: var(--red); }

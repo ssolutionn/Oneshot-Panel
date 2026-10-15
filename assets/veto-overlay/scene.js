@@ -365,7 +365,7 @@ export class VetoScene {
     m.slots.forEach((map,i)=>this.card(map,i,m,now,strip));
     if(strip)this.stripFooter(m);else this.fullFooter(m);
     this.canvas.dataset.layout=this.layout;
-    this.canvas.dataset.smoke=this.smoke?'webgl':'static';
+    this.canvas.dataset.smoke=this.smoke?.kind||'static';
     this.canvas.dataset.ready='true';
   }
   async png() {
