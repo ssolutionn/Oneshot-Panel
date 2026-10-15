@@ -17,6 +17,8 @@ async def run(args):
             catalog = json.load(response)["players"]
     else:
         catalog = json.loads((root / "assets/players/players.json").read_text())["players"]
+    senka = next(p for p in catalog if p["nick"].lower() == "senka")
+    assert not senka.get("photo") and not senka.get("file"), "senka uses the no-photo card."
     output = Path(args.artifacts)
     output.mkdir(parents=True, exist_ok=True)
     base = args.url.rstrip("/")

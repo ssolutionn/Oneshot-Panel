@@ -64,21 +64,43 @@ jobs:
           cards = runpy.run_path("scripts/qa_player_cards.py", run_name="player_card_qa")
           asyncio.run(cards["run"](args))
           PY
-      - name: Verify the published Netlify preview
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+      - name: Verify the published Netlify site
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         env:
-          PREVIEW_URL: https://deploy-preview-${{ github.event.pull_request.number }}--onepanel.netlify.app
+          PREVIEW_URL: ${{ github.event_name == 'pull_request' && format('https://deploy-preview-{0}--onepanel.netlify.app', github.event.pull_request.number) || 'https://onepanel.netlify.app' }}
         run: |
           python3 - <<'PY'
           import argparse
           import asyncio
           import os
           import runpy
+          import time
+          from urllib.error import HTTPError
           from urllib.request import urlopen
 
           preview = os.environ["PREVIEW_URL"]
-          with urlopen(preview + "/card.html", timeout=20) as response:
-              assert "card-identity" in response.read().decode(), "Preview is not updated yet."
+          production = "https://onepanel.netlify.app"
+          # Deploy previews may require a Netlify login. OBS must use the public site.
+          try:
+              response = urlopen(preview + "/card.html", timeout=20)
+          except HTTPError as error:
+              if error.code != 401 or preview == production:
+                  raise
+              with urlopen(production + "/card.html", timeout=20) as live:
+                  assert live.status == 200
+              print("::notice::Netlify preview requires authentication; production is publicly accessible. Full browser QA passed on the prepared site.")
+              raise SystemExit(0)
+          with response:
+              updated = "card-identity" in response.read().decode()
+              if preview == production and not updated:
+                  # Netlify and Actions start together after merge; wait for that deploy.
+                  for attempt in range(9):
+                      time.sleep(10)
+                      with urlopen(production + "/card.html", timeout=20) as live:
+                          updated = "card-identity" in live.read().decode()
+                      if updated:
+                          break
+              assert updated, "Published card is not updated yet."
               assert "img-src 'self'" in response.headers.get("Content-Security-Policy", "")
           args = argparse.Namespace(
               url=preview, chromium=None, roster=None, schedule=None,

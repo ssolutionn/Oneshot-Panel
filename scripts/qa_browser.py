@@ -593,10 +593,10 @@ async def run(args):
         async def photo_list(route):
             await route.fulfill(content_type="application/json", body=json.dumps({
                 "players": [{
-                    "team": "Nuclear TigeRES", "nick": "senka", "role": "1",
-                    "hltv": "https://www.hltv.org/player/22878/senka",
+                    "team": "Nuclear TigeRES", "nick": "flouzer", "role": "3",
+                    "hltv": "https://www.hltv.org/player/24568/flouzer",
                     "photo": "https://img-cdn.hltv.org/playerbodyshot/x.png?s=1",
-                    "file": "qa-senka.png",
+                    "file": "qa-flouzer.png",
                 }, {
                     "team": "Honvéd", "nick": "es0r7", "aliases": ["esor"],
                     "role": "4", "hltv": "https://www.hltv.org/player/23263/esor",
@@ -614,11 +614,11 @@ async def run(args):
             return await card_page.evaluate("document.body.dataset.photo")
 
         # Case and spacing do not matter; the HLTV spelling of a nick also works.
-        assert await open_card("team=nuclear%20tigeres&nick=SENKA") == "qa-senka.png"
+        assert await open_card("team=nuclear%20tigeres&nick=FLOUZER") == "qa-flouzer.png"
         await expect(card_page.locator("#cardPhoto")).to_be_visible()
         await expect(card_page.locator("#cardLogo")).to_be_visible()
         await expect(card_page.locator("#cardEmblem")).to_be_hidden()
-        await expect(card_page.locator("#cardNick")).to_have_text("SENKA")
+        await expect(card_page.locator("#cardNick")).to_have_text("FLOUZER")
         assert await open_card("team=Honv%C3%A9d&nick=esor") == "qa-esor.png"
         # No photo: the team logo stands in; no logo either: just the text.
         assert await open_card("team=Lavked&nick=jakekeS") == "none"
@@ -634,7 +634,7 @@ async def run(args):
         assert await card_page.evaluate(
             "document.getElementById('cardNick').getBoundingClientRect().right") <= 1760
         # A known nickname from a different team is never a photo match.
-        assert await open_card("team=Lavked&nick=senka") == "none"
+        assert await open_card("team=Lavked&nick=flouzer") == "none"
         await expect(card_page.locator("#cardPhoto")).to_be_hidden()
         await expect(card_page.locator("#tournamentLogo")).to_be_visible()
         await expect(card_page.locator("#cardBackground")).to_be_visible()
