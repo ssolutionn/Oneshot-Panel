@@ -47,7 +47,7 @@ async def run():
         assert json.loads(await ws.recv())["op"] == 2
         seq = 0
 
-        async def request(kind, data=None):
+        async def request(kind, data=None, attempt=0):
             nonlocal seq
             seq += 1
             rid = str(seq)
@@ -56,7 +56,11 @@ async def run():
             while True:
                 reply = json.loads(await ws.recv())
                 if reply.get("op") == 7 and reply["d"]["requestId"] == rid:
-                    assert reply["d"]["requestStatus"]["result"], reply
+                    status = reply["d"]["requestStatus"]
+                    if status.get("code") == 207 and attempt < 60:
+                        await asyncio.sleep(.5)
+                        return await request(kind, data, attempt + 1)
+                    assert status["result"], reply
                     return reply["d"].get("responseData", {})
 
         await request("CreateScene", {"sceneName": "Veto QA"})
