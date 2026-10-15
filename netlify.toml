@@ -1,7 +1,7 @@
 # Static site, nothing to compile: copy the files server.js serves
 # (test/server.test.js checks the list) into public/ and publish that.
 [build]
-  command = "rm -rf public && mkdir public && cp index.html app.js core.js theme.js style.css card.html card.js card.css public/ && cp -R assets public/"
+  command = "python3 scripts/fetch_player_photos.py --allow-missing && rm -rf public && mkdir public && cp index.html app.js core.js theme.js style.css card.html card.js card.css public/ && cp -R assets public/"
   publish = "public"
 
 # Same security headers as server.js (test/server.test.js keeps them in sync).

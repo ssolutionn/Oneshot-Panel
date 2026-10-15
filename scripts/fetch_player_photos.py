@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
-"""Download the HLTV bodyshots listed in assets/players/players.json.
+"""Prepare local HLTV photos before publishing the static site.
 
-Every entry with a "photo" URL (img-cdn.hltv.org/playerbodyshot/...) is saved
-next to the list as <nick>-<hltv id>.png, and its "file" is filled in. The
-player card (card.html) only uses entries that have a file, so a photo that
-failed to download simply leaves the team logo on the card.
+The browser never contacts HLTV. Only verified local filenames enter the
+manifest. Missing or failed downloads leave the approved no-photo card usable.
 
-Run it again after adding players or when a download failed; files already on
-disk are kept (--force downloads them again). Needs network access to
-img-cdn.hltv.org; no third-party packages.
-
-  python3 scripts/fetch_player_photos.py
+  python3 scripts/fetch_player_photos.py                 # strict maintenance
+  python3 scripts/fetch_player_photos.py --allow-missing # site build
 """
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import json
 import re
 import sys
@@ -28,8 +24,17 @@ LIMIT = 4 * 1024 * 1024
 
 
 def base_name(entry):
-    kind, number, slug = HREF.match(entry["hltv"]).groups()
+    kind, number, slug = HREF.fullmatch(entry["hltv"]).groups()
     return f"{slug.lower()}-{'c' if kind == 'coach' else ''}{number}"
+
+
+def image_extension(data):
+    if len(data) > LIMIT:
+        raise ValueError("larger than 4 MB")
+    for magic, extension in TYPES.items():
+        if data.startswith(magic) and (magic != b"RIFF" or data[8:12] == b"WEBP"):
+            return extension
+    raise ValueError("not an image")
 
 
 def fetch(url):
@@ -37,58 +42,86 @@ def fetch(url):
         "User-Agent": "Mozilla/5.0 (Oneshot Panel player cards)",
         "Accept": "image/png,image/webp,image/*;q=0.8",
     })
-    with urllib.request.urlopen(request, timeout=30) as response:
+    with urllib.request.urlopen(request, timeout=12) as response:
         data = response.read(LIMIT + 1)
-    if len(data) > LIMIT:
-        raise ValueError("larger than 4 MB")
-    for magic, extension in TYPES.items():
-        if data.startswith(magic) and (magic != b"RIFF" or data[8:12] == b"WEBP"):
-            return data, extension
-    raise ValueError("not an image")
+    return data, image_extension(data)
+
+
+def prepare(task):
+    base, photo, force = task
+    existing = sorted(p for p in LIST.parent.glob(base + ".*")
+                      if p.is_file() and p.suffix in TYPES.values())
+    cached = None
+    for path in existing:
+        try:
+            if image_extension(path.read_bytes()) == path.suffix:
+                cached = path
+                break
+        except (OSError, ValueError):
+            pass
+    if cached and not force:
+        return base, cached.name, "kept", ""
+    try:
+        data, extension = fetch(photo)
+        target = LIST.parent / (base + extension)
+        temporary = target.with_name(target.name + ".download")
+        temporary.write_bytes(data)
+        temporary.replace(target)
+        for old in existing:
+            if old != target:
+                old.unlink()
+        return base, target.name, "saved", ""
+    except Exception as error:
+        # A failed refresh retains a previously validated image.
+        return base, cached.name if cached else None, "failed", str(error)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--force", action="store_true",
-                        help="download again even if the file exists")
+    parser.add_argument("--force", action="store_true", help="refresh cached photos")
+    parser.add_argument("--allow-missing", action="store_true",
+                        help="publish fallback cards when individual photos fail")
+    parser.add_argument("--workers", type=int, default=4)
     args = parser.parse_args()
-
     document = json.loads(LIST.read_text(encoding="utf-8"))
-    saved = kept = failed = 0
-    for entry in document["players"]:
+    players = document["players"]
+    tasks, entries = {}, {}
+    invalid = 0
+    for entry in players:
         photo = entry.get("photo")
+        entry["file"] = None
         if not photo:
-            entry["file"] = None
             continue
-        if not PHOTO.match(photo) or not HREF.match(entry.get("hltv", "")):
-            print(f"  ! {entry['nick']}: not an HLTV bodyshot, skipped")
-            failed += 1
+        if (not isinstance(photo, str) or not PHOTO.fullmatch(photo) or
+                not isinstance(entry.get("hltv"), str) or not HREF.fullmatch(entry["hltv"])):
+            print(f"  ! {entry.get('nick', '?')}: invalid HLTV URL, using fallback")
+            invalid += 1
             continue
         base = base_name(entry)
-        existing = [p for p in LIST.parent.glob(base + ".*") if p.suffix in TYPES.values()]
-        if existing and not args.force:
-            entry["file"] = existing[0].name
-            kept += 1
-            continue
-        try:
-            data, extension = fetch(photo)
-        except Exception as error:  # noqa: BLE001 - report and keep going
-            print(f"  ! {entry['nick']}: {error}")
-            failed += 1
-            continue
-        for old in existing:
-            old.unlink()
-        (LIST.parent / (base + extension)).write_bytes(data)
-        entry["file"] = base + extension
-        saved += 1
-        print(f"  + {entry['team']} · {entry['nick']}")
+        # Repeated roster entries for the same HLTV identity share one file.
+        tasks.setdefault(base, (base, photo, args.force))
+        entries.setdefault(base, []).append(entry)
 
-    LIST.write_text(json.dumps(document, ensure_ascii=False, indent=1) + "\n",
-                    encoding="utf-8")
-    total = sum(1 for e in document["players"] if e.get("photo"))
-    print(f"Photos: {saved} downloaded, {kept} already there, {failed} failed "
-          f"(of {total} players with an HLTV photo).")
-    return 1 if failed else 0
+    saved = kept = 0
+    failed = invalid
+    with ThreadPoolExecutor(max_workers=max(1, min(args.workers, 6))) as pool:
+        for base, filename, status, error in pool.map(prepare, tasks.values()):
+            for entry in entries[base]:
+                entry["file"] = filename
+            saved += status == "saved"
+            kept += status == "kept"
+            failed += status == "failed"
+            if error:
+                print(f"  ! {base}: {error}; " + ("keeping cached photo" if filename else "using fallback"))
+    temporary = LIST.with_name(LIST.name + ".tmp")
+    temporary.write_text(json.dumps(document, ensure_ascii=False, indent=1) + "\n",
+                         encoding="utf-8")
+    temporary.replace(LIST)
+    available = sum(bool(p.get("file")) for p in players)
+    print(f"Photos: {saved} downloaded, {kept} cached, {failed} failed; "
+          f"{available}/{len(players)} players have local photos, "
+          f"{len(players) - available} use fallback cards.")
+    return 1 if failed and not args.allow_missing else 0
 
 
 if __name__ == "__main__":

@@ -5,7 +5,9 @@
 ## Что это
 
 Статический сайт: HTML, JS, CSS и картинки. Бэкенда, базы данных и сборки
-нет. Браузер посетителя сам читает Google Sheets
+нет. Перед публикацией Python-загрузчик сохраняет фотографии HLTV в
+assets/players/; браузер карточки загружает их уже с нашего сайта.
+Браузер посетителя сам читает Google Sheets
 (`https://docs.google.com/.../gviz/tq`), серверу ничего обрабатывать
 не нужно.
 
@@ -42,6 +44,7 @@ sudo git clone --depth 1 -b claude/gracious-sagan-apztcc \
   https://github.com/ssolutionn/Oneshot-Panel.git /opt/oneshot-panel
 sudo mkdir -p /var/www/oneshot-panel
 cd /opt/oneshot-panel
+sudo python3 scripts/fetch_player_photos.py --allow-missing
 sudo cp index.html app.js core.js theme.js style.css card.html card.js card.css /var/www/oneshot-panel/
 sudo cp -R assets /var/www/oneshot-panel/
 ```
@@ -82,6 +85,7 @@ sudo certbot --nginx -d panel.oneshot.su   # HTTPS от Let's Encrypt
 
 ```sh
 cd /opt/oneshot-panel && sudo git pull
+sudo python3 scripts/fetch_player_photos.py --allow-missing
 sudo cp index.html app.js core.js theme.js style.css card.html card.js card.css /var/www/oneshot-panel/
 sudo cp -R assets /var/www/oneshot-panel/
 ```
@@ -124,3 +128,13 @@ HTTPS Netlify выпустит сам после того, как записи �
 - в консоли браузера нет ошибок CSP;
 - `https://panel.oneshot.su/card.html?team=Lavked&nick=jakekeS` — карточка
   игрока с логотипом Lavked (её OBS открывает под каждой камерой).
+
+### Проверка карточек перед эфиром
+
+- В журнале подготовки фото видны числа загруженных фото и заглушек.
+- `/card.html?team=PRIVATE&nick=maeggi` — яркая карточка без фото.
+- Карточка игрока с подготовленным полем file в players.json показывает
+  портрет по центру и логотип CyberClash сверху справа.
+- У нового скачанного OBS JSON все десять CARD-ссылок ведут на ваш домен.
+- Проверьте в OBS подключение/отключение VDO.Ninja: карточка находится
+  под камерой и видна, когда источник камеры прозрачен.
