@@ -1,8 +1,7 @@
-# Static site, nothing to compile: copy the files server.js serves
-# (test/server.test.js checks the list) into public/ and publish that.
-# build.txt holds the deployed commit; CI waits for it before checking the site.
+# Static site, nothing to compile: scripts/build-site.sh (shared with
+# Cloudflare Pages and CI) copies the files server.js serves into public/.
 [build]
-  command = "python3 scripts/fetch_player_photos.py --allow-missing && rm -rf public && mkdir public && cp index.html app.js core.js theme.js style.css card.html card.js card.css live.js obs.js vdo.js lobby.js faceit.js obs-bridge.html obs-bridge.js public/ && cp -R assets public/ && echo \"$COMMIT_REF\" > public/build.txt"
+  command = "sh scripts/build-site.sh"
   publish = "public"
 
 # Same security headers as server.js (test/server.test.js keeps them in sync).

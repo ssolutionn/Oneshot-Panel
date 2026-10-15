@@ -23,7 +23,9 @@ faceit.js, obs-bridge.html, obs-bridge.js и assets/, с сохранением 
 Размещение на своём сервере (nginx) или домене — `DEPLOY.md`.
 
 Netlify: подключите репозиторий, остальное задаёт `netlify.toml`.
-Компиляции нет: команда сборки копирует в `public/` те же файлы,
+Cloudflare Pages (бесплатно, 500 сборок в месяц) — `DEPLOY.md`,
+«Вариант 3»: build command `sh scripts/build-site.sh`, папка `public`.
+Компиляции нет: `scripts/build-site.sh` копирует в `public/` те же файлы,
 что отдаёт `server.js`, и публикует только их, с теми же заголовками
 безопасности (тесты следят, чтобы список и заголовки не разошлись).
 Ещё она пишет в `build.txt` коммит сборки: GitHub Actions ждёт, пока

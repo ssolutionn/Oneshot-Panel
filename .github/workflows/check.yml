@@ -70,12 +70,15 @@ jobs:
           qr = runpy.run_path("scripts/qa_obs_qr.py", run_name="qr_qa")
           asyncio.run(qr["run"](args))
           PY
-      - name: Verify the published Netlify site
+      - name: Verify the published site
         # Production follows only this branch; same-repo pull requests get a preview.
         if: (github.event_name == 'push' && github.ref == 'refs/heads/claude/gracious-sagan-apztcc') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         env:
-          PREVIEW_URL: ${{ github.event_name == 'pull_request' && format('https://deploy-preview-{0}--onepanel.netlify.app', github.event.pull_request.number) || 'https://onepanel.netlify.app' }}
-          # Netlify writes COMMIT_REF (the pushed or PR head commit) to build.txt.
+          # Production: repository variable PUBLISHED_URL (e.g. the Cloudflare Pages
+          # address), else Netlify. Pull requests are checked on Netlify deploy previews.
+          SITE_URL: ${{ vars.PUBLISHED_URL || 'https://onepanel.netlify.app' }}
+          PREVIEW_URL: ${{ github.event_name == 'pull_request' && format('https://deploy-preview-{0}--onepanel.netlify.app', github.event.pull_request.number) || vars.PUBLISHED_URL || 'https://onepanel.netlify.app' }}
+          # scripts/build-site.sh writes the pushed or PR head commit to build.txt.
           EXPECTED_COMMIT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
           python3 - <<'PY'
@@ -89,14 +92,14 @@ jobs:
 
           preview = os.environ["PREVIEW_URL"]
           expected = os.environ["EXPECTED_COMMIT"]
-          production = "https://onepanel.netlify.app"
+          production = os.environ["SITE_URL"]
 
           def published_commit():
               request = Request(preview + "/build.txt", headers={"Cache-Control": "no-cache"})
               with urlopen(request, timeout=20) as response:
                   return response.read().decode().strip()
 
-          # Netlify and Actions start together: wait for the deploy of this commit,
+          # The host and Actions start together: wait for the deploy of this commit,
           # not for an older one that is still live.
           deadline = time.monotonic() + 360
           while True:
@@ -117,7 +120,7 @@ jobs:
               print("PUBLISHED_COMMIT:", live, flush=True)
               if live == expected:
                   break
-              assert time.monotonic() < deadline, f"Netlify has not published {expected} within 6 minutes."
+              assert time.monotonic() < deadline, f"{preview} has not published {expected} within 6 minutes."
               time.sleep(10)
           with urlopen(preview + "/card.html", timeout=20) as response:
               assert "img-src 'self'" in response.headers.get("Content-Security-Policy", "")

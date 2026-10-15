@@ -104,7 +104,7 @@ sudo cp -R assets /var/www/oneshot-panel/
 | TXT | `subdomain-owner-verification` | `5ccfcd546e508a963c7d237e9f693e6b` |
 | CNAME | `panel` | `onepanel.netlify.app` |
 
-`build.txt` в корне сайта на Netlify — коммит сборки для проверки в
+`build.txt` в корне сайта на Netlify и Cloudflare — коммит сборки для проверки в
 GitHub Actions; на свой сервер его копировать не нужно.
 
 HTTPS Netlify выпустит сам после того, как записи появятся. Netlify DNS
@@ -113,6 +113,52 @@ HTTPS Netlify выпустит сам после того, как записи �
 
 Выбрать нужно один вариант: для своего сервера у `panel` запись A,
 для Netlify — CNAME.
+
+## Вариант 3. Cloudflare Pages (бесплатно, 500 сборок в месяц)
+
+Сборка та же, что на Netlify: `scripts/build-site.sh` копирует сайт в
+`public/`, на Cloudflare добавляет туда `_headers` (те же заголовки
+безопасности) и пишет коммит в `build.txt`. Прокси FACEIT —
+`functions/api/faceit.js` (та же логика, что в
+`netlify/functions/faceit.mjs`). Настраивать ничего, кроме полей ниже,
+не нужно.
+
+1. dash.cloudflare.com → **Workers & Pages** → **Create** → вкладка
+   **Pages** → **Connect to Git** (Import an existing Git repository).
+   Нужен именно Pages, а не Worker.
+2. Подключить GitHub, выбрать `ssolutionn/Oneshot-Panel`.
+3. Настройки сборки:
+
+   | Поле | Значение |
+   | --- | --- |
+   | Project name | `onepanel` → адрес `https://onepanel.pages.dev` (если имя занято — другое) |
+   | Production branch | `claude/gracious-sagan-apztcc` |
+   | Framework preset | None |
+   | Build command | `sh scripts/build-site.sh` |
+   | Build output directory | `public` |
+   | Root directory | пусто |
+
+   Переменные окружения не нужны.
+4. **Save and Deploy**. Через пару минут открыть
+   `https://<project>.pages.dev/build.txt` — там коммит сборки.
+5. Проверка: на сайте открываются вкладки, `/api/faceit` отвечает
+   `{"error":"Not allowed"}` на запрос без ключа (это нормально).
+6. GitHub → Settings → Secrets and variables → Actions → **Variables** →
+   `PUBLISHED_URL` = `https://<project>.pages.dev`. Тогда `check.yml`
+   проверяет опубликованный сайт на Cloudflare, а не на Netlify.
+7. Чтобы не тратить сборки на чужие ветки: Settings → Builds → Branch
+   control → Preview branches: None (или только нужные).
+
+Cloudflare открывает `card.html`, `obs-bridge.html` и `overlay.html`
+и без `.html` (перенаправляет `/card.html?…` на `/card?…`); ссылки с
+`.html` в OBS продолжают работать.
+
+Новый адрес — новые ссылки: док в OBS, ссылку на оверлей вето и
+коллекцию OBS JSON с карточками нужно один раз взять с нового сайта.
+Чтобы адрес больше не менялся при смене хостинга, лучше подключить
+`panel.oneshot.su`: в Cloudflare Pages → Custom domains → добавить
+`panel.oneshot.su`, а в REG.RU — CNAME `panel` → `<project>.pages.dev`
+(вместо записи для Netlify; NS-серверы не переносить).
 
 ## Что нужно от Google Sheets
 

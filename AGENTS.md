@@ -100,9 +100,17 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   `publicFiles` и `assets/`: новый файл в корне добавь в `publicFiles`.
 - `DEPLOY.md` — размещение на своём сервере (nginx) или домене; при смене
   списка файлов сайта или заголовков обнови и его.
-- `netlify.toml` — хостинг на Netlify, те же заголовки безопасности, что в
-  `server.js` (тест сверяет, что они совпадают). Сборка пишет коммит в
-  `build.txt`; `check.yml` ждёт его перед проверкой опубликованного сайта.
+- `scripts/build-site.sh` — единая сборка для Netlify, Cloudflare Pages и
+  CI: копирует файлы `publicFiles` и `assets/` в `public/`, на Cloudflare
+  (`CF_PAGES`) добавляет `_headers`, пишет коммит в `build.txt`
+  (`COMMIT_REF` или `CF_PAGES_COMMIT_SHA`). Новый файл в корне — в
+  `publicFiles` и в строку `cp` скрипта (тест сверяет).
+- `netlify.toml` — хостинг на Netlify (`sh scripts/build-site.sh`), те же
+  заголовки безопасности, что в `server.js`. `_headers` — они же для
+  Cloudflare Pages; `functions/api/faceit.js` — прокси FACEIT как Pages
+  Function (обёртка над `netlify/functions/faceit.mjs`). Тест сверяет
+  заголовки всех трёх. `check.yml` ждёт `build.txt` на сайте
+  `vars.PUBLISHED_URL` (иначе onepanel.netlify.app) перед проверкой.
 - `assets/` — `obs-template.json` (оригинальный шаблон OBS, не
   переформатировать), `oneshot-logo-day.png` / `oneshot-logo-night.png`,
   `favicon.png`. Карты `assets/maps/*.jpg` — локальные миниатюры; происхождение и

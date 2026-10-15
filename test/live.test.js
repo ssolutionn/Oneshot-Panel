@@ -5,6 +5,7 @@ import {
   nextStart, fillTemplate, DEFAULT_TEMPLATES, FaceitClient, mapScores, mapName
 } from '../faceit.js';
 import faceitProxy from '../netlify/functions/faceit.mjs';
+import { onRequest as cloudflareFaceit } from '../functions/api/faceit.js';
 import { newBridgeCode, normalizeCode, bridgeSecrets, seal, unseal, bridgeUrl, watchUrl } from '../vdo.js';
 
 const CHAMP = '8f2a5c1e-1234-4abc-9def-0123456789ab';
@@ -143,6 +144,13 @@ test('FACEIT proxy forwards only lobby paths, with the caller\'s key', async () 
     }
     assert.equal((await ask(`path=/championships/${CHAMP}`, '')).status, 400);
     assert.equal(calls.length, 2);
+    // Cloudflare Pages runs the same proxy as a Pages Function.
+    const cloudflare = await cloudflareFaceit({ request: new Request(
+      `https://panel.example/api/faceit?path=/matches/1-${CHAMP}`, { headers: { authorization: 'Bearer k' } }) });
+    assert.equal(cloudflare.status, 200);
+    assert.deepEqual(calls[2], { url: `https://open.faceit.com/data/v4/matches/1-${CHAMP}`, auth: 'Bearer k' });
+    assert.equal((await cloudflareFaceit({ request: new Request('https://panel.example/api/faceit?path=/players/me',
+      { headers: { authorization: 'Bearer k' } }) })).status, 400);
   } finally { globalThis.fetch = original; }
 });
 
