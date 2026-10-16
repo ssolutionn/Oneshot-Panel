@@ -1,8 +1,8 @@
 {
   "version": 1,
   "day": "2026-10-16",
-  "startedAt": 0,
-  "updatedAt": 1792178482152,
+  "startedAt": 1792178593146,
+  "updatedAt": 1792178593146,
   "books": {
     "fonbet": {
       "checkedAt": 0,
@@ -358,6 +358,37 @@
         }
       ]
     },
+    "baltbet": {
+      "checkedAt": 0,
+      "status": "partial",
+      "coverage": "prematch",
+      "events": [
+        {
+          "id": "31699523",
+          "team1": "Private",
+          "team2": "UPGRADE",
+          "tournament": "Counter-Strike. Восточная Европа. Cyberclash. Квалификация",
+          "start": 1792166400000,
+          "odds": [
+            1.51,
+            2.23
+          ],
+          "url": "https://baltbet.ru/prematch/cybersport",
+          "live": false,
+          "liveOffered": false,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.51,
+            2.23
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. Восточная Европа. Cyberclash. Квалификация"
+          ]
+        }
+      ]
+    },
     "leon": {
       "checkedAt": 0,
       "status": "partial",
@@ -437,33 +468,33 @@
         }
       ]
     },
-    "baltbet": {
+    "winline": {
       "checkedAt": 0,
       "status": "partial",
       "coverage": "prematch",
       "events": [
         {
-          "id": "31699523",
-          "team1": "Private",
+          "id": "16940438",
+          "team1": "PRIVATE ESPORTS",
           "team2": "UPGRADE",
-          "tournament": "Counter-Strike. Восточная Европа. Cyberclash. Квалификация",
+          "tournament": "CyberClash",
           "start": 1792166400000,
           "odds": [
-            1.51,
-            2.23
+            1.71,
+            2.02
           ],
-          "url": "https://baltbet.ru/prematch/cybersport",
+          "url": "https://winline.ru/stavki/sport/kibersport/counter-strike",
           "live": false,
-          "liveOffered": false,
+          "liveOffered": true,
           "first": 0,
           "last": 0,
           "open": [
-            1.51,
-            2.23
+            1.71,
+            2.02
           ],
           "liveSeen": false,
           "names": [
-            "Counter-Strike. Восточная Европа. Cyberclash. Квалификация"
+            "CyberClash"
           ]
         }
       ]
