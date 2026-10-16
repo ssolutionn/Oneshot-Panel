@@ -1,0 +1,69 @@
+name: Public bookmaker reader investigation
+on:
+  push:
+    branches: ["codex/bookmaker-public-probe"]
+permissions:
+  contents: read
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Read fixed public pages and scripts
+        run: |
+          python3 - <<'PY'
+          import json, re
+          from concurrent.futures import ThreadPoolExecutor
+          from urllib.request import Request, urlopen
+          from urllib.error import HTTPError
+          from urllib.parse import urljoin, urlsplit
+          targets = [
+            ("zenit", "https://zenit.win/line/556"),
+            ("winline", "https://winline.ru/api/v2/webscript.js"),
+            ("betboom", "https://betboom.ru/sport/esport/3/39428"),
+            ("betboom-event", "https://betboom.ru/sport/esport/3/39428/6209058"),
+            ("betboom-runtime", "https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/runtime-env.js"),
+          ]
+          def read(item):
+              label,url = item
+              try:
+                  request=Request(url,headers={"User-Agent":"Mozilla/5.0","Accept":"text/html,application/javascript,application/json"})
+                  with urlopen(request,timeout=25) as reply:
+                      text=reply.read(2500000).decode("utf-8","replace")
+                      status=reply.status
+                      ctype=reply.headers.get("Content-Type","")
+                  scripts = [urljoin(url,s) for s in re.findall(r'<script[^>]+src=["\x27]([^"\x27]+)',text)]
+                  print("PUBLIC_META:",json.dumps({"provider":label,"status":status,"type":ctype,"size":len(text),"scripts":scripts[:30]},ensure_ascii=False),flush=True)
+                  if label in ("winline","betboom-runtime"):
+                      print("PUBLIC_JS_JSON:",json.dumps({"provider":label,"source":text},ensure_ascii=False),flush=True)
+                  elif label.startswith("betboom"):
+                      pattern=r"Cyber.?Clash|6209058|39428|__NEXT_DATA__|sporthub|siteapi|startDate|Rune Eaters|HyperSpirit"
+                      excerpts=[text[max(0,m.start()-300):m.end()+800] for m in list(re.finditer(pattern,text,re.I))[:30]]
+                      print("PUBLIC_HTML_EXCERPTS:",json.dumps({"provider":label,"matches":excerpts},ensure_ascii=False),flush=True)
+                  else:
+                      excerpts=[text[max(0,m.start()-100):m.end()+400] for m in list(re.finditer(r"Cyber.?Clash|api/|bundle|application/json|signature|<script",text,re.I))[:20]]
+                      print("PUBLIC_HTML_EXCERPTS:",json.dumps({"provider":label,"matches":excerpts},ensure_ascii=False),flush=True)
+                  return label, scripts
+              except HTTPError as error:
+                  print("PUBLIC_META:",json.dumps({"provider":label,"status":error.code}),flush=True)
+              except Exception as error:
+                  print("PUBLIC_META:",json.dumps({"provider":label,"error":type(error).__name__}),flush=True)
+              return label,[]
+          with ThreadPoolExecutor(max_workers=5) as executor:
+              pages=list(executor.map(read,targets))
+          assets=[]
+          for provider,scripts in pages:
+              if provider=="zenit":
+                  assets.extend(("zenit-script",s) for s in scripts[:8] if (urlsplit(s).hostname or "").endswith("zenit.win"))
+          def asset(item):
+              label,url=item
+              try:
+                  with urlopen(Request(url,headers={"User-Agent":"Mozilla/5.0"}),timeout=20) as reply:
+                      text=reply.read(2500000).decode("utf-8","replace")
+                  print("PUBLIC_ZENIT_ASSET:",json.dumps({"url":url,"size":len(text),
+                    "excerpts":[text[max(0,m.start()-150):m.end()+350] for m in list(re.finditer(r'https?://[^ "\x27]+|wss?://[^ "\x27]+|setRequestHeader|[xX]-[a-zA-Z-]+|/api/',text))[:50]]},ensure_ascii=False),flush=True)
+              except Exception as error:
+                  print("PUBLIC_ZENIT_ASSET:",json.dumps({"url":url,"error":type(error).__name__}),flush=True)
+          with ThreadPoolExecutor(max_workers=5) as executor:
+              list(executor.map(asset,assets))
+          PY
