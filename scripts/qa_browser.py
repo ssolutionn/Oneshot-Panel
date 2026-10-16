@@ -364,15 +364,21 @@ async def run(args):
             "document.execCommand = () => false;"
         )
 
+        before_swap = await page.input_value("#vetoOutput")
         await page.click("#swapBtn")
-        assert await page.input_value("#vetoOutput") == ""
+        # ⇄ relabels sides only: same moves by the same real teams.
+        assert await page.input_value("#vetoOutput") == before_swap
         assert await page.input_value("#team-a") == "HYPERSPIRIT"
+        await page.click("#swapBtn")
+        assert await page.input_value("#vetoOutput") == before_swap
+        await page.click("#swapBtn")
         await page.select_option("#team-b", "HYPERSPIRIT")
         assert await page.locator("#downloadBtn").is_disabled()
         assert await page.locator("#copyAllBtn").is_disabled()
         assert await page.locator('[data-map="Anubis"]').is_disabled()
         await page.select_option("#team-b", "6yuBoJlbl")
-        passed("changed matchup resets veto; same-team match is blocked")
+        assert await page.input_value("#vetoOutput") == ""
+        passed("swap keeps the veto; changed matchup resets it; same-team match is blocked")
 
         await page.click("#settingsBtn")
         await page.fill("#sourceUrl", "https://example.com/table")

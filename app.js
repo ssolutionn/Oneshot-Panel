@@ -239,6 +239,7 @@ async function refresh() {
     state.schedule = upcoming(schedule.status === 'fulfilled' ?
       parseSchedule(schedule.value) : state.schedule, names);
 
+    const pair = state.a + '\n' + state.b;
     if (!names.includes(state.a)) {
       state.a = names[0];
       state.keysA = [];
@@ -247,6 +248,7 @@ async function refresh() {
       state.b = names.find(n => n !== state.a) || '';
       state.keysB = [];
     }
+    if (pair !== state.a + '\n' + state.b) resetVeto();
     state.keysA = reconcileKeys(getTeam('a'), state.keysA);
     state.keysB = reconcileKeys(getTeam('b'), state.keysB);
     state.lastSync = new Date();
@@ -349,12 +351,11 @@ function render() {
       `<optgroup label="${escapeHtml(dayLabel(date))}">${state.schedule
         .filter(m => m.date === date).map(option).join('')}</optgroup>`).join('') :
       state.schedule.map(option).join(''));
-  if (!state.schedule.some(m =>
-      m.key === state.matchKey &&
-      m.team1 === state.a && m.team2 === state.b)) {
-    state.matchKey = '';
-  }
-  $('matchSelect').value = state.matchKey;
+  // A match that left the list (past midnight, the organizer edited it,
+  // the schedule is down) keeps its veto: only the select shows «вручную».
+  const listed = state.schedule.find(m => m.key === state.matchKey);
+  if (listed && (listed.team1 !== state.a || listed.team2 !== state.b)) state.matchKey = '';
+  $('matchSelect').value = listed && state.matchKey ? state.matchKey : '';
 
   $('teamGrid').innerHTML = ['a', 'b'].map((side, index) => {
     const team = getTeam(side);
@@ -430,6 +431,7 @@ function render() {
       state[side] = el.value;
       state[side === 'a' ? 'keysA' : 'keysB'] = defaultLineup(getTeam(side));
       state.matchKey = '';
+      resetVeto();
       render();
     }));
   $('teamGrid').querySelectorAll('[data-player]').forEach(el =>
@@ -544,15 +546,21 @@ async function copy(text) {
 }
 
 let vetoPresentation = { match: '', count: 0, revealAt: 0, timer: null };
+// The veto resets only when someone picks other teams or another match
+// (resetVeto); refreshing, midnight or schedule edits never wipe it.
+function resetVeto() {
+  state.veto = { format: state.veto.format, first: state.veto.first, actions: [], matchKey: '' };
+  state.pending = null;
+}
+// ⇄ only relabels the sides: every move keeps its real team.
+function swapVeto() {
+  state.veto = {
+    ...state.veto, first: 1 - state.veto.first,
+    actions: state.veto.actions.map(a => ({ ...a, team: 1 - a.team }))
+  };
+}
 function renderVeto() {
-  const identity = JSON.stringify([state.a, state.b, state.matchKey]);
-  if (state.veto.matchKey !== identity) {
-    state.veto = {
-      format: state.veto.format, first: state.veto.first,
-      actions: [], matchKey: identity
-    };
-    state.pending = null;
-  }
+  const identity = JSON.stringify([state.a, state.b]);
   const { actions, format, first } = state.veto;
   const ready = !!getTeam('a') && !!getTeam('b') && state.a !== state.b;
   const finished = actions.length === 6;
@@ -694,12 +702,14 @@ $('swapBtn').addEventListener('click', () => {
   [state.a, state.b] = [state.b, state.a];
   [state.keysA, state.keysB] = [state.keysB, state.keysA];
   state.matchKey = '';
+  swapVeto();
   render();
   toast('Команды поменялись сторонами');
 });
 $('matchSelect').addEventListener('change', () => {
   state.matchKey = $('matchSelect').value;
   const match = state.schedule.find(m => m.key === state.matchKey);
+  if (match && (match.team1 !== state.a || match.team2 !== state.b)) resetVeto();
   if (match) {
     state.a = match.team1;
     state.b = match.team2;
@@ -809,6 +819,7 @@ $('settingsForm').addEventListener('submit', event => {
     state.keysA = [];
     state.keysB = [];
     state.matchKey = '';
+    resetVeto();
     updateSourceLinks();
     $('settingsDialog').close();
     $('teamGrid').innerHTML =
