@@ -126,7 +126,9 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   `oneshot-veto-log:<код>`, `oneshot-veto-keys:<код>`, `oneshot-veto-coin:<код>`. Логика покрыта `test/veto-room.test.js`,
   страница — `scripts/qa_veto_site.py` (три отдельных браузера).
 - Сайт вето — отдельный репозиторий `ssolutionn/Oneshot-Veto` (Cloudflare
-  Pages, без сборки): его содержимое генерирует `node scripts/build-veto-site.mjs`
+  Pages, без сборки, https://oneshot-veto.pages.dev/ — каждый пуш в main
+  выходит сам; старый Worker oneshot-veto.cyberclash.workers.dev оставлен
+  для уже разосланных ссылок): его содержимое генерирует `node scripts/build-veto-site.mjs`
   (в `dist-veto/`, не коммитится): страницы вето (`index.html` = `veto.html`),
   `veto*.js`, `vdo.js`, `core.js` без таблицы составов (id/gid пустые) и без
   адреса панели, нужные ассеты и `_headers`. Скрипт падает, если в копию
@@ -137,7 +139,7 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   формат (как у вето панели, пока не изменён здесь), таймер, язык сообщений
   капитанам (English по умолчанию) → четыре ссылки для текущего матча
   (`createRoom` из `veto-room.js`) на сайт вето (`VETO_SITE`,
-  https://oneshot-veto.cyberclash.workers.dev/, поле `cvSite` меняет); админская — отдельно,
+  https://oneshot-veto.pages.dev/, поле `cvSite` меняет); админская — отдельно,
   «Открыть вето ↗». localStorage `oneshot-captain-veto` (таймер, язык, адрес
   сайта, последние ссылки на 6 ч).
 - Живая комната во вкладке «Вето» (`live.js` + `veto-watch.js`, только

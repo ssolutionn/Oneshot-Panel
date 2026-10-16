@@ -41,7 +41,7 @@ await writeFile(to('core.js'), core);
 // Only the assets the veto page loads.
 const assets = [
   'assets/favicon-night.png', 'assets/card/cyberclash-logo.png',
-  'assets/card/background.jpg', 'assets/veto-appearance.js',
+  'assets/veto-backdrop.jpg', 'assets/veto-appearance.js',
   'assets/fonts/Oswald-Variable.ttf', 'assets/fonts/OFL-Oswald.txt',
   'assets/maps/LICENSE.txt', 'assets/maps/README.md', 'assets/flags', 'assets/teams'
 ];

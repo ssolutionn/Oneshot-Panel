@@ -163,7 +163,8 @@ function appearance(){
  paintProgress();
 }
 function smokeBackdrop(){
- const mount=document.createElement('div');mount.className='vt-smoke-background';mount.setAttribute('aria-hidden','true');document.body.prepend(mount);
+ let mount=document.querySelector('.vt-smoke-background');
+ if(!mount){mount=document.createElement('div');mount.className='vt-smoke-background';mount.setAttribute('aria-hidden','true');document.body.prepend(mount);}
  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
  let renderer,frame=0,last=0,time=0,previousDraw=0;
  function draw(now){
@@ -179,7 +180,7 @@ function smokeBackdrop(){
  function resume(){last=0;if(!document.hidden&&!reduced.matches&&renderer&&!frame)frame=requestAnimationFrame(draw)}
  const image=new Image();image.onload=()=>{
   try{renderer=makeSmoke(image);if(renderer)mount.dataset.renderer=renderer.kind;const surface=renderer?.draw(0);if(surface)mount.replaceChildren(surface);resume()}catch{/* visual fallback only */}
- };image.src='/assets/card/background.jpg';
+ };image.src='/assets/veto-backdrop.jpg';
  document.addEventListener('visibilitychange',resume);
  reduced.addEventListener?.('change',resume);
  addEventListener('pagehide',()=>{cancelAnimationFrame(frame);renderer?.dispose()},{once:true});

@@ -751,7 +751,11 @@ async function enterRoom(room) {
       if (mine) {
         prompt = t('picked', names[state.pending.team], map);
         hint = t('whichSide');
-        for (const side of ['CT', 'T']) actions.push(button(t('startOn', side), () => move('side', side), side === 'CT'));
+        for (const side of ['CT', 'T']) {
+          const el = button(t('startOn', side), () => move('side', side));
+          el.dataset.side = side;
+          actions.push(el);
+        }
       } else {
         prompt = t('choosingSide', names[turn.team], map);
       }
@@ -807,7 +811,11 @@ async function enterRoom(room) {
       else if (card.status === 'decider') tag.textContent = room.f === 'BO1' ? t('tagPlay') : room.f === 'BO2' ? t('tagMap2') : 'DECIDER';
       const side = document.createElement('span');
       side.className = 'vt-map-side';
-      if (card.side) side.textContent = `${names[card.sideTeam]} · ${card.side}`;
+      if (card.side) {
+        const mark = Object.assign(document.createElement('b'), { className: 'vt-side', textContent: card.side });
+        mark.dataset.side = card.side;
+        side.append(`${names[card.sideTeam]} · `, mark);
+      }
       else if (card.status === 'pick') side.textContent = t('choosingShort');
       const num = Object.assign(document.createElement('span'), { className: 'vt-map-num', textContent: order.get(card.map) || '' });
       el.append(...[img, num, name, tag, side].filter(Boolean));

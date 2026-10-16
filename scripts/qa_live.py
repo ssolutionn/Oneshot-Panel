@@ -429,7 +429,7 @@ async def run(args):
         await overlay.close()
         await page.uncheck("#vetoLive")
         player_veto = await page.get_attribute("#playerVeto", "href")
-        assert player_veto.startswith("https://oneshot-veto.cyberclash.workers.dev/#new&a=6yuBoJlbl&b=HYPERSPIRIT&f=BO"), player_veto
+        assert player_veto.startswith("https://oneshot-veto.pages.dev/#new&a=6yuBoJlbl&b=HYPERSPIRIT&f=BO"), player_veto
         # Captains' veto block: links for the selected match, the admin's apart.
         await page.select_option("#cvTimer", "3")
         await page.select_option("#cvLang", "ru")
@@ -442,7 +442,7 @@ async def run(args):
         assert "Капитан **6yuBoJlbl**" in msg_a and "На всё вето 3 минуты." in msg_a, msg_a
         admin_link = await page.input_value("#cvMsgO")
         # The links lead to the veto's own site, never to the panel's address.
-        assert admin_link.startswith("https://oneshot-veto.cyberclash.workers.dev/#v=") and admin_link not in msg_a, admin_link
+        assert admin_link.startswith("https://oneshot-veto.pages.dev/#v=") and admin_link not in msg_a, admin_link
         assert base not in msg_a and base not in await page.input_value("#cvMsgS")
         assert await page.get_attribute("#cvOpen", "href") == admin_link
         await expect(page.locator("#cvAdminOpen")).to_have_attribute("href", admin_link)
@@ -451,6 +451,14 @@ async def run(args):
         await expect(page.locator("#cvMsgA")).to_have_value(re.compile(r"^\*\*CyberClash · map veto[\s\S]*Captain of \*\*6yuBoJlbl\*\*"))
         await page.reload()
         await expect(page.locator("#cvMsgO")).to_have_value(admin_link)
+        # Links kept from before the move to Pages show up on the new address.
+        await page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('oneshot-captain-veto'));
+            for (const k in s.last.links) s.last.links[k] = s.last.links[k].replace('https://oneshot-veto.pages.dev/', 'https://oneshot-veto.cyberclash.workers.dev/');
+            localStorage.setItem('oneshot-captain-veto', JSON.stringify(s)); }""")
+        await page.reload()
+        await expect(page.locator("#cvMsgO")).to_have_value(admin_link)
+        await expect(page.locator("#cvMsgA")).to_have_value(re.compile(r"https://oneshot-veto\.pages\.dev/#v="))
+        await expect(page.locator("#cvAdminOpen")).to_have_attribute("href", admin_link)
         await expect(page.locator("#cvLang")).to_have_value("en")
         await page.fill("#cvSite", "https://veto.example.org/x?y=1#z")
         await page.locator("#cvSite").dispatch_event("change")

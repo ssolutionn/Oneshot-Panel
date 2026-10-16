@@ -642,7 +642,14 @@ function playerVetoLink(s) {
 const CV_STORE = 'oneshot-captain-veto', CV_KEEP = 6 * 3600000;
 // The veto lives on a site of its own (the oneshot-veto repo): captains and
 // viewers never see the panel's address.
-const VETO_SITE = 'https://oneshot-veto.cyberclash.workers.dev/';
+const VETO_SITE = 'https://oneshot-veto.pages.dev/';
+// Links made before the move to Pages: the room is in the #v= part, so the
+// same room opens on the new address (old links keep working too).
+const OLD_VETO_SITES = ['https://oneshot-veto.cyberclash.workers.dev/'];
+const movedLink = link => {
+  const old = OLD_VETO_SITES.find(site => String(link).startsWith(site));
+  return old ? vetoSite() + String(link).slice(old.length) : link;
+};
 function vetoSite() {
   try {
     const url = new URL($('cvSite').value.trim() || VETO_SITE);
@@ -664,7 +671,8 @@ function cvSave(last = read(CV_STORE)?.last) {
 }
 function cvShow(made) {
   cv.made = made;
-  const lang = $('cvLang').value, { room, links } = made;
+  const lang = $('cvLang').value, room = made.room;
+  const links = Object.fromEntries(Object.entries(made.links).map(([seat, link]) => [seat, movedLink(link)]));
   $('cvNameA').textContent = room.t[0];
   $('cvNameB').textContent = room.t[1];
   $('cvMsgA').value = captainMessage(room, 0, links.a, lang);
@@ -738,7 +746,7 @@ function watchTarget() {
   const made = read(CV_STORE)?.last;
   if (!made?.room?.r || !made.links?.o || !(Date.now() - made.at < CV_KEEP)) return null;
   const p = Array.isArray(made.room.p) ? [...made.room.p] : [null, null];
-  return { room: { ...made.room, p, me: 'o' }, adminLink: made.links.o, pasted: false };
+  return { room: { ...made.room, p, me: 'o' }, adminLink: movedLink(made.links.o), pasted: false };
 }
 function followRoom() {
   const target = watchTarget();

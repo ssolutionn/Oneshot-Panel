@@ -5,7 +5,7 @@
   src:url("/assets/fonts/Oswald-Variable.ttf") format("truetype");
   font-weight:200 700;
   font-style:normal;
-  font-display:swap;
+  font-display:block;
 }
 :root {
   color-scheme:dark;
@@ -18,6 +18,8 @@
   --vt-decider:#f2c14e; --vt-warn:#ffb020; --vt-shade:#000a; --vt-glow:#00d3ef66;
   --vt-field:#021820; --vt-coin-a:#00bedf; --vt-coin-b:#087f91; --vt-online:#2fbf71;
   --vt-offline:#5b7780;
+  /* Sides in Counter-Strike colours: CT blue, T soft orange. */
+  --vt-ct:#7fb2f0; --vt-ct-soft:#5d8fd633; --vt-t:#f0a95e; --vt-t-soft:#e8964a33;
 }
 * { box-sizing:border-box; }
 html { background:var(--vt-bg); }
@@ -79,7 +81,7 @@ h1,h2,h3 { font-family:var(--vt-display); font-weight:600; letter-spacing:.02em;
 .vt-row { display:flex; flex-wrap:wrap; gap:10px; }
 
 /* Admin form */
-.vt-create { max-width:900px; }
+.vt-create { max-width:900px; margin-inline:auto; }
 .vt-create h2 { font-size:28px; text-transform:uppercase; }
 .vt-form { display:grid; gap:14px; align-items:end; }
 .vt-settings {
@@ -191,6 +193,13 @@ h1,h2,h3 { font-family:var(--vt-display); font-weight:600; letter-spacing:.02em;
 .vt-map-tag { font:600 12px var(--vt-display); letter-spacing:.08em; text-transform:uppercase; overflow-wrap:anywhere; }
 .vt-map-tag:empty,.vt-map-side:empty,.vt-map-num:empty { display:none; }
 .vt-map-side { font-size:12px; color:var(--vt-muted); overflow-wrap:anywhere; }
+.vt-side { font-weight:700; }
+.vt-side[data-side=CT] { color:var(--vt-ct); }
+.vt-side[data-side=T] { color:var(--vt-t); }
+.vt-button[data-side=CT] { border-color:var(--vt-ct); background:var(--vt-ct-soft); color:var(--vt-ink); }
+.vt-button[data-side=T] { border-color:var(--vt-t); background:var(--vt-t-soft); color:var(--vt-ink); }
+.vt-button[data-side=CT]:hover:not(:disabled) { background:var(--vt-ct); color:#04111f; }
+.vt-button[data-side=T]:hover:not(:disabled) { background:var(--vt-t); color:#1f1004; }
 .vt-map-num {
   position:absolute !important; top:10px; left:10px; width:26px; height:26px; border-radius:50%;
   display:grid; place-items:center; background:var(--vt-shade); font:600 13px var(--vt-display);
@@ -248,7 +257,7 @@ h1,h2,h3 { font-family:var(--vt-display); font-weight:600; letter-spacing:.02em;
 /* CyberClash appearance: independent from room/authentication logic. */
 :root{--vt-bg:#050e12;--vt-bg-2:#081b23;--vt-panel:#061b23e8;--vt-accent:#00d9ed;--vt-pick:#63dba5;--vt-ban:#ff4d55;--vt-decider:#edc05b}
 body{position:relative;isolation:isolate;background:var(--vt-bg)}
-.vt-smoke-background{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;opacity:.85;background:center/cover url('/assets/card/background.jpg');mask-image:radial-gradient(ellipse 62% 52% at 50% 49%,transparent 27%,#000 100%);-webkit-mask-image:radial-gradient(ellipse 62% 52% at 50% 49%,transparent 27%,#000 100%)}
+.vt-smoke-background{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;opacity:.85;background:center/cover url('/assets/veto-backdrop.jpg');mask-image:radial-gradient(ellipse 62% 52% at 50% 49%,transparent 27%,#000 100%);-webkit-mask-image:radial-gradient(ellipse 62% 52% at 50% 49%,transparent 27%,#000 100%)}
 .vt-smoke-background canvas{width:100%;height:100%;object-fit:cover}
 .vt-top{max-width:1180px;margin:auto;background:transparent;padding-top:24px;padding-bottom:22px}
 .vt-main{padding-top:32px}
@@ -285,3 +294,11 @@ body{position:relative;isolation:isolate;background:var(--vt-bg)}
 @media(max-width:900px){.vt-map{aspect-ratio:3/4}.vt-logo{width:52px;height:52px}.vt-logo img{width:44px;height:44px}}
 @media(max-width:620px){.vt-top{padding-top:16px;padding-bottom:16px}.vt-main{padding-top:20px}.vt-team{padding:8px 0}.vt-team-name{font-size:24px}.vt-map{aspect-ratio:4/3}.vt-progress{padding:18px 0;margin-top:16px}.vt-progress-step{font-size:9px;letter-spacing:0}.vt-progress-number{width:27px;height:27px;font-size:16px;margin-bottom:7px}.vt-progress-step:before{top:12px}.vt-smoke-background{opacity:.65}}
 @media(prefers-reduced-motion:reduce){.vt-progress-number{transition:none}}
+
+/* First paint: the backdrop is in the page from the start, the moving one
+   fades in over it, and the form or the room appear softly. */
+.vt-smoke-background canvas { animation:vt-fade-in .6s ease-out; }
+.vt-create:not([hidden]),.vt-room:not([hidden]) { animation:vt-fade-in .25s ease-out; }
+@keyframes vt-fade-in { from { opacity:0; } to { opacity:1; } }
+::selection { background:var(--vt-accent); color:var(--vt-accent-ink); }
+@media(prefers-reduced-motion:reduce){.vt-smoke-background canvas,.vt-create,.vt-room{animation:none}}
