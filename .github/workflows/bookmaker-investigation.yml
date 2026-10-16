@@ -1,0 +1,73 @@
+name: Bookmaker follow-up investigation
+on:
+  push:
+    branches: ["codex/bookmaker-daily-history"]
+permissions:
+  contents: read
+jobs:
+  public-read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Read deployed feeds and recheck remaining official sites
+        run: |
+          python3 - <<'PY'
+          import asyncio,json,re
+          from playwright.async_api import async_playwright
+          async def main():
+            async with async_playwright() as p:
+              browser=await p.chromium.launch(headless=True)
+              page=await browser.new_page()
+              await page.goto("https://oneshot-panel.pages.dev/build.txt")
+              ids=["fonbet","pari","bettery","bet24","olimp","marathon","betcity","sportbet","baltbet","winline","leon"]
+              results=await page.evaluate("""async ids=>Promise.all(ids.map(async id=>{
+                try{const r=await fetch('/api/bookmakers?id='+id,{cache:'no-store',signal:AbortSignal.timeout(55000)});return {id,status:r.status,body:await r.json()};}
+                catch(e){return{id,error:e.name};}
+              }))""",ids)
+              for r in results: print("CURRENT_FEED:",json.dumps(r,ensure_ascii=False),flush=True)
+              async def inspect(label,url):
+                context=await browser.new_context()
+                tab=await context.new_page()
+                tasks=[]
+                async def response(r):
+                  if r.request.resource_type not in ("xhr","fetch"):return
+                  path=r.url.split("?")[0]
+                  if not re.search("betboom|sporthub|zenit|melbet|bet-m|ligastavok",path):return
+                  item={"provider":label,"url":path,"status":r.status,"method":r.request.method}
+                  try:
+                    if "json" in r.headers.get("content-type",""):
+                      text=await r.text()
+                      if len(text)<6000000:
+                        value=json.loads(text)
+                        item["keys"]=list(value)[:30] if isinstance(value,dict) else ["array"]
+                        item["cyberclash"]=[text[max(0,m.start()-180):m.end()+800] for m in list(re.finditer("cyber.?clash",text,re.I))[:3]]
+                  except Exception:pass
+                  print("RECHECK_PUBLIC:",json.dumps(item,ensure_ascii=False),flush=True)
+                tab.on("response",lambda r:tasks.append(asyncio.create_task(response(r))))
+                try:
+                  r=await tab.goto(url,wait_until="domcontentloaded",timeout=25000)
+                  await tab.wait_for_timeout(12000)
+                  text=await tab.locator("body").inner_text(timeout=5000)
+                  print("RECHECK_PAGE:",json.dumps({"provider":label,"status":r.status if r else 0,"title":await tab.title(),"cyberclash":[text[max(0,m.start()-100):m.end()+400] for m in list(re.finditer("cyber.?clash",text,re.I))[:4]],"blocked":bool(re.search("captcha|Access denied|Доступ ограничен|Forbidden",text,re.I))},ensure_ascii=False),flush=True)
+                except Exception as e:print("RECHECK_PAGE:",json.dumps({"provider":label,"error":type(e).__name__}),flush=True)
+                if tasks:await asyncio.gather(*tasks,return_exceptions=True)
+                await context.close()
+              for label,url in [
+                ("betboom","https://betboom.ru/sport/esport/3/39428"),
+                ("zenit","https://zenit.win/line/556"),
+                ("melbet","https://melbet.ru/"),
+                ("betm","https://bet-m.ru/"),
+                ("ligastavok","https://www.ligastavok.ru/bets/cybersport")]:
+                await inspect(label,url)
+              await browser.close()
+          asyncio.run(main())
+          PY
