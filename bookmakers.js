@@ -56,6 +56,12 @@ export const BOOKMAKERS = [
     eventUrl: e => `https://betcity.ru/ru/${e.live ? 'live' : 'line'}/cybersport/${e.group}/${e.id}`
   },
   {
+    id: 'winline', name: 'Winline', kind: 'winline',
+    page: 'https://winline.ru/stavki/sport/kibersport/counter-strike',
+    feeds: [{live:false, urls:[]}],
+    eventUrl: () => 'https://winline.ru/stavki/sport/kibersport/counter-strike'
+  },
+  {
     id: 'leon', name: 'Леон', kind: 'leon', page: 'https://leon.ru/bets/esports/cs2',
     feeds: [{ live: false, urls: ['https://leon.ru/api-ext/betline-exports/esports'] }],
     // The export gives the match page itself; only a leon.ru address is taken.
@@ -65,7 +71,6 @@ export const BOOKMAKERS = [
 // Licensed bookmakers without an automated check yet (websocket, signed
 // headers, foreign IPs dropped): the lobby lists them with a link to look.
 export const MANUAL = [
-  { id: 'winline', name: 'Winline', url: 'https://winline.ru/stavki/sport/kibersport/counter-strike' },
   { id: 'ligastavok', name: 'Лига Ставок', url: 'https://www.ligastavok.ru/bets/cybersport' },
   { id: 'betboom', name: 'BetBoom', url: 'https://betboom.ru/esport/counter-strike-2' },
   { id: 'melbet', name: 'Мелбет', url: 'https://melbet.ru/' },

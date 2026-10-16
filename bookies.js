@@ -192,7 +192,7 @@ function render() {
     const state = !r ? 'проверяем…' : broken ?
       'нет связи' + (r.checkedAt ? '; данные на ' + msk(r.checkedAt) : ': ' + (r.failed || 'нет сети')) :
       (events.length ? ['в линии: ' + events.length, biggest && 'до ' + sizeText(biggest), live].filter(Boolean).join(' · ') : 'матчи не найдены') +
-      (partial ? ' · неполные данные' : '') + (r.checkedAt ? ' · ' + msk(r.checkedAt) : '');
+      (partial ? ' · неполные данные' : '') + (r.coverage === 'prematch' ? ' · только прематч' : '') + (r.checkedAt ? ' · ' + msk(r.checkedAt) : '');
     const cells = cols.map(m => {
       const candidates = events.filter(e => !m.date || !e.start || eventDate(e) === m.date);
       const found = findMatch(candidates, m.team1, m.team2);

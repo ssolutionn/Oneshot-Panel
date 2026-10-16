@@ -5,6 +5,7 @@
 // URLs live in bookmakers.js; nothing from the request reaches a URL but the
 // id. Cloudflare (functions/api/bookmakers.js) and server.js use it too.
 import { BOOKMAKERS, parseFeed } from '../../bookmakers.js';
+import { readWinline } from '../../assets/bookmaker-winline.js';
 
 const FEED_BUDGET = 24000, ATTEMPT_TIMEOUT = 6000;
 const cacheByFetcher = new WeakMap();
@@ -45,7 +46,8 @@ export async function checkBookmaker(id, fetchImpl = publicFetch, now = Date.now
   if (!bookmaker) return { status: 400, body: { error: 'unknown', message: 'Неизвестная букмекерская контора.' } };
   const started = Date.now();
   const results = await Promise.allSettled(bookmaker.feeds.map(async feed =>
-    parseFeed(bookmaker, await fetchFeed(feed.urls, fetchImpl), feed.live, now)));
+    bookmaker.kind === 'winline' ? (await readWinline(fetchImpl)).map(e => ({...e, url:bookmaker.eventUrl(e)})) :
+      parseFeed(bookmaker, await fetchFeed(feed.urls, fetchImpl), feed.live, now)));
   const events = [], errors = [];
   for (const [i, result] of results.entries()) {
     if (result.status === 'fulfilled') events.push(...result.value);
@@ -59,6 +61,7 @@ export async function checkBookmaker(id, fetchImpl = publicFetch, now = Date.now
     body: {
       id: bookmaker.id, name: bookmaker.name, page: bookmaker.page,
       ok: errors.length < bookmaker.feeds.length, errors,
+      coverage: bookmaker.feeds.some(feed => feed.live) ? 'line-and-live' : 'prematch',
       checkedAt: now, ms: Date.now() - started, events: [...unique.values()]
     }
   };

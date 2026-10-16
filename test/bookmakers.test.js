@@ -153,7 +153,7 @@ test('checkBookmaker: tries mirrors, keeps a failing feed apart, never takes URL
   assert.ok(asked.every(u => u.startsWith('https://line')), 'only fixed hosts');
   const bad = await bookmakersResponse(new Request('http://x/api/bookmakers?id=../evil'));
   assert.equal(bad.status, 400);
-  const unknown = await bookmakersResponse(new Request('http://x/api/bookmakers?id=winline'));
+  const unknown = await bookmakersResponse(new Request('http://x/api/bookmakers?id=unknown-id'));
   assert.equal(unknown.status, 400);
   assert.equal(typeof onRequest, 'function');
 });
@@ -163,7 +163,7 @@ test('Bookmaker endpoint coalesces concurrent reads, caches public data and reje
   let calls = 0;
   const fake = async (url, options) => {
     calls++;
-    assert.equal(options.redirect, 'error');
+    assert.equal(options.redirect, 'manual');
     assert.ok(options.signal instanceof AbortSignal);
     await new Promise(resolve => setTimeout(resolve, 5));
     return new Response(source, {status:200});
