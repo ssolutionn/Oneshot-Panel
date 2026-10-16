@@ -231,3 +231,26 @@ test('all 16 requested bookmakers remain visible exactly once, including unsuppo
   assert.deepEqual([...BOOKMAKERS,...MANUAL].map(b=>b.id).sort(),expected);
   assert.ok(MANUAL.every(b=>typeof b.reason==='string' && b.reason.length>10));
 });
+
+test('Baltbet complete public cyber list: CyberClash, winner and first-map prices', async () => {
+  const raw=JSON.parse(await fixture('baltbet-line.json'));
+  raw.leagues.push({...raw.leagues[0],title:'Counter-Strike. CCT'});
+  raw.leagues.push({...raw.leagues[0],title:'Dota 2. CyberClash'});
+  const events=parseFeed(book('baltbet'),raw,false);
+  assert.equal(events.length,1);
+  const [e]=events;
+  assert.deepEqual([e.team1,e.team2,e.odds],['Private','UPGRADE',[1.51,2.23]]);
+  assert.equal(e.start,Date.UTC(2026,9,16,16));
+  assert.equal(e.url,'https://baltbet.ru/cybersport/counter-strike/east-europe/cyberclash/qualifier/private-upgrade-id-31699523');
+  assert.deepEqual(e.markets,[{kind:'other',name:'1-я карта',line:'',odds:[1.61,2.05]}]);
+  assert.deepEqual(e.size,{count:13,unit:'доп. коэффициентов'});
+  const out=await checkBookmaker('baltbet',async(url,init)=>{
+    assert.equal(url,'https://events.baltbet.ru/api/prematch/sport/25/events?offset=all');
+    assert.equal(init.headers.bb_appSource,'UniRu');
+    return new Response(JSON.stringify(raw));
+  });
+  assert.equal(out.body.ok,true);
+  assert.equal(out.body.coverage,'prematch');
+  assert.throws(()=>parseFeed(book('baltbet'),'{"error":"maintenance"}',false),/формат линии/);
+  assert.deepEqual(parseFeed(book('baltbet'),{sportId:25,superMarkets:raw.superMarkets,leagues:[]},false),[]);
+});

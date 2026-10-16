@@ -42,7 +42,7 @@ const HEADERS = {
 };
 
 // Tries the feed's mirrors in turn; the first that answers counts.
-async function fetchFeed(urls, fetchImpl) {
+async function fetchFeed(urls, fetchImpl, sourceHeaders = {}) {
   let lastError = 'нет ответа';
   const deadline = Date.now() + FEED_BUDGET;
   for (const url of urls) {
@@ -53,7 +53,7 @@ async function fetchFeed(urls, fetchImpl) {
       Math.max(1000, Math.floor(FEED_BUDGET / urls.length)), remaining));
     try {
       const response = await fetchImpl(url, {
-        headers: HEADERS, signal: controller.signal, redirect: 'manual'
+        headers: {...HEADERS, ...sourceHeaders}, signal: controller.signal, redirect: 'manual'
       });
       if (!response.ok) { lastError = `HTTP ${response.status}`; continue; }
       return await feedText(response);
@@ -72,7 +72,7 @@ export async function checkBookmaker(id, fetchImpl = publicFetch, now = Date.now
   const started = Date.now();
   const results = await Promise.allSettled(bookmaker.feeds.map(async feed =>
     bookmaker.kind === 'winline' ? (await readWinline(fetchImpl)).map(e => ({...e, url:bookmaker.eventUrl(e)})) :
-      parseFeed(bookmaker, await fetchFeed(feed.urls, fetchImpl), feed.live, now)));
+      parseFeed(bookmaker, await fetchFeed(feed.urls, fetchImpl, feed.headers), feed.live, now)));
   const events = [], errors = [];
   for (const [i, result] of results.entries()) {
     if (result.status === 'fulfilled') events.push(...result.value);

@@ -243,13 +243,13 @@ function summary() {
     ` (ещё ${MANUAL.length} — вручную)`);
   for (const m of cols) {
     out.push('', `${m.team1} – ${m.team2}${m.sub ? ` (${m.sub})` : ''}`);
-    const none = [], unknown = [];
+    const none = [], unknown = [], prematch = [];
     for (const b of BOOKMAKERS) {
       const found = findMatch((results.get(b.id)?.events || []).filter(e =>
         !m.date || !e.start || eventDate(e) === m.date), m.team1, m.team2);
       const result = results.get(b.id);
       const stale = !result || result.failed || result.ok === false || navigator.onLine === false;
-      if (!found) { (stale || result.errors?.length ? unknown : none).push(b.name); continue; }
+      if (!found) { (stale || result.errors?.length ? unknown : result.coverage === 'prematch' ? prematch : none).push(b.name); continue; }
       const kept = history(b, found);
       const moved = kept && pair(kept.open) && pair(kept.open) !== pair(found.odds) ? ` (откр. ${pair(kept.open)})` : '';
       const facts = [stale ? 'ДАННЫЕ УСТАРЕЛИ' : '', sizeText(found.size), !stale && found.live ? 'LIVE' : liveText(false, kept?.liveSeen, found.liveOffered || kept?.liveOffered),
@@ -257,6 +257,7 @@ function summary() {
       out.push(`• ${b.name}: ${odds(found)}${moved}${facts.length ? ' · ' + facts.join(' · ') : ''}`);
     }
     if (none.length) out.push(`Нет линии: ${none.join(', ')}`);
+    if (prematch.length) out.push(`Нет в прематче (лайв не проверен): ${prematch.join(', ')}`);
     if (unknown.length) out.push(`Не удалось проверить: ${unknown.join(', ')}`);
   }
   return out.join('\n');
