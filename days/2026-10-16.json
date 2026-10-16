@@ -1,7 +1,7 @@
 {
   "version": 1,
   "day": "2026-10-16",
-  "startedAt": 1792178593146,
+  "startedAt": 1792155956767,
   "updatedAt": 1792179348932,
   "books": {
     "fonbet": {
@@ -40,14 +40,14 @@
           "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
           "start": 1792166400000,
           "odds": [
-            1.72,
-            2
+            1.67,
+            2.07
           ],
           "url": "https://fon.bet/sports/esports",
           "live": false,
           "liveOffered": false,
           "first": 0,
-          "last": 0,
+          "last": 1792155956776,
           "open": [
             1.72,
             2
@@ -63,7 +63,32 @@
       "checkedAt": 1792179348886,
       "status": "ok",
       "coverage": "line-and-live",
-      "events": []
+      "events": [
+        {
+          "id": "69002208",
+          "team1": "PRIVATE",
+          "team2": "UPGRADE",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792166400000,
+          "odds": [
+            1.67,
+            2.07
+          ],
+          "url": "https://pari.ru/esports/category/cs",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792155956775,
+          "last": 1792155956775,
+          "open": [
+            1.67,
+            2.07
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        }
+      ]
     },
     "bettery": {
       "checkedAt": 1792179348875,
@@ -101,14 +126,14 @@
           "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
           "start": 1792166400000,
           "odds": [
-            1.72,
-            2
+            1.67,
+            2.07
           ],
           "url": "https://bettery.ru/sports/esports/category/cs",
           "live": false,
           "liveOffered": false,
           "first": 0,
-          "last": 0,
+          "last": 1792155956777,
           "open": [
             1.72,
             2
@@ -163,7 +188,7 @@
           "live": false,
           "liveOffered": false,
           "first": 0,
-          "last": 0,
+          "last": 1792155956773,
           "open": [
             1.67,
             2.07
@@ -211,14 +236,14 @@
           "tournament": "CS2. CyberClash",
           "start": 1792166400000,
           "odds": [
-            1.87,
-            1.87
+            1.71,
+            2.06
           ],
           "url": "https://www.olimp.bet/cybersport/cs2",
           "live": false,
           "liveOffered": false,
           "first": 0,
-          "last": 0,
+          "last": 1792155956767,
           "open": [
             1.87,
             1.87
@@ -242,7 +267,7 @@
           "live": false,
           "liveOffered": false,
           "first": 0,
-          "last": 0,
+          "last": 1792155956767,
           "open": [
             2.2,
             1.62
@@ -290,14 +315,14 @@
           "tournament": "CS 2. CyberClash. Закрытая квалификация. Матч из 3-х карт",
           "start": 1792166400000,
           "odds": [
-            1.77,
-            1.94
+            1.69,
+            2.05
           ],
           "url": "https://www.marathonbet.ru/su/betting/e-Sports/Counter-Strike+2+-+16339652",
           "live": false,
           "liveOffered": false,
           "first": 0,
-          "last": 0,
+          "last": 1792155956807,
           "open": [
             1.77,
             1.94
@@ -321,19 +346,19 @@
           "tournament": "CS2. CIS Esports League CyberClash (best of 3)",
           "start": 1792155300000,
           "odds": [
-            1.45,
-            2.55
+            null,
+            null
           ],
           "url": "https://betcity.ru/ru/line/cybersport",
-          "live": false,
-          "liveOffered": true,
+          "live": true,
+          "liveOffered": false,
           "first": 0,
-          "last": 0,
+          "last": 1792155956772,
           "open": [
             1.45,
             2.55
           ],
-          "liveSeen": false,
+          "liveSeen": true,
           "names": [
             "CS2. CIS Esports League CyberClash (best of 3)"
           ]
@@ -345,14 +370,14 @@
           "tournament": "CS2. CIS Esports League CyberClash (best of 3)",
           "start": 1792166100000,
           "odds": [
-            1.85,
-            1.85
+            1.65,
+            2.1
           ],
           "url": "https://betcity.ru/ru/line/cybersport",
           "live": false,
           "liveOffered": true,
           "first": 0,
-          "last": 0,
+          "last": 1792155956772,
           "open": [
             1.85,
             1.85
@@ -475,7 +500,7 @@
           "live": false,
           "liveOffered": false,
           "first": 0,
-          "last": 0,
+          "last": 1792155956781,
           "open": [
             1.7,
             2.05
@@ -499,7 +524,7 @@
           "live": false,
           "liveOffered": false,
           "first": 0,
-          "last": 0,
+          "last": 1792155956781,
           "open": [
             2.15,
             1.62
@@ -512,5 +537,5 @@
       ]
     }
   },
-  "note": "Начальные записи за 16 октября восстановлены из сохранённых реальных ответов БК. Точное время этих наблюдений неизвестно; это отдельные снимки, а не полный архив дня."
+  "note": "Часть записей за 16 октября восстановлена из реальных сохранённых ответов и дневной проверки Cloudflare. Это неполный архив дня. Где время раннего наблюдения не сохранилось, оно отмечено как неизвестное."
 }
