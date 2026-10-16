@@ -520,3 +520,15 @@ test('parseSchedule: group stage and playoffs tabs read together', async () => {
     ['29.10', '10:00', 'Lavked', 'Honvéd', 'Четвертьфинал 1']
   ]);
 });
+
+test('teamHltv: the team page from hltv.json, names as in teamLogo, only hltv.org team pages', async () => {
+  const { teamHltv } = await import('../core.js');
+  const pages = JSON.parse(await (await import('node:fs/promises')).readFile(new URL('../assets/teams/hltv.json', import.meta.url), 'utf8'));
+  assert.equal(teamHltv(pages, 'Honved'), 'https://www.hltv.org/team/11110/honvd');
+  assert.equal(teamHltv(pages, 'hyperspirit'), 'https://www.hltv.org/team/13012/hyperspirit');
+  assert.equal(teamHltv(pages, 'Unknown Five'), '');
+  assert.equal(teamHltv({ Evil: 'javascript:alert(1)' }, 'Evil'), '');
+  assert.equal(teamHltv({ Evil: 'https://hltv.org.evil.com/team/1/x' }, 'Evil'), '');
+  assert.equal(teamHltv(null, 'UPGRADE'), '');
+  for (const url of Object.values(pages)) assert.match(url, /^https:\/\/www\.hltv\.org\/team\/\d+\/[a-z0-9-]+$/);
+});

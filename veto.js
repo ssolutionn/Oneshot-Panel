@@ -5,7 +5,7 @@
 // their own and views the other's, spectators view both. Same-browser tabs
 // also talk over a BroadcastChannel. Rules live in veto-room.js. English by
 // default, Russian with the flag (localStorage oneshot-veto-lang).
-import { MAP_POOL, teamLogo, DEFAULT_SOURCE, decodeGviz, parseSchedule } from './core.js';
+import { MAP_POOL, teamLogo, teamHltv, DEFAULT_SOURCE, decodeGviz, parseSchedule } from './core.js';
 import { seal, unseal } from './vdo.js';
 import {
   decodeLink, createRoom, roomSecrets, captainKey, acceptKey, seat, verifyLog, replay, nextTurn,
@@ -16,6 +16,9 @@ import {
 const $ = id => document.getElementById(id);
 const VDO = 'https://vdo.ninja/';
 const SEND_EVERY = 2500, ONLINE_FOR = 8000;
+// «Call admin»: the call rides the captain's messages for two minutes; one
+// call per 30 s.
+const CALL_FOR = 120000, CALL_AGAIN = 30000;
 const LAST_KEY = 'oneshot-player-veto', LANG_KEY = 'oneshot-veto-lang';
 
 function store(key, value) {
@@ -74,7 +77,11 @@ const WORDS = {
     captainOf: name => `the captain of ${name}`, aCaptain: 'a captain',
     'Сейчас не твой ход.': "It's not your turn.", 'Эта карта уже выбрана.': 'This map is already taken.',
     'Нужны две разные команды.': 'Two different teams are needed.', 'Слишком длинное название команды.': 'A team name is too long.',
-    'Монетка не сходится.': 'The coin does not match.'
+    'Монетка не сходится.': 'The coin does not match.',
+    callAdmin: '🔔 Call admin', called: s => `Admin called · again in ${s} s`,
+    calledToast: 'The admin sees your call on their page',
+    alert: (name, time) => `🔔 Captain of ${name} is calling the admin · ${time}`, gotIt: 'Got it',
+    calling: '🔔 Admin call'
   },
   ru: {
     title: 'Вето карт', createHeading: 'Новое вето для капитанов',
@@ -119,7 +126,11 @@ const WORDS = {
     brokenKey: 'Ссылка капитана повреждена (ключ не подходит). Скопируй её из Discord целиком или попроси админа прислать новую.',
     coinLost: 'Монетку открыть нельзя: твоя часть осталась в другом браузере или устройстве, где ты заходил первым. Открой ссылку там или попроси админа сделать новые ссылки.',
     conflict: (who, step) => `Внимание: ${who} подписал два разных хода на шаге ${step}. Засчитан первый. Напишите админу — он решит, переигрывать ли вето.`,
-    captainOf: name => `капитан ${name}`, aCaptain: 'капитан'
+    captainOf: name => `капитан ${name}`, aCaptain: 'капитан',
+    callAdmin: '🔔 Позвать админа', called: s => `Админ позван · ещё раз через ${s} с`,
+    calledToast: 'Админ видит вызов у себя на странице',
+    alert: (name, time) => `🔔 Капитан ${name} зовёт админа · ${time}`, gotIt: 'Понял',
+    calling: '🔔 Зовут админа'
   }
 };
 let lang = store(LANG_KEY) === 'ru' ? 'ru' : 'en';
@@ -177,9 +188,9 @@ function showError(text, key = null) {
   $('vtError').hidden = !text;
 }
 relabel.add(() => { if (errorKey) showError(t(...errorKey), errorKey); });
-async function teamLogos() {
+async function teamLogos(file = 'teams.json') {
   try {
-    const response = await fetch('/assets/teams/teams.json', { cache: 'no-cache' });
+    const response = await fetch('/assets/teams/' + file, { cache: 'no-cache' });
     return response.ok ? await response.json() : {};
   } catch { return {}; }
 }
@@ -363,7 +374,11 @@ async function enterRoom(room) {
   const seen = { a: 0, b: 0 };
   const conflicts = new Map();
   let log = [], key = null, selected = '', busy = false, coin = 'hidden', autoTried = '';
-  let queue = Promise.resolve(), pending = null, orderSeen = null;
+  let queue = Promise.resolve(), pending = null, orderSeen = null, callAt = 0;
+  // The admin's page: calls seen (team:at) and the ones answered.
+  const callsKey = 'oneshot-veto-calls:' + room.r;
+  const answered = new Set(Array.isArray(store(callsKey)) ? store(callsKey) : []);
+  const ringing = new Map();
 
   $('vtTitle').removeAttribute('data-i18n');
   $('vtTitle').textContent = `${names[0]} vs ${names[1]}`;
@@ -381,6 +396,17 @@ async function enterRoom(room) {
   }
   $('vtCoin').querySelector('.vt-coin-0').textContent = names[0].slice(0, 2).toUpperCase();
   $('vtCoin').querySelector('.vt-coin-1').textContent = names[1].slice(0, 2).toUpperCase();
+  // The team's HLTV page beside its name.
+  teamLogos('hltv.json').then(pages => {
+    for (const team of [0, 1]) {
+      const url = teamHltv(pages, names[team]);
+      const link = $('vtTeam' + team).querySelector('.vt-hltv');
+      if (!url) continue;
+      link.href = url;
+      link.title = `${names[team]} · HLTV`;
+      link.hidden = false;
+    }
+  });
   teamLogos().then(logos => {
     for (const team of [0, 1]) {
       const file = teamLogo(logos, names[team]);
@@ -421,7 +447,11 @@ async function enterRoom(room) {
 
   const online = team => team === me || Date.now() - seen[team ? 'b' : 'a'] < ONLINE_FOR;
   // Spectators and the admin only listen: they add no load on the captains' phones.
-  const send = () => { if (me !== null) link.send({ t: 'log', from: room.me, log, p: room.p }); };
+  const send = () => {
+    if (me === null) return;
+    const call = callAt && Date.now() - callAt < CALL_FOR ? callAt : undefined;
+    link.send({ t: 'log', from: room.me, log, p: room.p, call });
+  };
 
   function adopt(incoming, keys) {
     queue = queue.then(async () => {
@@ -447,6 +477,8 @@ async function enterRoom(room) {
     const from = via === 'tab' ? message.from :
       via === secrets.streams[0] ? 'a' : via === secrets.streams[1] ? 'b' : '';
     if (from === 'a' || from === 'b') seen[from] = Date.now();
+    // A call counts only from the captain's own stream, and only on the admin's page.
+    if (admin && (from === 'a' || from === 'b') && Number.isSafeInteger(message.call)) ring(from === 'a' ? 0 : 1, message.call);
     const unkeyed = Array.isArray(message.p) && [0, 1].some(team => !room.p[team] && message.p[team]);
     if (message.log.length < log.length && !unkeyed) return;
     const idle = !pending;
@@ -515,6 +547,65 @@ async function enterRoom(room) {
     }
   }
 
+  // ---- «Call admin» ----
+  function callAdmin() {
+    if (Date.now() - callAt < CALL_AGAIN) return;
+    callAt = Date.now();
+    send();
+    toast(t('calledToast'));
+    showCall();
+  }
+  function showCall() {
+    const left = Math.ceil((CALL_AGAIN - (Date.now() - callAt)) / 1000);
+    $('vtCallAdmin').disabled = left > 0;
+    setText($('vtCallState'), left > 0 ? t('called', left) : '');
+  }
+  let audio = null;
+  function beep() {
+    try {
+      audio ||= new AudioContext();
+      for (let i = 0; i < 3; i++) {
+        const tone = audio.createOscillator(), gain = audio.createGain();
+        tone.frequency.value = 880;
+        gain.gain.setValueAtTime(0.0001, audio.currentTime + i * 0.35);
+        gain.gain.exponentialRampToValueAtTime(0.25, audio.currentTime + i * 0.35 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + i * 0.35 + 0.25);
+        tone.connect(gain).connect(audio.destination);
+        tone.start(audio.currentTime + i * 0.35);
+        tone.stop(audio.currentTime + i * 0.35 + 0.3);
+      }
+    } catch { /* no sound: the banner and the title still ring */ }
+  }
+  function ring(team, at) {
+    const id = `${team}:${at}`;
+    if (answered.has(id) || ringing.has(id)) return;
+    ringing.set(id, { team, at: Date.now() });
+    beep();
+    showAlert();
+  }
+  function showAlert() {
+    const [first] = ringing.values();
+    $('vtAlert').hidden = !first;
+    if (!first) return;
+    const time = new Date(first.at).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
+    $('vtAlertText').textContent = t('alert', names[first.team], time);
+  }
+  $('vtAlertOk').addEventListener('click', () => {
+    for (const id of ringing.keys()) answered.add(id);
+    ringing.clear();
+    store(callsKey, [...answered].slice(-50));
+    showAlert();
+    document.title = t('roomTitle', names[0], names[1]);
+  });
+  $('vtCallAdmin').addEventListener('click', callAdmin);
+  $('vtHelp').hidden = me === null;
+  relabel.add(() => { showAlert(); showCall(); });
+  // An unanswered call blinks in the tab title.
+  setInterval(() => {
+    if (!ringing.size) return;
+    document.title = document.title.startsWith('🔔') ? t('roomTitle', names[0], names[1]) : t('calling');
+  }, 1000);
+
   function flipCoin(result) {
     if (coin !== 'hidden') return;
     coin = 'flipping';
@@ -572,6 +663,7 @@ async function enterRoom(room) {
   const presenceKey = () => [online(0), online(1)].join();
   function tick() {
     try { autoCoin(); } catch { /* the clock still moves */ }
+    if (me !== null) showCall();
     if (presenceKey() !== shownFor) return render();
     const state = replay(room, log);
     showClock(state, nextTurn(room, state));

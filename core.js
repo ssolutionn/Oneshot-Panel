@@ -282,6 +282,16 @@ export function teamLogo(logos, team) {
     personKey(name) === personKey(team) && assetFile(file));
   return found ? found[1] : '';
 }
+// The team's HLTV page (assets/teams/hltv.json: name → URL); only
+// https://www.hltv.org/team/<id>/<slug> addresses are taken.
+export function teamHltv(pages, team) {
+  if (!pages || typeof pages !== 'object') return '';
+  // Accents do not count either here: «Honved» finds «Honvéd».
+  const key = value => personKey(String(value ?? '').normalize('NFKD').replace(/\p{M}/gu, ''));
+  const found = Object.entries(pages).find(([name, url]) => key(name) === key(team) &&
+    typeof url === 'string' && /^https:\/\/www\.hltv\.org\/team\/\d+\/[a-z0-9-]+$/.test(url));
+  return found ? found[1] : '';
+}
 // Slot order only: the observer gets the cameras from the OBS JSON.
 export function observerText(a, b, pa, pb) {
   const slot = (p, i) => `${i + 1}. ${i < 5 ? a.name : b.name} — ${p.nick}`;

@@ -121,6 +121,17 @@ h1,h2,h3 { font-family:var(--vt-display); font-weight:600; letter-spacing:.02em;
 .vt-team[data-online=yes] .vt-presence::before { background:var(--vt-online); box-shadow:0 0 8px var(--vt-online); }
 .vt-you { padding:3px 8px; border-radius:6px; background:var(--vt-accent); color:var(--vt-accent-ink); font:600 12px var(--vt-display); letter-spacing:.1em; }
 .vt-versus { font:600 22px var(--vt-display); color:var(--vt-muted); }
+.vt-hltv { display:inline-block; margin-left:10px; color:var(--vt-accent); font:600 12px/1 var(--vt-display); letter-spacing:.08em; text-decoration:none; }
+.vt-hltv:hover { color:var(--vt-ink); text-decoration:underline; }
+/* «Call admin»: a captain's button; the admin's page rings. */
+.vt-help { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:18px 0 0; }
+.vt-call-state { color:var(--vt-muted); font-size:13px; }
+.vt-alert {
+  display:flex; align-items:center; justify-content:space-between; gap:14px; margin:0 0 16px; padding:14px 18px;
+  border:2px solid var(--vt-warn); border-radius:12px; background:var(--vt-shade); animation:vt-ring 1s ease-in-out 3;
+}
+.vt-alert b { font:600 clamp(16px,2.4vw,22px)/1.25 var(--vt-display); text-transform:uppercase; overflow-wrap:anywhere; }
+@keyframes vt-ring { 0%,100% { box-shadow:0 0 0 0 var(--vt-warn); } 50% { box-shadow:0 0 24px 4px var(--vt-warn); } }
 
 /* Stage: the coin, whose turn, the buttons */
 .vt-stage {
@@ -229,6 +240,7 @@ h1,h2,h3 { font-family:var(--vt-display); font-weight:600; letter-spacing:.02em;
   .vt-settings { grid-template-columns:1fr; padding:12px; }
 }
 @media (prefers-reduced-motion:reduce) {
+  .vt-alert { animation:none; }
   .vt-coin.is-flipping { animation:none; }
   .vt-map,.vt-coin { transition:none; }
 }

@@ -240,6 +240,9 @@ async def run(args):
         await expect(cap_a.locator("#vtTitle")).to_have_text("UPGRADE vs Lavked")
         await expect(cap_a.locator("#vtPrompt")).to_have_text("Ждём капитана Lavked")
         await expect(cap_a.locator("#vtTeam0 .vt-you")).to_be_visible()
+        # Each team links to its HLTV page.
+        await expect(cap_a.locator("#vtTeam0 .vt-hltv")).to_have_attribute("href", "https://www.hltv.org/team/13989/upgrade")
+        await expect(cap_a.locator("#vtTeam1 .vt-hltv")).to_have_attribute("href", "https://www.hltv.org/team/12609/lavked")
         spectator = await open_page(link_s)
         cap_b = await open_page(link_b, 375, 800)
         for page in (cap_a, cap_b, spectator):
@@ -437,11 +440,39 @@ async def run(args):
         await expect(room_page.locator("#vtFoot")).to_contain_text("Admin view")
         passed("English by default, the RU flag switches and is remembered; timer «No timer» in the message")
 
+        # 12. «Call admin»: the admin's page rings, the public link does not.
+        await admin.goto(base + "/veto.html")
+        await admin.fill("#vtTeamA", "Omega")
+        await admin.fill("#vtTeamB", "LPH")
+        await admin.click("#vtForm button[type=submit]")
+        await expect(admin.locator("#vtMsgA")).to_have_value(re.compile("Omega"))
+        cap = await open_page(re.search(r"https?://\S+", await admin.locator("#vtMsgA").input_value()).group(0))
+        boss = await open_page(await admin.locator("#vtWatch").get_attribute("href"))
+        viewer = await open_page(re.search(r"https?://\S+", await admin.locator("#vtMsgS").input_value()).group(0))
+        await expect(boss.locator("#vtHelp")).to_be_hidden()
+        await expect(viewer.locator("#vtHelp")).to_be_hidden()
+        await cap.click("#vtCallAdmin")
+        await expect(cap.locator("#vtCallAdmin")).to_be_disabled()
+        await expect(cap.locator("#vtCallState")).to_contain_text("Админ позван")
+        await expect(boss.locator("#vtAlert")).to_be_visible(timeout=wait)
+        await expect(boss.locator("#vtAlertText")).to_contain_text("Капитан Omega зовёт админа")
+        await viewer.wait_for_timeout(3000)
+        await expect(viewer.locator("#vtAlert")).to_be_hidden()
+        await boss.click("#vtAlertOk")
+        await expect(boss.locator("#vtAlert")).to_be_hidden()
+        await boss.wait_for_timeout(3000)  # the call keeps riding the messages: it stays answered
+        await expect(boss.locator("#vtAlert")).to_be_hidden()
+        await expect(boss.locator("#vtTeam1 .vt-hltv")).to_have_attribute("href", "https://www.hltv.org/team/13279/lph")
+        for page in (cap, boss, viewer):
+            await page.close()
+        passed("«Call admin» rings on the admin's page only, once answered stays quiet; HLTV links by team")
+
         # 10. Hostile team names stay text.
         link_a, link_b, link_s = await make_links(admin, '<img src=x onerror=alert(1)>', 'A"B</h1>', "BO3")
         a = await open_page(link_a)
         await expect(a.locator("#vtTitle")).to_have_text('<img src=x onerror=alert(1)> vs A"B</h1>')
         assert await a.locator("#vtTitle img, .vt-team-name img").count() == 0
+        await expect(a.locator(".vt-hltv").first).to_be_hidden()
         passed("HTML in team names is shown as text")
 
         await asyncio.sleep(0.5)

@@ -85,16 +85,20 @@
     </section>
 
     <section class="vt-room" id="vtRoom" hidden aria-label="Veto">
+      <div class="vt-alert" id="vtAlert" role="alert" hidden>
+        <b id="vtAlertText"></b>
+        <button class="vt-button vt-primary" id="vtAlertOk" type="button" data-i18n="gotIt">Got it</button>
+      </div>
       <div class="vt-teams">
         <article class="vt-team" id="vtTeam0" data-team="0">
           <span class="vt-logo"><img alt="" hidden></span>
-          <div><b class="vt-team-name"></b><span class="vt-presence"></span></div>
+          <div><b class="vt-team-name"></b><span class="vt-presence"></span><a class="vt-hltv" target="_blank" rel="noreferrer" hidden>HLTV ↗</a></div>
           <span class="vt-you" hidden data-i18n="you">YOU</span>
         </article>
         <span class="vt-versus" aria-hidden="true">VS</span>
         <article class="vt-team" id="vtTeam1" data-team="1">
           <span class="vt-logo"><img alt="" hidden></span>
-          <div><b class="vt-team-name"></b><span class="vt-presence"></span></div>
+          <div><b class="vt-team-name"></b><span class="vt-presence"></span><a class="vt-hltv" target="_blank" rel="noreferrer" hidden>HLTV ↗</a></div>
           <span class="vt-you" hidden data-i18n="you">YOU</span>
         </article>
       </div>
@@ -121,6 +125,10 @@
       </section>
 
       <ol class="vt-log" id="vtLog" aria-label="Moves"></ol>
+      <div class="vt-help" id="vtHelp" hidden>
+        <button class="vt-button" id="vtCallAdmin" type="button" data-i18n="callAdmin">🔔 Call admin</button>
+        <span id="vtCallState" class="vt-call-state" role="status"></span>
+      </div>
       <p class="vt-foot" id="vtFoot"></p>
     </section>
   </main>
