@@ -268,7 +268,7 @@ function csv() {
     let text = String(v ?? '');
     // CSV is data, never a spreadsheet formula from an external team name.
     if (/^[\s\u0000-\u001f]*[=+@-]/u.test(text)) text = "'" + text;
-    return /[";\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    return /[";\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   };
   const num = v => v ? v.toFixed(2).replace('.', ',') : '';
   const head = ['Контора', 'Команда 1', 'Команда 2', 'Начало (МСК)', 'Линия открыта (МСК)', 'П1 откр.', 'П2 откр.',

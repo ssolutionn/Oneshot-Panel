@@ -1,6 +1,8 @@
 """Bookmaker auto-refresh UI: real site modules, controlled read-only API replies."""
 import argparse
 import asyncio
+import csv
+import io
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -66,7 +68,7 @@ async def run(args):
                         {"id":"tomorrow","team1":"Rune Eaters","team2":"HyperSpirit",
                          "start":NOW+28*3600000,"odds":[9.1,9.2],"live":False,
                          "url":"https://fon.bet/sports/esports/future"},
-                        {"id":"untrusted","team1":"\u00a0=HYPERLINK(1)","team2":"<img src=x onerror=alert(1)>",
+                        {"id":"untrusted","team1":"\u00a0=HYPERLINK(1)","team2":"<img src=x onerror=alert(1)>\r=HYPERLINK(2)",
                          "start":NOW+8*3600000,"odds":[1.9,1.9],"live":False,
                          "url":"javascript:alert(1)"},
                     ])
@@ -166,8 +168,11 @@ async def run(args):
             async with page.expect_download() as download_info:
                 await page.locator("#bookiesCsv").click()
             download = await download_info.value
-            text = Path(await download.path()).read_text(encoding="utf-8-sig")
+            text = Path(await download.path()).read_bytes().decode("utf-8-sig")
             assert "'\u00a0=HYPERLINK(1)" in text, "CSV must neutralize external formula cells"
+            rows = list(csv.reader(io.StringIO(text, newline=""), delimiter=";"))
+            assert all(len(row) == 14 for row in rows), "CR in external data must not create a new CSV row"
+            assert any(row[2] == "<img src=x onerror=alert(1)>\r=HYPERLINK(2)" for row in rows[1:])
             output = Path(args.artifacts) / "bookies"
             output.mkdir(parents=True, exist_ok=True)
             await page.screenshot(path=str(output / (engine + ".png")), full_page=True)
