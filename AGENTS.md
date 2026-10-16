@@ -104,12 +104,18 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   зеркала по очереди, линия и лайв отдельно; отдаёт только CyberClash.
   Обёртки: `functions/api/bookmakers.js` (Cloudflare), `server.js`.
 - `bookies.js` — только сайт: блок «Наш турнир у букмекеров» во вкладке
-  «Лобби» (`bookies`, `bookiesCheck`, `bookiesTable`, `bookiesStatus`):
+  «Лобби» (`bookies`, `bookiesCheck`, `bookiesCopy`, `bookiesCsv`,
+  `bookiesTable`, `bookiesStatus`):
   раз в 5 минут; строки — все 16 лицензированных БК (автоматические и
   `MANUAL` со ссылкой), столбцы — матчи ближайшего дня; кэфы текстом, ссылка
   отдельной ↗ (блокировщики рекламы прячут ссылки на БК вместе с текстом);
-  новая линия — запись в журнал лобби (`oneshot:lobby-note`).
-  localStorage: `oneshot-bookies` (когда впервые увидели линию).
+  в клетке ещё другие рынки ленты (`markets`: фора по нашей первой команде,
+  тотал [Б, М]; `marketText`), размер линии (`size`: исходов или рынков,
+  как считает БК) и лайв (сейчас / был / заявлен — `liveOffered`);
+  новая линия — запись в журнал лобби (`oneshot:lobby-note`). «Сводка» —
+  текст для чата, «CSV» — все линии недели (открытие и текущие кэфы).
+  localStorage: `oneshot-bookies` (`lines` — линии недели, `checked` —
+  когда БК проверяли в этом браузере).
 - `faceit.js` — без DOM: разбор ссылки турнира, сводка матча, события
   (карта, матч, отмена, PAUSED), тексты «GG» и «Next xx:MM», клиент Data API.
   Пока карта идёт, FACEIT кладёт в results.score раунды этой карты
@@ -287,7 +293,7 @@ Netlify проверяет локальные фото, докачивает н�
   newObsCode obsRemotePort obsRemotePassword sendObsConfig obsRemoteResult
   obsBridgeStatus obsCodeInput applyObsCode shareDockUrl obsDockMessage
   obsRemoteBox obsMore playerVeto bookies bookiesCheck bookiesTable
-  bookiesStatus
+  bookiesStatus bookiesCopy bookiesCsv
   obsDirectFields obsUrl obsPassword obsTestResult testObs
   saveObs notifyBtn soundBtn lobbyForm faceitUrl faceitKey lobbyStart
   lobbyStatus lobbyError lobbyAlert lobbyAlertText lobbyAck lobbyMatches

@@ -161,10 +161,15 @@ async def run(args):
             "fonbet": [{"id": "1", "team1": "6yuBoJlbl", "team2": "HyperSpirit", "odds": [1.8, 2.0],
                         "start": 1792155600000, "live": False, "url": "https://fon.bet/sports/esports/1/1"},
                        {"id": "2", "team1": "Rune Eaters Esports", "team2": "PCIFIC", "odds": [1.5, 2.4],
-                        "start": 1792166400000, "live": True, "url": "https://fon.bet/live/esports/1/2"}],
+                        "start": 1792166400000, "live": True, "url": "https://fon.bet/live/esports/1/2",
+                        "size": {"count": 76, "unit": "исходов"},
+                        "markets": [{"kind": "handicap", "name": "Фора", "line": "-5.5", "odds": [1.9, 1.8]}]}],
             "pari": [], "olimp": [],
             "marathon": [{"id": "9", "team1": "PCIFIC", "team2": "Rune Eaters", "odds": [2.5, 1.48],
-                          "start": 1792166400000, "live": False, "url": "https://www.marathonbet.ru/su/betting/x"}],
+                          "start": 1792166400000, "live": False, "url": "https://www.marathonbet.ru/su/betting/x",
+                          "liveOffered": True,
+                          "markets": [{"kind": "handicap", "name": "Фора", "line": "-1.5", "odds": [3.1, 1.3]},
+                                      {"kind": "total", "name": "Тотал", "line": "2.5", "odds": [2.0, 1.75]}]}],
         }
 
         async def bookmakers(route):
@@ -505,6 +510,13 @@ async def run(args):
         await expect(fonbet.locator(".bk-odds").first).not_to_be_empty()
         assert await fonbet.locator("td a .bk-odds, th a span").count() == 0, "text stays outside bookmaker links"
         await expect(marathon.locator("td").nth(rune_col)).to_contain_text("1.48 · 2.50")
+        # Other markets in our team order (the handicap turns with the teams), line size, live.
+        await expect(fonbet.locator("td").nth(rune_col)).to_contain_text("Ф1 -5.5 1.90 · Ф2 +5.5 1.80")
+        await expect(fonbet.locator("td").nth(rune_col)).to_contain_text("76 исходов")
+        await expect(fonbet.locator("th small")).to_contain_text("до 76 исходов · сейчас в лайве")
+        await expect(marathon.locator("td").nth(rune_col)).to_contain_text("Ф1 +1.5 1.30 · Ф2 -1.5 3.10")
+        await expect(marathon.locator("td").nth(rune_col)).to_contain_text("ТБ 2.5 2.00 · ТМ 1.75")
+        await expect(marathon.locator("td").nth(rune_col)).to_contain_text("лайв заявлен")
         olimp = table.locator("tbody tr", has=lobby.locator("th span", has_text="OLIMPBET"))
         await expect(olimp.locator("td").nth(rune_col)).to_have_text("—")
         first_rows = await table.locator("tbody tr th span").all_inner_texts()
@@ -514,9 +526,35 @@ async def run(args):
         await expect(lobby.locator("#bookiesStatus")).to_contain_text("Турнир в линии: Фонбет, Марафон")
         bookie_lines["olimp"] = [{"id": "5", "team1": "Honved Esport", "team2": "Lavked", "odds": [2.2, 1.62],
                                   "start": 1792177200000, "live": False, "url": "https://www.olimp.bet/line/x"}]
+        bookie_lines["marathon"][0] = {**bookie_lines["marathon"][0], "odds": [2.7, 1.42], "live": True}
         await lobby.click("#bookiesCheck")
         await expect(table.locator("thead th")).to_have_count(4)
         await expect(lobby.locator("#lobbyLog")).to_contain_text("OLIMPBET: открыта линия Honved Esport – Lavked")
+        await expect(marathon.locator("td").nth(rune_col)).to_contain_text("1.42 · 2.70")
+        await expect(marathon.locator("td").nth(rune_col)).to_contain_text("откр. 1.48 · 2.50")
+        await expect(lobby.locator("#bookiesStatus")).to_contain_text("Сейчас в лайве: Фонбет, Марафон")
+        # The live ends: the bookmaker «был в лайве», kept after a reload too.
+        bookie_lines["marathon"][0] = {**bookie_lines["marathon"][0], "live": False}
+        await lobby.click("#bookiesCheck")
+        await expect(marathon.locator("td").nth(rune_col)).to_contain_text("был в лайве")
+        # Summary for the chat and the week's CSV.
+        await lobby.evaluate("window.__copied = []; navigator.clipboard.writeText = async t => { window.__copied.push(t); };")
+        await lobby.click("#bookiesCopy")
+        summary = await lobby.evaluate("window.__copied.at(-1)")
+        assert summary.startswith("CyberClash у букмекеров"), summary
+        assert "В линии у 3 из" in summary, summary
+        assert "• Марафон: 1.42 · 2.70 (откр. 1.48 · 2.50) · был в лайве · Ф1 +1.5 1.30 · Ф2 -1.5 3.10 · ТБ 2.5 2.00 · ТМ 1.75" in summary, summary
+        assert "• Фонбет: 1.50 · 2.40 · 76 исходов · LIVE · Ф1 -5.5 1.90 · Ф2 +5.5 1.80" in summary, summary
+        assert "Нет линии: PARI, OLIMPBET" in summary, summary
+        async with lobby.expect_download() as info:
+            await lobby.click("#bookiesCsv")
+        download = await info.value
+        assert re.fullmatch(r"cyberclash-bookmakers-\d{4}-\d{2}-\d{2}\.csv", download.suggested_filename), download.suggested_filename
+        rows = (await download.path()).read_text(encoding="utf-8-sig").splitlines()
+        assert rows[0].startswith("Контора;Команда 1;Команда 2;Начало (МСК)"), rows[0]
+        assert len(rows) == 5, rows
+        marathon_row = next(r for r in rows if r.startswith("Марафон;"))
+        assert ";2,50;1,48;2,70;1,42;" in marathon_row and ";был;" in marathon_row, marathon_row
         await lobby.screenshot(path=str(output / "lobby.png"), full_page=True)
         await lobby.set_viewport_size({"width": 375, "height": 800})
         assert not await lobby.evaluate("document.documentElement.scrollWidth > innerWidth")

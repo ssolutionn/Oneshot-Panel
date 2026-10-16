@@ -65,6 +65,19 @@ const price = value => {
   const n = Number(value);
   return Number.isFinite(n) && n > 1 ? Math.round(n * 100) / 100 : null;
 };
+// Every event may carry, besides the match winner (odds):
+//   markets — the other two-way markets the feed lists: {kind, name, line, odds}
+//     handicap: line and odds[0] for team 1, odds[1] for team 2 at the opposite line;
+//     total: odds = [over, under];
+//   size — how big the bookmaker's line on the match is, as it counts it:
+//     {count, unit} with unit 'исходов' (prices) or 'рынков' (bet types);
+//   liveOffered — the bookmaker says the match will be in live.
+const market = (name, line, odds) => {
+  const kind = /фора|handicap/i.test(name) ? 'handicap' : /тотал|total/i.test(name) ? 'total' : 'other';
+  const prices = odds.map(price);
+  return prices.length === 2 && prices.some(Boolean) ? { kind, name, line: line == null ? '' : String(line), odds: prices } : null;
+};
+const size = (count, unit) => Number(count) > 0 ? { count: Number(count), unit } : null;
 
 // Fonbet / PARI showEvents: events[] with parentId 0 for matches (maps are
 // child events), sportName "Counter-Strike. CyberClash. …", main odds in
@@ -74,13 +87,18 @@ function parseFonbet(body, live) {
   return (data?.events || []).filter(e => e && Number(e.parentId) === 0 &&
       /counter-?strike|cs\s*2/i.test(e.sportName || '') && isCyberClash(e.sportName))
     .map(e => {
-      const quotes = (e.subcategories || []).find(s => Number(s.num) === 120)?.quotes || [];
+      const subs = e.subcategories || [];
+      const quotes = subs.find(s => Number(s.num) === 120)?.quotes || [];
       const quote = id => price(quotes.find(q => Number(q.factorId) === id)?.value);
       return {
         id: String(e.id), group: String(e.sportId), tournament: e.sportName,
         team1: e.team1 || '', team2: e.team2 || '',
         start: Number(e.startTimeTimestamp) * 1000 || null,
-        odds: [quote(921), quote(923)], live
+        odds: [quote(921), quote(923)], live,
+        // 304 Фора (927 team 1, 928 team 2), 305 Тотал (930 over, 931 under).
+        markets: subs.filter(s => Number(s.num) !== 120)
+          .map(s => market(s.name || '', s.quotes?.[0]?.p, (s.quotes || []).map(q => q.value))).filter(Boolean),
+        size: size(e.allFactorsCount, 'исходов')
       };
     });
 }
@@ -97,26 +115,36 @@ function parseOlimp(body, live) {
       team1: e.team1Name || '', team2: e.team2Name || '',
       start: Number(e.startDateTime) * 1000 || null,
       odds: [outcome('П1'), outcome('П2')], live: live || !!e.score,
-      score: e.score || ''
+      score: e.score || '', markets: [], size: size(e.outcomeCount, 'исходов')
     };
   }));
 }
 
 // Betcity: {reply: {sports: {73: {chmps: {<id>: {name_ch, evts: {<id>: …}}}}}}};
-// the match result is main["69"] (blocks.Wm.P1 / P2, kf). The live list
-// carries no odds, only the score.
+// the match result is main["69"] (blocks.Wm.P1 / P2, kf), the handicap
+// main["71"] (F1m: Kf_F1 / Kf_F2 at F1), the total main["72"] (T1m: Tb over,
+// Tm under at Tot); cnt_ext_add is how many more bet types the event has,
+// is_live = 1 that it goes to live. The live list carries no odds, only the score.
 function parseBetcity(body, live) {
   const data = typeof body === 'string' ? JSON.parse(body) : body;
   return Object.values(data?.reply?.sports || {}).flatMap(sport => Object.values(sport?.chmps || {}))
     .filter(c => isCyberClash(c?.name_ch))
     .flatMap(c => Object.values(c.evts || {}).filter(e => e && !e.del_ev).map(e => {
-      const result = e.main?.['69']?.data?.[e.id_ev]?.blocks?.Wm || {};
+      const block = (id, name) => e.main?.[id]?.data?.[e.id_ev]?.blocks?.[name] || null;
+      const result = block('69', 'Wm') || {}, handicap = block('71', 'F1m'), total = block('72', 'T1m');
+      const markets = [
+        handicap && market('Фора', handicap.F1, [handicap.Kf_F1?.kf, handicap.Kf_F2?.kf]),
+        total && market('Тотал', total.Tot, [total.Tb?.kf, total.Tm?.kf])
+      ].filter(Boolean);
+      const shown = Object.keys(e.main || {}).length;
       return {
         id: String(e.id_ev), group: String(c.id_ch), tournament: c.name_ch,
         team1: e.name_ht || '', team2: e.name_at || '',
         start: Number(e.date_ev) * 1000 || null,
         odds: [price(result.P1?.kf), price(result.P2?.kf)], live,
-        score: e.sc_ev || ''
+        score: e.sc_ev || '', markets,
+        size: shown ? size(shown + (Number(e.cnt_ext_add) || 0), 'рынков') : null,
+        liveOffered: Number(e.is_live) === 1
       };
     }));
 }
@@ -141,11 +169,14 @@ function parseMarathon(body, live, now = Date.now()) {
       if (!id) continue;
       const [team1 = '', team2 = ''] = attr('data-event-name').split(/\s+-\s+/);
       const prices = [...row.matchAll(/data-market-type="RESULT_2WAY"[\s\S]*?data-selection-price="([\d.]+)"/g)].map(m => price(m[1]));
+      // "+3" beside the match: three more bet types than the winner shown.
+      const more = Number(row.match(/class="event-more-view">\s*\+(\d+)/)?.[1] || 0);
       events.push({
         id, group: attr('data-event-treeId'), tournament, team1, team2,
         start: mskTime(row.match(/date-wrapper">\s*([^<]+?)\s*</)?.[1] || '', now),
         odds: [prices[0] ?? null, prices[1] ?? null],
-        live: live || attr('data-live') === 'true', path: attr('data-event-path')
+        live: live || attr('data-live') === 'true', path: attr('data-event-path'),
+        markets: [], size: size(1 + more, 'рынков')
       });
     }
   }
@@ -181,14 +212,26 @@ export function sameTeam(a, b) {
   const x = teamKey(a), y = teamKey(b);
   return x.length >= 3 && y.length >= 3 && (x === y || x.includes(y) || y.includes(x));
 }
-// The bookmaker's event for our match, in either order; odds in our order.
+// The bookmaker's event for our match, in either order; odds in our order
+// (a handicap turns around too: the other team at the opposite line).
+const flipLine = line => !line || Number(line) === 0 ? line :
+  line.startsWith('-') ? '+' + line.slice(1) : '-' + line.replace(/^\+/, '');
 export function findMatch(events, team1, team2) {
   for (const e of events) {
     if (sameTeam(e.team1, team1) && sameTeam(e.team2, team2)) return { ...e, swapped: false };
     if (sameTeam(e.team1, team2) && sameTeam(e.team2, team1)) {
-      return { ...e, swapped: true, odds: [e.odds[1], e.odds[0]] };
+      const markets = (e.markets || []).map(m => m.kind === 'handicap' ?
+        { ...m, line: flipLine(m.line), odds: [m.odds[1], m.odds[0]] } : m);
+      return { ...e, swapped: true, odds: [e.odds[1], e.odds[0]], markets };
     }
   }
   return null;
+}
+// "Ф1 −5.5 1.90 · Ф2 +5.5 1.80", "ТБ 52.5 1.83 · ТМ 1.87" (team 1 is ours).
+const two = v => v ? v.toFixed(2) : '—';
+export function marketText(m) {
+  if (m.kind === 'handicap') return `Ф1 ${m.line || '0'} ${two(m.odds[0])} · Ф2 ${flipLine(m.line) || '0'} ${two(m.odds[1])}`;
+  if (m.kind === 'total') return `ТБ ${m.line} ${two(m.odds[0])} · ТМ ${two(m.odds[1])}`;
+  return `${m.name}${m.line ? ' ' + m.line : ''} ${two(m.odds[0])} · ${two(m.odds[1])}`;
 }
 export const eventKey = (bookmakerId, e) => `${bookmakerId}:${e.id}`;
