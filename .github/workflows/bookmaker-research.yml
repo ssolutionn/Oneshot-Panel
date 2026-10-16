@@ -7,91 +7,35 @@ permissions:
 jobs:
   read:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
-      - name: Install ordinary public browser reader
-        run: |
-          python3 -m pip install playwright
-          python3 -m playwright install --with-deps chromium
-      - name: Resolve public native line requests
+      - name: Capture public Baltbet fixture and Sportbet sport contracts
         run: |
           python3 - <<'PY'
-          import asyncio,json,re
+          import json,re
+          from concurrent.futures import ThreadPoolExecutor
           from urllib.request import Request,urlopen
-          from urllib.parse import urlsplit,urlunsplit,urljoin,parse_qsl,urlencode
-          from playwright.async_api import async_playwright
-          for label,url in [("sportbet","https://sportbet.ru/"),("baltbet-runtime","https://baltbet.ru/bundles/scripts/vue/uniru.bundle.js")]:
+          def read(pair):
+           label,url=pair
            try:
-            with urlopen(Request(url,headers={"User-Agent":"Mozilla/5.0"}),timeout=15) as r:text=r.read(14000000).decode("utf8","replace")
-            scripts=re.findall(r'<script[^>]+src=["\x27]([^"\x27]+)',text)
-            data={"provider":label,"scripts":scripts}
-            if label=="baltbet-runtime":
-             data["runtime"]=[text[max(0,m.start()-50):m.end()+1800] for m in list(re.finditer(r"\.u=|\.p=|prematch-app|prematchServiceUrl.{0,150}/prematch",text))[-10:]]
-             data["paths"]=list(dict.fromkeys(re.findall(r'["\x27](/prematch/[^"\x27]+)',text)))[:50]
-            print("BROWSER_BOOTSTRAP:",json.dumps(data,ensure_ascii=False),flush=True)
-           except Exception as e:print("BROWSER_BOOTSTRAP:",json.dumps({"provider":label,"error":type(e).__name__}),flush=True)
-          def safe(url):
-           p=urlsplit(url)
-           return urlunsplit((p.scheme,p.netloc,p.path,urlencode([(k,v) for k,v in parse_qsl(p.query) if not re.search("token|session|uuid|finger|secret|sign|auth|hash|key",k,re.I)]),""))
-          async def run():
-           async with async_playwright() as p:
-            browser=await p.chromium.launch(headless=True);semaphore=asyncio.Semaphore(2)
-            async def observe(label,url):
-             async with semaphore:
-              context=await browser.new_context(locale="ru-RU");pg=await context.new_page();tasks=[];seen=set()
-              async def route(r):
-               path=urlsplit(r.request.url).path.lower()
-               publicread=r.request.method=="POST" and re.search(r"/(?:prematch|line|tree|table)/",path) and not re.search("bet/|account|history|wallet|balance|login|auth|profile",path)
-               if r.request.method in ("GET","HEAD") or publicread:await r.continue_()
-               else:await r.abort()
-              await context.route("**/*",route)
-              async def reply(r):
-               purl=urlsplit(r.url);host=purl.hostname or "";path=purl.path.lower()
-               if not any(host==h or host.endswith("."+h) for h in ("sportbet.ru","baltbet.ru","melbet.ru","bet-m.ru","ligastavok.ru")):return
-               if path.endswith(".js") and r.url not in seen:
-                seen.add(r.url);print("PUBLIC_SCRIPT_URL:",json.dumps({"provider":label,"url":safe(r.url)}),flush=True);return
-               content=r.headers.get("content-type","")
-               if "json" not in content or any(s in path for s in ("session","account","wallet","balance","login","auth","history","user","profile","minio","registration")):return
-               try:
-                body=await asyncio.wait_for(r.text(),5)
-                obj=json.loads(body)
-                d={"provider":label,"url":safe(r.url),"status":r.status,"size":len(body),"keys":list(obj.keys())[:30] if isinstance(obj,dict) else ["array"],
-                 "cyber":[body[max(0,m.start()-200):m.end()+1500] for m in list(re.finditer("cyber.?clash",body,re.I))[:6]]}
-                print("FINAL_NATIVE_LINE:",json.dumps(d,ensure_ascii=False),flush=True)
-               except Exception:pass
-              def request(req):
-               path=urlsplit(req.url).path.lower()
-               if req.method!="POST" or any(s in path for s in ("account","wallet","balance","login","auth","history","profile","registration","metric","counter","analytics")):return
-               parsed=urlsplit(req.url)
-               if not any((parsed.hostname or "").endswith(h) for h in ("sportbet.ru","baltbet.ru","melbet.ru","bet-m.ru","ligastavok.ru")):return
-               try:keys=list(json.loads(req.post_data or "{}").keys())[:20]
-               except Exception:keys=[]
-               print("PUBLIC_READ_CONTRACT:",json.dumps({"provider":label,"url":safe(req.url),"method":req.method,"bodyKeys":keys}),flush=True)
-              pg.on("response",lambda r:tasks.append(asyncio.create_task(reply(r))))
-              pg.on("request",request)
-              pg.on("websocket",lambda ws:print("PUBLIC_LINE_SOCKET:",json.dumps({"provider":label,"url":safe(ws.url)}),flush=True))
-              try:
-               resp=await pg.goto(url,wait_until="domcontentloaded",timeout=22000);await pg.wait_for_timeout(8000)
-               if label=="sportbet":
-                button=pg.get_by_text("Спорт",exact=True)
-                if await button.count():
-                 await button.first.click(timeout=4000);await pg.wait_for_timeout(3000)
-               text=await pg.locator("body").inner_text(timeout=5000)
-               print("FINAL_NATIVE_PAGE:",json.dumps({"provider":label,"status":resp.status if resp else None,"url":pg.url,"text":text[:1000],
-                "links":await pg.locator("a[href]").evaluate_all("(es)=>es.map(x=>({text:x.innerText.slice(0,60),href:x.href})).filter(x=>/counter|cs.?2|кибер|cyber|esport|спорт|линия/i.test(x.text+' '+x.href)).slice(0,30)")},ensure_ascii=False),flush=True)
-               if tasks:
-                try:await asyncio.wait_for(asyncio.gather(*tasks,return_exceptions=True),7)
-                except asyncio.TimeoutError:pass
-              except Exception as e:print("FINAL_NATIVE_PAGE:",json.dumps({"provider":label,"error":type(e).__name__}),flush=True)
-              await context.close()
-            await asyncio.gather(*[observe(*pair) for pair in [
-             ("baltbet","https://baltbet.ru/prematch/cybersport"),
-             ("sportbet","https://sportbet.ru/"),
-             ("melbet","https://melbet.ru/"),
-             ("betm","https://bet-m.ru/"),
-             ("ligastavok","https://www.ligastavok.ru/bets/cybersport")
-            ]])
-            await browser.close()
-          asyncio.run(run())
+            with urlopen(Request(url,headers={"User-Agent":"Mozilla/5.0","Accept":"application/json,text/javascript,*/*","bb_appSource":"UniRu"}),timeout=12) as r:text=r.read(6000000).decode("utf8","replace");status=r.status
+            d={"provider":label,"status":status,"size":len(text)}
+            if label=="baltbet-line":
+             obj=json.loads(text);obj["leagues"]=[x for x in obj.get("leagues",[]) if re.search("cyber.?clash",x.get("title",""),re.I)]
+             d["fixture"]=obj
+            elif label=="sportbet-sports":d["body"]=json.loads(text)
+            elif "events." in text or "bthm-server" in text:
+             d["paths"]=list(dict.fromkeys(re.findall(r'["\x27\x60](/?events[^"\x27\x60]{0,100})',text)))[:40]
+             d["excerpts"]=[text[max(0,m.start()-300):m.end()+800] for m in list(re.finditer(r"events\.upcoming|events\.top|bthm-server|sports/|/events\?|getEvents|eventsBySport",text))[:8]]
+            else:return
+            print("LINE_CONTRACT:",json.dumps(d,ensure_ascii=False),flush=True)
+           except Exception as e:print("LINE_CONTRACT:",json.dumps({"provider":label,"error":str(e)[:100]}),flush=True)
+          targets=[
+           ("baltbet-line","https://events.baltbet.ru/api/prematch/sport/25/events?offset=all"),
+           ("sportbet-sports","https://bthm-server.sportbet.ru/sports?status=prematch&lang=ru")
+          ]
+          
+          targets.extend([["/_next/static/chunks/3157-a4254799dc839e40.js","https://sportbet.ru/_next/static/chunks/3157-a4254799dc839e40.js"],["/_next/static/chunks/3801-3dc6e1ffaa86ea9a.js","https://sportbet.ru/_next/static/chunks/3801-3dc6e1ffaa86ea9a.js"],["/_next/static/chunks/1988-88af00cc2bc547a3.js","https://sportbet.ru/_next/static/chunks/1988-88af00cc2bc547a3.js"],["/_next/static/chunks/414-c4f818f908eb7469.js","https://sportbet.ru/_next/static/chunks/414-c4f818f908eb7469.js"],["/_next/static/chunks/8176-03c377e6263c7026.js","https://sportbet.ru/_next/static/chunks/8176-03c377e6263c7026.js"],["/_next/static/chunks/184-90d4c978a8400f3d.js","https://sportbet.ru/_next/static/chunks/184-90d4c978a8400f3d.js"],["/_next/static/chunks/7067-a59e2efe3c7b7def.js","https://sportbet.ru/_next/static/chunks/7067-a59e2efe3c7b7def.js"],["/_next/static/chunks/3875-7b035e8edf7ce170.js","https://sportbet.ru/_next/static/chunks/3875-7b035e8edf7ce170.js"],["/_next/static/chunks/4612-a0fbc0e5c91ae8a5.js","https://sportbet.ru/_next/static/chunks/4612-a0fbc0e5c91ae8a5.js"],["/_next/static/chunks/1803-3334fa6f03018570.js","https://sportbet.ru/_next/static/chunks/1803-3334fa6f03018570.js"],["/_next/static/chunks/3783-0d4eecdf5664fc7d.js","https://sportbet.ru/_next/static/chunks/3783-0d4eecdf5664fc7d.js"],["/_next/static/chunks/6292-4d7a50a7e50ffa53.js","https://sportbet.ru/_next/static/chunks/6292-4d7a50a7e50ffa53.js"],["/_next/static/chunks/9570-5f5a66ce88ec4c34.js","https://sportbet.ru/_next/static/chunks/9570-5f5a66ce88ec4c34.js"],["/_next/static/chunks/1226-c9a083a159335dfb.js","https://sportbet.ru/_next/static/chunks/1226-c9a083a159335dfb.js"],["/_next/static/chunks/7935-2f167eb9a6587c5c.js","https://sportbet.ru/_next/static/chunks/7935-2f167eb9a6587c5c.js"],["/_next/static/chunks/7465-23d3ee46f1036a69.js","https://sportbet.ru/_next/static/chunks/7465-23d3ee46f1036a69.js"],["/_next/static/chunks/8838-cf8d2d8d9baf4688.js","https://sportbet.ru/_next/static/chunks/8838-cf8d2d8d9baf4688.js"],["/_next/static/chunks/1220-71e0462a166e26fe.js","https://sportbet.ru/_next/static/chunks/1220-71e0462a166e26fe.js"],["/_next/static/chunks/4538-eda6792445080b3c.js","https://sportbet.ru/_next/static/chunks/4538-eda6792445080b3c.js"],["/_next/static/chunks/1187-2ab576059b0b712d.js","https://sportbet.ru/_next/static/chunks/1187-2ab576059b0b712d.js"],["/_next/static/chunks/8751-34fdac800752e0ea.js","https://sportbet.ru/_next/static/chunks/8751-34fdac800752e0ea.js"],["/_next/static/chunks/4455-4afd7ea0761e336d.js","https://sportbet.ru/_next/static/chunks/4455-4afd7ea0761e336d.js"],["/_next/static/chunks/4407-67271dfa8b548779.js","https://sportbet.ru/_next/static/chunks/4407-67271dfa8b548779.js"],["/_next/static/chunks/899-123584d5871470a7.js","https://sportbet.ru/_next/static/chunks/899-123584d5871470a7.js"],["/_next/static/chunks/3022-a1b417bbb459f6b0.js","https://sportbet.ru/_next/static/chunks/3022-a1b417bbb459f6b0.js"],["/_next/static/chunks/3596-17c875e95705a5bf.js","https://sportbet.ru/_next/static/chunks/3596-17c875e95705a5bf.js"],["/_next/static/chunks/1442-cffe72e96f9a3d70.js","https://sportbet.ru/_next/static/chunks/1442-cffe72e96f9a3d70.js"],["/_next/static/chunks/5537-3ace912e499f8100.js","https://sportbet.ru/_next/static/chunks/5537-3ace912e499f8100.js"],["/_next/static/chunks/3210-01f40e4d7228f2f3.js","https://sportbet.ru/_next/static/chunks/3210-01f40e4d7228f2f3.js"],["/_next/static/chunks/8969-e81515e990578809.js","https://sportbet.ru/_next/static/chunks/8969-e81515e990578809.js"],["/_next/static/chunks/2744-e62c5934f06e8ab8.js","https://sportbet.ru/_next/static/chunks/2744-e62c5934f06e8ab8.js"],["/_next/static/chunks/1852-fbd41d40168f514a.js","https://sportbet.ru/_next/static/chunks/1852-fbd41d40168f514a.js"],["/_next/static/chunks/3769-ab2087452591a160.js","https://sportbet.ru/_next/static/chunks/3769-ab2087452591a160.js"],["/_next/static/chunks/206-b5c0931a74f0699d.js","https://sportbet.ru/_next/static/chunks/206-b5c0931a74f0699d.js"],["/_next/static/chunks/6859-c6db59aa89a64905.js","https://sportbet.ru/_next/static/chunks/6859-c6db59aa89a64905.js"],["/_next/static/chunks/9357-8c0e7116b08634c5.js","https://sportbet.ru/_next/static/chunks/9357-8c0e7116b08634c5.js"],["/_next/static/chunks/2863-e2ef047d97a14efb.js","https://sportbet.ru/_next/static/chunks/2863-e2ef047d97a14efb.js"],["/_next/static/chunks/app/%5Blocale%5D/layout-3e654059fbedefbe.js","https://sportbet.ru/_next/static/chunks/app/%5Blocale%5D/layout-3e654059fbedefbe.js"],["/_next/static/chunks/4050-53bef97f4b22dc4e.js","https://sportbet.ru/_next/static/chunks/4050-53bef97f4b22dc4e.js"],["/_next/static/chunks/2335-cc4650accc398dd4.js","https://sportbet.ru/_next/static/chunks/2335-cc4650accc398dd4.js"],["/_next/static/chunks/app/%5Blocale%5D/error-f9cde5b430914a13.js","https://sportbet.ru/_next/static/chunks/app/%5Blocale%5D/error-f9cde5b430914a13.js"],["/_next/static/chunks/app/%5Blocale%5D/not-found-32851caaa22be93b.js","https://sportbet.ru/_next/static/chunks/app/%5Blocale%5D/not-found-32851caaa22be93b.js"],["/_next/static/chunks/8012-6b5d1eb31c6313fb.js","https://sportbet.ru/_next/static/chunks/8012-6b5d1eb31c6313fb.js"],["/_next/static/chunks/1808-a0a582e2a00a53b8.js","https://sportbet.ru/_next/static/chunks/1808-a0a582e2a00a53b8.js"],["/_next/static/chunks/6657-56fd7bb131c7b225.js","https://sportbet.ru/_next/static/chunks/6657-56fd7bb131c7b225.js"],["/_next/static/chunks/8166-20c7e105b4c1e54e.js","https://sportbet.ru/_next/static/chunks/8166-20c7e105b4c1e54e.js"],["/_next/static/chunks/app/%5Blocale%5D/page-03f1b8a18381da45.js","https://sportbet.ru/_next/static/chunks/app/%5Blocale%5D/page-03f1b8a18381da45.js"]])
+          with ThreadPoolExecutor(max_workers=8) as pool:list(pool.map(read,targets))
           
           PY
