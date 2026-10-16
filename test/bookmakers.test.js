@@ -158,7 +158,7 @@ test('checkBookmaker: tries mirrors, keeps a failing feed apart, never takes URL
   assert.equal(typeof onRequest, 'function');
 });
 
-test('Bookmaker endpoint coalesces concurrent reads, caches public data and rejects writes', async () => {
+test('Bookmaker endpoint caches completed public data and rejects writes', async () => {
   const source = await fixture('fonbet-line.json');
   let calls = 0;
   const fake = async (url, options) => {
@@ -171,7 +171,7 @@ test('Bookmaker endpoint coalesces concurrent reads, caches public data and reje
   const url = 'https://panel.example/api/bookmakers?id=fonbet';
   const replies = await Promise.all(Array.from({length:8}, () =>
     bookmakersResponse(new Request(url), fake)));
-  assert.equal(calls, 2, 'only line and live, even with eight simultaneous readers');
+  assert.equal(calls, 16, 'each request owns its line and live I/O');
   for (const reply of replies) {
     assert.equal(reply.status, 200);
     assert.equal(reply.headers.get('cache-control'), 'no-store');
@@ -179,15 +179,40 @@ test('Bookmaker endpoint coalesces concurrent reads, caches public data and reje
     assert.equal((await reply.json()).events.length, 2);
   }
   await bookmakersResponse(new Request(url), fake);
-  assert.equal(calls, 2, 'a short shared cache avoids repeated upstream requests');
+  assert.equal(calls, 16, 'a short completed-data cache avoids repeated upstream requests');
   for (const method of ['POST','PUT','PATCH','DELETE','OPTIONS']) {
     const reply = await bookmakersResponse(new Request(url, {method}), fake);
     assert.equal(reply.status, 405);
     assert.equal(reply.headers.get('allow'), 'GET');
   }
-  assert.equal(calls, 2);
+  assert.equal(calls, 16);
 });
 
+
+test('a stalled old request cannot block a later Cloudflare reader', {timeout:2000}, async () => {
+  const source=await fixture('fonbet-line.json');
+  const held=[];let calls=0;
+  const fake=async()=> {
+    calls++;
+    if(calls<=2)return new Promise(resolve=>held.push(resolve));
+    return new Response(source);
+  };
+  const url='https://panel.example/api/bookmakers?id=fonbet';
+  const first=bookmakersResponse(new Request(url),fake);
+  let timer;
+  try {
+    const next=await Promise.race([
+      bookmakersResponse(new Request(url),fake),
+      new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('old request blocked new reader')),500);})
+    ]);
+    assert.equal((await next.json()).ok,true);
+    assert.equal(calls,4);
+  } finally {
+    clearTimeout(timer);
+    for(const resolve of held)resolve(new Response(source));
+    await first;
+  }
+});
 
 test('Maintenance pages and changed schemas are unavailable, never an empty tournament', async () => {
   for (const id of ['fonbet','pari','olimp','betcity']) {

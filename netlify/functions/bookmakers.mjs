@@ -72,23 +72,22 @@ export async function checkBookmaker(id, fetchImpl = publicFetch, now = Date.now
   };
 }
 
-// Public, read-only line data: collapse concurrent requests and keep a short
-// in-memory cache. No database, files, credentials or user input are stored.
+// Cache only completed, serializable public data. Cloudflare request I/O and
+// timers belong to their request: sharing an in-flight promise across requests
+// can leave all later clients waiting after the original page is closed.
 async function currentBookmaker(id, fetchImpl) {
   let cache = cacheByFetcher.get(fetchImpl);
   if (!cache) { cache = new Map(); cacheByFetcher.set(fetchImpl, cache); }
   const previous = cache.get(id);
-  if (previous?.pending) return previous.pending;
   if (previous && previous.until > Date.now()) return previous.value;
-  const entry = {};
-  entry.pending = checkBookmaker(id, fetchImpl).then(value => {
-    entry.value = value;
-    entry.until = Date.now() + (value.body.ok ? 20000 : 3000);
-    entry.pending = null;
-    return value;
-  }, error => { cache.delete(id); throw error; });
-  cache.set(id, entry);
-  return entry.pending;
+  const value = await checkBookmaker(id, fetchImpl);
+  if (!cache.get(id) || cache.get(id).value.body.checkedAt <= value.body.checkedAt) {
+    cache.set(id, {
+      value,
+      until: Date.now() + (value.body.ok ? 20000 : 3000)
+    });
+  }
+  return value;
 }
 
 export async function bookmakersResponse(request, fetchImpl = publicFetch) {
