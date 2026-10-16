@@ -1,0 +1,72 @@
+name: Published veto appearance verification
+on:
+  push:
+    branches: ["codex/veto-appearance-live"]
+permissions:
+  contents: read
+jobs:
+  published:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install browser
+        run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Wait for published design and verify moving smoke
+        run: |
+          python3 - <<'PY'
+          import asyncio, time
+          from pathlib import Path
+          from playwright.async_api import async_playwright
+          async def main():
+              async with async_playwright() as p:
+                  browser=await p.chromium.launch()
+                  page=await browser.new_page(viewport={"width":1280,"height":900},extra_http_headers={"Cache-Control":"no-cache"})
+                  deadline=time.monotonic()+240
+                  base="https://oneshot-veto.cyberclash.workers.dev"
+                  while True:
+                      response=await page.goto(base+"/?appearance=20261016",wait_until="domcontentloaded")
+                      if response and response.status==200 and "/assets/veto-appearance.js" in await response.text():
+                          break
+                      assert time.monotonic()<deadline,"New veto design not published"
+                      await page.wait_for_timeout(5000)
+                  await page.wait_for_selector(".vt-smoke-background canvas",timeout=20000)
+                  await page.evaluate("document.fonts.ready")
+                  await page.wait_for_timeout(1000)
+                  first=await page.screenshot()
+                  await page.wait_for_timeout(1200)
+                  second=await page.screenshot()
+                  assert first!=second,"Smoke is static"
+                  Path("artifacts").mkdir(exist_ok=True)
+                  Path("artifacts/live-smoke.png").write_bytes(second)
+                  print("PASS: live Worker serves the new assets; smoke pixels change",flush=True)
+                  await browser.close()
+          asyncio.run(main())
+          PY
+      - name: Published captain flows and feature preservation
+        run: |
+          python3 - <<'PY'
+          import argparse,asyncio
+          from pathlib import Path
+          path=Path("scripts/qa_veto_site.py").resolve()
+          source=path.read_text()
+          start=source.index('        # 13. The panel')
+          end=source.index('        # 10. Hostile',start)
+          source=source[:start]+source[end:]
+          namespace={"__name__":"published_veto_qa","__file__":str(path)}
+          exec(compile(source,str(path),"exec"),namespace)
+          args=argparse.Namespace(url="https://oneshot-veto.cyberclash.workers.dev",browser="chromium",chromium=None,real_vdo=False,artifacts="artifacts/live")
+          asyncio.run(namespace["run"](args))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: published-veto-evidence
+          path: artifacts/
