@@ -3,7 +3,9 @@
 // day's matches against the bookmakers: winner odds, the other markets of the
 // feed, how big the line is, live. Every line seen is kept for a week in this
 // browser (opening and current odds, live) for the summary and the CSV. A
-// newly opened line goes to the lobby journal. Parsing lives in bookmakers.js.
+// newly opened line goes to the lobby journal. Each bookmaker's own name for
+// the tournament is shown as it is (they misspell it; there is no "right"
+// one to compare with). Parsing lives in bookmakers.js.
 import { BOOKMAKERS, MANUAL, findMatch, eventKey, marketText } from './bookmakers.js';
 
 const $ = id => document.getElementById(id);
@@ -32,6 +34,9 @@ const matchTime = ms => msk(ms, true);
 const pair = odds => odds?.every(Boolean) ? `${odds[0].toFixed(2)} · ${odds[1].toFixed(2)}` : '';
 const odds = e => pair(e.odds) || 'линия открыта';
 const sizeText = s => s ? `${s.count} ${s.unit}` : '';
+// The tournament as this bookmaker writes it (every distinct spelling).
+const tournaments = events => [...new Set(events.map(e => String(e.tournament || '').trim()).filter(Boolean))];
+const quoted = names => names.map(n => `«${n}»`).join(' · ');
 const el = (tag, props = {}, ...children) => {
   const node = Object.assign(document.createElement(tag), props);
   node.append(...children.filter(c => c !== null && c !== undefined && c !== false && c !== ''));
@@ -80,13 +85,15 @@ function collect(bookmaker, events) {
     const fresh = !line;
     lines[key] = {
       b: bookmaker.id, team1: e.team1, team2: e.team2, start: e.start, url: e.url,
+      tournament: String(e.tournament || line?.tournament || ''),
       first: line?.first || now, open: line?.open?.some(Boolean) ? line.open : e.odds,
       odds: e.odds, markets: e.markets || [], size: e.size || line?.size || null,
       liveSeen: !!(line?.liveSeen || e.live), liveOffered: !!(line?.liveOffered || e.liveOffered), at: now
     };
     if (fresh && known) {
       window.dispatchEvent(new CustomEvent('oneshot:lobby-note', {
-        detail: `${bookmaker.name}: открыта линия ${e.team1} – ${e.team2}${e.start ? ` (${msk(e.start)})` : ''}, ${odds(e)}`
+        detail: `${bookmaker.name}: открыта линия ${e.team1} – ${e.team2}${e.start ? ` (${msk(e.start)})` : ''}, ${odds(e)}` +
+          (e.tournament ? ` · турнир у них: «${e.tournament}»` : '')
       }));
     }
   }
@@ -172,7 +179,7 @@ function cell(bookmaker, found, stale = false) {
   const kept = history(bookmaker, found);
   const moved = kept && pair(kept.open) && pair(kept.open) !== pair(found.odds);
   const facts = [sizeText(found.size), liveText(found.live, kept?.liveSeen, found.liveOffered || kept?.liveOffered)].filter(Boolean).join(' · ');
-  return el('td', { className: stale ? 'stale' : found.live ? 'live' : 'listed' },
+  return el('td', { className: stale ? 'stale' : found.live ? 'live' : 'listed', title: found.tournament ? `Турнир у конторы: «${found.tournament}»` : '' },
     el('span', { className: 'bk-odds', textContent: odds(found) }),
     stale ? el('small', {className:'bad', textContent:'данные устарели'}) : found.live ? el('span', { className: 'bk-live', textContent: 'LIVE' }) : null, open(found.url),
     moved ? el('small', { textContent: `откр. ${pair(kept.open)}` }) : null,
@@ -201,9 +208,11 @@ function render() {
       const found = findMatch(candidates, m.team1, m.team2);
       return found ? cell(b, found, broken) : el('td', {className:'none', textContent: !r ? '…' : broken || partial ? '?' : '—'});
     });
+    const names = tournaments(events);
     const row = el('tr', { className: events.length ? 'has' : '', id: 'bookie-' + b.id },
       el('th', { scope: 'row', title: r?.failed || (r?.errors || []).join('; ') }, el('span', { textContent: b.name }), open(b.page),
-        el('small', { textContent: state, className: broken || partial ? 'bad' : events.length ? 'good' : '' })),
+        el('small', { textContent: state, className: broken || partial ? 'bad' : events.length ? 'good' : '' }),
+        names.length ? el('em', { className: 'bk-tournament', title: 'Так турнир назван у этой конторы', textContent: quoted(names) }) : null),
       ...cells);
     return { row, order: events.length ? 0 : 1 };
   });
@@ -241,6 +250,8 @@ function summary() {
   const listed = BOOKMAKERS.filter(b => { const r = results.get(b.id); return r?.events?.length && !r.failed && r.ok !== false && navigator.onLine !== false; }).map(b => b.name);
   out.push(`В линии у ${listed.length} из ${BOOKMAKERS.length} проверяемых${listed.length ? `: ${listed.join(', ')}` : ''}` +
     ` (ещё ${MANUAL.length} — вручную)`);
+  const spelled = BOOKMAKERS.map(b => [b.name, tournaments(results.get(b.id)?.events || [])]).filter(([, names]) => names.length);
+  if (spelled.length) out.push('', 'Как называют турнир:', ...spelled.map(([name, names]) => `• ${name}: ${quoted(names)}`));
   for (const m of cols) {
     out.push('', `${m.team1} – ${m.team2}${m.sub ? ` (${m.sub})` : ''}`);
     const none = [], unknown = [], prematch = [];
@@ -271,10 +282,10 @@ function csv() {
     return /[";\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   };
   const num = v => v ? v.toFixed(2).replace('.', ',') : '';
-  const head = ['Контора', 'Команда 1', 'Команда 2', 'Начало (МСК)', 'Линия открыта (МСК)', 'П1 откр.', 'П2 откр.',
+  const head = ['Контора', 'Турнир у конторы', 'Команда 1', 'Команда 2', 'Начало (МСК)', 'Линия открыта (МСК)', 'П1 откр.', 'П2 откр.',
     'П1', 'П2', 'Другие рынки', 'Размер линии', 'Лайв', 'Проверено (МСК)', 'Ссылка'];
   const rows = Object.values(lines).sort((x, y) => (x.start || 0) - (y.start || 0) || x.b.localeCompare(y.b)).map(l => [
-    nameOf(l.b), l.team1, l.team2, msk(l.start, true), msk(l.first, true), num(l.open?.[0]), num(l.open?.[1]),
+    nameOf(l.b), l.tournament || '', l.team1, l.team2, msk(l.start, true), msk(l.first, true), num(l.open?.[0]), num(l.open?.[1]),
     num(l.odds?.[0]), num(l.odds?.[1]), (l.markets || []).map(marketText).join('; '), sizeText(l.size),
     l.liveSeen ? 'был' : l.liveOffered ? 'заявлен' : '', msk(l.at, true), l.url
   ]);

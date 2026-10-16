@@ -171,8 +171,8 @@ async def run(args):
             text = Path(await download.path()).read_bytes().decode("utf-8-sig")
             assert "'\u00a0=HYPERLINK(1)" in text, "CSV must neutralize external formula cells"
             rows = list(csv.reader(io.StringIO(text, newline=""), delimiter=";"))
-            assert all(len(row) == 14 for row in rows), "CR in external data must not create a new CSV row"
-            assert any(row[2] == "<img src=x onerror=alert(1)>\r=HYPERLINK(2)" for row in rows[1:])
+            assert all(len(row) == 15 for row in rows), "CR in external data must not create a new CSV row"
+            assert any(row[3] == "<img src=x onerror=alert(1)>\r=HYPERLINK(2)" for row in rows[1:])
             output = Path(args.artifacts) / "bookies"
             output.mkdir(parents=True, exist_ok=True)
             await page.screenshot(path=str(output / (engine + ".png")), full_page=True)

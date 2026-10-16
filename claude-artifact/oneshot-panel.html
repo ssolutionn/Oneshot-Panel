@@ -305,7 +305,7 @@ dialog textarea { margin:0; width:100%; }
 .cv-link { display:grid; gap:8px; align-content:start; min-width:0; padding:12px; border:1px solid var(--divider-2); border-radius:6px; background:var(--surface-2); }
 .cv-link h3 { margin:0; color:var(--ink); font-size:13px; font-weight:700; }
 .cv-link h3 small { color:var(--muted); font-size:11px; font-weight:400; }
-.cv-link textarea { width:100%; min-width:0; box-sizing:border-box; padding:9px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; resize:vertical; }
+.cv-link textarea { width:100%; min-width:0; min-height:0; margin:0; box-sizing:border-box; padding:9px; white-space:pre-wrap; overflow-wrap:anywhere; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; resize:vertical; }
 .cv-link .button { justify-self:start; }
 .cv-admin { border-color:var(--red); }
 .cv-actions { display:flex; flex-wrap:wrap; gap:8px; }
@@ -394,6 +394,8 @@ body.dock { background:var(--bg); font-size:12px; }
 .bk-live { display:inline-block; margin-left:6px; padding:1px 5px; border-radius:4px; background:var(--success); color:var(--on-accent); font-size:9px; font-weight:800; }
 .bk-open { margin-left:6px; color:var(--muted); text-decoration:none; font-weight:400; }
 .bk-open:hover { color:var(--ink); }
+/* The bookmaker's own spelling of the tournament, shown as is. */
+.bk-tournament { display:block; max-width:280px; margin-top:5px; padding:3px 7px; border-left:2px solid var(--red); border-radius:3px; background:var(--accent-soft); color:var(--ink); font-size:10px; font-style:normal; font-weight:600; line-height:1.4; white-space:normal; overflow-wrap:anywhere; }
 .lobby-log { list-style:none; margin:0; padding:0 16px 14px; display:grid; gap:6px; max-height:320px; overflow:auto; font-size:12px; line-height:1.5; }
 .lobby-log li { color:var(--sub); overflow-wrap:anywhere; }
 .lobby-log time { color:var(--muted); font-variant-numeric:tabular-nums; margin-right:6px; }
@@ -446,6 +448,7 @@ body.dock { background:var(--bg); font-size:12px; }
   .preview-head { padding:12px; gap:10px; align-items:flex-start; } .preview-head>span { flex:1; min-width:0; font-size:10px; }
   .preview-head .button { font-size:10px; padding:7px 9px; }
   textarea { width:calc(100% - 24px); margin:0 12px; font-size:10px; padding:10px; min-height:220px; }
+  .cv-link textarea { width:100%; margin:0; min-height:0; }
   #vetoOutput { min-height:185px; } .copy-foot { padding:0 12px; font-size:9px; }
   .copy-tabs { padding:0 12px; gap:22px; } .tab { font-size:11px; } .tab span { font-size:7px; }
   .side-choice { padding:12px; } .side-choice strong { flex-basis:100%; }

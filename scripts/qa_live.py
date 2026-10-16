@@ -159,13 +159,16 @@ async def run(args):
         # The site's bookmakers function (bookies.js), answered from here.
         bookie_lines = {
             "fonbet": [{"id": "1", "team1": "6yuBoJlbl", "team2": "HyperSpirit", "odds": [1.8, 2.0],
+                        "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
                         "start": 1792155600000, "live": False, "url": "https://fon.bet/sports/esports/1/1"},
                        {"id": "2", "team1": "Rune Eaters Esports", "team2": "PCIFIC", "odds": [1.5, 2.4],
                         "start": 1792166400000, "live": True, "url": "https://fon.bet/live/esports/1/2",
+                        "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
                         "size": {"count": 76, "unit": "исходов"},
                         "markets": [{"kind": "handicap", "name": "Фора", "line": "-5.5", "odds": [1.9, 1.8]}]}],
             "pari": [], "olimp": [],
             "marathon": [{"id": "9", "team1": "PCIFIC", "team2": "Rune Eaters", "odds": [2.5, 1.48],
+                          "tournament": "CS 2. CyberClash. Закрытая квалификация",
                           "start": 1792166400000, "live": False, "url": "https://www.marathonbet.ru/su/betting/x",
                           "liveOffered": True,
                           "markets": [{"kind": "handicap", "name": "Фора", "line": "-1.5", "odds": [3.1, 1.3]},
@@ -550,6 +553,9 @@ async def run(args):
         await expect(fonbet.locator("td").nth(rune_col)).to_contain_text("Ф1 -5.5 1.90 · Ф2 +5.5 1.80")
         await expect(fonbet.locator("td").nth(rune_col)).to_contain_text("76 исходов")
         await expect(fonbet.locator("th small")).to_contain_text("до 76 исходов · сейчас в лайве")
+        # Each bookmaker's own spelling of the tournament, as is.
+        await expect(fonbet.locator("th .bk-tournament")).to_have_text("«Counter-Strike. CyberClash. Отборочные игры. Bo3»")
+        await expect(marathon.locator("th .bk-tournament")).to_have_text("«CS 2. CyberClash. Закрытая квалификация»")
         await expect(marathon.locator("td").nth(rune_col)).to_contain_text("Ф1 +1.5 1.30 · Ф2 -1.5 3.10")
         await expect(marathon.locator("td").nth(rune_col)).to_contain_text("ТБ 2.5 2.00 · ТМ 1.75")
         await expect(marathon.locator("td").nth(rune_col)).to_contain_text("лайв заявлен")
@@ -582,15 +588,17 @@ async def run(args):
         assert "• Марафон: 1.42 · 2.70 (откр. 1.48 · 2.50) · был в лайве · Ф1 +1.5 1.30 · Ф2 -1.5 3.10 · ТБ 2.5 2.00 · ТМ 1.75" in summary, summary
         assert "• Фонбет: 1.50 · 2.40 · 76 исходов · LIVE · Ф1 -5.5 1.90 · Ф2 +5.5 1.80" in summary, summary
         assert "Не удалось проверить: PARI" in summary, summary
+        assert "Как называют турнир:" in summary and "• Марафон: «CS 2. CyberClash. Закрытая квалификация»" in summary, summary
         assert "Нет линии: Bettery, 24bet, OLIMPBET" in summary, summary
         async with lobby.expect_download() as info:
             await lobby.click("#bookiesCsv")
         download = await info.value
         assert re.fullmatch(r"cyberclash-bookmakers-\d{4}-\d{2}-\d{2}\.csv", download.suggested_filename), download.suggested_filename
         rows = (await download.path()).read_text(encoding="utf-8-sig").splitlines()
-        assert rows[0].startswith("Контора;Команда 1;Команда 2;Начало (МСК)"), rows[0]
+        assert rows[0].startswith("Контора;Турнир у конторы;Команда 1;Команда 2;Начало (МСК)"), rows[0]
         assert len(rows) == 5, rows
         marathon_row = next(r for r in rows if r.startswith("Марафон;"))
+        assert marathon_row.startswith("Марафон;CS 2. CyberClash. Закрытая квалификация;"), marathon_row
         assert ";2,50;1,48;2,70;1,42;" in marathon_row and ";был;" in marathon_row, marathon_row
         await lobby.screenshot(path=str(output / "lobby.png"), full_page=True)
         await lobby.set_viewport_size({"width": 375, "height": 800})
