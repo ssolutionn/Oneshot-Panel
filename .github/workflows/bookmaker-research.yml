@@ -49,6 +49,10 @@ jobs:
           os.makedirs("work",exist_ok=True)
           open("work/public-feed.json","w").write(json.dumps({"language":language,"timeFilter":filter_value,"url":url}))
           print("BB_PUBLIC_DEFAULTS:",json.dumps({"language":language,"timeFilter":filter_value}),flush=True)
+          for file in ("vendor-core-BV73xSB5.js","App-Dkow5Vv7.js","BetShareModal-D1mFtPEC.js"):
+           code=get(file)
+           fragments=[code[max(0,m.start()-300):m.end()+1600] for m in list(re.finditer(r"new WebSocket\(|protocols:|Sec-WebSocket-Protocol|WebSocketProtocol|3003|format===|serialize\(",code))[:18]]
+           print("BB_WIRE_TRANSPORT:",json.dumps({"file":file,"excerpts":fragments}),flush=True)
           
           PY
           node work/public-probe/read-bb.mjs

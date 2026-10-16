@@ -66,5 +66,5 @@ socket.addEventListener('message',e=>{
   }
  }catch(error){console.log('BB_PUBLIC_DECODE_ERROR:',error.message);socket.close();}
 });
-await new Promise(resolve=>socket.addEventListener('close',event=>{console.log('BB_PUBLIC_CLOSED:',event.code);resolve();}));
+await new Promise(resolve=>socket.addEventListener('close',event=>{console.log('BB_PUBLIC_CLOSED:',JSON.stringify({code:event.code,reason:event.reason.replace(/[A-Za-z0-9_=-]{24,}/g,'[redacted]').slice(0,150)}));resolve();}));
 clearTimeout(timeout);
