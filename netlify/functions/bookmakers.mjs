@@ -1,0 +1,65 @@
+// /api/bookmakers?id=<bookmaker>: fetches that bookmaker's public line feeds
+// on the server (browsers can't: CORS and the site's CSP), keeps only the
+// CyberClash events and answers small JSON. One bookmaker per request keeps
+// each call short and lets one slow feed not hold the others. The fixed feed
+// URLs live in bookmakers.js; nothing from the request reaches a URL but the
+// id. Cloudflare (functions/api/bookmakers.js) and server.js use it too.
+import { BOOKMAKERS, parseFeed } from '../../bookmakers.js';
+
+const TIMEOUT = 25000;
+const HEADERS = {
+  Accept: 'application/json, text/html;q=0.9',
+  'Accept-Language': 'ru-RU,ru;q=0.9',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36'
+};
+
+// Tries the feed's mirrors in turn; the first that answers counts.
+async function fetchFeed(urls, fetchImpl) {
+  let lastError = 'нет ответа';
+  for (const url of urls) {
+    try {
+      const response = await fetchImpl(url, { headers: HEADERS, signal: AbortSignal.timeout(TIMEOUT), redirect: 'follow' });
+      if (!response.ok) { lastError = `HTTP ${response.status}`; continue; }
+      return await response.text();
+    } catch (error) {
+      lastError = error?.name === 'TimeoutError' ? 'долго не отвечает' : 'нет связи';
+    }
+  }
+  throw new Error(lastError);
+}
+
+export async function checkBookmaker(id, fetchImpl = fetch, now = Date.now()) {
+  const bookmaker = BOOKMAKERS.find(b => b.id === id);
+  if (!bookmaker) return { status: 400, body: { error: 'unknown', message: 'Неизвестная букмекерская контора.' } };
+  const started = Date.now();
+  const results = await Promise.allSettled(bookmaker.feeds.map(async feed =>
+    parseFeed(bookmaker, await fetchFeed(feed.urls, fetchImpl), feed.live, now)));
+  const events = [], errors = [];
+  for (const [i, result] of results.entries()) {
+    if (result.status === 'fulfilled') events.push(...result.value);
+    else errors.push(`${bookmaker.feeds[i].live ? 'лайв' : 'линия'}: ${result.reason?.message || 'ошибка'}`);
+  }
+  // The same match can sit in both line and live for a moment: live wins.
+  const unique = new Map();
+  for (const e of events) if (!unique.has(e.id) || e.live) unique.set(e.id, e);
+  return {
+    status: 200,
+    body: {
+      id: bookmaker.id, name: bookmaker.name, page: bookmaker.page,
+      ok: errors.length < bookmaker.feeds.length, errors,
+      checkedAt: now, ms: Date.now() - started, events: [...unique.values()]
+    }
+  };
+}
+
+export async function bookmakersResponse(request, fetchImpl = fetch) {
+  const id = new URL(request.url).searchParams.get('id') || '';
+  if (request.method !== 'GET' || !/^[a-z]{2,20}$/.test(id)) {
+    return Response.json({ error: 'not-allowed', message: 'Нужен id букмекера.' }, { status: 400 });
+  }
+  const { status, body } = await checkBookmaker(id, fetchImpl);
+  return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
+}
+
+export default request => bookmakersResponse(request);
+export const config = { path: '/api/bookmakers' };

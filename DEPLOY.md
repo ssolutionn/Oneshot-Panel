@@ -15,7 +15,7 @@ assets/players/; браузер карточки загружает их уже 
 
 ```
 index.html  app.js  core.js  theme.js  style.css  card.html  card.js  card.css
-live.js  obs.js  vdo.js  lobby.js  faceit.js  obs-bridge.html  obs-bridge.js  veto.html  veto.js  veto.css  veto-room.js  assets/
+live.js  obs.js  vdo.js  lobby.js  faceit.js  obs-bridge.html  obs-bridge.js  veto.html  veto.js  veto.css  veto-room.js  bookmakers.js  bookies.js  assets/
 ```
 
 - Репозиторий: https://github.com/ssolutionn/Oneshot-Panel,
@@ -47,7 +47,7 @@ sudo mkdir -p /var/www/oneshot-panel
 cd /opt/oneshot-panel
 sudo python3 scripts/fetch_player_photos.py --allow-missing
 sudo cp index.html app.js core.js theme.js style.css card.html card.js card.css \
-  live.js obs.js vdo.js lobby.js faceit.js obs-bridge.html obs-bridge.js veto.html veto.js veto.css veto-room.js /var/www/oneshot-panel/
+  live.js obs.js vdo.js lobby.js faceit.js obs-bridge.html obs-bridge.js veto.html veto.js veto.css veto-room.js bookmakers.js bookies.js /var/www/oneshot-panel/
 sudo cp -R assets /var/www/oneshot-panel/
 ```
 
@@ -89,7 +89,7 @@ sudo certbot --nginx -d panel.oneshot.su   # HTTPS от Let's Encrypt
 cd /opt/oneshot-panel && sudo git pull
 sudo python3 scripts/fetch_player_photos.py --allow-missing
 sudo cp index.html app.js core.js theme.js style.css card.html card.js card.css \
-  live.js obs.js vdo.js lobby.js faceit.js obs-bridge.html obs-bridge.js veto.html veto.js veto.css veto-room.js /var/www/oneshot-panel/
+  live.js obs.js vdo.js lobby.js faceit.js obs-bridge.html obs-bridge.js veto.html veto.js veto.css veto-room.js bookmakers.js bookies.js /var/www/oneshot-panel/
 sudo cp -R assets /var/www/oneshot-panel/
 ```
 
@@ -120,8 +120,9 @@ HTTPS Netlify выпустит сам после того, как записи �
 `public/`, на Cloudflare добавляет туда `_headers` (те же заголовки
 безопасности) и пишет коммит в `build.txt`. Прокси FACEIT —
 `functions/api/faceit.js` (та же логика, что в
-`netlify/functions/faceit.mjs`). Настраивать ничего, кроме полей ниже,
-не нужно.
+`netlify/functions/faceit.mjs`), линии букмекеров —
+`functions/api/bookmakers.js` (`netlify/functions/bookmakers.mjs`).
+Настраивать ничего, кроме полей ниже, не нужно.
 
 1. dash.cloudflare.com → **Workers & Pages** → **Create** → вкладка
    **Pages** → **Connect to Git** (Import an existing Git repository).

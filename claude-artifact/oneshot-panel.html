@@ -357,6 +357,22 @@ body.dock { background:var(--bg); font-size:12px; }
 .templates label { display:grid; gap:6px; margin-bottom:10px; color:var(--muted); font-size:11px; }
 .templates textarea { width:100%; margin:0; min-height:90px; }
 .templates .copy-foot { padding:0; margin-top:0; }
+.bookies-wrap { overflow-x:auto; padding:0 16px 12px; }
+.bookies-table { width:100%; border-collapse:collapse; font-size:12px; min-width:560px; }
+.bookies-table th,.bookies-table td { padding:8px 10px; border-top:1px solid var(--divider); text-align:left; vertical-align:top; }
+.bookies-table thead th { border-top:0; color:var(--muted); font-size:11px; font-weight:700; white-space:nowrap; }
+.bookies-table thead a { color:var(--ink); text-decoration:none; }
+.bookies-table small { display:block; margin-top:2px; color:var(--muted); font-size:10px; font-weight:400; }
+.bookies-table small.good { color:var(--success-ink); } .bookies-table small.bad { color:var(--red); }
+.bookies-table tbody th { font-weight:400; }
+.bookies-table td.none { color:var(--muted); }
+.bookies-table td.listed a,.bookies-table td.live a { color:var(--ink); font-weight:700; font-variant-numeric:tabular-nums; }
+.bookies-table td.live { background:var(--success-bg); }
+.bk-live { display:inline-block; margin-left:6px; padding:1px 5px; border-radius:4px; background:var(--success); color:var(--on-accent); font-size:9px; font-weight:800; }
+.bookies-manual { padding:0 16px 12px; font-size:11px; color:var(--muted); }
+.bookies-manual summary { cursor:pointer; padding:8px 0; }
+.bookies-manual ul { display:flex; flex-wrap:wrap; gap:6px 14px; margin:0; padding:0; list-style:none; }
+.bookies-manual a { color:var(--ink); }
 .lobby-log { list-style:none; margin:0; padding:0 16px 14px; display:grid; gap:6px; max-height:320px; overflow:auto; font-size:12px; line-height:1.5; }
 .lobby-log li { color:var(--sub); overflow-wrap:anywhere; }
 .lobby-log time { color:var(--muted); font-variant-numeric:tabular-nums; margin-right:6px; }

@@ -270,6 +270,19 @@
         <div class="empty-panel">Матчи появятся после подключения турнира.</div>
       </section>
 
+      <section id="bookies" class="lobby-panel" aria-labelledby="bookiesHeading">
+        <div class="panel-heading">
+          <div><span class="eyebrow">BOOKMAKERS</span><h2 id="bookiesHeading">Наш турнир у букмекеров</h2></div>
+          <button id="bookiesCheck" class="button small" type="button">Проверить сейчас</button>
+        </div>
+        <div class="bookies-wrap"><table id="bookiesTable" class="bookies-table"></table></div>
+        <p id="bookiesStatus" class="lobby-status" role="status">Проверяем линии Фонбета, PARI, OLIMPBET и Марафона каждые 5 минут.</p>
+        <details class="bookies-manual">
+          <summary>Остальные лицензированные БК — открытой линии нет, проверить вручную</summary>
+          <ul id="bookiesManual"></ul>
+        </details>
+      </section>
+
       <section class="lobby-panel" aria-labelledby="messagesHeading">
         <div class="panel-heading">
           <div><span class="eyebrow">DISCORD</span><h2 id="messagesHeading">Сообщения игрокам</h2></div>
@@ -354,6 +367,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   <script type="module" src="/app.js"></script>
   <!-- web-only --><script type="module" src="/live.js"></script>
-  <script type="module" src="/lobby.js"></script><!-- /web-only -->
+  <script type="module" src="/lobby.js"></script>
+  <script type="module" src="/bookies.js"></script><!-- /web-only -->
 </body>
 </html>

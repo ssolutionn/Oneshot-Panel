@@ -44,6 +44,10 @@ function log(text, kind = '') {
   write(LOG_STORE, entries.slice(0, 150));
   renderLog();
 }
+// Notes from other lobby blocks (bookmakers' lines) go to the same journal.
+window.addEventListener('oneshot:lobby-note', event => {
+  if (typeof event.detail === 'string') log(event.detail, 'bookie');
+});
 function renderLog() {
   const entries = read(LOG_STORE, []);
   $('lobbyLog').innerHTML = entries.length ? entries.map(e =>

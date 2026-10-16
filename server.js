@@ -2,6 +2,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { bookmakersResponse } from './netlify/functions/bookmakers.mjs';
 import { proxyFaceit } from './netlify/functions/faceit.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -9,7 +10,7 @@ const publicFiles = new Set([
   'index.html', 'app.js', 'core.js', 'style.css', 'theme.js',
   'card.html', 'card.js', 'card.css', 'live.js', 'obs.js', 'vdo.js',
   'lobby.js', 'faceit.js', 'obs-bridge.html', 'obs-bridge.js',
-  'veto.html', 'veto.js', 'veto.css', 'veto-room.js'
+  'veto.html', 'veto.js', 'veto.css', 'veto-room.js', 'bookmakers.js', 'bookies.js'
 ]);
 const mime = {
   '.html': 'text/html; charset=utf-8',
@@ -28,6 +29,19 @@ export function createServer() {
     if (!['GET', 'HEAD'].includes(request.method)) {
       response.writeHead(405, { Allow: 'GET, HEAD' });
       response.end();
+      return;
+    }
+    // Bookmakers' line check (netlify/functions/bookmakers.mjs), locally too.
+    if (request.url.startsWith('/api/bookmakers?') && request.method === 'GET') {
+      try {
+        const reply = await bookmakersResponse(new Request('http://localhost' + request.url));
+        const body = Buffer.from(await reply.arrayBuffer());
+        response.writeHead(reply.status, Object.fromEntries(reply.headers));
+        response.end(body);
+      } catch {
+        if (!response.headersSent) response.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify({ error: 'upstream' }));
+      }
       return;
     }
     // The Netlify function, served here too so the lobby works locally.

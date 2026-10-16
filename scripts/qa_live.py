@@ -156,6 +156,24 @@ async def run(args):
                                             locale="ru-RU", timezone_id="Europe/Moscow")
         await context.route("https://docs.google.com/**/gviz/**", sheets)
         await context.route("https://vdo.ninja/**", lambda route: route.fulfill(content_type="text/html", body=FAKE_VDO))
+        # The site's bookmakers function (bookies.js), answered from here.
+        bookie_lines = {
+            "fonbet": [{"id": "1", "team1": "6yuBoJlbl", "team2": "HyperSpirit", "odds": [1.8, 2.0],
+                        "start": 1792155600000, "live": False, "url": "https://fon.bet/sports/esports/1/1"},
+                       {"id": "2", "team1": "Rune Eaters Esports", "team2": "PCIFIC", "odds": [1.5, 2.4],
+                        "start": 1792166400000, "live": True, "url": "https://fon.bet/live/esports/1/2"}],
+            "pari": [], "olimp": [],
+            "marathon": [{"id": "9", "team1": "PCIFIC", "team2": "Rune Eaters", "odds": [2.5, 1.48],
+                          "start": 1792166400000, "live": False, "url": "https://www.marathonbet.ru/su/betting/x"}],
+        }
+
+        async def bookmakers(route):
+            bid = parse_qs(urlsplit(route.request.url).query)["id"][0]
+            await route.fulfill(content_type="application/json", body=json.dumps({
+                "id": bid, "name": bid, "page": "https://example.invalid/", "ok": bid != "pari",
+                "errors": ["линия: HTTP 503"] if bid == "pari" else [], "checkedAt": 0, "ms": 5,
+                "events": bookie_lines[bid]}))
+        await context.route("**/api/bookmakers?**", bookmakers)
         errors = []
         # CSP violations of our own pages only: the published site also gets
         # Netlify's injected badge iframe, whose inline script is not ours.
@@ -473,10 +491,25 @@ async def run(args):
         await expect(lobby.locator("#msgNext")).to_have_value(
             re.compile(f"^Next xx:{time.localtime(finished_at + 900).tm_min:02d}\n"))
         await expect(lobby.locator("#lobbyLog")).to_contain_text("Матч закончился: Rune Eaters 2:0 PCIFIC")
+        # Bookmakers: our matches against each bookmaker, a new line goes to the journal.
+        table = lobby.locator("#bookiesTable")
+        await expect(table.locator("tbody tr")).to_have_count(2)
+        rune = table.locator("tbody tr", has_text="Rune Eaters")
+        await expect(rune.locator("td").nth(0)).to_contain_text("1.50 · 2.40")
+        await expect(rune.locator("td").nth(0)).to_contain_text("LIVE")
+        await expect(rune.locator("td").nth(3)).to_contain_text("1.48 · 2.50")
+        await expect(rune.locator("td").nth(2)).to_have_text("—")
+        await expect(lobby.locator("#bookiesStatus")).to_contain_text("Турнир в линии: Фонбет, Марафон")
+        bookie_lines["olimp"] = [{"id": "5", "team1": "Honved Esport", "team2": "Lavked", "odds": [2.2, 1.62],
+                                  "start": 1792177200000, "live": False, "url": "https://www.olimp.bet/line/x"}]
+        await lobby.click("#bookiesCheck")
+        await expect(table.locator("tbody tr")).to_have_count(3)
+        await expect(lobby.locator("#lobbyLog")).to_contain_text("OLIMPBET: открыта линия Honved Esport – Lavked")
+        await expect(lobby.locator("#bookiesManual li")).to_have_count(10)
         await lobby.screenshot(path=str(output / "lobby.png"), full_page=True)
         await lobby.set_viewport_size({"width": 375, "height": 800})
         assert not await lobby.evaluate("document.documentElement.scrollWidth > innerWidth")
-        passed("lobby: map and match alerts, notification, badge, pause log, Discord texts")
+        passed("lobby: map and match alerts, notification, badge, pause log, Discord texts, bookmakers' lines")
 
         assert not errors, errors
         await browser.close()

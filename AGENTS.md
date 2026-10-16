@@ -90,6 +90,24 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   `oneshot-player-veto` (последние ссылки админа),
   `oneshot-veto-log:<код>`. Логика покрыта `test/veto-room.test.js`,
   страница — `scripts/qa_veto_site.py` (три отдельных браузера).
+- `bookmakers.js` — без DOM: публичные линии лицензированных БК, где
+  есть открытый JSON/HTML без входа и капчи: Фонбет и PARI (одна платформа,
+  `showEvents`, skId 29086), OLIMPBET (`api/v4/0/{line|live}/…vids[]=112:`),
+  Марафон (HTML страницы CS2). Парсеры оставляют только CyberClash,
+  `findMatch` сопоставляет команды без акцентов и суффиксов («Honved
+  Esport» = «Honvéd»), в любом порядке. `MANUAL` — БК без открытой линии
+  (Winline — websocket, Зенит — подписанные заголовки, Леон, BetBoom,
+  Лига Ставок…): только ссылки. Покрыт `test/bookmakers.test.js` на
+  реальных ответах (`test/fixtures/bookmakers/`).
+- `netlify/functions/bookmakers.mjs` — `/api/bookmakers?id=<бк>`: сервер
+  сам ходит в фиксированные адреса линий (из запроса берётся только id),
+  зеркала по очереди, линия и лайв отдельно; отдаёт только CyberClash.
+  Обёртки: `functions/api/bookmakers.js` (Cloudflare), `server.js`.
+- `bookies.js` — только сайт: блок «Наш турнир у букмекеров» во вкладке
+  «Лобби» (`bookies`, `bookiesCheck`, `bookiesTable`, `bookiesStatus`,
+  `bookiesManual`): раз в 5 минут, матчи расписания × БК, кэфы и ссылки;
+  новая линия — запись в журнал лобби (`oneshot:lobby-note`).
+  localStorage: `oneshot-bookies` (когда впервые увидели линию).
 - `faceit.js` — без DOM: разбор ссылки турнира, сводка матча, события
   (карта, матч, отмена, PAUSED), тексты «GG» и «Next xx:MM», клиент Data API.
   Пока карта идёт, FACEIT кладёт в results.score раунды этой карты
@@ -187,7 +205,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 
 ```sh
 npm run check        # синтаксис
-npm test             # 67 тестов (node:test)
+npm test             # 73 теста (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
@@ -266,7 +284,8 @@ Netlify проверяет локальные фото, докачивает н�
   obsDialog obsForm closeObs vetoBroadcast overlaySizeHint obsBridgeFields obsDockUrl copyDockUrl obsCode
   newObsCode obsRemotePort obsRemotePassword sendObsConfig obsRemoteResult
   obsBridgeStatus obsCodeInput applyObsCode shareDockUrl obsDockMessage
-  obsRemoteBox obsMore playerVeto
+  obsRemoteBox obsMore playerVeto bookies bookiesCheck bookiesTable
+  bookiesStatus bookiesManual
   obsDirectFields obsUrl obsPassword obsTestResult testObs
   saveObs notifyBtn soundBtn lobbyForm faceitUrl faceitKey lobbyStart
   lobbyStatus lobbyError lobbyAlert lobbyAlertText lobbyAck lobbyMatches
