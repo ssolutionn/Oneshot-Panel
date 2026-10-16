@@ -28,10 +28,10 @@ jobs:
              text=r.read(14000000).decode("utf8","replace");status=r.status
             d={"provider":label,"status":status,"size":len(text)}
             if label=="betboom-chunk":d["source"]=text
-            elif label in ("betboom-widget","baltbet-modules","baltbet-spa"):
-             d["excerpts"]=[text[max(0,m.start()-300):m.end()+1000] for m in list(re.finditer(r"events\\.baltbet|prematchServiceUrl|/api/prematch|/api/[^\\s]{0,100}|feed/|tournament|import[^;]{0,100}",text))[:35]]
+            elif label.startswith("betboom-") or label in ("baltbet-modules","baltbet-spa"):
+             d["excerpts"]=[text[max(0,m.start()-300):m.end()+1000] for m in list(re.finditer(r"/api/|prematchServiceUrl|/prematch/|feed/|tree/|from[\x22\x27`]",text))[:35]]
             elif label=="winline-main":
-             d["excerpts"]=[text[max(0,m.start()-450):m.end()+1800] for m in list(re.finditer(r"data_ng|readUInt|readString|parsePacket|readChamp|864e5|10800",text))[-60:]]
+             d["excerpts"]=[text[max(0,m.start()-450):m.end()+1800] for m in list(re.finditer(r"case 20000:|case 1180:|case 34:|readUInt|ReadUInt|event_date:|startDate:|eventDate:|timezoneOffset",text))[-60:]]
             elif label=="zenit-exact":d["publicLine"]=text[:30000]
             else:
              d["scripts"]=re.findall(r'<script[^>]+src=["\x27]([^"\x27]+)',text)[:30]
@@ -40,7 +40,12 @@ jobs:
            except Exception as e:print("FIXED_PUBLIC:",json.dumps({"provider":label,"error":str(e)[:100]}),flush=True)
           targets=[
            ("zenit-exact",ZENIT),
-           ("betboom-chunk","https://site-static-blue2.betboom.ru/_next/static/chunks/pages/sport/%5B%5B...all%5D%5D-90550edd561c1cf7.js"),
+           ("betboom-app","https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/App-Dkow5Vv7.js"),
+           ("betboom-base","https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/Base-Ct_kLB6C.js"),
+           ("betboom-view","https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/ViewManager-CcW7L5ud.js"),
+           ("ligastavok-page","https://www.ligastavok.ru/bets/cybersport"),
+           ("melbet-page","https://melbet.ru/"),
+           ("betm-page","https://bet-m.ru/"),
            ("betboom-widget","https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/widget.js"),
            ("baltbet-modules","https://baltbet.ru/bundles/scripts/modules.js"),
            ("baltbet-spa","https://baltbet.ru/bundles/scripts/spa.js"),
@@ -129,6 +134,37 @@ jobs:
             page.on("websocket",opened)
             await page.goto("https://winline.ru/stavki/sport/kibersport/counter-strike",wait_until="domcontentloaded",timeout=30000)
             await page.wait_for_timeout(10000)
+
+            from urllib.parse import urlsplit,urlunsplit,parse_qsl,urlencode
+            def safe_url(url):
+             p=urlsplit(url)
+             return urlunsplit((p.scheme,p.netloc,p.path,urlencode([(k,v) for k,v in parse_qsl(p.query) if not re.search("token|session|uuid|finger|secret|sign|auth|hash|key",k,re.I)]),""))
+            for label,url in [("baltbet","https://baltbet.ru/home/cybersport"),("sportbet","https://sportbet.ru/"),("betboom","https://betboom.ru/sport/esport/3/39428")]:
+             context=await browser.new_context(locale="ru-RU")
+             await context.route("**/*",lambda route:route.continue_() if route.request.method in ("GET","HEAD") else route.abort())
+             pg=await context.new_page();tasks=[]
+             async def reply(r):
+              content=r.headers.get("content-type","")
+              parsed=urlsplit(r.url)
+              if parsed.hostname not in ("events.baltbet.ru","baltbet.ru","sportbet.ru","betboom.ru","siteapi.betboom.ru"):return
+              if "json" not in content and "/api/" not in parsed.path:return
+              if any(x in parsed.path.lower() for x in ("account","balance","wallet","login","history","bets","user","profile","minio","auth")):return
+              try:
+               text=await r.text()
+               print("NATIVE_PUBLIC_GET:",json.dumps({"provider":label,"url":safe_url(r.url),"status":r.status,"size":len(text),"keys":list(json.loads(text).keys())[:25] if text.lstrip().startswith("{") else [],
+                "cyberclash":[text[max(0,m.start()-200):m.end()+1500] for m in list(re.finditer("cyber.?clash",text,re.I))[:8]]},ensure_ascii=False),flush=True)
+              except Exception:pass
+             pg.on("response",lambda r:tasks.append(asyncio.create_task(reply(r))))
+             pg.on("request",lambda req:print("NATIVE_READ_METHOD:",json.dumps({"provider":label,"method":req.method,"url":safe_url(req.url)}),flush=True) if req.method=="POST" and any(x in req.url for x in ("sportbet.ru/api/","events.baltbet.ru/","siteapi.betboom.ru/")) else None)
+             try:
+              response=await pg.goto(url,wait_until="domcontentloaded",timeout=30000);await pg.wait_for_timeout(10000)
+              text=await pg.locator("body").inner_text()
+              print("NATIVE_PAGE:",json.dumps({"provider":label,"status":response.status if response else 0,"text":text[:1200],
+               "cyber":[text[max(0,m.start()-200):m.end()+1000] for m in list(re.finditer("cyber.?clash",text,re.I))[:5]]},ensure_ascii=False),flush=True)
+              if tasks:await asyncio.gather(*tasks,return_exceptions=True)
+             except Exception as e:print("NATIVE_PAGE:",json.dumps({"provider":label,"error":type(e).__name__}),flush=True)
+             await context.close()
+
             await browser.close()
           asyncio.run(run())
           
