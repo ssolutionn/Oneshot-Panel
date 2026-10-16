@@ -33,8 +33,9 @@
     <!-- web-only --><div class="view-tabs" role="tablist" aria-label="Режим панели">
       <button id="viewPrep" class="view-tab active" type="button" role="tab" aria-selected="true" aria-controls="prepView">Подготовка</button>
       <button id="viewLobby" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="lobbyView" tabindex="-1">Лобби<span id="lobbyBadge" class="tab-badge" hidden></span></button>
+      <button id="obsNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="obsView" tabindex="-1">OBS<i id="obsTabDot" class="obs-tab-dot" aria-hidden="true"></i></button>
     </div><!-- /web-only -->
-    <div class="nav-tools"><!-- web-only --><button id="obsNavBtn" class="nav-button obs-nav-button" type="button" aria-controls="obsDialog">OBS / эфир</button><!-- /web-only -->
+    <div class="nav-tools">
       <button id="refreshBtn" class="nav-button" type="button" title="Обновить данные">↻ Обновить</button>
       <button id="settingsBtn" class="nav-button" type="button">Источник данных</button>
     </div>
@@ -82,7 +83,7 @@
         <!-- web-only --><button class="button primary" id="sendObsBtn" type="button" disabled><span aria-hidden="true">▶</span> Отправить в OBS</button><!-- /web-only -->
         <button class="button" id="downloadBtn" disabled><span aria-hidden="true">↓</span> Скачать JSON</button>
         <!-- web-only --><button class="button" id="copyJsonBtn" type="button" disabled><span aria-hidden="true">⧉</span> Копировать JSON</button>
-        <button class="button small obs-setup" id="obsSetupBtn" type="button" aria-controls="obsDialog" title="Настроить подключение к OBS в разделе вето"><i id="obsDot" aria-hidden="true"></i><span id="obsState">OBS не настроен</span></button><!-- /web-only -->
+        <button class="button small obs-setup" id="obsSetupBtn" type="button" aria-controls="obsDialog" title="Открыть вкладку OBS: подключение и инструкция"><i id="obsDot" aria-hidden="true"></i><span id="obsState">OBS не настроен</span></button><!-- /web-only -->
       </div>
       <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
       <div class="export-meta">
@@ -105,91 +106,7 @@
         </div>
       </div>
       <p class="veto-status" id="vetoStatus" role="status" aria-live="polite">Выбери две разные команды.</p>
-      <!-- web-only --><details id="obsDialog" class="obs-connection" open>
-        <summary aria-labelledby="obsHeading">
-          <span class="obs-connection-title"><span class="eyebrow">OBS CONNECTION</span><span id="obsHeading">Подключение к OBS</span></span>
-          <span id="obsConnectionState" class="obs-connection-state">OBS не настроен</span>
-          <span class="obs-connection-chevron" aria-hidden="true">⌄</span>
-        </summary>
-        <form id="obsForm">
-          <fieldset class="obs-mode">
-            <legend class="mini-label">Где OBS, в который отправляем камеры?</legend>
-            <label class="check"><input type="radio" name="obsMode" value="bridge" checked><span><b>У обсервера</b><small>Другой компьютер, хоть в другом городе. С ПК или с телефона.</small></span></label>
-            <label class="check"><input type="radio" name="obsMode" value="direct"><span><b>На этом компьютере</b><small>OBS открыт здесь же, где этот сайт.</small></span></label>
-          </fieldset>
-          <div id="obsBridgeFields">
-            <div class="obs-how" role="img" aria-label="Сайт связывается через интернет с окном Oneshot в OBS обсервера, а окно управляет OBS на том же компьютере">
-              <span class="obs-how-node"><b>Этот сайт</b><small>у тебя на ПК или телефоне</small></span>
-              <span class="obs-how-link" aria-hidden="true">интернет</span>
-              <span class="obs-how-node"><b>Окно Oneshot</b><small>в OBS обсервера</small></span>
-              <span class="obs-how-link" aria-hidden="true">тот же ПК</span>
-              <span class="obs-how-node"><b>OBS</b><small>обсервера</small></span>
-            </div>
-            <p class="obs-how-text">Сайт не может сам зайти в чужой OBS. Поэтому обсервер один раз добавляет в OBS окно Oneshot: оно получает команды с сайта через интернет и передаёт их своему OBS. IP, порты и одна сеть не нужны.</p>
-
-            <section class="obs-step">
-              <h3><span class="obs-step-num" aria-hidden="true">1</span>Отправь обсерверу сообщение</h3>
-              <p class="obs-field-hint">В нём ссылка и что нажать. Обсерверу нужно просто сделать по пунктам, один раз.</p>
-              <textarea id="obsDockMessage" class="obs-message" readonly rows="9" wrap="soft" aria-label="Сообщение для обсервера"></textarea>
-              <div class="obs-connection-actions">
-                <button id="copyDockUrl" class="button primary" type="button">Скопировать сообщение</button>
-                <button id="shareDockUrl" class="button" type="button" hidden>Поделиться</button>
-              </div>
-            </section>
-
-            <section class="obs-step">
-              <h3><span class="obs-step-num" aria-hidden="true">2</span>Дождись зелёного статуса</h3>
-              <p id="obsBridgeStatus" class="obs-bridge-status" role="status" aria-live="polite"></p>
-            </section>
-
-            <details id="obsRemoteBox" class="obs-step obs-more">
-              <summary>Обсервер не может вписать пароль? Впиши за него</summary>
-              <p class="obs-field-hint">Пусть пришлёт скриншот из OBS: Сервис → Настройки сервера WebSocket → «Показать сведения о подключении». Возьми оттуда порт и пароль (IP не нужен) или загрузи скриншот в «Отсканировать QR» ниже.</p>
-              <div class="obs-credentials">
-                <label class="obs-field" for="obsRemotePort">Порт<input id="obsRemotePort" inputmode="numeric" placeholder="4455" autocomplete="off" spellcheck="false"></label>
-                <label class="obs-field" for="obsRemotePassword">Пароль WebSocket<input id="obsRemotePassword" type="password" placeholder="Из сведений о подключении" autocomplete="off"></label>
-              </div>
-              <div class="obs-connection-actions"><button id="sendObsConfig" class="button" type="button">Отправить в OBS обсервера</button></div>
-              <p id="obsRemoteResult" class="obs-test" role="status" aria-live="polite"></p>
-            </details>
-
-            <details id="obsMore" class="obs-step obs-more">
-              <summary>Другие способы и код связи</summary>
-              <h4>Окно Oneshot у обсервера уже стоит?</h4>
-              <p class="obs-field-hint">Если его добавили по ссылке с другого устройства, введи код из этого окна (поле «Код связи») — и этот сайт подключится к нему.</p>
-              <span class="copy-line"><input id="obsCodeInput" aria-label="Код связи из окна Oneshot" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="applyObsCode" class="button small" type="button">Подключиться</button></span>
-              <h4>Отсканировать QR</h4>
-              <div id="obsPairQr"></div>
-              <h4>Только ссылка</h4>
-              <span class="copy-line"><input id="obsDockUrl" aria-describedby="obsBridgeHint" readonly></span>
-              <p id="obsBridgeHint" class="obs-field-hint">У каждого браузера свой код связи. Код этого: <b id="obsCode"></b> <button id="newObsCode" class="text-button" type="button">Сменить код</button> (старое окно у обсервера отключится).</p>
-            </details>
-          </div>
-          <div id="obsDirectFields" hidden>
-            <div class="obs-guide">
-              <h3>Где найти адрес и пароль</h3>
-              <ol>
-                <li>В OBS открой <b>Сервис → Настройки сервера WebSocket</b> (<b>Tools → WebSocket Server Settings</b>).</li>
-                <li>Включи <b>сервер WebSocket</b> и <b>аутентификацию</b>. Открой <b>«Показать сведения о подключении»</b> / <b>Show Connect Info</b>.</li>
-                <li>Вставь пароль в поле ниже. Для этого компьютера адрес — <b>ws://127.0.0.1:4455</b>; если в OBS указан другой порт, замени <b>4455</b> на него.</li>
-              </ol>
-            </div>
-            <div class="obs-credentials">
-              <label class="obs-field" for="obsUrl">Адрес OBS WebSocket<input id="obsUrl" placeholder="ws://127.0.0.1:4455" aria-describedby="obsAddressHint" autocomplete="off" spellcheck="false"></label>
-              <label class="obs-field" for="obsPassword">Пароль OBS WebSocket<input id="obsPassword" type="password" placeholder="Пароль из сведений о подключении" autocomplete="off"></label>
-            </div>
-            <p id="obsAddressHint" class="obs-field-hint">Оставь 127.0.0.1, когда сайт и OBS открыты на одном компьютере. Если OBS у обсервера — выбери «На другом компьютере».</p>
-          </div>
-          <p class="obs-version-note">WebSocket встроен в OBS Studio 28 и новее. <a href="https://obsproject.com/kb/remote-control-guide" target="_blank" rel="noreferrer">Инструкция OBS ↗</a></p>
-          <p id="obsTestResult" class="obs-test" role="status" aria-live="polite"></p>
-          <div class="obs-connection-actions">
-            <button type="button" class="button" id="testObs">Проверить связь</button>
-            <button type="submit" class="button primary" id="saveObs">Сохранить подключение</button>
-            <button type="button" class="text-button" id="closeObs">Свернуть настройки</button>
-          </div>
-        </form>
-      </details>
-      <div class="veto-overlay-bar" id="vetoBroadcast">
+      <!-- web-only --><div class="veto-overlay-bar" id="vetoBroadcast">
         <label class="check"><input id="vetoLive" type="checkbox" autocomplete="off"> Оверлей вето в OBS вживую</label>
         <span class="overlay-link">
           <select id="vetoLayout" aria-label="Вид оверлея"><option value="full">Весь экран</option><option value="strip">Плашка снизу</option></select>
@@ -316,6 +233,197 @@
           <button id="copyJournal" class="button small" type="button">Копировать журнал</button>
         </div>
         <ol id="lobbyLog" class="lobby-log"></ol>
+      </section>
+    </div><!-- /web-only -->
+    <!-- web-only --><div id="obsView" class="obs-view" role="tabpanel" aria-labelledby="obsNavBtn" hidden>
+      <section id="obsDialog" class="obs-connection" aria-labelledby="obsHeading">
+        <div class="obs-connection-head">
+          <span class="obs-connection-title"><span class="eyebrow">OBS CONNECTION</span><h2 id="obsHeading">Подключение к OBS</h2></span>
+          <span id="obsConnectionState" class="obs-connection-state" role="status">OBS не настроен</span>
+        </div>
+        <p class="obs-connection-intro">Подключение нужно один раз. Потом кнопка <b>«Отправить в OBS»</b> во вкладке «Подготовка» сама ставит в OBS камеры игроков нового матча. Подробная инструкция — ниже, под формой.</p>
+          <form id="obsForm">
+            <fieldset class="obs-mode">
+              <legend class="mini-label">Где OBS, в который отправляем камеры?</legend>
+              <label class="check"><input type="radio" name="obsMode" value="bridge" checked><span><b>У обсервера</b><small>Другой компьютер, хоть в другом городе. С ПК или с телефона.</small></span></label>
+              <label class="check"><input type="radio" name="obsMode" value="direct"><span><b>На этом компьютере</b><small>OBS открыт здесь же, где этот сайт.</small></span></label>
+            </fieldset>
+            <div id="obsBridgeFields">
+              <div class="obs-how" role="img" aria-label="Сайт связывается через интернет с окном Oneshot в OBS обсервера, а окно управляет OBS на том же компьютере">
+                <span class="obs-how-node"><b>Этот сайт</b><small>у тебя на ПК или телефоне</small></span>
+                <span class="obs-how-link" aria-hidden="true">интернет</span>
+                <span class="obs-how-node"><b>Окно Oneshot</b><small>в OBS обсервера</small></span>
+                <span class="obs-how-link" aria-hidden="true">тот же ПК</span>
+                <span class="obs-how-node"><b>OBS</b><small>обсервера</small></span>
+              </div>
+              <p class="obs-how-text">Сайт не может сам зайти в чужой OBS. Поэтому обсервер один раз добавляет в OBS окно Oneshot: оно получает команды с сайта через интернет и передаёт их своему OBS. IP, порты и одна сеть не нужны.</p>
+
+              <section class="obs-step">
+                <h3><span class="obs-step-num" aria-hidden="true">1</span>Отправь обсерверу сообщение</h3>
+                <p class="obs-field-hint">В нём ссылка и что нажать. Обсерверу нужно просто сделать по пунктам, один раз.</p>
+                <textarea id="obsDockMessage" class="obs-message" readonly rows="9" wrap="soft" aria-label="Сообщение для обсервера"></textarea>
+                <div class="obs-connection-actions">
+                  <button id="copyDockUrl" class="button primary" type="button">Скопировать сообщение</button>
+                  <button id="shareDockUrl" class="button" type="button" hidden>Поделиться</button>
+                </div>
+              </section>
+
+              <section class="obs-step">
+                <h3><span class="obs-step-num" aria-hidden="true">2</span>Дождись зелёного статуса</h3>
+                <p id="obsBridgeStatus" class="obs-bridge-status" role="status" aria-live="polite"></p>
+              </section>
+
+              <details id="obsRemoteBox" class="obs-step obs-more">
+                <summary>Обсервер не может вписать пароль? Впиши за него</summary>
+                <p class="obs-field-hint">Пусть пришлёт скриншот из OBS: Сервис → Настройки сервера WebSocket → «Показать сведения о подключении». Возьми оттуда порт и пароль (IP не нужен) или загрузи скриншот в «Отсканировать QR» ниже.</p>
+                <div class="obs-credentials">
+                  <label class="obs-field" for="obsRemotePort">Порт<input id="obsRemotePort" inputmode="numeric" placeholder="4455" autocomplete="off" spellcheck="false"></label>
+                  <label class="obs-field" for="obsRemotePassword">Пароль WebSocket<input id="obsRemotePassword" type="password" placeholder="Из сведений о подключении" autocomplete="off"></label>
+                </div>
+                <div class="obs-connection-actions"><button id="sendObsConfig" class="button" type="button">Отправить в OBS обсервера</button></div>
+                <p id="obsRemoteResult" class="obs-test" role="status" aria-live="polite"></p>
+              </details>
+
+              <details id="obsMore" class="obs-step obs-more">
+                <summary>Другие способы и код связи</summary>
+                <h4>Окно Oneshot у обсервера уже стоит?</h4>
+                <p class="obs-field-hint">Если его добавили по ссылке с другого устройства, введи код из этого окна (поле «Код связи») — и этот сайт подключится к нему.</p>
+                <span class="copy-line"><input id="obsCodeInput" aria-label="Код связи из окна Oneshot" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="applyObsCode" class="button small" type="button">Подключиться</button></span>
+                <h4>Отсканировать QR</h4>
+                <div id="obsPairQr"></div>
+                <h4>Только ссылка</h4>
+                <span class="copy-line"><input id="obsDockUrl" aria-describedby="obsBridgeHint" readonly></span>
+                <p id="obsBridgeHint" class="obs-field-hint">У каждого браузера свой код связи. Код этого: <b id="obsCode"></b> <button id="newObsCode" class="text-button" type="button">Сменить код</button> (старое окно у обсервера отключится).</p>
+              </details>
+            </div>
+            <div id="obsDirectFields" hidden>
+              <div class="obs-guide">
+                <h3>Где найти адрес и пароль</h3>
+                <ol>
+                  <li>В OBS открой <b>Сервис → Настройки сервера WebSocket</b> (<b>Tools → WebSocket Server Settings</b>).</li>
+                  <li>Включи <b>сервер WebSocket</b> и <b>аутентификацию</b>. Открой <b>«Показать сведения о подключении»</b> / <b>Show Connect Info</b>.</li>
+                  <li>Вставь пароль в поле ниже. Для этого компьютера адрес — <b>ws://127.0.0.1:4455</b>; если в OBS указан другой порт, замени <b>4455</b> на него.</li>
+                </ol>
+              </div>
+              <div class="obs-credentials">
+                <label class="obs-field" for="obsUrl">Адрес OBS WebSocket<input id="obsUrl" placeholder="ws://127.0.0.1:4455" aria-describedby="obsAddressHint" autocomplete="off" spellcheck="false"></label>
+                <label class="obs-field" for="obsPassword">Пароль OBS WebSocket<input id="obsPassword" type="password" placeholder="Пароль из сведений о подключении" autocomplete="off"></label>
+              </div>
+              <p id="obsAddressHint" class="obs-field-hint">Оставь 127.0.0.1, когда сайт и OBS открыты на одном компьютере. Если OBS у обсервера — выбери «На другом компьютере».</p>
+            </div>
+            <p class="obs-version-note">WebSocket встроен в OBS Studio 28 и новее. <a href="https://obsproject.com/kb/remote-control-guide" target="_blank" rel="noreferrer">Инструкция OBS ↗</a></p>
+            <p id="obsTestResult" class="obs-test" role="status" aria-live="polite"></p>
+            <div class="obs-connection-actions">
+              <button type="button" class="button" id="testObs">Проверить связь</button>
+              <button type="submit" class="button primary" id="saveObs">Сохранить подключение</button>
+              <button type="button" class="text-button" id="closeObs">← К подготовке</button>
+            </div>
+          </form>
+      </section>
+
+      <section class="obs-manual" aria-labelledby="obsManualHeading">
+        <div class="obs-manual-head">
+          <span class="eyebrow">STEP BY STEP</span>
+          <h2 id="obsManualHeading">Инструкция: как подключить OBS с нуля</h2>
+          <p>Делай по шагам сверху вниз. Каждый шаг — это несколько нажатий. Шаги 1–3 делаются один раз, шаг 4 — каждый матч.</p>
+        </div>
+
+        <details class="obs-manual-step" open>
+          <summary><span class="obs-step-num" aria-hidden="true">0</span>Что вообще происходит</summary>
+          <ul>
+            <li><b>Панель</b> (этот сайт) знает, кто играет и где камера у каждого игрока.</li>
+            <li><b>OBS</b> — программа, которая показывает картинку в эфир. В ней есть сцены «Игрок 1» … «Игрок 10» и «Матрица».</li>
+            <li><b>Подключение</b> — это «пульт»: панель нажимает за тебя кнопки в OBS и ставит в сцены камеры нужных игроков.</li>
+            <li>Без подключения тоже можно: во вкладке «Подготовка» нажать <b>«Скачать JSON»</b> и загрузить файл в OBS руками (шаг 1). Подключение просто экономит время каждый матч.</li>
+          </ul>
+        </details>
+
+        <details class="obs-manual-step">
+          <summary><span class="obs-step-num" aria-hidden="true">1</span>Один раз: загрузи в OBS нашу коллекцию сцен</summary>
+          <ol>
+            <li>Открой вкладку <b>«Подготовка»</b> и выбери любой матч.</li>
+            <li>Нажми <b>«↓ Скачать JSON»</b>. Скачается файл вроде <code>16-00_Группа-B_…json</code>.</li>
+            <li>В OBS в верхнем меню нажми <b>«Коллекция сцен» → «Импорт»</b> (<i>Scene Collection → Import</i>).</li>
+            <li>В строке «Путь к коллекции» нажми <b>«…»</b>, выбери скачанный файл и нажми <b>«Импорт»</b>.</li>
+            <li>Снова открой <b>«Коллекция сцен»</b> и выбери в списке только что загруженную.</li>
+            <li>Проверь: слева в «Сценах» должны быть <b>«Игрок 1» … «Игрок 10»</b> и <b>«Матрица»</b>.</li>
+          </ol>
+          <p class="obs-manual-note">Без этого шага «Отправить в OBS» скажет, что сцены «Игрок 1» нет, и ничего не поменяет.</p>
+        </details>
+
+        <details class="obs-manual-step">
+          <summary><span class="obs-step-num" aria-hidden="true">2</span>Один раз: включи в OBS «пульт» (WebSocket)</summary>
+          <ol>
+            <li>В OBS в верхнем меню нажми <b>«Сервис» → «Настройки сервера WebSocket»</b> (<i>Tools → WebSocket Server Settings</i>).</li>
+            <li>Поставь галочку <b>«Включить сервер WebSocket»</b>.</li>
+            <li>Галочку <b>«Включить аутентификацию»</b> не снимай — это пароль, чтобы чужие не управляли твоим OBS.</li>
+            <li>Нажми <b>«Показать сведения о подключении»</b> (<i>Show Connect Info</i>). Там две нужные вещи: <b>«Порт сервера»</b> (почти всегда <code>4455</code>) и <b>«Пароль сервера»</b> — рядом есть кнопка <b>«Копировать»</b>.</li>
+            <li>Закрой окошко сведений и нажми <b>«OK»</b>.</li>
+          </ol>
+          <p class="obs-manual-note">Нет пункта «Настройки сервера WebSocket»? Обнови OBS до версии 28 или новее — там он встроен.</p>
+        </details>
+
+        <details class="obs-manual-step">
+          <summary><span class="obs-step-num" aria-hidden="true">3</span>Один раз: подключи панель к OBS</summary>
+          <p>В форме выше сначала выбери, где стоит OBS.</p>
+          <h3>Вариант А — OBS на этом же компьютере</h3>
+          <ol>
+            <li>Выбери <b>«На этом компьютере»</b>.</li>
+            <li>Адрес оставь <code>ws://127.0.0.1:4455</code>. Если в шаге 2 порт был не 4455 — замени цифры на свои.</li>
+            <li>В поле <b>«Пароль OBS WebSocket»</b> вставь пароль из шага 2.</li>
+            <li>Нажми <b>«Проверить связь»</b>. Должно появиться зелёное <b>«OBS подключён»</b>.</li>
+            <li>Нажми <b>«Сохранить подключение»</b>. Всё, это запоминается в этом браузере.</li>
+          </ol>
+          <h3>Вариант Б — OBS у обсервера (другой компьютер, хоть другой город)</h3>
+          <ol>
+            <li>Выбери <b>«У обсервера»</b>.</li>
+            <li>Нажми <b>«Скопировать сообщение»</b> и отправь его обсерверу в Discord или Telegram. В сообщении уже есть ссылка и что нажимать.</li>
+            <li>Обсервер в своём OBS нажимает <b>«Док-панели» → «Пользовательские док-панели браузера»</b> (<i>Docks → Custom Browser Docks</i>).</li>
+            <li>Он пишет в «Имя» <b>Oneshot</b>, в «Адрес» вставляет ссылку из сообщения и жмёт <b>«Применить»</b>. В OBS появляется <b>окно Oneshot</b>.</li>
+            <li>Обсервер делает шаг 2 у себя, вставляет пароль в окно Oneshot и жмёт <b>«Подключить»</b>.</li>
+            <li>Смотри сюда, на «Дождись зелёного статуса»: когда станет <b>«Всё подключено ✓»</b> — готово.</li>
+          </ol>
+          <p class="obs-manual-note">Окно Oneshot у обсервера должно быть открыто весь эфир. Закрыл случайно — пусть снова откроет: «Док-панели» → «Oneshot». Обсервер не может вписать пароль? Пусть пришлёт скриншот «сведений о подключении», и ты впишешь порт и пароль за него в блоке «Обсервер не может вписать пароль?».</p>
+        </details>
+
+        <details class="obs-manual-step">
+          <summary><span class="obs-step-num" aria-hidden="true">4</span>Каждый матч: отправь камеры</summary>
+          <ol>
+            <li>Во вкладке <b>«Подготовка»</b> выбери матч и проверь игроков по слотам.</li>
+            <li>Посмотри статус вебок: зелёные — камера в эфире. Если у игрока камера не видна, а он говорит, что включил, — он мог зайти по старой ссылке: нажми <b>✎</b> у игрока и впиши его ID.</li>
+            <li>Нажми <b>«▶ Отправить в OBS»</b>. Камеры в сценах «Игрок 1–10» сами сменятся на игроков этого матча, под кнопкой появится, что поменялось.</li>
+            <li>Поменял игрока, ID или порядок — нажми «Отправить в OBS» ещё раз.</li>
+          </ol>
+        </details>
+
+        <details class="obs-manual-step">
+          <summary><span class="obs-step-num" aria-hidden="true">5</span>По желанию: графика вето в эфире</summary>
+          <ol>
+            <li>Во вкладке «Подготовка», в блоке <b>«Вето карт»</b>, выбери вид (весь экран или плашка снизу) и нажми <b>«⧉ Ссылка на оверлей для OBS»</b>.</li>
+            <li>В OBS открой нужную сцену, в «Источниках» нажми <b>«+» → «Браузер»</b>, назови «Вето».</li>
+            <li>В поле «URL» вставь ссылку, ширина <b>1920</b>, высота <b>1080</b>, нажми <b>«OK»</b>.</li>
+            <li>В панели включи галочку <b>«Оверлей вето в OBS вживую»</b>. Теперь каждый ход вето сам появляется в эфире. Зелёный статус под галочкой — графика подтвердила, что получила ход.</li>
+          </ol>
+          <p class="obs-manual-note">Для графики пароль OBS не нужен: она соединяется с панелью по своей ссылке.</p>
+        </details>
+
+        <details class="obs-manual-step">
+          <summary><span class="obs-step-num" aria-hidden="true">?</span>Что-то не так — что делать</summary>
+          <dl class="obs-manual-faq">
+            <dt>«Неверный пароль OBS WebSocket»</dt>
+            <dd>Скопируй пароль заново кнопкой «Копировать» в «Показать сведения о подключении» (шаг 2) и вставь без пробелов.</dd>
+            <dt>«Нет связи с OBS WebSocket по адресу…»</dt>
+            <dd>OBS закрыт или в нём выключен сервер WebSocket (шаг 2). Проверь порт: в адресе должен быть тот же, что в OBS.</dd>
+            <dt>«В OBS нет сцены „Игрок 1“»</dt>
+            <dd>В OBS не загружена наша коллекция или выбрана другая. Сделай шаг 1 и выбери нашу коллекцию в «Коллекция сцен».</dd>
+            <dt>У обсервера статус не зелёный</dt>
+            <dd>Окно Oneshot у него закрыто, или ссылка старая (кто-то нажал «Сменить код»). Скопируй сообщение заново и отправь ещё раз.</dd>
+            <dt>Камера в OBS чёрная</dt>
+            <dd>Игрок не включил камеру — смотри статус вебок в «Подготовке». Или зашёл по старой ссылке — нажми ✎ у игрока, впиши его ID и снова «Отправить в OBS».</dd>
+            <dt>Ничего не помогло</dt>
+            <dd>Во вкладке «Подготовка» нажми «↓ Скачать JSON» и загрузи коллекцию в OBS заново (шаг 1) — это всегда работает и без подключения.</dd>
+          </dl>
+        </details>
       </section>
     </div><!-- /web-only -->
 

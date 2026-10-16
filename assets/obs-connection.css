@@ -1,16 +1,38 @@
-/* Site-only OBS setup. The form has one owner, beside the map veto. */
-.obs-connection { margin:0 16px 16px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); scroll-margin-top:24px; }
-.obs-connection>summary { display:flex; align-items:center; gap:14px; padding:16px; cursor:pointer; list-style:none; }
-.obs-connection>summary::-webkit-details-marker { display:none; }
+/* Site-only OBS setup: a tab of its own — the form, then the step-by-step guide. */
+.obs-view { max-width:920px; margin:18px auto 0; }
+.obs-connection { margin:0 0 16px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); scroll-margin-top:24px; }
+.obs-connection-head { display:flex; align-items:center; gap:14px; padding:16px 16px 0; }
 .obs-connection-title { flex:1; min-width:0; display:grid; gap:5px; }
-.obs-connection-title>span:last-child { font-size:15px; font-weight:750; color:var(--ink); }
-.obs-connection-state { max-width:260px; color:var(--muted); font-size:11px; line-height:1.5; text-align:right; overflow-wrap:anywhere; }
-.obs-connection-state[data-kind=good] { color:var(--success-ink); }
-.obs-connection-state[data-kind=bad] { color:var(--red); }
-.obs-connection-chevron { color:var(--muted); font-size:20px; transition:transform .15s; }
-.obs-connection[open] .obs-connection-chevron { transform:rotate(180deg); }
+.obs-connection-title h2 { margin:0; font-size:17px; font-weight:750; color:var(--ink); }
+.obs-connection-state { max-width:300px; padding:6px 10px; border-radius:5px; background:var(--surface); color:var(--muted); font-size:12px; font-weight:600; line-height:1.5; text-align:right; overflow-wrap:anywhere; }
+.obs-connection-state[data-kind=good] { background:var(--success-bg); color:var(--success-ink); }
+.obs-connection-state[data-kind=bad] { background:var(--accent-soft); color:var(--red); }
 .obs-connection>form { padding:0 16px 16px; }
-.obs-connection-intro { margin:0 0 16px; color:var(--muted); font-size:12px; line-height:1.7; }
+.obs-connection-intro { margin:10px 16px 16px; color:var(--sub); font-size:13px; line-height:1.7; }
+.obs-tab-dot { width:8px; height:8px; border-radius:50%; background:var(--muted); }
+.obs-tab-dot[data-kind=good] { background:var(--success); box-shadow:0 0 0 3px var(--success-bg); }
+.obs-tab-dot[data-kind=bad] { background:var(--red); }
+.obs-tab-dot[data-kind=wait] { background:var(--warn-ink); }
+/* The guide: one numbered step per block, plain words, OBS menu names in bold. */
+.obs-manual { margin:0 0 24px; border:1px solid var(--line); border-radius:8px; background:var(--surface); }
+.obs-manual-head { padding:16px 16px 6px; }
+.obs-manual-head h2 { margin:5px 0 6px; color:var(--ink); font-size:17px; font-weight:750; }
+.obs-manual-head p { margin:0; color:var(--sub); font-size:13px; line-height:1.7; }
+.obs-manual-step { border-top:1px solid var(--divider); }
+.obs-manual-step>summary { display:flex; align-items:center; gap:10px; padding:14px 16px; cursor:pointer; color:var(--ink); font-size:14px; font-weight:700; line-height:1.4; }
+.obs-manual-step>summary:hover { background:var(--surface-2); }
+.obs-manual-step[open]>summary { padding-bottom:8px; }
+.obs-manual-step>:not(summary) { margin-left:50px; margin-right:16px; }
+.obs-manual-step>:last-child { margin-bottom:16px; }
+.obs-manual-step ol,.obs-manual-step ul { padding-left:20px; color:var(--sub); font-size:13px; line-height:1.75; }
+.obs-manual-step li+li { margin-top:6px; }
+.obs-manual-step b { color:var(--ink); font-weight:650; }
+.obs-manual-step h3 { margin-top:14px; margin-bottom:4px; color:var(--ink); font-size:13px; font-weight:750; }
+.obs-manual-step p { color:var(--sub); font-size:13px; line-height:1.7; }
+.obs-manual-step code { padding:1px 5px; border-radius:4px; background:var(--surface-2); color:var(--ink); font-size:12px; overflow-wrap:anywhere; }
+.obs-manual-note { padding:10px 12px; border-radius:5px; background:var(--surface-2); }
+.obs-manual-faq dt { margin-top:12px; color:var(--ink); font-size:13px; font-weight:700; }
+.obs-manual-faq dd { margin:4px 0 0; color:var(--sub); font-size:13px; line-height:1.7; }
 .obs-connection .obs-mode { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:0 0 16px; }
 .obs-connection .obs-mode legend { margin-bottom:9px; }
 .obs-connection .obs-mode .check { display:flex; align-items:flex-start; gap:10px; min-width:0; padding:12px; border:1px solid var(--line); border-radius:6px; background:var(--surface); line-height:1.5; }
@@ -43,30 +65,27 @@
 .dock-help li+li { margin-top:7px; }
 .dock-field-hint { font-size:10px; font-weight:400; line-height:1.6; color:var(--muted); overflow-wrap:anywhere; }
 @media(max-width:650px) {
-  .obs-connection { margin:0 10px 12px; }
-  .obs-connection>summary { gap:8px; padding:12px; flex-wrap:wrap; }
-  .obs-connection-title { flex-basis:70%; }
-  .obs-connection-chevron { margin-left:auto; order:1; }
-  .obs-connection-state { flex-basis:100%; max-width:none; order:2; text-align:left; }
+  .obs-view { margin-top:12px; }
+  .obs-connection-head { flex-wrap:wrap; gap:8px; padding:12px 12px 0; }
+  .obs-connection-state { flex-basis:100%; max-width:none; text-align:left; }
+  .obs-connection-intro { margin:8px 12px 12px; }
   .obs-connection>form { padding:0 12px 12px; }
+  .obs-manual-step>summary { padding:12px; }
+  .obs-manual-step>:not(summary) { margin-left:12px; margin-right:12px; }
   .obs-connection .obs-mode,.obs-credentials { grid-template-columns:minmax(0,1fr); }
   .obs-guide { padding:12px; }
   .obs-connection .copy-line { flex-wrap:wrap; }
   .obs-connection .copy-line input { flex-basis:100%; }
   .obs-connection-actions .button { flex:1; }
 }
-@media(prefers-reduced-motion:reduce) { .obs-connection-chevron { transition:none; } }
 
 .veto-live-status { margin: 10px 0 6px; color: var(--muted); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 .veto-live-status[data-kind="good"] { color: var(--success-ink); }
 .veto-live-status[data-kind="bad"] { color: var(--red); }
 
-/* Connection entry remains visible even when the Lobby tab is restored. */
-.obs-nav-button { color:var(--ink); font-weight:700; min-height:44px; }
 .obs-mobile-guide { margin:0 0 14px; padding:12px; color:var(--sub); background:var(--surface); border:1px solid var(--line); border-radius:6px; font-size:12px; line-height:1.7; }
 @media(max-width:680px) {
   .nav-tools .nav-button { min-height:44px; }
-  .nav-tools .obs-nav-button { font-size:13px; }
   .obs-connection input:not([type=radio]) { font-size:16px; }
 }
 

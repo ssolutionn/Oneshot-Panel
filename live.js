@@ -20,7 +20,7 @@ function write(key, value) {
 const cardBase = () => /^https?:$/.test(location.protocol) ? location.origin : DEFAULT_CARD_BASE;
 
 // ---------- tabs ----------
-const views = [['prep', 'viewPrep', 'prepView'], ['lobby', 'viewLobby', 'lobbyView']];
+const views = [['prep', 'viewPrep', 'prepView'], ['lobby', 'viewLobby', 'lobbyView'], ['obs', 'obsNavBtn', 'obsView']];
 export function showView(name, focus = false) {
   for (const [view, tab, pane] of views) {
     const on = view === name;
@@ -44,7 +44,8 @@ for (const [view, tab] of views) {
     showView(views[next][0], true);
   });
 }
-showView(location.hash === '#lobby' ? 'lobby' : read(VIEW_STORE) === 'lobby' ? 'lobby' : 'prep');
+const startView = location.hash.slice(1) || read(VIEW_STORE);
+showView(views.some(v => v[0] === startView) ? startView : 'prep');
 
 // ---------- match payload ----------
 function matchPayload() {
@@ -92,6 +93,7 @@ function obsBadge(text, kind) {
   $('obsConnectionState').textContent = text;
   $('obsConnectionState').dataset.kind = kind || '';
   $('obsDot').className = kind || '';
+  $('obsTabDot').dataset.kind = kind || '';
 }
 // Step 2 of «У обсервера»: says in plain words whether the Oneshot window
 // in the observer's OBS (the dock) is reachable and has its OBS connected.
@@ -243,19 +245,17 @@ function saveObsDialog() {
   ensureBridge().catch(() => {});
   renderObsState();
 }
+// «OBS» is a tab of its own: the form on top, the step-by-step guide below.
 function openObsSettings() {
-  showView('prep');
-  const section = $('obsDialog');
-  section.open = true;
-  section.scrollIntoView({ block: 'start' });
+  showView('obs');
+  $('obsDialog').scrollIntoView({ block: 'start' });
   const direct = document.querySelector('input[name=obsMode]:checked')?.value === 'direct';
   $(direct ? 'obsUrl' : 'copyDockUrl').focus({ preventScroll: true });
 }
 $('obsSetupBtn').addEventListener('click', openObsSettings);
-$('obsNavBtn').addEventListener('click', openObsSettings);
 $('closeObs').addEventListener('click', () => {
-  $('obsDialog').open = false;
-  $('obsDialog').querySelector('summary').focus({ preventScroll: true });
+  showView('prep', true);
+  $('exportBar').scrollIntoView({ block: 'center' });
 });
 for (const input of document.querySelectorAll('input[name=obsMode]')) input.addEventListener('change', () => {
   toggleObsFields();
@@ -627,11 +627,9 @@ function playerVetoLink(s) {
 }
 document.addEventListener('oneshot:change', onChange);
 fillObsDialog();
-$('obsDialog').open = !obsSettings().configured || !!importedPairCode;
 function revealPairing() {
   fillObsDialog();
-  showView('prep');
-  $('obsDialog').open = true;
+  showView('obs');
   $('obsTestResult').textContent = 'Код связи из QR подставлен. Подключаемся к доку OBS…';
 }
 if (importedPairCode) revealPairing();

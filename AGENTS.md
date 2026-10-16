@@ -32,11 +32,13 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   и событие `oneshot:change` для `live.js` и `lobby.js`; сам их не знает
   (в артефакте Claude их нет).
 - `live.js` — только сайт: вкладки, «Отправить в OBS», «Копировать JSON»,
-  форму «Подключение к OBS» рядом с вето, статус вебок, живое вето в OBS и ссылка на оверлей.
+  вкладку «OBS» (`obsNavBtn` — третья вкладка, `obsView`: форма «Подключение к OBS» и
+  пошаговая инструкция `.obs-manual`), статус вебок, живое вето в OBS и ссылка на оверлей.
   localStorage: `oneshot-obs` (режим, код связи, адрес и пароль OBS),
   `oneshot-view`, `oneshot-watch-cams`, `oneshot-veto-live`,
   `oneshot-veto-channel` (отдельный код показа графики, не код управления OBS).
-  `obsDialog` — раскрываемый `details` с единственной формой подключения;
+  `obsDialog` — секция вкладки «OBS» с единственной формой подключения
+  (`closeObs` — «← К подготовке»);
   оформление формы и подсказок — `assets/obs-connection.css`.
 - `assets/obs-qr.js` — только сайт: локальное чтение QR камерой/из файла,
   парсер native `obsws://host:port/password`, QR связи телефона с доком.
@@ -196,7 +198,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   Chromium), VDO.Ninja в них заглушён. `scripts/qa_player_cards.py`
   проверяет все записи подготовленного каталога и 10 CARD-ссылок
   скачанного JSON; `test/photos_test.py` — загрузчик. `scripts/qa_live.py` —
-  8 сценариев сайта: настройка OBS рядом с вето, вкладки, статус вебок, OBS напрямую и через док,
+  8 сценариев сайта: вкладка OBS с инструкцией, вкладки, статус вебок, OBS напрямую и через док,
   копирование JSON, оверлей вето, лобби FACEIT (Sheets, VDO.Ninja,
   obs-websocket и FACEIT подменены, время лобби ускорено).
   `scripts/qa_veto_site.py` — 10 сценариев сайта вето капитанов: ссылки,
@@ -291,7 +293,7 @@ Netlify проверяет локальные фото, докачивает н�
   sourceGid scheduleUrl scheduleGid resetSource copyDialog copyHeading
   closeCopy manualCopy toast
 - id сайта (`live.js`, `lobby.js`, `obs-bridge.js`): viewPrep viewLobby
-  lobbyBadge prepView lobbyView camSummary watchCams camTotal sendObsBtn
+  lobbyBadge prepView lobbyView obsView obsTabDot camSummary watchCams camTotal sendObsBtn
   copyJsonBtn obsNavBtn obsSetupBtn obsDot obsState vetoLive vetoLiveStatus vetoLayout copyOverlay
   obsDialog obsForm closeObs vetoBroadcast overlaySizeHint obsBridgeFields obsDockUrl copyDockUrl obsCode
   newObsCode obsRemotePort obsRemotePassword sendObsConfig obsRemoteResult
