@@ -1,26 +1,30 @@
-// Lobby block «Наш турнир у букмекеров» (site only): every 5 minutes asks the
-// site's /api/bookmakers for each bookmaker's CyberClash events and shows the
-// day's matches against the bookmakers, with odds and links. A newly opened
-// line goes to the lobby journal. Parsing lives in bookmakers.js.
+// Live, read-only tournament coverage. Every source renders as soon as it
+// answers; background tabs pause polling and returning to the page resumes it.
 import { BOOKMAKERS, MANUAL, findMatch, eventKey } from './bookmakers.js';
 
 const $ = id => document.getElementById(id);
 const STORE = 'oneshot-bookies';
-const EVERY = 5 * 60000;
+const EVERY = 60000, RESUME_AFTER = 15000;
 const results = new Map();
-let seen = {}, checking = false, lastCheck = 0;
-
-try { seen = JSON.parse(localStorage.getItem(STORE))?.seen || {}; } catch { seen = {}; }
+let seen = {}, checking = false, lastCheck = 0, startedAt = 0, nextCheck = 0, timer;
+const active = () => !document.hidden && navigator.onLine !== false;
+const msk = ms => ms ? new Intl.DateTimeFormat('ru-RU', {
+  timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit', second: '2-digit'
+}).format(new Date(ms)) : '';
+const matchTime = ms => ms ? new Intl.DateTimeFormat('ru-RU', {
+  timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+}).format(new Date(ms)) : '';
+try {
+  const stored = JSON.parse(localStorage.getItem(STORE));
+  if (stored?.seen && typeof stored.seen === 'object' && !Array.isArray(stored.seen)) seen = stored.seen;
+} catch { /* First visit or unavailable storage. */ }
 function save() {
-  // Keep a day of first sightings: enough to tell what is new.
   const day = Date.now() - 36 * 3600000;
-  seen = Object.fromEntries(Object.entries(seen).filter(([, at]) => at > day));
+  seen = Object.fromEntries(Object.entries(seen).filter(([, at]) => Number.isFinite(at) && at > day));
   try { localStorage.setItem(STORE, JSON.stringify({ seen })); } catch { /* not kept */ }
 }
-const msk = ms => ms ? new Intl.DateTimeFormat('ru-RU', {
-  timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit'
-}).format(new Date(ms)) : '';
-const odds = e => e.odds.every(Boolean) ? `${e.odds[0].toFixed(2)} · ${e.odds[1].toFixed(2)}` : 'линия открыта';
+const odds = e => e.odds?.length === 2 && e.odds.every(v => Number.isFinite(v) && v > 1) ?
+  e.odds.map(v => v.toFixed(2)).join(' · ') : 'линия открыта';
 const el = (tag, props = {}, ...children) => {
   const node = Object.assign(document.createElement(tag), props);
   node.append(...children.filter(c => c !== null && c !== undefined && c !== false));
@@ -29,20 +33,30 @@ const el = (tag, props = {}, ...children) => {
 
 async function check(bookmaker) {
   try {
-    const response = await fetch(`/api/bookmakers?id=${bookmaker.id}`, { cache: 'no-store', signal: AbortSignal.timeout(60000) });
-    const type = response.headers.get('content-type') || '';
-    if (!/json/.test(type)) throw new Error('у сайта нет функции /api/bookmakers');
+    const response = await fetch('/api/bookmakers?id=' + bookmaker.id, {
+      cache: 'no-store', signal: AbortSignal.timeout(35000)
+    });
+    if (!/json/.test(response.headers.get('content-type') || '')) {
+      throw new Error('у сайта нет функции /api/bookmakers');
+    }
     const body = await response.json();
-    if (!response.ok) throw new Error(body.message || `HTTP ${response.status}`);
-    results.set(bookmaker.id, body);
+    if (!response.ok) throw new Error(body.message || 'HTTP ' + response.status);
+    if (!Array.isArray(body.events) || typeof body.ok !== 'boolean') throw new Error('неверный ответ источника');
+    if (!body.ok) throw new Error(body.errors?.join('; ') || 'источник недоступен');
+    results.set(bookmaker.id, {
+      ...body, failed: '', checkedAt: Number.isFinite(body.checkedAt) ? body.checkedAt : Date.now()
+    });
     note(bookmaker, body.events);
   } catch (error) {
     const old = results.get(bookmaker.id);
-    results.set(bookmaker.id, { ...(old || { events: [] }), ok: false, failed: error.name === 'TimeoutError' ? 'долго не отвечает' : error.message });
+    results.set(bookmaker.id, {
+      ...(old || { events: [], checkedAt: 0 }), failed:
+        ['TimeoutError', 'AbortError'].includes(error.name) ? 'долго не отвечает' : error.message
+    });
   }
+  // A slow feed never holds back the other bookmakers or newly found matches.
+  render();
 }
-// A line seen for the first time (after this browser's first check of that
-// bookmaker) goes to the lobby journal.
 function note(bookmaker, events) {
   const known = Object.keys(seen).some(key => key.startsWith(bookmaker.id + ':'));
   for (const e of events) {
@@ -51,83 +65,130 @@ function note(bookmaker, events) {
     seen[key] = Date.now();
     if (known) {
       window.dispatchEvent(new CustomEvent('oneshot:lobby-note', {
-        detail: `${bookmaker.name}: открыта линия ${e.team1} – ${e.team2}${e.start ? ` (${msk(e.start)})` : ''}, ${odds(e)}`
+        detail: bookmaker.name + ': открыта линия ' + e.team1 + ' – ' + e.team2 +
+          (e.start ? ' (' + matchTime(e.start) + ')' : '') + ', ' + odds(e)
       }));
     }
   }
-  // Nothing listed yet still counts as checked, so later lines are "new".
-  if (!events.length) seen[`${bookmaker.id}:checked`] = Date.now();
+  if (!events.length) seen[bookmaker.id + ':checked'] = Date.now();
   save();
 }
 
+function scheduleCheck() {
+  clearTimeout(timer);
+  nextCheck = active() ? Math.max(Date.now() + 1000, startedAt + EVERY) : 0;
+  if (nextCheck) timer = setTimeout(checkAll, nextCheck - Date.now());
+}
 async function checkAll() {
   if (checking) return;
+  clearTimeout(timer);
+  if (!active()) { nextCheck = 0; render(); return; }
   checking = true;
+  startedAt = Date.now();
+  nextCheck = 0;
   $('bookiesCheck').disabled = true;
-  $('bookiesStatus').textContent = 'Проверяем линии…';
-  await Promise.allSettled(BOOKMAKERS.map(check));
-  lastCheck = Date.now();
-  checking = false;
-  $('bookiesCheck').disabled = false;
   render();
+  try {
+    await Promise.allSettled(BOOKMAKERS.map(check));
+    lastCheck = Date.now();
+  } finally {
+    checking = false;
+    $('bookiesCheck').disabled = false;
+    scheduleCheck();
+    render();
+  }
+}
+function wake() {
+  clearTimeout(timer);
+  if (!active()) { nextCheck = 0; render(); return; }
+  if (!checking && (!startedAt || Date.now() - startedAt >= RESUME_AFTER)) checkAll();
+  else if (!checking) { scheduleCheck(); render(); }
 }
 
-// Columns: the schedule's matches of the nearest match day, then CyberClash
-// events the schedule doesn't know (another stage, a renamed team).
+// The nearest scheduled match day plus events discovered directly in the
+// tournament feeds. No fixed match list and no eight-column truncation.
 function matches() {
   const schedule = window.oneshotPanel?.snapshot?.().schedule || [];
   const day = schedule[0]?.date;
-  const list = schedule.filter(m => m.date === day).slice(0, 8).map(m => ({
-    team1: m.team1, team2: m.team2, sub: m.time || ''
+  const list = schedule.filter(m => m.date === day).map(m => ({
+    team1: m.team1, team2: m.team2, date: m.date || '', sub: [m.date, m.time].filter(Boolean).join(' · ')
   }));
   for (const b of BOOKMAKERS) {
     for (const e of results.get(b.id)?.events || []) {
-      if (list.some(r => findMatch([e], r.team1, r.team2))) continue;
-      list.push({ team1: e.team1, team2: e.team2, sub: msk(e.start) });
+      const date = e.start ? new Intl.DateTimeFormat('ru-RU', {
+        timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit'
+      }).format(new Date(e.start)) : '';
+      if (list.some(r => (!date || !r.date || r.date === date) && findMatch([e], r.team1, r.team2))) continue;
+      list.push({ team1: e.team1, team2: e.team2, date, sub: matchTime(e.start) });
     }
   }
   return list;
 }
-// Text never sits inside a link to a bookmaker: ad blockers hide such links
-// (and the odds in them). The link is a separate ↗.
-const open = href => el('a', { href, target: '_blank', rel: 'noreferrer', className: 'bk-open', title: 'Открыть', textContent: '↗' });
+const eventDate = e => e.start ? new Intl.DateTimeFormat('ru-RU', {
+  timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit'
+}).format(new Date(e.start)) : '';
+const open = href => {
+  // API data cannot turn a link into script execution or navigate off the
+  // bookmaker's own site. No credentials or user-supplied URLs are accepted.
+  let url;
+  try { url = new URL(href); } catch { return null; }
+  const domains = [...BOOKMAKERS.map(b => b.page), ...MANUAL.map(b => b.url)]
+    .map(value => new URL(value).hostname);
+  if (url.protocol !== 'https:' || url.username || url.password || !domains.includes(url.hostname)) return null;
+  return el('a', { href: url.href, target: '_blank', rel: 'noreferrer', className: 'bk-open', title: 'Открыть', textContent: '↗' });
+};
 function render() {
-  const table = $('bookiesTable');
   const cols = matches();
   const head = el('tr', {}, el('th', { scope: 'col', textContent: 'Контора' }),
-    ...cols.map(m => el('th', { scope: 'col' }, el('b', { textContent: `${m.team1} – ${m.team2}` }), el('small', { textContent: m.sub }))));
+    ...cols.map(m => el('th', { scope: 'col' },
+      el('b', { textContent: m.team1 + ' – ' + m.team2 }), el('small', { textContent: m.sub }))));
   const auto = BOOKMAKERS.map(b => {
-    const r = results.get(b.id);
-    const broken = r && (r.failed || r.ok === false);
-    const state = !r ? 'проверяем…' : r.failed ? `нет связи: ${r.failed}` : r.events.length ? `в линии: ${r.events.length}` :
-      r.ok === false ? 'ошибка линии' : 'турнира нет';
+    const r = results.get(b.id), partial = !!r?.errors?.length;
+    const state = !r ? 'проверяем…' : r.failed ?
+      'нет связи' + (r.checkedAt ? '; данные на ' + msk(r.checkedAt) : ': ' + r.failed) :
+      (r.events.length ? 'в линии: ' + r.events.length : 'матчи не найдены') +
+        (partial ? ' · неполные данные' : '') + ' · ' + msk(r.checkedAt);
     const cells = cols.map(m => {
-      const found = findMatch(r?.events || [], m.team1, m.team2);
-      if (!found) return el('td', { className: 'none', textContent: '—' });
-      return el('td', { className: found.live ? 'live' : 'listed' },
+      const candidates = (r?.events || []).filter(e => !m.date || !e.start || eventDate(e) === m.date);
+      const found = findMatch(candidates, m.team1, m.team2);
+      if (!found) return el('td', { className: 'none', textContent: r?.failed || partial ? '?' : '—' });
+      return el('td', { className: r.failed ? 'stale' : found.live ? 'live' : 'listed',
+        title: r.failed ? 'Последние доступные данные: ' + msk(r.checkedAt) + ' МСК' : '' },
         el('span', { className: 'bk-odds', textContent: odds(found) }),
-        found.live ? el('span', { className: 'bk-live', textContent: 'LIVE' }) : null, open(found.url));
+        r.failed ? el('small', { className: 'bad', textContent: 'данные устарели' }) :
+          found.live ? el('span', { className: 'bk-live', textContent: 'LIVE' }) : null,
+        open(found.url));
     });
-    const row = el('tr', { className: r?.events?.length ? 'has' : '' },
-      el('th', { scope: 'row', title: (r?.errors || []).join('; ') }, el('span', { textContent: b.name }), open(b.page),
-        el('small', { textContent: state, className: broken && !r.events.length ? 'bad' : r?.events?.length ? 'good' : '' })),
-      ...cells);
-    return { row, order: r?.events?.length ? 0 : 1 };
+    return { order: r?.events?.length ? 0 : 1, row: el('tr', { className: r?.events?.length ? 'has' : '', id: 'bookie-' + b.id },
+      el('th', { scope: 'row', title: r?.failed || (r?.errors || []).join('; ') },
+        el('span', { textContent: b.name }), open(b.page),
+        el('small', { textContent: state, className: r?.failed || partial ? 'bad' : r?.events?.length ? 'good' : '' })),
+      ...cells) };
   });
   const manual = MANUAL.map(m => ({ order: 2, row: el('tr', { className: 'manual' },
     el('th', { scope: 'row' }, el('span', { textContent: m.name }), open(m.url),
       el('small', { textContent: 'авто-проверки нет — смотреть вручную' })),
     ...cols.map(() => el('td', { className: 'none', textContent: '?' }))) }));
-  const rows = [...auto, ...manual].sort((x, y) => x.order - y.order).map(x => x.row);
-  table.replaceChildren(el('thead', {}, head), el('tbody', {}, ...rows));
-  const listed = BOOKMAKERS.filter(b => results.get(b.id)?.events?.length).map(b => b.name);
-  $('bookiesStatus').textContent = !lastCheck ? 'Проверяем линии…' :
-    `Проверено в ${msk(lastCheck)} МСК. ${listed.length ? `Турнир в линии: ${listed.join(', ')}.` : 'Ни у одной из проверяемых БК турнира сейчас нет.'} ` +
-    `Автоматически: ${BOOKMAKERS.length} из ${BOOKMAKERS.length + MANUAL.length} контор, следующая проверка через 5 минут.`;
+  $('bookiesTable').replaceChildren(el('thead', {}, head),
+    el('tbody', {}, ...[...auto, ...manual].sort((x, y) => x.order - y.order).map(x => x.row)));
+  const stale = BOOKMAKERS.filter(b => results.get(b.id)?.failed).length;
+  const listed = BOOKMAKERS.filter(b => results.get(b.id)?.events?.length && !results.get(b.id)?.failed).map(b => b.name);
+  const summary = listed.length ? 'В линии: ' + listed.join(', ') + '.' :
+    'Подтверждённых матчей в доступных источниках пока нет.';
+  const progress = navigator.onLine === false ? 'Нет сети. Обновим после подключения.' :
+    document.hidden ? 'Автообновление продолжится при возвращении на вкладку.' :
+      checking ? 'Обновляем линии…' : 'Автообновление каждую минуту.' + (nextCheck ? ' Следующая проверка: ' + msk(nextCheck) + ' МСК.' : '');
+  $('bookiesStatus').textContent = progress + ' ' + summary +
+    (stale ? ' Недоступно источников: ' + stale + '; прежние коэффициенты отмечены как устаревшие.' : '') +
+    (lastCheck && !checking ? ' Проверка: ' + msk(lastCheck) + ' МСК.' : '') +
+    ' Автоматически: ' + BOOKMAKERS.length + ' из ' + (BOOKMAKERS.length + MANUAL.length) + ' контор.';
 }
 
 $('bookiesCheck').addEventListener('click', checkAll);
-document.addEventListener('oneshot:change', () => { if (lastCheck) render(); });
+document.addEventListener('oneshot:change', render);
+document.addEventListener('visibilitychange', wake);
+window.addEventListener('focus', wake);
+window.addEventListener('online', wake);
+window.addEventListener('offline', wake);
 render();
 checkAll();
-setInterval(checkAll, EVERY);

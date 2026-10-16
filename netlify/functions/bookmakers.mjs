@@ -6,7 +6,8 @@
 // id. Cloudflare (functions/api/bookmakers.js) and server.js use it too.
 import { BOOKMAKERS, parseFeed } from '../../bookmakers.js';
 
-const TIMEOUT = 25000;
+const FEED_BUDGET = 24000, ATTEMPT_TIMEOUT = 6000;
+const cacheByFetcher = new WeakMap();
 const HEADERS = {
   Accept: 'application/json, text/html;q=0.9',
   'Accept-Language': 'ru-RU,ru;q=0.9',
@@ -16,9 +17,14 @@ const HEADERS = {
 // Tries the feed's mirrors in turn; the first that answers counts.
 async function fetchFeed(urls, fetchImpl) {
   let lastError = 'нет ответа';
+  const deadline = Date.now() + FEED_BUDGET;
   for (const url of urls) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
     try {
-      const response = await fetchImpl(url, { headers: HEADERS, signal: AbortSignal.timeout(TIMEOUT), redirect: 'follow' });
+      const response = await fetchImpl(url, {
+        headers: HEADERS, signal: AbortSignal.timeout(Math.min(ATTEMPT_TIMEOUT, remaining)), redirect: 'error'
+      });
       if (!response.ok) { lastError = `HTTP ${response.status}`; continue; }
       return await response.text();
     } catch (error) {
@@ -52,13 +58,42 @@ export async function checkBookmaker(id, fetchImpl = fetch, now = Date.now()) {
   };
 }
 
+// Public, read-only line data: collapse concurrent requests and keep a short
+// in-memory cache. No database, files, credentials or user input are stored.
+async function currentBookmaker(id, fetchImpl) {
+  let cache = cacheByFetcher.get(fetchImpl);
+  if (!cache) { cache = new Map(); cacheByFetcher.set(fetchImpl, cache); }
+  const previous = cache.get(id);
+  if (previous?.pending) return previous.pending;
+  if (previous && previous.until > Date.now()) return previous.value;
+  const entry = {};
+  entry.pending = checkBookmaker(id, fetchImpl).then(value => {
+    entry.value = value;
+    entry.until = Date.now() + (value.body.ok ? 20000 : 3000);
+    entry.pending = null;
+    return value;
+  }, error => { cache.delete(id); throw error; });
+  cache.set(id, entry);
+  return entry.pending;
+}
+
 export async function bookmakersResponse(request, fetchImpl = fetch) {
-  const id = new URL(request.url).searchParams.get('id') || '';
-  if (request.method !== 'GET' || !/^[a-z]{2,20}$/.test(id)) {
-    return Response.json({ error: 'not-allowed', message: 'Нужен id букмекера.' }, { status: 400 });
+  const headers = {
+    'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
+    'referrer-policy': 'no-referrer',
+    'content-security-policy': "default-src 'none'; frame-ancestors 'none'; form-action 'none'"
+  };
+  if (request.method !== 'GET') {
+    return Response.json({error: 'not-allowed', message: 'Доступно только чтение.'},
+      {status:405, headers:{...headers, allow:'GET'}});
   }
-  const { status, body } = await checkBookmaker(id, fetchImpl);
-  return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
+  const id = new URL(request.url).searchParams.get('id') || '';
+  if (!BOOKMAKERS.some(b => b.id === id)) {
+    return Response.json({error: 'unknown', message: 'Неизвестная букмекерская контора.'},
+      {status:400, headers});
+  }
+  const {status, body} = await currentBookmaker(id, fetchImpl);
+  return Response.json(body, {status, headers});
 }
 
 export default request => bookmakersResponse(request);

@@ -89,3 +89,34 @@ test('checkBookmaker: tries mirrors, keeps a failing feed apart, never takes URL
   assert.equal(unknown.status, 400);
   assert.equal(typeof onRequest, 'function');
 });
+
+
+test('Bookmaker endpoint coalesces concurrent reads, caches public data and rejects writes', async () => {
+  const source = await fixture('fonbet-line.json');
+  let calls = 0;
+  const fake = async (url, options) => {
+    calls++;
+    assert.equal(options.redirect, 'error');
+    assert.ok(options.signal instanceof AbortSignal);
+    await new Promise(resolve => setTimeout(resolve, 5));
+    return new Response(source, {status:200});
+  };
+  const url = 'https://panel.example/api/bookmakers?id=fonbet';
+  const replies = await Promise.all(Array.from({length:8}, () =>
+    bookmakersResponse(new Request(url), fake)));
+  assert.equal(calls, 2, 'only line and live, even with eight simultaneous readers');
+  for (const reply of replies) {
+    assert.equal(reply.status, 200);
+    assert.equal(reply.headers.get('cache-control'), 'no-store');
+    assert.equal(reply.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal((await reply.json()).events.length, 2);
+  }
+  await bookmakersResponse(new Request(url), fake);
+  assert.equal(calls, 2, 'a short shared cache avoids repeated upstream requests');
+  for (const method of ['POST','PUT','PATCH','DELETE','OPTIONS']) {
+    const reply = await bookmakersResponse(new Request(url, {method}), fake);
+    assert.equal(reply.status, 405);
+    assert.equal(reply.headers.get('allow'), 'GET');
+  }
+  assert.equal(calls, 2);
+});
