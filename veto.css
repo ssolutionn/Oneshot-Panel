@@ -74,6 +74,8 @@ h1,h2,h3 { font-family:var(--vt-display); font-weight:600; letter-spacing:.02em;
 .vt-create h2 { font-size:28px; text-transform:uppercase; }
 .vt-form { display:grid; grid-template-columns:1fr 1fr 120px auto; gap:12px; align-items:end; }
 .vt-form label { display:grid; gap:6px; color:var(--vt-muted); font-size:13px; }
+.vt-form .vt-wide { grid-column:1/-1; }
+.vt-form .vt-wide select { min-width:0; }
 .vt-form input,.vt-form select,.vt-link textarea {
   width:100%; min-height:46px; padding:10px 12px; border:1px solid var(--vt-line); border-radius:10px;
   background:var(--vt-field); color:var(--vt-ink); font:16px var(--vt-text);

@@ -1,18 +1,20 @@
 // The captains' veto page. Without #v= it is the admin's form that makes the
-// links; with it, a captain's (or spectators') room. The signed log goes
+// links (the match from the schedule sheet); with it, a captain's (or
+// spectators') room. The signed log and the captains' public keys go
 // around every 2.5 s over VDO.Ninja data streams: each captain pushes their
 // own and views the other's, spectators view both. Same-browser tabs also
 // talk over a BroadcastChannel. Rules live in veto-room.js.
-import { MAP_POOL, teamLogo } from './core.js';
+import { MAP_POOL, teamLogo, DEFAULT_SOURCE, decodeGviz, parseSchedule } from './core.js';
 import { seal, unseal } from './vdo.js';
 import {
-  decodeLink, createRoom, roomSecrets, privateKey, keyMatches, seat, verifyLog, replay, nextTurn,
-  signMove, mergeLog, clock, formatClock, mapBoard, resultText, captainMessage
+  decodeLink, createRoom, roomSecrets, captainKey, acceptKey, seat, verifyLog, replay, nextTurn,
+  signMove, mergeLog, clock, formatClock, mapBoard, resultText, captainMessage, coinCommit, coinNonce,
+  COIN_MOVES
 } from './veto-room.js';
 
 const $ = id => document.getElementById(id);
 const VDO = 'https://vdo.ninja/';
-const SEND_EVERY = 2500, ONLINE_FOR = 8000, COIN_WAIT = 15000;
+const SEND_EVERY = 2500, ONLINE_FOR = 8000;
 const LAST_KEY = 'oneshot-player-veto';
 
 function store(key, value) {
@@ -72,6 +74,55 @@ function showLinks(made) {
   $('vtMade').textContent = '';
 }
 const RESTORE_FOR = 6 * 3600000;
+// The schedule sheet the panel reads (its own source if changed there):
+// matches from today (MSK) on fill the teams, nobody types them.
+const mskDay = (shift = 0) => new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit' })
+  .format(new Date(Date.now() + shift * 86400000));
+async function scheduleRows(id, gid) {
+  const url = new URL(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq`);
+  url.search = new URLSearchParams({ gid, range: 'A1:N300', headers: '1', tqx: 'out:json', _t: String(Date.now()) });
+  const response = await fetch(url, { credentials: 'omit', cache: 'no-store', signal: AbortSignal.timeout(20000) });
+  if (!response.ok) throw new Error(`Google Sheets недоступен (${response.status}).`);
+  return decodeGviz(await response.text());
+}
+async function loadMatches() {
+  const select = $('vtMatch');
+  let source = DEFAULT_SOURCE;
+  try { source = { ...DEFAULT_SOURCE, ...(JSON.parse(localStorage.getItem('webcam-desk-source')) || {}) }; } catch { /* default */ }
+  const id = source.scheduleId || source.id, gid = source.scheduleGid;
+  try {
+    if (!gid) throw new Error('В панели не указан лист расписания.');
+    const tabs = [scheduleRows(id, gid)];
+    if (id === DEFAULT_SOURCE.scheduleId && gid === DEFAULT_SOURCE.scheduleGid) {
+      tabs.push(scheduleRows(id, DEFAULT_SOURCE.playoffsGid).catch(() => []));
+    }
+    const rows = (await Promise.all(tabs)).flat();
+    const key = date => Number(date.slice(3, 5)) * 100 + Number(date.slice(0, 2));
+    const today = key(mskDay());
+    const matches = parseSchedule(rows).filter(m => !m.date || key(m.date) >= today);
+    const label = date => date === mskDay() ? `${date} · сегодня` : date === mskDay(1) ? `${date} · завтра` : date || 'Без даты';
+    const groups = new Map();
+    for (const m of matches) {
+      if (!groups.has(m.date)) groups.set(m.date, Object.assign(document.createElement('optgroup'), { label: label(m.date) }));
+      groups.get(m.date).append(Object.assign(document.createElement('option'), {
+        value: JSON.stringify([m.team1, m.team2]),
+        textContent: `${m.time} · ${m.team1} vs ${m.team2}${m.stage ? ` · ${m.stage}` : ''}`
+      }));
+    }
+    const first = Object.assign(document.createElement('option'), {
+      value: '', textContent: matches.length ? 'Выбери матч — команды подставятся сами' : 'В расписании нет предстоящих матчей'
+    });
+    select.replaceChildren(first, ...groups.values());
+    // The panel's teams (#new&a=&b=) pick their match in the list.
+    const asked = JSON.stringify([$('vtTeamA').value, $('vtTeamB').value]);
+    if ([...select.options].some(o => o.value === asked)) select.value = asked;
+  } catch (error) {
+    select.replaceChildren(Object.assign(document.createElement('option'), {
+      value: '', textContent: 'Расписание не загрузилось — впиши команды ниже'
+    }));
+    select.title = error.message;
+  }
+}
 async function setupCreate() {
   document.title = 'Новое вето · CyberClash';
   $('vtCreate').hidden = false;
@@ -88,6 +139,12 @@ async function setupCreate() {
       showLinks(made);
       toast('Ссылки готовы');
     } catch (error) { showError(error.message); }
+  });
+  $('vtMatch').addEventListener('change', () => {
+    if (!$('vtMatch').value) return;
+    const [a, b] = JSON.parse($('vtMatch').value);
+    $('vtTeamA').value = a;
+    $('vtTeamB').value = b;
   });
   const params = new URLSearchParams(location.hash.slice(1));
   const asked = params.has('new') ? [params.get('a') || '', params.get('b') || '', params.get('f')] : null;
@@ -111,6 +168,7 @@ async function setupCreate() {
       $('vtMade').textContent = `Ссылки созданы в ${new Date(last.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}. Для нового матча нажми «Создать ссылки» ещё раз.`;
     }
   } catch { /* odd saved data: start clean */ }
+  loadMatches();
   const logos = await teamLogos();
   $('vtTeamList').replaceChildren(...Object.keys(logos).sort((a, b) => a.localeCompare(b))
     .map(name => Object.assign(document.createElement('option'), { value: name })));
@@ -167,12 +225,12 @@ const SIDE_NAME = { CT: 'CT · защита', T: 'T · атака' };
 async function enterRoom(room) {
   const me = seat(room);
   const names = room.t;
-  const logKey = 'oneshot-veto-log:' + room.r;
+  const logKey = 'oneshot-veto-log:' + room.r, keysKey = 'oneshot-veto-keys:' + room.r;
+  const coinKey = 'oneshot-veto-coin:' + room.r;
   const checked = new Set();
   const seen = { a: 0, b: 0 };
-  const opened = Date.now();
   const conflicts = new Map();
-  let log = [], key = null, selected = '', busy = false, coin = 'hidden';
+  let log = [], key = null, selected = '', busy = false, coin = 'hidden', autoTried = '';
   let queue = Promise.resolve(), pending = null;
 
 
@@ -209,23 +267,32 @@ async function enterRoom(room) {
 
   const secrets = await roomSecrets(room);
   if (me !== null) {
-    try {
-      key = await privateKey(room);
-      if (!await keyMatches(room, key)) throw new Error('key');
-    } catch {
+    try { key = await captainKey(room); } catch {
       $('vtRoom').hidden = true;
       return showError('Ссылка капитана повреждена (ключ не подходит). Скопируй её из Discord целиком или попроси админа прислать новую.');
     }
   }
+  // Public keys come with the captains' messages (and stay for a reload);
+  // only those matching the link's fingerprints are taken.
+  async function learnKeys(keys) {
+    if (!Array.isArray(keys)) return;
+    let learned = false;
+    for (const team of [0, 1]) {
+      if (!room.p[team] && keys[team] && await acceptKey(room, team, keys[team])) learned = true;
+    }
+    if (learned) store(keysKey, room.p);
+  }
+  await learnKeys(store(keysKey));
   const link = new Link(secrets, me === null ? '' : secrets.streams[me],
     me === null ? secrets.streams : [secrets.streams[1 - me]], receive);
 
   const online = team => team === me || Date.now() - seen[team ? 'b' : 'a'] < ONLINE_FOR;
   // Spectators only listen: they add no load on the captains' phones.
-  const send = () => { if (me !== null) link.send({ t: 'log', from: room.me, log }); };
+  const send = () => { if (me !== null) link.send({ t: 'log', from: room.me, log, p: room.p }); };
 
-  function adopt(incoming) {
+  function adopt(incoming, keys) {
     queue = queue.then(async () => {
+      await learnKeys(keys);
       const verified = await verifyLog(room, incoming, checked);
       const { log: merged, conflict } = mergeLog(log, verified);
       if (conflict) noteConflict(conflict);
@@ -235,6 +302,7 @@ async function enterRoom(room) {
       store(logKey, log);
       render();
       send();
+      autoCoin();
     });
     return queue;
   }
@@ -246,11 +314,12 @@ async function enterRoom(room) {
     const from = via === 'tab' ? message.from :
       via === secrets.streams[0] ? 'a' : via === secrets.streams[1] ? 'b' : '';
     if (from === 'a' || from === 'b') seen[from] = Date.now();
-    if (message.log.length < log.length) return;
+    const unkeyed = Array.isArray(message.p) && [0, 1].some(team => !room.p[team] && message.p[team]);
+    if (message.log.length < log.length && !unkeyed) return;
     const idle = !pending;
-    pending = message.log;
+    pending = message;
     // Not chained into queue itself: adopt() appends to it.
-    if (idle) queue.then(() => { const next = pending; pending = null; if (next) adopt(next); });
+    if (idle) queue.then(() => { const next = pending; pending = null; if (next) adopt(next.log, next.p); });
   }
   function noteConflict({ index, theirs }) {
     if (conflicts.has(index)) return;
@@ -262,7 +331,8 @@ async function enterRoom(room) {
 
   // Two tabs of one captain take turns: the lock plus the log both tabs
   // write to localStorage keep them from signing two moves for one step.
-  async function move(kind, value) {
+  // value may be a function: it runs inside the lock (the coin's nonce).
+  async function move(kind, value, quiet = false) {
     if (busy || !key) return;
     busy = true;
     render();
@@ -270,21 +340,50 @@ async function enterRoom(room) {
       const stored = store(logKey);
       if (Array.isArray(stored) && stored.length > log.length) await adopt(stored);
       else await queue;
-      const next = await signMove(room, log, key, kind, value);
+      const turn = nextTurn(room, replay(room, log));
+      if (quiet && (turn.kind !== kind || turn.team !== me)) return;
+      const next = await signMove(room, log, key, kind, typeof value === 'function' ? await value() : value);
       selected = '';
       await adopt(next);
     };
     try {
       if (navigator.locks?.request) await navigator.locks.request('oneshot-veto-sign:' + room.r, sign);
       else await sign();
-    } catch (error) { toast(error.message); }
-    finally { busy = false; render(); }
+    } catch (error) { if (!quiet) toast(error.message); }
+    finally { busy = false; render(); autoCoin(); }
+  }
+  // The coin goes by itself once both captains are here: A commits to a
+  // hidden nonce (kept in this browser for the reveal), B adds a seed, A
+  // reveals. Nobody knows the result before both parts are in.
+  function autoCoin() {
+    if (me === null || busy) return;
+    const turn = nextTurn(room, replay(room, log));
+    if (turn.team !== me || !COIN_MOVES.includes(turn.kind)) return;
+    if (turn.kind === 'commit' && !(online(0) && online(1))) return;
+    const attempt = turn.kind + log.length;
+    if (autoTried === attempt) return;
+    autoTried = attempt;
+    if (turn.kind === 'commit') {
+      move('commit', async () => {
+        let nonce = store(coinKey);
+        if (typeof nonce !== 'string') { nonce = coinNonce(); store(coinKey, nonce); }
+        return coinCommit(room, nonce);
+      }, true);
+    } else if (turn.kind === 'seed') {
+      move('seed', coinNonce(), true);
+    } else {
+      const nonce = store(coinKey);
+      if (typeof nonce !== 'string') {
+        return showError('Монетку открыть нельзя: твоя часть осталась в другом браузере или устройстве, где ты заходил первым. Открой ссылку там или попроси админа сделать новые ссылки.');
+      }
+      move('reveal', nonce, true);
+    }
   }
 
-  function flipCoin() {
+  function flipCoin(result) {
     if (coin !== 'hidden') return;
     coin = 'flipping';
-    $('vtCoin').dataset.result = String(room.c);
+    $('vtCoin').dataset.result = String(result);
     $('vtCoin').classList.add('is-flipping');
     const done = () => { coin = 'shown'; render(); };
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) done();
@@ -305,6 +404,7 @@ async function enterRoom(room) {
   function describe(entry, index, state) {
     const prior = replay(room, log.slice(0, index));
     const team = nextTurn(room, prior).team;
+    if (COIN_MOVES.includes(entry.k)) return '';
     if (entry.k === 'order') {
       const first = Number(entry.v);
       return `${names[team]} выиграли монетку: первыми банят ${names[first]}`;
@@ -325,10 +425,11 @@ async function enterRoom(room) {
     $('vtClock').dataset.state = done ? 'done' : t.over ? 'over' : t.left < 60000 ? 'low' : 'run';
   }
   // Rebuilding the map buttons every second would eat clicks: the tick only
-  // moves the clock and re-renders when presence or the coin wait changed.
+  // moves the clock and re-renders when presence changed.
   let shownFor = '';
-  const presenceKey = () => [online(0), online(1), Date.now() - opened > COIN_WAIT].join();
+  const presenceKey = () => [online(0), online(1)].join();
   function tick() {
+    autoCoin();
     if (presenceKey() !== shownFor) return render();
     const state = replay(room, log);
     showClock(state, nextTurn(room, state));
@@ -344,11 +445,13 @@ async function enterRoom(room) {
     let state;
     try { state = replay(room, log); } catch { log = []; state = replay(room, log); }
     const turn = nextTurn(room, state);
-    if (log.length && coin !== 'shown') {
+    // A coin tossed long ago (a reload, a late viewer) is shown at once;
+    // a fresh one flips.
+    if (state.first !== null && coin !== 'shown') {
       coin = 'shown';
-      $('vtCoin').dataset.result = String(room.c);
+      $('vtCoin').dataset.result = String(state.coin);
     }
-    if (coin === 'hidden' && online(0) && online(1)) flipCoin();
+    if (coin === 'hidden' && state.coin !== null) flipCoin(state.coin);
 
     for (const team of [0, 1]) {
       const card = $('vtTeam' + team);
@@ -369,25 +472,20 @@ async function enterRoom(room) {
     if (coin !== 'shown') {
       stage.dataset.phase = 'coin';
       kicker = 'Монетка';
-      if (coin === 'flipping') { prompt = 'Подбрасываем…'; }
-      else {
-        prompt = me === null ? 'Ждём капитанов' : `Ждём капитана ${names[opp]}`;
-        hint = 'Монетку покажем, когда оба капитана откроют свои ссылки. Результат уже выпал, его не переиграть.';
-        if (me !== null && Date.now() - opened > COIN_WAIT) {
-          hint += ' Соперник не появляется? Напиши админу или покажи монетку сейчас.';
-          actions.push(button('Показать монетку', flipCoin));
-        }
-      }
+      const tossing = state.commit !== null || (online(0) && online(1));
+      if (coin === 'flipping' || tossing) { prompt = 'Подбрасываем…'; }
+      else prompt = me === null ? 'Ждём капитанов' : `Ждём капитана ${names[opp]}`;
+      hint = 'Монетку бросают оба капитана, когда откроют свои ссылки: каждый добавляет свою случайную часть, поэтому результат заранее не знает никто — ни капитаны, ни админ.';
     } else if (turn.kind === 'order') {
       stage.dataset.phase = mine ? 'mine' : 'wait';
-      kicker = `Монетка: ${names[room.c]}`;
+      kicker = `Монетка: ${names[state.coin]}`;
       if (mine) {
         prompt = 'Вы выиграли монетку';
         hint = 'Решите, кто банит первым.';
         actions.push(button('Баним первыми', () => move('order', String(me)), true));
         actions.push(button(`Первыми банят ${names[opp]}`, () => move('order', String(opp))));
       } else {
-        prompt = `${names[room.c]} выиграли монетку`;
+        prompt = `${names[state.coin]} выиграли монетку`;
         hint = 'Они решают, кто банит первым…';
       }
     } else if (turn.kind === 'side') {
@@ -476,14 +574,15 @@ async function enterRoom(room) {
     const result = resultText(room, state);
     $('vtResult').hidden = !result;
     $('vtResultText').textContent = result;
-    $('vtLog').replaceChildren(...log.map((entry, i) =>
-      Object.assign(document.createElement('li'), { textContent: describe(entry, i, state) })));
+    $('vtLog').replaceChildren(...log.map((entry, i) => describe(entry, i, state)).filter(Boolean)
+      .map(text => Object.assign(document.createElement('li'), { textContent: text })));
   }
 
   const saved = store(logKey);
   if (saved) await adopt(saved);
   render();
   send();
+  autoCoin();
   setInterval(send, SEND_EVERY);
   setInterval(tick, 1000);
 }

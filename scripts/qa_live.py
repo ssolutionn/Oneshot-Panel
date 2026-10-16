@@ -218,12 +218,26 @@ async def run(args):
         await page.click("#viewLobby")
         await expect(page.locator("#obsNavBtn")).to_be_visible()
         await page.click("#obsNavBtn")
-        await expect(page.locator("#prepView")).to_be_visible()
+        await expect(page.locator("#obsView")).to_be_visible()
+        await expect(page.locator("#prepView")).to_be_hidden()
+        await expect(page.locator("#obsNavBtn")).to_have_attribute("aria-selected", "true")
         await expect(page.locator("#obsForm")).to_be_visible()
-        passed("tabs, keyboard switching, always visible OBS entry and webcam status 8/10")
+        # A step-by-step guide sits under the form: every OBS menu on the way.
+        guide = page.locator("#obsView .obs-manual")
+        for words in ["«Коллекция сцен» → «Импорт»", "«Сервис» → «Настройки сервера WebSocket»",
+                      "«Пользовательские док-панели браузера»", "«▶ Отправить в OBS»", "«+» → «Браузер»"]:
+            await expect(guide).to_contain_text(words)
+        await page.locator("#obsView .obs-manual-step > summary", has_text="Каждый матч: отправь камеры").click()
+        await expect(guide).to_contain_text("Поменял игрока, ID или порядок")
+        await page.focus("#obsNavBtn")
+        await page.keyboard.press("ArrowLeft")
+        await expect(page.locator("#lobbyView")).to_be_visible()
+        await page.keyboard.press("End")
+        await expect(page.locator("#obsView")).to_be_visible()
+        passed("tabs, keyboard switching, OBS tab with a step-by-step guide, webcam status 8/10")
 
-        # Set up through the visible form next to veto, without seeding storage.
-        await expect(page.locator("#veto #obsForm")).to_be_visible()
+        # Set up through the form in the OBS tab, without seeding storage.
+        await expect(page.locator("#obsView #obsForm")).to_be_visible()
         await expect(page.locator("#obsBridgeFields")).to_contain_text("Отправь обсерверу сообщение")
         await page.check('input[name=obsMode][value=direct]')
         await expect(page.locator("#obsDirectFields")).to_be_visible()
@@ -243,6 +257,7 @@ async def run(args):
         await expect(page.locator("#obsTestResult")).to_contain_text("Настройки сохранены")
         await page.click("#closeObs")
         await expect(page.locator("#obsForm")).to_be_hidden()
+        await expect(page.locator("#prepView")).to_be_visible()
         await page.click("#obsSetupBtn")
         await expect(page.locator("#obsForm")).to_be_visible()
         await expect(page.locator("#obsUrl")).to_be_focused()
@@ -255,8 +270,10 @@ async def run(args):
         await expect(page.locator("#obsUrl")).to_have_value(OBS_URL)
         await expect(page.locator("#obsPassword")).to_have_value("pw")
         await expect(page.locator("#obsState")).to_have_text("OBS на этом компьютере")
+        await expect(page.locator("#obsView")).to_be_visible()
+        await page.click("#closeObs")
         await expect(page.locator("#obsForm")).to_be_hidden()
-        passed("OBS setup beside veto: instructions, password check, save, reload, focus and 375px layout")
+        passed("OBS tab: instructions, password check, save, reload, focus and 375px layout")
 
         # Send to OBS on this computer.
         await page.check("#includeCards")
@@ -271,6 +288,7 @@ async def run(args):
         await page.click("#obsSetupBtn")
         await page.fill("#obsPassword", "wrong")
         await page.click("#saveObs")
+        await page.click("#closeObs")
         await page.click("#sendObsBtn")
         await expect(page.locator("#errorBox")).to_contain_text("Неверный пароль OBS WebSocket")
         await expect(page.locator("#errorBox")).to_contain_text("скачать или скопировать")
@@ -345,6 +363,7 @@ async def run(args):
         await expect(dock.locator("#dockLog")).to_contain_text("Подключение к OBS настроено из панели")
         await expect(page.locator("#obsBridgeStatus")).to_contain_text("Всё подключено ✓")
         await page.locator("#obsDialog").screenshot(path=str(output / "obs-connection-phone-config.png"))
+        await page.click("#closeObs")
         await page.check("#includeCards")
         await page.click("#sendObsBtn")
         await expect(page.locator("#toast")).to_contain_text("OBS обновлён: 10 камер, 10 карточек", timeout=15000)
@@ -546,8 +565,7 @@ async def run(args):
         assert "В линии у 3 из" in summary, summary
         assert "• Марафон: 1.42 · 2.70 (откр. 1.48 · 2.50) · был в лайве · Ф1 +1.5 1.30 · Ф2 -1.5 3.10 · ТБ 2.5 2.00 · ТМ 1.75" in summary, summary
         assert "• Фонбет: 1.50 · 2.40 · 76 исходов · LIVE · Ф1 -5.5 1.90 · Ф2 +5.5 1.80" in summary, summary
-        assert "Нет линии: Bettery, 24bet, OLIMPBET" in summary, summary
-        assert "Не удалось проверить: PARI" in summary, summary
+        assert "Не удалось проверить: PARI, Bettery, 24bet, OLIMPBET" in summary, summary
         async with lobby.expect_download() as info:
             await lobby.click("#bookiesCsv")
         download = await info.value

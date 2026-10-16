@@ -32,11 +32,13 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   и событие `oneshot:change` для `live.js` и `lobby.js`; сам их не знает
   (в артефакте Claude их нет).
 - `live.js` — только сайт: вкладки, «Отправить в OBS», «Копировать JSON»,
-  форму «Подключение к OBS» рядом с вето, статус вебок, живое вето в OBS и ссылка на оверлей.
+  вкладку «OBS» (`obsNavBtn` — третья вкладка, `obsView`: форма «Подключение к OBS» и
+  пошаговая инструкция `.obs-manual`), статус вебок, живое вето в OBS и ссылка на оверлей.
   localStorage: `oneshot-obs` (режим, код связи, адрес и пароль OBS),
   `oneshot-view`, `oneshot-watch-cams`, `oneshot-veto-live`,
   `oneshot-veto-channel` (отдельный код показа графики, не код управления OBS).
-  `obsDialog` — раскрываемый `details` с единственной формой подключения;
+  `obsDialog` — секция вкладки «OBS» с единственной формой подключения
+  (`closeObs` — «← К подготовке»);
   оформление формы и подсказок — `assets/obs-connection.css`.
 - `assets/obs-qr.js` — только сайт: локальное чтение QR камерой/из файла,
   парсер native `obsws://host:port/password`, QR связи телефона с доком.
@@ -72,25 +74,35 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   дока: `oneshot-obs-bridge`.
 - `veto.html`, `veto.js`, `veto.css`, `veto-room.js` — сайт вето для
   капитанов (только сайт). Без `#v=` — форма админа (`#new&a=&b=&f=` от
-  кнопки `playerVeto` панели): три ссылки — капитану каждой команды (в ЛС)
-  и зрителям. В ссылке капитана его личный ключ ECDSA P-256; ход
-  засчитывается, только если подписан капитаном, чей сейчас ход
-  (`verifyLog`), кто бы ни переслал журнал. Монетку бросает форма (`c`),
-  победитель выбирает, кто банит первым; после пика сторону выбирает
+  кнопки `playerVeto` панели; список `vtMatch` — матчи из той же таблицы
+  расписания, источник панели из `webcam-desk-source`): три ссылки — капитану
+  каждой команды (в ЛС) и зрителям. Ссылка короткая (~140 символов):
+  `#v=` — base64url байтов: версия 2, место | формат << 2, код комнаты (10),
+  отпечатки ключей A и B (10 + 10), секрет капитана (16, только капитанам),
+  названия команд. Ключ ECDSA P-256 капитана выводится из секрета
+  (`captainKey`, своя арифметика P-256 — `publicPoint`), публичные ключи
+  ходят в сообщениях (`p`) и принимаются только по отпечатку
+  (`acceptKey`). Ход засчитывается, только если подписан капитаном, чей
+  сейчас ход (`verifyLog`), кто бы ни переслал журнал. Монетку бросают
+  капитаны в комнате, когда оба на сайте (сами, без кнопок): A —
+  `commit` (SHA-256 случайной части, она в localStorage
+  `oneshot-veto-coin:<код>`), B — `seed`, A — `reveal`; победитель —
+  `(nonce[0] ^ seed[0]) & 1`; заранее не знает никто, включая админа.
+  Победитель выбирает, кто банит первым; после пика сторону выбирает
   соперник (как в core: `Y CT`). 5 минут — только счётчик от выбора
   порядка, без автоходов (время хода проверяется: настоящая дата, по
   порядку, ±1 мин между устройствами). Связь: каждый капитан публикует свой поток
   VDO.Ninja только с данными и смотрит поток соперника, зрители смотрят
   оба и сами ничего не шлют; ID потоков, пароль и ключ AES-GCM выводятся
   из кода комнаты. «На сайте» — только по сообщениям из потока соперника
-  (поле from не доверяется). Капитаны рассылают журнал целиком каждые
+  (поле from не доверяется). Капитаны рассылают журнал и ключи каждые
   2,5 с; чужой журнал принимается, только если продолжает свой ход в ход
   (`mergeLog`, сравнение по k/v/at, не по подписи). Другой ход на уже
   виденном шаге — конфликт: остаётся первый, всем видно предупреждение.
   Две вкладки одного капитана подписывают по очереди (`navigator.locks` +
   общий журнал в localStorage). localStorage:
   `oneshot-player-veto` (последние ссылки админа),
-  `oneshot-veto-log:<код>`. Логика покрыта `test/veto-room.test.js`,
+  `oneshot-veto-log:<код>`, `oneshot-veto-keys:<код>`, `oneshot-veto-coin:<код>`. Логика покрыта `test/veto-room.test.js`,
   страница — `scripts/qa_veto_site.py` (три отдельных браузера).
 - `bookmakers.js` — без DOM: публичные линии лицензированных БК, где
   есть открытый JSON/HTML без входа и капчи: Фонбет, PARI, Bettery и 24bet
@@ -117,6 +129,9 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   сам ходит в фиксированные адреса линий (из запроса берётся только id),
   зеркала по очереди, линия и лайв отдельно; отдаёт только CyberClash.
   Обёртки: `functions/api/bookmakers.js` (Cloudflare), `server.js`.
+- `assets/bookmaker-transport.js` — ограниченные чтения и WebSocket Upgrade:
+  дедлайн не зависит от поддержки AbortSignal, поздние ответы закрываются.
+  Проверен на зависшем fetch и теле ответа в `test/bookmaker-transport.test.js`.
 - `bookies.js` — только сайт: блок «Наш турнир у букмекеров» во вкладке
   «Лобби» (`bookies`, `bookiesCheck`, `bookiesCopy`, `bookiesCsv`,
   `bookiesTable`, `bookiesStatus`):
@@ -206,7 +221,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   Chromium), VDO.Ninja в них заглушён. `scripts/qa_player_cards.py`
   проверяет все записи подготовленного каталога и 10 CARD-ссылок
   скачанного JSON; `test/photos_test.py` — загрузчик. `scripts/qa_live.py` —
-  8 сценариев сайта: настройка OBS рядом с вето, вкладки, статус вебок, OBS напрямую и через док,
+  8 сценариев сайта: вкладка OBS с инструкцией, вкладки, статус вебок, OBS напрямую и через док,
   копирование JSON, оверлей вето, лобби FACEIT (Sheets, VDO.Ninja,
   obs-websocket и FACEIT подменены, время лобби ускорено).
   `scripts/qa_veto_site.py` — 10 сценариев сайта вето капитанов: ссылки,
@@ -301,7 +316,7 @@ Netlify проверяет локальные фото, докачивает н�
   sourceGid scheduleUrl scheduleGid resetSource copyDialog copyHeading
   closeCopy manualCopy toast
 - id сайта (`live.js`, `lobby.js`, `obs-bridge.js`): viewPrep viewLobby
-  lobbyBadge prepView lobbyView camSummary watchCams camTotal sendObsBtn
+  lobbyBadge prepView lobbyView obsView obsTabDot camSummary watchCams camTotal sendObsBtn
   copyJsonBtn obsNavBtn obsSetupBtn obsDot obsState vetoLive vetoLiveStatus vetoLayout copyOverlay
   obsDialog obsForm closeObs vetoBroadcast overlaySizeHint obsBridgeFields obsDockUrl copyDockUrl obsCode
   newObsCode obsRemotePort obsRemotePassword sendObsConfig obsRemoteResult

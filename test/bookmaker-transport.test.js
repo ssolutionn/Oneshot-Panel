@@ -21,3 +21,12 @@ test('a late HTTP body after a timeout is discarded', {timeout:1000}, async()=>{
 test('WebSocket upgrade deadline holds when fetch ignores AbortSignal', {timeout:1000}, async()=>{
   await assert.rejects(openPublicSocket('https://example.invalid',()=>new Promise(()=>{}),5),/долго/);
 });
+
+test('a late WebSocket upgrade is accepted only to close it', {timeout:1000}, async()=>{
+  let resolve,accepted=false,closed=false;
+  const pending=openPublicSocket('https://example.invalid',()=>new Promise(r=>{resolve=r;}),5);
+  await assert.rejects(pending,/долго/);
+  resolve({status:101,webSocket:{accept(){accepted=true;},close(){closed=true;}}});
+  await new Promise(r=>setTimeout(r,10));
+  assert.ok(accepted&&closed);
+});

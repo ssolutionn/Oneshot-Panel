@@ -36,7 +36,7 @@ export async function openPublicSocket(url,fetchImpl,timeoutMs=18000,headers={})
     const response=await fetchImpl(url,{
       headers:{...headers,Upgrade:'websocket'},signal:controller.signal,redirect:'manual'
     });
-    if(expired){try{response.webSocket?.close();}catch{}cancel(response.body);throw timeoutError();}
+    if(expired){try{response.webSocket?.accept?.();response.webSocket?.close();}catch{}cancel(response.body);throw timeoutError();}
     if(response.status!==101||!response.webSocket){
       cancel(response.body);throw new Error('HTTP '+response.status+' — публичный поток недоступен');
     }

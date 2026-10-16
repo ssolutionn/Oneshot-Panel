@@ -10,7 +10,7 @@ import { readPublicText } from '../../assets/bookmaker-transport.js';
 
 const safeError = error => {
   const message = String(error?.message || '');
-  if (/^HTTP \d{3}$/.test(message) || /^(?:нет связи|долго не отвечает|нет ответа|слишком большой ответ источника|ошибка вызова сетевого клиента)$/.test(message)) return message;
+  if (/^HTTP \d{3}(?: — публичный поток недоступен)?$/.test(message) || /^(?:нет связи|долго не отвечает|нет ответа|слишком большой ответ источника|ошибка вызова сетевого клиента)$/.test(message)) return message;
   if (message.startsWith('Winline:') || /^(?:формат линии изменился|Неизвестный|Неполный|Некорректный|Слишком большой|Формат снимка)/.test(message)) return message;
   return 'не удалось прочитать формат линии';
 };

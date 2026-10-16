@@ -1,14 +1,20 @@
 // The captains' veto room (veto.html) without DOM: links, the signed move
 // log, replay through the panel's veto rules, the coin and the clock.
-// Each captain's link carries their own ECDSA key: a move counts only when
-// the captain whose turn it is signed it, whoever relays the log.
+// A move counts only when the captain whose turn it is signed it (ECDSA
+// P-256), whoever relays the log. A link stays short: a captain's carries a
+// 16-byte secret their key grows from, every link only 10-byte fingerprints
+// of both public keys; the keys themselves come with the captains' messages
+// and are taken only when they match. The coin is tossed in the room by both
+// captains (commit, seed, reveal), so nobody — admin included — knows it first.
 import { VETO_RULES, MAP_POOL, appendVeto, validateVeto, vetoText } from './core.js';
 
 export const VETO_MINUTES = 5;
-const enc = new TextEncoder();
-const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const enc = new TextEncoder(), dec = new TextDecoder('utf-8', { fatal: true });
 const SIGN = { name: 'ECDSA', hash: 'SHA-256' };
 const CURVE = { name: 'ECDSA', namedCurve: 'P-256' };
+const FORMATS = ['BO1', 'BO2', 'BO3', 'BO5'];
+const SEATS = ['a', 'b', 's'];
+const VERSION = 2, ROOM_BYTES = 10, PRINT_BYTES = 10, SEED_BYTES = 16, NAME_BYTES = 60;
 
 function b64url(bytes) {
   let text = '';
@@ -23,49 +29,125 @@ function hex(bytes) {
   return [...new Uint8Array(bytes)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 const random = n => crypto.getRandomValues(new Uint8Array(n));
+const sha256 = async text => new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(text)));
+const b64 = n => new RegExp(`^[A-Za-z0-9_-]{${Math.ceil(n * 4 / 3)}}$`);
 
-// Link payload: #v=<base64url JSON>. r room code, t teams, f format, c coin
-// winner (0/1), p public keys [[x, y], [x, y]], me 'a' | 'b' | 's', k the
-// captain's private key (captains only).
-export function encodeLink(base, payload) {
+// ---- P-256: a public key from a private scalar (WebCrypto cannot) ----
+const P = 0xffffffff00000001000000000000000000000000ffffffffffffffffffffffffn;
+const N = 0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551n;
+const G = [0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296n,
+  0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5n, 1n];
+const mod = a => ((a % P) + P) % P;
+function inverse(a) {
+  let [r0, r1, s0, s1] = [mod(a), P, 1n, 0n];
+  while (r1) { const q = r0 / r1; [r0, r1] = [r1, r0 - q * r1]; [s0, s1] = [s1, s0 - q * s1]; }
+  return mod(s0);
+}
+// Jacobian coordinates; null is the point at infinity (a = -3 doubling).
+function double(pt) {
+  if (!pt || pt[1] === 0n) return null;
+  const [x, y, z] = pt;
+  const delta = mod(z * z), gamma = mod(y * y), beta = mod(x * gamma);
+  const alpha = mod(3n * (x - delta) * (x + delta));
+  const x3 = mod(alpha * alpha - 8n * beta);
+  const z3 = mod((y + z) * (y + z) - gamma - delta);
+  const y3 = mod(alpha * (4n * beta - x3) - 8n * gamma * gamma);
+  return [x3, y3, z3];
+}
+function add(p1, p2) {
+  if (!p1) return p2;
+  if (!p2) return p1;
+  const [x1, y1, z1] = p1, [x2, y2, z2] = p2;
+  const z1z1 = mod(z1 * z1), z2z2 = mod(z2 * z2);
+  const u1 = mod(x1 * z2z2), u2 = mod(x2 * z1z1);
+  const s1 = mod(y1 * z2 * z2z2), s2 = mod(y2 * z1 * z1z1);
+  const h = mod(u2 - u1), r = mod(2n * (s2 - s1));
+  if (h === 0n) return r === 0n ? double(p1) : null;
+  const i = mod(4n * h * h), j = mod(h * i), v = mod(u1 * i);
+  const x3 = mod(r * r - j - 2n * v);
+  const y3 = mod(r * (v - x3) - 2n * s1 * j);
+  const z3 = mod(((z1 + z2) * (z1 + z2) - z1z1 - z2z2) * h);
+  return [x3, y3, z3];
+}
+export function publicPoint(d) {
+  let point = null;
+  for (let bit = 255n; bit >= 0n; bit--) {
+    point = double(point);
+    if ((d >> bit) & 1n) point = add(point, G);
+  }
+  const zi = inverse(point[2]), zi2 = mod(zi * zi);
+  return [mod(point[0] * zi2), mod(point[1] * zi2 * zi)];
+}
+const bytes32 = n => Uint8Array.from({ length: 32 }, (_, i) => Number((n >> BigInt(8 * (31 - i))) & 0xffn));
+
+// The captain's key from the secret in their link, bound to the room and seat.
+async function keyFromSecret(room, team, secret) {
+  const digest = await sha256(['oneshot-veto-key-v2', room.r, team, secret].join('|'));
+  const d = BigInt('0x' + hex(digest)) % (N - 1n) + 1n;
+  const [x, y] = publicPoint(d);
+  return { d: b64url(bytes32(d)), x: b64url(bytes32(x)), y: b64url(bytes32(y)) };
+}
+export async function fingerprint([x, y]) {
+  return b64url((await sha256(`oneshot-veto-fp|${x}|${y}`)).slice(0, PRINT_BYTES));
+}
+
+// ---- Links: #v=<base64url bytes> ----
+// version, seat | format << 2, room (10), fingerprints A and B (10 + 10),
+// the captain's secret (16, captains only), then the team names (UTF-8):
+// the length of the first, the first, the second.
+export function encodeLink(base, room) {
+  const names = room.t.map(t => enc.encode(t));
+  const me = SEATS.indexOf(room.me);
+  const parts = [[VERSION, me | FORMATS.indexOf(room.f) << 2], unb64url(room.r),
+    ...room.fp.map(unb64url), me < 2 ? unb64url(room.k) : [], [names[0].length], names[0], names[1]];
+  const bytes = new Uint8Array(parts.reduce((n, part) => n + part.length, 0));
+  let at = 0;
+  for (const part of parts) { bytes.set(part, at); at += part.length; }
   const url = new URL(base);
-  url.hash = 'v=' + b64url(enc.encode(JSON.stringify(payload)));
+  url.hash = 'v=' + b64url(bytes);
   return url.href;
 }
 export function decodeLink(hash) {
   const match = /(?:^#?|&)v=([A-Za-z0-9_-]+)/.exec(String(hash || ''));
   if (!match) return null;
-  let room;
-  try { room = JSON.parse(new TextDecoder().decode(unb64url(match[1]))); } catch { return null; }
-  const key = v => typeof v === 'string' && /^[A-Za-z0-9_-]{43}$/.test(v);
-  if (!room || typeof room.r !== 'string' || !/^[A-Z2-9]{16}$/.test(room.r) ||
-      !Array.isArray(room.t) || room.t.length !== 2 || !room.t.every(t => typeof t === 'string' && t.trim()) ||
-      room.t[0] === room.t[1] || !Object.hasOwn(VETO_RULES, room.f) || ![0, 1].includes(room.c) ||
-      !['a', 'b', 's'].includes(room.me) || !Array.isArray(room.p) || room.p.length !== 2 ||
-      !room.p.every(p => Array.isArray(p) && p.length === 2 && p.every(key)) ||
-      (room.me !== 's' && !key(room.k))) return null;
-  return room;
+  try {
+    const bytes = unb64url(match[1]);
+    const me = SEATS[bytes[1] & 3], f = FORMATS[bytes[1] >> 2];
+    if (bytes[0] !== VERSION || !me || !f) return null;
+    let at = 2;
+    const take = n => {
+      if (at + n > bytes.length) throw new Error('short');
+      return bytes.slice(at, at += n);
+    };
+    const r = b64url(take(ROOM_BYTES));
+    const fp = [b64url(take(PRINT_BYTES)), b64url(take(PRINT_BYTES))];
+    const k = me === 's' ? undefined : b64url(take(SEED_BYTES));
+    const first = take(1)[0];
+    const t = [dec.decode(take(first)), dec.decode(bytes.slice(at))].map(name => name.trim());
+    if (!t[0] || !t[1] || t[0] === t[1] || t.some(name => enc.encode(name).length > NAME_BYTES)) return null;
+    return { v: VERSION, r, t, f, me, fp, k, p: [null, null] };
+  } catch { return null; }
 }
 export const seat = room => room.me === 'a' ? 0 : room.me === 'b' ? 1 : null;
 
 // A new room: three links (captain of teams[0], of teams[1], spectators).
-// The coin is tossed here, once, so nobody can re-roll it on the page.
-export async function createRoom(base, teams, format, coin = random(1)[0] % 2) {
+export async function createRoom(base, teams, format) {
   const names = teams.map(t => String(t || '').trim());
   if (!names[0] || !names[1] || names[0] === names[1]) throw new Error('Нужны две разные команды.');
-  if (!Object.hasOwn(VETO_RULES, format)) throw new Error('Неизвестный формат вето.');
-  const r = [...random(16)].map(b => ALPHABET[b % 32]).join('');
-  const keys = [];
-  for (let i = 0; i < 2; i++) {
-    const pair = await crypto.subtle.generateKey(CURVE, true, ['sign', 'verify']);
-    keys.push(await crypto.subtle.exportKey('jwk', pair.privateKey));
+  if (names.some(name => enc.encode(name).length > NAME_BYTES)) throw new Error('Слишком длинное название команды.');
+  if (!FORMATS.includes(format)) throw new Error('Неизвестный формат вето.');
+  const room = { v: VERSION, r: b64url(random(ROOM_BYTES)), t: names, f: format, fp: [], p: [] };
+  const secrets = [b64url(random(SEED_BYTES)), b64url(random(SEED_BYTES))];
+  for (const team of [0, 1]) {
+    const key = await keyFromSecret(room, team, secrets[team]);
+    room.p[team] = [key.x, key.y];
+    room.fp[team] = await fingerprint(room.p[team]);
   }
-  const room = { r, t: names, f: format, c: coin, p: keys.map(k => [k.x, k.y]) };
   return {
     room,
     links: {
-      a: encodeLink(base, { ...room, me: 'a', k: keys[0].d }),
-      b: encodeLink(base, { ...room, me: 'b', k: keys[1].d }),
+      a: encodeLink(base, { ...room, me: 'a', k: secrets[0] }),
+      b: encodeLink(base, { ...room, me: 'b', k: secrets[1] }),
       s: encodeLink(base, { ...room, me: 's' })
     }
   };
@@ -85,8 +167,27 @@ export async function roomSecrets(room) {
   };
 }
 
+// The captain's signing key; throws when the secret does not fit the link
+// (a damaged copy): its moves would be refused by everyone.
+export async function captainKey(room) {
+  const team = seat(room);
+  if (team === null) return null;
+  const key = await keyFromSecret(room, team, room.k);
+  if (await fingerprint([key.x, key.y]) !== room.fp[team]) throw new Error('Ключ капитана не подходит к ссылке.');
+  room.p[team] = [key.x, key.y];
+  return crypto.subtle.importKey('jwk', { kty: 'EC', crv: 'P-256', ...key, ext: true }, CURVE, false, ['sign']);
+}
+// A public key from a message: taken only when it matches the link.
+export async function acceptKey(room, team, key) {
+  if (room.p[team]) return room.p[team][0] === key?.[0] && room.p[team][1] === key?.[1];
+  if (!Array.isArray(key) || key.length !== 2 || !key.every(c => typeof c === 'string' && b64(32).test(c))) return false;
+  if (await fingerprint(key) !== room.fp[team]) return false;
+  room.p[team] = [key[0], key[1]];
+  return true;
+}
 const keyCache = new Map();
 function publicKey(room, team) {
+  if (!room.p[team]) return Promise.reject(new Error('Ключ ещё не пришёл.'));
   const [x, y] = room.p[team];
   const id = x + y;
   if (!keyCache.has(id)) {
@@ -95,37 +196,24 @@ function publicKey(room, team) {
   }
   return keyCache.get(id);
 }
-export function privateKey(room) {
-  const team = seat(room);
-  if (team === null) return null;
-  const [x, y] = room.p[team];
-  return crypto.subtle.importKey('jwk', { kty: 'EC', crv: 'P-256', x, y, d: room.k, ext: true },
-    CURVE, false, ['sign']);
+
+// ---- The coin: A commits to a hidden nonce, B adds a seed, A reveals ----
+export const coinNonce = () => b64url(random(16));
+export async function coinCommit(room, nonce) {
+  return b64url(await sha256(`oneshot-veto-coin|${room.r}|${nonce}`));
 }
 
-// Does the captain's private key belong to their public key? Some browsers
-// (WebKit) import a damaged key without complaint; its moves would then be
-// refused by everyone, so the page checks it once on load.
-export async function keyMatches(room, key) {
-  const team = seat(room);
-  if (team === null || !key) return false;
-  const probe = enc.encode('oneshot-veto-key:' + room.r);
-  try {
-    const signature = await crypto.subtle.sign(SIGN, key, probe);
-    return await crypto.subtle.verify(SIGN, await publicKey(room, team), signature, probe);
-  } catch { return false; }
-}
-
-// Entry: { k: 'order' | 'ban' | 'pick' | 'side', v, at, s }. The signature
-// covers the room, the place in the log and the previous signature.
+// Entry: { k: 'commit' | 'seed' | 'reveal' | 'order' | 'ban' | 'pick' | 'side',
+// v, at, s }. The signature covers the room, the place in the log and the
+// previous signature.
 function signed(room, index, prev, entry) {
-  return enc.encode(['oneshot-veto-v1', room.r, index, prev, entry.k, entry.v, entry.at].join('|'));
+  return enc.encode(['oneshot-veto-v2', room.r, index, prev, entry.k, entry.v, entry.at].join('|'));
 }
 
 // What the log means. Throws on the first entry that breaks the rules
-// (signatures are checked by verifyLog).
+// (signatures and the coin's commitment are checked by verifyLog).
 export function replay(room, log) {
-  const state = { first: null, actions: [], pending: null, startedAt: null };
+  const state = { commit: null, seed: null, coin: null, first: null, actions: [], pending: null, startedAt: null };
   let prevAt = null;
   for (const entry of log) {
     const turn = nextTurn(room, state);
@@ -137,7 +225,14 @@ export function replay(room, log) {
       throw new Error('Неверное время хода.');
     }
     prevAt = entry.at;
-    if (entry.k === 'order') {
+    if (entry.k === 'commit') {
+      if (!b64(32).test(entry.v)) throw new Error('Неверная монетка.');
+      state.commit = entry.v;
+    } else if (entry.k === 'seed' || entry.k === 'reveal') {
+      if (!b64(16).test(entry.v)) throw new Error('Неверная монетка.');
+      if (entry.k === 'seed') state.seed = entry.v;
+      else state.coin = (unb64url(entry.v)[0] ^ unb64url(state.seed)[0]) & 1;
+    } else if (entry.k === 'order') {
       if (!['0', '1'].includes(entry.v)) throw new Error('Неверный выбор порядка.');
       state.first = Number(entry.v);
       state.startedAt = entry.at;
@@ -154,23 +249,27 @@ export function replay(room, log) {
   }
   return state;
 }
-// Whose move it is and what kind: order (coin winner), ban, pick, side
-// (the opponent of the pick), or done.
+// Whose move it is and what kind: the coin (commit by A, seed by B, reveal
+// by A), order (coin winner), ban, pick, side (the opponent of the pick), done.
 export function nextTurn(room, state) {
-  if (state.first === null) return { kind: 'order', team: room.c };
+  if (state.commit === null) return { kind: 'commit', team: 0 };
+  if (state.seed === null) return { kind: 'seed', team: 1 };
+  if (state.coin === null) return { kind: 'reveal', team: 0 };
+  if (state.first === null) return { kind: 'order', team: state.coin };
   if (state.pending) return { kind: 'side', team: 1 - state.pending.team };
   const index = state.actions.length;
   const kind = VETO_RULES[room.f][index];
   if (!kind) return { kind: 'done', team: null };
   return { kind, team: (state.first + index) % 2 };
 }
+export const COIN_MOVES = ['commit', 'seed', 'reveal'];
 
-// The longest valid prefix of a log: rules and signatures.
+// The longest valid prefix of a log: rules, the coin and signatures.
 export async function verifyLog(room, log, checked = new Set()) {
   const good = [];
   if (!Array.isArray(log)) return good;
   let prev = '';
-  for (const entry of log.slice(0, 16)) {
+  for (const entry of log.slice(0, 32)) {
     if (!entry || typeof entry !== 'object' || typeof entry.s !== 'string' ||
         typeof entry.v !== 'string' || !Number.isFinite(entry.at)) break;
     let state;
@@ -178,6 +277,7 @@ export async function verifyLog(room, log, checked = new Set()) {
     const turn = nextTurn(room, state);
     if (turn.kind === 'done' || entry.k !== turn.kind) break;
     try { replay(room, [...good, entry]); } catch { break; }
+    if (entry.k === 'reveal' && await coinCommit(room, entry.v) !== state.commit) break;
     const id = [good.length, prev, entry.k, entry.v, entry.at, entry.s].join('|');
     if (!checked.has(id)) {
       let ok = false;
@@ -196,10 +296,12 @@ export async function verifyLog(room, log, checked = new Set()) {
 
 // Signs the next move of this captain; throws if it is not their move.
 export async function signMove(room, log, key, kind, value, at = Date.now()) {
-  const turn = nextTurn(room, replay(room, log));
+  const state = replay(room, log);
+  const turn = nextTurn(room, state);
   if (turn.kind !== kind || turn.team !== seat(room)) throw new Error('Сейчас не твой ход.');
   const entry = { k: kind, v: String(value), at: Math.round(at) };
   replay(room, [...log, entry]);
+  if (kind === 'reveal' && await coinCommit(room, entry.v) !== state.commit) throw new Error('Монетка не сходится.');
   const prev = log.length ? log[log.length - 1].s : '';
   entry.s = b64url(await crypto.subtle.sign(SIGN, key, signed(room, log.length, prev, entry)));
   return [...log, entry];
@@ -250,7 +352,7 @@ export function resultText(room, state) {
 }
 // The panel's veto snapshot (actions, first) for importing the result.
 export function panelVeto(room, state) {
-  return { format: room.f, first: state.first ?? room.c, actions: state.actions, pending: state.pending };
+  return { format: room.f, first: state.first ?? state.coin ?? 0, actions: state.actions, pending: state.pending };
 }
 
 // Discord message for one captain. Their link is personal: whoever has it
@@ -261,7 +363,7 @@ export function captainMessage(room, team, link) {
     `Капитан **${room.t[team]}**, это твоя личная ссылка на вето:`,
     link,
     '',
-    '• Монетку сайт уже подбросил: результат покажет, когда оба капитана зайдут. Победитель решает, кто банит первым.',
+    '• Монетку бросите на сайте, когда оба капитана зайдут: каждый добавляет свою случайную часть, заранее результат не знает никто. Победитель решает, кто банит первым.',
     `• На всё вето ${VETO_MINUTES} минут.`,
     '• Ссылку никому не пересылай: по ней можно ходить за твою команду.'
   ].join('\n');
