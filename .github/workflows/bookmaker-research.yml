@@ -9,32 +9,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Verify native public sport event list contract
+      - name: Verify complete Sportbet tables for CS2 and capture representative event schema
         run: |
           python3 - <<'PY'
-          import json,re
+          import json
           from urllib.request import Request,urlopen
           from concurrent.futures import ThreadPoolExecutor
           targets=[
-           ("206","https://sportbet.ru/_next/static/chunks/206-b5c0931a74f0699d.js"),
-           ("5537","https://sportbet.ru/_next/static/chunks/5537-3ace912e499f8100.js"),
-           ("sports-live","https://bthm-server.sportbet.ru/sports?status=live&lang=ru"),
-           ("events-upcoming","https://bthm-server.sportbet.ru/events.upcoming?lang=ru"),
-           ("public-baltbet","https://events.baltbet.ru/api/prematch/sport/25/events?offset=all")
+           ("cs2-line","https://bthm-server.sportbet.ru/events.table?lang=ru&status=prematch&sport=esport-counter-strike"),
+           ("cs2-live","https://bthm-server.sportbet.ru/events.table?lang=ru&status=live&sport=esport-counter-strike"),
+           ("dota-line","https://bthm-server.sportbet.ru/events.table?lang=ru&status=prematch&sport=esport-dota"),
+           ("dota-live","https://bthm-server.sportbet.ru/events.table?lang=ru&status=live&sport=esport-dota")
           ]
           def read(pair):
            label,url=pair
            try:
-            with urlopen(Request(url,headers={"User-Agent":"Mozilla/5.0","Accept":"application/json,*/*"}),timeout=15) as r:text=r.read(4000000).decode("utf8","replace");status=r.status
-            d={"provider":label,"status":status,"size":len(text)}
-            if label in ("206","5537"):
-             d["excerpts"]=[text[max(0,m.start()-400):m.end()+1000] for m in list(re.finditer(r'["\x27\x60]events|["\x27\x60]sports|sportIds|sport_id|sportId|statuses|leagues',text))[:35]]
-            elif label=="public-baltbet":d["leagues"]=len(json.loads(text).get("leagues",[]))
-            else:
-             obj=json.loads(text);obj.pop("uuid",None)
-             d["body"]=obj if label=="sports-live" else {"keys":list(obj.keys()),"dataKeys":list(obj.get("data",{}).keys()) if isinstance(obj.get("data"),dict) else None,"sample":str(obj.get("data"))[:15000]}
-            print("SPORTBET_CONTRACT:",json.dumps(d,ensure_ascii=False),flush=True)
-           except Exception as e:print("SPORTBET_CONTRACT:",json.dumps({"provider":label,"error":str(e)[:100]}),flush=True)
-          with ThreadPoolExecutor(max_workers=5) as pool:list(pool.map(read,targets))
+            with urlopen(Request(url,headers={"User-Agent":"Mozilla/5.0","Accept":"application/json"}),timeout=16) as r:obj=json.load(r);status=r.status
+            obj.pop("uuid",None)
+            text=json.dumps(obj,ensure_ascii=False)
+            print("SPORTBET_TABLE:",json.dumps({"provider":label,"url":url,"status":status,"size":len(text),"body":obj},ensure_ascii=False)[:110000],flush=True)
+           except Exception as e:print("SPORTBET_TABLE:",json.dumps({"provider":label,"error":str(e)[:100]}),flush=True)
+          with ThreadPoolExecutor(max_workers=4) as pool:list(pool.map(read,targets))
           
           PY
