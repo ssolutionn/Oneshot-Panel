@@ -2,7 +2,7 @@
 // match to OBS (directly or through the OBS dock), copying the JSON, webcam
 // status from VDO.Ninja and the live veto overlay. app.js keeps working
 // without this file (the Claude artifact has none of it).
-import { buildObs, DEFAULT_CARD_BASE, teamHltv } from './core.js';
+import { buildObs, DEFAULT_CARD_BASE } from './core.js';
 import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto } from './obs.js';
 import { VdoLink, CamWatch, bridgeSecrets, newBridgeCode, normalizeCode } from './vdo.js';
 import { mountQrReader, parseObsQr, parsePairingQr } from './assets/obs-qr.js';
@@ -23,7 +23,7 @@ const cardBase = () => /^https?:$/.test(location.protocol) ? location.origin : D
 
 // ---------- tabs ----------
 const views = [['prep', 'viewPrep', 'prepView'], ['veto', 'vetoNavBtn', 'vetoView'], ['lobby', 'viewLobby', 'lobbyView'],
-  ['obs', 'obsNavBtn', 'obsView']];
+  ['bookies', 'bookiesNavBtn', 'bookiesView'], ['obs', 'obsNavBtn', 'obsView']];
 // On the site the panel's veto has a tab of its own, under the captains' room
 // (the Claude artifact keeps it on the one page).
 $('cvLive').after($('veto'));
@@ -626,7 +626,6 @@ function onChange() {
   sendVeto();
   playerVetoLink(s);
   captainVeto(s);
-  paintHltv(s);
   followRoom();
   syncPanel(true);
 }
@@ -751,6 +750,8 @@ function followRoom() {
     if (target) {
       const stored = read(WATCH_STORE) || {};
       watch.answered = new Set(stored.calls?.r === target.room.r ? stored.calls.ids : []);
+      // «Переносить» stays as it was set for this room (after a reset, off).
+      $('cvSync').checked = stored.syncOff !== target.room.r;
       const live = new RoomWatch(target.room, {
         saved: stored.log,
         onChange: () => { if (live === watch.live) roomChanged(); },
@@ -832,33 +833,6 @@ setInterval(() => {
 }, 1000);
 
 const setText = (el, text) => { if (el.textContent !== text) el.textContent = text; };
-// The teams' HLTV pages (assets/teams/hltv.json): under the panel's veto for
-// the selected match and beside the captains in the room.
-let hltvPages = null;
-fetch('/assets/teams/hltv.json').then(r => r.ok ? r.json() : null).catch(() => null).then(pages => {
-  hltvPages = pages;
-  paintHltv(panel.snapshot());
-  paintWatch();
-});
-function hltvLink(link, team) {
-  const url = teamHltv(hltvPages, team);
-  link.hidden = !url;
-  if (url && link.href !== url) link.href = url;
-  link.title = url ? `${team} · HLTV` : '';
-  return url;
-}
-function paintHltv(s) {
-  const names = [s.a?.name, s.b?.name].filter(Boolean);
-  const links = names.map(name => {
-    const a = Object.assign(document.createElement('a'), { target: '_blank', rel: 'noreferrer', textContent: `${name} ↗` });
-    return hltvLink(a, name) ? a : null;
-  }).filter(Boolean);
-  const key = links.map(a => a.href).join(' ');
-  if ($('vetoHltv').dataset.key === key) return;
-  $('vetoHltv').dataset.key = key;
-  $('vetoHltv').replaceChildren(...(links.length ? ['HLTV: ', ...links.flatMap((a, i) => i ? [' · ', a] : [a])] : []));
-  $('vetoHltv').hidden = !links.length;
-}
 function moveText(names, move) {
   if (move.kind === 'coin') return `Монетка — ${names[move.team]}`;
   if (move.kind === 'order') return `${names[move.team]}: первыми банят ${names[Number(move.value)]}`;
@@ -892,7 +866,6 @@ function paintWatch() {
     card.classList.toggle('is-turn', turn.team === team && state.coin !== null);
     setText(card.querySelector('b'), names[team]);
     setText(card.querySelector('span'), online[team] ? 'online' : 'offline');
-    hltvLink(card.querySelector('.cv-hltv'), names[team]);
   }
   const done = turn.kind === 'done';
   $('cvLiveState').dataset.state = done ? 'done' : online.some(Boolean) ? 'live' : 'wait';
@@ -940,10 +913,49 @@ function paintWatch() {
   $('cvCopyResult').hidden = !done;
 }
 setInterval(() => { if (watch.live) paintWatch(); }, 1000);
+const saveSync = () => watchSave({ syncOff: $('cvSync').checked ? null : watch.live?.room.r || null });
 $('cvSync').addEventListener('change', () => {
+  saveSync();
   watch.synced = '';
   syncPanel();
   paintWatch();
+});
+const sameMatch = (room, s) => !!roomToPanel(room, { first: 0, actions: [], pending: null }, [s.a?.name, s.b?.name]);
+// «Сбросить вето» in the panel while the room's moves are carried over: the
+// room would bring them back, so carrying stops (until ticked again).
+$('vetoReset').addEventListener('click', () => {
+  const s = panel.snapshot(), live = watch.live;
+  if (!live || !$('cvSync').checked || s.veto.actions.length || s.pending || !sameMatch(live.room, s)) return;
+  $('cvSync').checked = false;
+  saveSync();
+  paintWatch();
+  panel.toast('Вето панели сброшено, ходы комнаты капитанов больше не переносятся. Новое вето капитанов — «↺ Начать вето заново».');
+});
+// A test or broken veto: a new room for the same teams, format and timer on
+// the same veto site, new links for the captains, the panel's veto from zero.
+// The captains' moves can't be undone, so the old room is simply left.
+$('cvRestart').addEventListener('click', async () => {
+  const live = watch.live;
+  if (!live) return;
+  const { room } = live;
+  if (!confirm(`Начать вето ${room.t[0]} vs ${room.t[1]} заново?\n\nБудут новые ссылки — их нужно снова отправить капитанам. ` +
+    'Старые ссылки панель больше не смотрит.')) return;
+  $('cvRestart').disabled = true;
+  try {
+    const site = new URL(watch.adminLink);
+    const made = await createRoom(site.origin + site.pathname, room.t, room.f, room.m ?? 5);
+    const s = panel.snapshot();
+    cvSave({ match: JSON.stringify(room.t), at: Date.now(), room: made.room, links: made.links });
+    watchSave({ pasted: null, syncOff: null });
+    if (sameMatch(room, s)) panel.setVeto({ format: room.f, first: s.veto.first, actions: [], pending: null });
+    cv.made = null;
+    captainVeto(panel.snapshot());
+    followRoom();
+    if (!$('cvLinks').hidden) $('captainVeto').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    panel.toast('Новые ссылки готовы — отправь их капитанам. Вето панели с нуля.');
+  } catch (error) {
+    panel.toast(error.message);
+  } finally { $('cvRestart').disabled = false; }
 });
 $('cvCopyResult').addEventListener('click', () => {
   const live = watch.live;

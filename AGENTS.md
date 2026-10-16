@@ -7,7 +7,8 @@ Oneshot Panel — статическая веб-панель эфирной ко
 комната вето капитанов, вето карт BO1/2/3/5 с текстом для HLTV и оверлеем,
 ссылки капитанам (в артефакте Claude вето остаётся на одной странице).
 «Лобби»: турнир FACEIT, оповещения о концах карт и матчей, тексты для
-Discord, журнал пауз, букмекеры. «OBS»: подключение и инструкция.
+Discord, журнал пауз. «Букмекеры»: наш турнир в линиях контор. «OBS»:
+подключение и инструкция.
 Подробности для людей — в README.md.
 
 ## Карта файлов
@@ -147,14 +148,18 @@ Discord, журнал пауз, букмекеры. «OBS»: подключен�
   админская ссылка: два скрытых view-iframe VDO.Ninja на потоки капитанов,
   только слушает. Кто online (по потоку, не по from), монетка, ходы со
   временем, таймер, «Позвать админа» (баннер `cvAlert`, звук, бейдж
-  `vetoBadge`, мигающий title, уведомление браузера, если разрешено),
-  HLTV команд (`assets/teams/hltv.json`: `cv-hltv` у капитанов и
-  `vetoHltv` под статусом вето панели). Галочка `cvSync`: каждый новый
-  ход капитанов → `window.oneshotPanel.setVeto` (в порядке команд панели,
-  ⇄ учитывается; другой матч — не переносится) → вето панели и оверлей.
-  Ручная правка в панели держится до следующего хода. localStorage
-  `oneshot-veto-watch` (вставленная комната, проверенный журнал, отвеченные
-  вызовы).
+  `vetoBadge`, мигающий title, уведомление браузера, если разрешено).
+  HLTV в панели нет — ссылки HLTV для игроков на сайте вето. Галочка
+  `cvSync`: каждый новый ход капитанов → `window.oneshotPanel.setVeto` (в
+  порядке команд панели, ⇄ учитывается; другой матч — не переносится) →
+  вето панели и оверлей. Ручная правка в панели держится до следующего
+  хода; «Сбросить вето» панели снимает `cvSync` (иначе комната вернёт
+  ходы). Состояние галочки запоминается для комнаты (`syncOff`).
+  `cvRestart` «↺ Начать вето заново» — новая комната с теми же командами,
+  форматом, таймером и сайтом, новые ссылки (`captainVeto`), вето панели с
+  нуля: ходы капитанов не отменяются, старая комната просто брошена.
+  localStorage `oneshot-veto-watch` (вставленная комната, проверенный
+  журнал, отвеченные вызовы, `syncOff`).
 - `veto-watch.js` — `RoomWatch` (проверка подписей и `mergeLog` из
   `veto-room.js`, присутствие, вызовы; транспорт подменяется в тестах),
   `adminRoom`, `roomToPanel`, `roomMoves`. Покрыт `test/veto-watch.test.js`.
@@ -186,8 +191,8 @@ Discord, журнал пауз, букмекеры. «OBS»: подключен�
 - `assets/bookmaker-transport.js` — ограниченные чтения и WebSocket Upgrade:
   дедлайн не зависит от поддержки AbortSignal, поздние ответы закрываются.
   Проверен на зависшем fetch и теле ответа в `test/bookmaker-transport.test.js`.
-- `bookies.js` — только сайт: блок «Наш турнир у букмекеров» во вкладке
-  «Лобби» (`bookies`, `bookiesCheck`, `bookiesCopy`, `bookiesCsv`,
+- `bookies.js` — только сайт: блок «Наш турнир у букмекеров» в своей вкладке
+  «Букмекеры» (`bookiesNavBtn`, `bookiesView`; `bookies`, `bookiesCheck`, `bookiesCopy`, `bookiesCsv`,
   `bookiesTable`, `bookiesStatus`):
   раз в минуту, с возобновлением после скрытия вкладки/потери сети; строки — все 16 лицензированных БК (автоматические и
   `MANUAL` со ссылкой), столбцы — матчи ближайшего дня; кэфы текстом, ссылка
@@ -375,9 +380,9 @@ Netlify проверяет локальные фото, докачивает н�
   sourceGid scheduleUrl scheduleGid resetSource copyDialog copyHeading
   closeCopy manualCopy toast
 - id сайта (`live.js`, `lobby.js`, `obs-bridge.js`): viewPrep viewLobby
-  vetoNavBtn vetoBadge vetoView vetoHltv cvLive cvLiveState cvAlert cvAlertText
+  vetoNavBtn vetoBadge vetoView bookiesNavBtn bookiesView cvLive cvLiveState cvAlert cvAlertText
   cvAlertOk cvLiveEmpty cvRoom cvTeam0 cvTeam1 cvClock cvStage cvMoves
-  cvCopyResult cvSync cvSyncNote cvWatchMore cvWatchLink cvWatchGo cvWatchStop cvAdminOpen
+  cvCopyResult cvRestart cvSync cvSyncNote cvWatchMore cvWatchLink cvWatchGo cvWatchStop cvAdminOpen
   lobbyBadge prepView lobbyView obsView obsTabDot camSummary watchCams camTotal sendObsBtn
   copyJsonBtn obsNavBtn obsSetupBtn obsDot obsState vetoLive vetoLiveStatus vetoLayout copyOverlay
   obsDialog obsForm closeObs vetoBroadcast overlaySizeHint obsBridgeFields obsDockUrl copyDockUrl obsCode

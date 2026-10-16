@@ -331,11 +331,6 @@ body:has(.view-tabs) #prepView > #veto { display:none; }
 .cv-team[data-online=yes] span { color:var(--success-ink); }
 .cv-team.is-turn { border-color:var(--red); box-shadow:inset 3px 0 0 var(--red); }
 .cv-vs { color:var(--muted); font-size:11px; font-weight:700; }
-.cv-hltv { color:var(--red); font-size:11px; font-weight:700; text-decoration:none; white-space:nowrap; }
-.cv-hltv:hover { text-decoration:underline; }
-.veto-hltv { margin:0; padding:8px 16px; border-bottom:1px solid var(--divider); color:var(--muted); font-size:12px; }
-.veto-hltv a { color:var(--red); font-weight:700; text-decoration:none; }
-.veto-hltv a:hover { text-decoration:underline; }
 .cv-clock { margin-left:auto; padding:6px 10px; border-radius:6px; background:var(--soft); color:var(--ink); font-size:15px; font-weight:700; font-variant-numeric:tabular-nums; }
 .cv-clock[data-state=low] { background:var(--accent-soft); color:var(--red); }
 .cv-clock[data-state=done] { font-size:12px; color:var(--muted); }
@@ -502,7 +497,7 @@ body.dock { background:var(--bg); font-size:12px; }
   .veto-overlay-bar { padding:8px 12px; }
   .cv-settings { grid-template-columns:minmax(0,1fr) minmax(0,1fr); padding:0 12px 12px; } .cv-settings .button { grid-column:1/-1; }
   .cv-links { grid-template-columns:minmax(0,1fr); padding:0 12px 12px; } .cv-intro,.cv-status { margin-left:12px; margin-right:12px; }
-  .cv-room { padding:0 12px 12px; } .veto-hltv { padding:8px 12px; } .cv-alert { margin-left:12px; margin-right:12px; } .cv-watch { padding:0 12px 12px; } .cv-watch-more > summary { padding:10px 12px; } .cv-clock { margin-left:0; }
+  .cv-room { padding:0 12px 12px; } .cv-alert { margin-left:12px; margin-right:12px; } .cv-watch { padding:0 12px 12px; } .cv-watch-more > summary { padding:10px 12px; } .cv-clock { margin-left:0; }
   .lobby-form { grid-template-columns:minmax(0,1fr); padding:0 12px 12px; }
   .lobby-status { padding:10px 12px; } .lobby-panel .error-box { margin:0 12px 12px; }
   .lobby-matches { grid-template-columns:minmax(0,1fr); }
@@ -613,7 +608,6 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
       </div>
       <p class="veto-status" id="vetoStatus" role="status" aria-live="polite">Выбери две разные команды.</p>
       
-      
       <div id="sideChoice" class="side-choice" hidden>
         <strong id="sideLabel"></strong>
         <button id="chooseCT" class="button dark">CT</button>
@@ -657,6 +651,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
 
     </div>
 
+    
     
     
     

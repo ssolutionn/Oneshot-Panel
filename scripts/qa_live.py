@@ -240,7 +240,10 @@ async def run(args):
         await expect(guide).to_contain_text("Поменял игрока, ID или порядок")
         await page.focus("#obsNavBtn")
         await page.keyboard.press("ArrowLeft")
+        await expect(page.locator("#bookiesView #bookies")).to_be_visible()
+        await page.keyboard.press("ArrowLeft")
         await expect(page.locator("#lobbyView")).to_be_visible()
+        assert await page.locator("#lobbyView #bookies").count() == 0, "bookmakers have a tab of their own"
         await page.keyboard.press("End")
         await expect(page.locator("#obsView")).to_be_visible()
         passed("tabs, keyboard switching, OBS tab with a step-by-step guide, webcam status 8/10")
@@ -432,7 +435,6 @@ async def run(args):
         # The panel watches the new room at once (as the admin's link does).
         await expect(page.locator("#cvRoom")).to_be_visible()
         await expect(page.locator("#cvLiveState")).to_have_text("капитанов нет")
-        await expect(page.locator("#vetoHltv")).to_contain_text("HLTV: 6yuBoJlbl ↗ · HYPERSPIRIT ↗")
         msg_a = await page.input_value("#cvMsgA")
         assert "Капитан **6yuBoJlbl**" in msg_a and "На всё вето 3 минуты." in msg_a, msg_a
         admin_link = await page.input_value("#cvMsgO")
@@ -558,8 +560,10 @@ async def run(args):
         await expect(lobby.locator("#msgNext")).to_have_value(
             re.compile(f"^Next xx:{time.localtime(finished_at + 900).tm_min:02d}\n"))
         await expect(lobby.locator("#lobbyLog")).to_contain_text("Матч закончился: Rune Eaters 2:0 PCIFIC")
-        # Bookmakers: our matches against each bookmaker, a new line goes to the journal.
-        # Bookmakers are rows (all 16, the listed ones first), matches columns.
+        # Bookmakers (a tab of their own): our matches against each bookmaker,
+        # a new line goes to the lobby journal. Bookmakers are rows (all 16,
+        # the listed ones first), matches columns.
+        await lobby.click("#bookiesNavBtn")
         table = lobby.locator("#bookiesTable")
         await expect(table.locator("tbody tr")).to_have_count(16)
         await expect(table.locator("thead th")).to_have_count(3)

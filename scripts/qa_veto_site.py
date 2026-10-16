@@ -508,10 +508,6 @@ async def run(args):
         await expect(panel.locator("#syncTitle")).to_contain_text("команд из таблицы", timeout=wait)
         await panel.click("#vetoNavBtn")
         await expect(panel.locator("#cvLiveEmpty")).to_be_visible()
-        # Both teams' HLTV pages under the panel's veto.
-        await expect(panel.locator("#vetoHltv a")).to_have_count(2)
-        await expect(panel.locator("#vetoHltv a").first).to_have_attribute("href", "https://www.hltv.org/team/13989/upgrade")
-        await expect(panel.locator("#vetoHltv a").last).to_have_text("Lavked ↗")
         await panel.fill("#cvSite", base + "/veto.html")
         await panel.locator("#cvSite").dispatch_event("change")
         await panel.select_option("#cvLang", "ru")
@@ -532,7 +528,6 @@ async def run(args):
         await expect(panel.locator("#cvTeam1")).to_have_attribute("data-online", "yes", timeout=join)
         await expect(panel.locator("#cvStage")).to_contain_text("Монетку выиграли", timeout=wait)
         await expect(panel.locator("#cvLiveState")).to_have_text("оба капитана здесь")
-        await expect(panel.locator("#cvTeam1 .cv-hltv")).to_have_attribute("href", "https://www.hltv.org/team/12609/lavked")
         # A captain calls: the panel rings (banner, tab badge) until «Понял».
         await cap_b.click("#vtCallAdmin")
         await expect(panel.locator("#cvAlert")).to_be_visible(timeout=wait)
@@ -585,9 +580,33 @@ async def run(args):
         assert link_a.split("#v=")[1] not in await panel.evaluate("localStorage.getItem('oneshot-veto-watch')")
         await panel.click("#cvWatchStop")
         await expect(panel.locator("#cvWatchStop")).to_be_hidden()
+        # «Сбросить вето» in the panel stops carrying the room's moves, so the
+        # room does not bring the veto back, not even after a reload.
+        await panel.evaluate("window.confirm = () => true")
+        await panel.click("#vetoReset")
+        await expect(panel.locator("#vetoOutput")).to_have_value("")
+        await expect(panel.locator("#cvSync")).not_to_be_checked()
+        await panel.reload()
+        await expect(panel.locator("#cvMoves li")).to_have_count(10)
+        await expect(panel.locator("#cvSync")).not_to_be_checked()
+        await expect(panel.locator("#vetoOutput")).to_have_value("")
+        # «Начать вето заново»: a new room and new links, the panel's veto from zero.
+        await panel.check("#cvSync")
+        await expect(panel.locator("#vetoOutput")).to_have_value(result)
+        await panel.evaluate("window.confirm = () => true")
+        await panel.click("#cvRestart")
+        await expect(panel.locator("#cvMsgA")).not_to_have_value(re.compile(re.escape(link_a)))
+        await expect(panel.locator("#cvMoves li")).to_have_count(0)
+        await expect(panel.locator("#cvLiveState")).to_have_text("капитанов нет")
+        await expect(panel.locator("#vetoOutput")).to_have_value("")
+        await expect(panel.locator("#cvSync")).to_be_checked()
+        new_a = re.search(r"https?://\S+", await panel.input_value("#cvMsgA")).group(0)
+        assert new_a.startswith(base + "/veto.html#v=") and new_a != link_a, new_a
+        await panel.wait_for_timeout(3000)  # the old room's captains are still sending: nothing comes back
+        await expect(panel.locator("#vetoOutput")).to_have_value("")
         for page in (cap_a, cap_b, boss, panel):
             await page.close()
-        passed("the panel's «Вето» tab watches the captains: presence, coin, call admin; moves land in the panel's veto")
+        passed("the panel's «Вето» tab watches the captains: presence, coin, call admin, reset and start over; moves land in the panel's veto")
 
         # 10. Hostile team names stay text.
         link_a, link_b, link_s = await make_links(admin, '<img src=x onerror=alert(1)>', 'A"B</h1>', "BO3")

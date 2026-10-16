@@ -34,6 +34,7 @@
       <button id="viewPrep" class="view-tab active" type="button" role="tab" aria-selected="true" aria-controls="prepView">Подготовка</button>
       <button id="vetoNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="vetoView" tabindex="-1">Вето<span id="vetoBadge" class="tab-badge" hidden></span></button>
       <button id="viewLobby" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="lobbyView" tabindex="-1">Лобби<span id="lobbyBadge" class="tab-badge" hidden></span></button>
+      <button id="bookiesNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="bookiesView" tabindex="-1">Букмекеры</button>
       <button id="obsNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="obsView" tabindex="-1">OBS<i id="obsTabDot" class="obs-tab-dot" aria-hidden="true"></i></button>
     </div><!-- /web-only -->
     <div class="nav-tools">
@@ -107,7 +108,6 @@
         </div>
       </div>
       <p class="veto-status" id="vetoStatus" role="status" aria-live="polite">Выбери две разные команды.</p>
-      <!-- web-only --><p class="veto-hltv" id="vetoHltv" hidden></p><!-- /web-only -->
       <!-- web-only --><div class="veto-overlay-bar" id="vetoBroadcast">
         <label class="check"><input id="vetoLive" type="checkbox" autocomplete="off"> Оверлей вето в OBS вживую</label>
         <span class="overlay-link">
@@ -173,9 +173,9 @@
         <p id="cvLiveEmpty" class="cv-intro">Нажми «Создать ссылки» в блоке «Вето для капитанов» ниже — панель сама подключится к этой комнате, вставлять ничего не надо. Здесь будет видно, кто из капитанов зашёл, монетка, каждый ход и вызов админа, а ходы сами попадут в вето панели и в оверлей OBS.</p>
         <div id="cvRoom" class="cv-room" hidden>
           <div class="cv-teams">
-            <div id="cvTeam0" class="cv-team" data-online="no"><i aria-hidden="true"></i><b></b><span></span><a class="cv-hltv" target="_blank" rel="noreferrer" hidden>HLTV ↗</a></div>
+            <div id="cvTeam0" class="cv-team" data-online="no"><i aria-hidden="true"></i><b></b><span></span></div>
             <span class="cv-vs" aria-hidden="true">VS</span>
-            <div id="cvTeam1" class="cv-team" data-online="no"><i aria-hidden="true"></i><b></b><span></span><a class="cv-hltv" target="_blank" rel="noreferrer" hidden>HLTV ↗</a></div>
+            <div id="cvTeam1" class="cv-team" data-online="no"><i aria-hidden="true"></i><b></b><span></span></div>
             <span id="cvClock" class="cv-clock" hidden></span>
           </div>
           <p id="cvStage" class="cv-stage" role="status" aria-live="polite"></p>
@@ -184,6 +184,7 @@
           <p id="cvSyncNote" class="cv-status"></p>
           <div class="cv-room-actions">
             <button id="cvCopyResult" class="button small primary" type="button" hidden>⧉ Текст HLTV из комнаты</button>
+            <button id="cvRestart" class="button small" type="button" title="Тестовое или сорванное вето: новая комната и новые ссылки капитанам, вето панели с нуля">↺ Начать вето заново</button>
             <a id="cvAdminOpen" class="button small" target="_blank" rel="noopener" hidden>Админская ссылка ↗</a>
             <button id="cvWatchStop" class="button small" type="button" hidden>← К комнате из панели</button>
           </div>
@@ -268,19 +269,6 @@
         <div class="empty-panel">Матчи появятся после подключения турнира.</div>
       </section>
 
-      <section id="bookies" class="lobby-panel" aria-labelledby="bookiesHeading">
-        <div class="panel-heading">
-          <div><span class="eyebrow">BOOKMAKERS</span><h2 id="bookiesHeading">Наш турнир у букмекеров</h2></div>
-          <div class="bookies-actions">
-            <button id="bookiesCopy" class="button small" type="button" title="Кто дал линию, кэфы, размер линии и лайв — текстом">Сводка</button>
-            <button id="bookiesCsv" class="button small" type="button" title="Все линии за неделю: открытие, текущие кэфы, рынки, лайв">CSV</button>
-            <button id="bookiesCheck" class="button small" type="button">Проверить сейчас</button>
-          </div>
-        </div>
-        <div class="bookies-wrap"><table id="bookiesTable" class="bookies-table"></table></div>
-        <p id="bookiesStatus" class="lobby-status" role="status">Матчи и коэффициенты обновляются автоматически каждую минуту.</p>
-      </section>
-
       <section class="lobby-panel" aria-labelledby="messagesHeading">
         <div class="panel-heading">
           <div><span class="eyebrow">DISCORD</span><h2 id="messagesHeading">Сообщения игрокам</h2></div>
@@ -314,6 +302,20 @@
           <button id="copyJournal" class="button small" type="button">Копировать журнал</button>
         </div>
         <ol id="lobbyLog" class="lobby-log"></ol>
+      </section>
+    </div><!-- /web-only -->
+    <!-- web-only --><div id="bookiesView" class="lobby" role="tabpanel" aria-labelledby="bookiesNavBtn" hidden>
+      <section id="bookies" class="lobby-panel" aria-labelledby="bookiesHeading">
+        <div class="panel-heading">
+          <div><span class="eyebrow">BOOKMAKERS</span><h2 id="bookiesHeading">Наш турнир у букмекеров</h2></div>
+          <div class="bookies-actions">
+            <button id="bookiesCopy" class="button small" type="button" title="Кто дал линию, кэфы, размер линии и лайв — текстом">Сводка</button>
+            <button id="bookiesCsv" class="button small" type="button" title="Все линии за неделю: открытие, текущие кэфы, рынки, лайв">CSV</button>
+            <button id="bookiesCheck" class="button small" type="button">Проверить сейчас</button>
+          </div>
+        </div>
+        <div class="bookies-wrap"><table id="bookiesTable" class="bookies-table"></table></div>
+        <p id="bookiesStatus" class="lobby-status" role="status">Матчи и коэффициенты обновляются автоматически каждую минуту.</p>
       </section>
     </div><!-- /web-only -->
     <!-- web-only --><div id="obsView" class="obs-view" role="tabpanel" aria-labelledby="obsNavBtn" hidden>
