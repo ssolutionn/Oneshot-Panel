@@ -267,7 +267,7 @@ function csv() {
   const cellText = v => {
     let text = String(v ?? '');
     // CSV is data, never a spreadsheet formula from an external team name.
-    if (/^[\u0000-\u0020]*[=+@-]/.test(text)) text = "'" + text;
+    if (/^[\s\u0000-\u001f]*[=+@-]/u.test(text)) text = "'" + text;
     return /[";\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   };
   const num = v => v ? v.toFixed(2).replace('.', ',') : '';

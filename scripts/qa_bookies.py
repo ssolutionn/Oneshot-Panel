@@ -66,7 +66,7 @@ async def run(args):
                         {"id":"tomorrow","team1":"Rune Eaters","team2":"HyperSpirit",
                          "start":NOW+28*3600000,"odds":[9.1,9.2],"live":False,
                          "url":"https://fon.bet/sports/esports/future"},
-                        {"id":"untrusted","team1":"=HYPERLINK(1)","team2":"<img src=x onerror=alert(1)>",
+                        {"id":"untrusted","team1":"\u00a0=HYPERLINK(1)","team2":"<img src=x onerror=alert(1)>",
                          "start":NOW+8*3600000,"odds":[1.9,1.9],"live":False,
                          "url":"javascript:alert(1)"},
                     ])
@@ -167,7 +167,7 @@ async def run(args):
                 await page.locator("#bookiesCsv").click()
             download = await download_info.value
             text = Path(await download.path()).read_text(encoding="utf-8-sig")
-            assert "'=HYPERLINK(1)" in text, "CSV must neutralize external formula cells"
+            assert "'\u00a0=HYPERLINK(1)" in text, "CSV must neutralize external formula cells"
             output = Path(args.artifacts) / "bookies"
             output.mkdir(parents=True, exist_ok=True)
             await page.screenshot(path=str(output / (engine + ".png")), full_page=True)

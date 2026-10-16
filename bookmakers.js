@@ -251,7 +251,7 @@ export function mskTime(text, now = Date.now()) {
 function parseSportbet(data, live) {
   return data.data.sports.filter(s => s.slug === 'esport-counter-strike')
     .flatMap(s => (s.tournaments || []).filter(t => isCyberClash(t.name))
-      .flatMap(t => (t.events || []).filter(e => ['not_started','live'].includes(e.status)).map(e => {
+      .flatMap(t => (t.events || []).filter(e => !['finished','ended','cancelled','closed'].includes(e.status)).map(e => {
         const winner = (e.markets || []).find(m => m.status === 'active' && /^(Победитель|Исход|Победа в матче)$/i.test(m.name));
         const quote = name => price(winner?.outcomes?.find(o => o.name === name && o.active !== false)?.odd);
         return {
@@ -296,7 +296,11 @@ export function parseFeed(bookmaker, body, live, now = Date.now()) {
   // schema. Treat that as unavailable, never as proof that the tournament vanished.
   const data = bookmaker.kind === 'marathon' ? body : typeof body === 'string' ? JSON.parse(body) : body;
   const valid = ['fonbet', 'leon'].includes(bookmaker.kind) ? Array.isArray(data?.events) :
-    bookmaker.kind === 'sportbet' ? data?.status === 'ok' && Number(data?.statusCode) === 200 && Array.isArray(data?.data?.sports) :
+    bookmaker.kind === 'sportbet' ? data?.status === 'ok' && Number(data?.statusCode) === 200 && Array.isArray(data?.data?.sports) &&
+      data.data.sports.every(s => s?.slug === 'esport-counter-strike' && Array.isArray(s.tournaments) &&
+        s.tournaments.every(t => typeof t?.name === 'string' && Array.isArray(t.events) &&
+          t.events.every(e => e && e.id != null && typeof e.status === 'string' &&
+            typeof e.teams?.team1?.name === 'string' && typeof e.teams?.team2?.name === 'string' && Array.isArray(e.markets)))) :
     bookmaker.kind === 'baltbet' ? Number(data?.sportId) === 25 && Array.isArray(data?.superMarkets) && Array.isArray(data?.leagues) :
     bookmaker.kind === 'olimp' ? (Array.isArray(data) ? data : [data])
       .some(item => Array.isArray(item?.payload?.competitionsWithEvents)) :
@@ -304,7 +308,9 @@ export function parseFeed(bookmaker, body, live, now = Date.now()) {
       typeof data.reply.sports === 'object' :
     bookmaker.kind === 'marathon' ? /class="[^"]*category-container/.test(String(data)) : true;
   if (!valid) throw new Error('формат линии изменился или источник вернул страницу ошибки');
-  return parse(data, live, now).map(e => ({ ...e, url: bookmaker.eventUrl(e) }));
+  return parse(data, live, now).map(e => ({ ...e,
+    start:Number.isFinite(e.start) && e.start > 0 && e.start <= 8640000000000000 ? e.start : null,
+    url: bookmaker.eventUrl(e) }));
 }
 
 // Team names differ per bookmaker ("Rune Eaters Esports", "Honved Esport",

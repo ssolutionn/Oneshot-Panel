@@ -256,9 +256,10 @@ test('Baltbet complete public cyber list: CyberClash, winner and first-map price
 });
 
 test('Sportbet native full CS2 tables verify absence in prematch and live', async () => {
+  const fixtureBody=await fixture('sportbet-native-schema.json');
   assert.deepEqual(parseFeed(book('sportbet'),await fixture('sportbet-cs2-line.json'),false),[]);
   assert.deepEqual(parseFeed(book('sportbet'),await fixture('sportbet-cs2-live.json'),true),[]);
-  assert.deepEqual(parseFeed(book('sportbet'),await fixture('sportbet-native-schema.json'),false),[],'Dota is not CS2');
+  assert.throws(()=>parseFeed(book('sportbet'),fixtureBody,false),/формат линии/,'a response for the wrong sport never proves absence');
   assert.throws(()=>parseFeed(book('sportbet'),'{"status":"error","data":{"sports":[]},"statusCode":500}',false),/формат линии/);
   const asked=[];
   const {body}=await checkBookmaker('sportbet',async url=>{
@@ -285,4 +286,10 @@ test('Sportbet parser routes a synthetic CS2 tournament using the verified nativ
   assert.equal(parseFeed(book('sportbet'),raw,false)[0].odds[0],null,'inactive prices are never presented as available');
   tournament.events[0].status='finished';
   assert.equal(parseFeed(book('sportbet'),raw,true).length,1,'finished games do not stay in the live table');
+});
+
+test('external non-finite timestamps cannot break browser date rendering', async () => {
+  const raw=JSON.parse(await fixture('fonbet-line.json'));
+  raw.events.forEach(e=>{e.startTimeTimestamp=1e300;});
+  assert.ok(parseFeed(book('fonbet'),raw,false).every(e=>e.start===null));
 });
