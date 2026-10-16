@@ -126,6 +126,7 @@ jobs:
              if not isinstance(data,bytes) or not data.startswith(b"\x1f\x8b"):return
              try:
               raw=gzip.decompress(data);kind=struct.unpack_from("<H",raw)[0]
+              if kind==1180:print("WINLINE_CLOCK:",json.dumps({"bytes":len(raw),"u32":[struct.unpack_from("<I",raw,i)[0] for i in range(2,len(raw)-3,4)],"now":int(__import__("time").time())}),flush=True)
               if kind in (3,16) and kind not in raws:raws[kind]=raw
               if 3 in raws and 16 in raws and not decoded:
                decoded=True;print("WINLINE_DICTIONARY_FIXTURE:",json.dumps({"packet":base64.b64encode(gzip.compress(raws[16])).decode()}),flush=True);snapshot(raws[3],dictionary(raws[16]))
