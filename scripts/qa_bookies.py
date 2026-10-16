@@ -73,7 +73,8 @@ async def run(args):
             assert not slow.is_set(), "fast source must render before the slow one"
             slow.set()
             await expect(page.locator("#bookiesCheck")).to_be_enabled()
-            assert len(calls) == 4
+            count = await page.evaluate("import('/bookmakers.js').then(m=>m.BOOKMAKERS.length)")
+            assert len(calls) == count
             assert await page.evaluate("window.__bookieNotes.length") == 0
 
             phase = 1
@@ -82,7 +83,7 @@ async def run(args):
             await expect(page.locator("#bookiesTable thead")).to_contain_text("QA New A – QA New B")
             await expect(page.locator("#bookiesCheck")).to_be_enabled()
             assert await page.evaluate("window.__bookieNotes.length") == 1
-            assert len(calls) == 8
+            assert len(calls) == count * 2
 
             phase = 2
             await page.clock.fast_forward(60000)
@@ -96,7 +97,7 @@ async def run(args):
             await page.evaluate("dispatchEvent(new Event('focus'))")
             await expect(row).not_to_contain_text("данные устарели")
             await expect(page.locator("#bookiesCheck")).to_be_enabled()
-            assert len(calls) == 16
+            assert len(calls) == count * 4
             assert await page.evaluate("window.__bookieNotes.length") == 1
 
             # No network while offline; one immediate refresh on reconnection.
@@ -115,7 +116,7 @@ async def run(args):
             }""")
             await expect(page.locator("#bookiesCheck")).to_be_enabled()
             await expect(row).to_contain_text("в линии: 2")
-            assert len(calls) == before + 4
+            assert len(calls) == before + count
 
             # A suspended Safari tab resumes through visibilitychange. A simultaneous
             # focus event must not launch duplicate requests.
@@ -133,13 +134,13 @@ async def run(args):
                 dispatchEvent(new Event('focus'));
             }""")
             await expect(page.locator("#bookiesCheck")).to_be_enabled()
-            assert len(calls) == before + 4
+            assert len(calls) == before + count
 
             # Manual refresh remains available; all records are read with GET.
             before = len(calls)
             await page.locator("#bookiesCheck").click()
             await expect(page.locator("#bookiesCheck")).to_be_enabled()
-            assert len(calls) == before + 4
+            assert len(calls) == before + count
             assert await page.evaluate("window.__bookieNotes.length") == 1
             output = Path(args.artifacts) / "bookies"
             output.mkdir(parents=True, exist_ok=True)

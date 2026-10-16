@@ -93,7 +93,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 - `bookmakers.js` — без DOM: публичные линии лицензированных БК, где
   есть открытый JSON/HTML без входа и капчи: Фонбет и PARI (одна платформа,
   `showEvents`, skId 29086), OLIMPBET (`api/v4/0/{line|live}/…vids[]=112:`),
-  Марафон (HTML страницы CS2). Парсеры оставляют только CyberClash,
+  Марафон (HTML страницы CS2), Бетсити (`ad.betcity.ru/d/{off|on_air}/events…ids_sp=73`). Парсеры оставляют только CyberClash,
   `findMatch` сопоставляет команды без акцентов и суффиксов («Honved
   Esport» = «Honvéd»), в любом порядке. `MANUAL` — БК без открытой линии
   (Winline — websocket, Зенит — подписанные заголовки, Леон, BetBoom,
