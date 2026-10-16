@@ -206,7 +206,7 @@ function render() {
       'нет связи' + (r.checkedAt ? '; данные на ' + msk(r.checkedAt) : ': ' + (r.failed || 'нет сети')) :
       // Read fine, just no CyberClash on sale there: not a broken source.
       (events.length ? ['в линии: ' + events.length, biggest && 'до ' + sizeText(biggest), live].filter(Boolean).join(' · ') :
-        'на связи · CyberClash в линии нет') +
+        partial ? 'на связи · часть линии не прочитана' : 'на связи · CyberClash в линии нет') +
       (partial ? ' · неполные данные' : '') + (r.coverage === 'prematch' ? ' · только прематч' : '') + (r.checkedAt ? ' · ' + msk(r.checkedAt) : '');
     const cells = cols.map(m => {
       const candidates = events.filter(e => !m.date || !e.start || eventDate(e) === m.date);

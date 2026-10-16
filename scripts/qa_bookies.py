@@ -64,7 +64,7 @@ async def run(args):
                                         body='{"message":"QA provider offline"}')
                     return
                 events = []
-                if bookmaker == "fonbet" and generation != 7:
+                if bookmaker == "fonbet" and generation not in (7,8):
                     events.append({
                         "id": "first", "team1": "Rune Eaters Esports", "team2": "HyperSpirit",
                         "start": NOW + 4 * 3600000, "odds": [1.45, 2.55] if generation == 0 else [1.4, 2.7],
@@ -86,7 +86,7 @@ async def run(args):
                          "url":"javascript:alert(1)"},
                     ])
                 await route.fulfill(content_type="application/json", body=json.dumps({
-                    "id": bookmaker, "ok": True, "errors": [], "events": events,
+                    "id": bookmaker, "ok": True, "errors": (["лайв: HTTP 503"] if bookmaker == "fonbet" and generation == 8 else []), "events": events,
                     "checkedAt": NOW + generation * 60000,
                 }))
 
@@ -216,6 +216,12 @@ async def run(args):
             output = Path(args.artifacts) / "bookies"
             output.mkdir(parents=True, exist_ok=True)
             await page.screenshot(path=str(output / (engine + ".png")), full_page=True)
+            phase = 8
+            await page.locator("#bookiesCheck").click()
+            await expect(page.locator("#bookiesCheck")).to_be_enabled()
+            await expect(row).to_contain_text("часть линии не прочитана")
+            await expect(row).not_to_contain_text("CyberClash в линии нет")
+            await expect(page.locator("#history-fonbet")).to_contain_text("QA New A")
             await page.set_viewport_size({"width":375,"height":812})
             assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "History must fit mobile"
             assert not errors, errors
