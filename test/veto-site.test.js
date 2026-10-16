@@ -13,8 +13,11 @@ test('veto site build: veto pages and assets only, no roster sheet, no panel add
   try {
     await promisify(execFile)(process.execPath, [new URL('../scripts/build-veto-site.mjs', import.meta.url).pathname, out]);
     const top = (await readdir(out)).sort();
-    assert.deepEqual(top, ['README.md', '_headers', 'assets', 'core.js', 'index.html', 'vdo.js',
-      'veto-room.js', 'veto.css', 'veto.html', 'veto.js']);
+    assert.deepEqual(top, ['.assetsignore', 'README.md', '_headers', 'assets', 'core.js', 'index.html', 'vdo.js',
+      'veto-room.js', 'veto.css', 'veto.html', 'veto.js', 'wrangler.jsonc']);
+    const worker = JSON.parse(await readFile(path.join(out, 'wrangler.jsonc'), 'utf8'));
+    assert.deepEqual(worker.assets, { directory: '.' });
+    assert.match(await readFile(path.join(out, '.assetsignore'), 'utf8'), /^wrangler\.jsonc$/m);
     assert.equal(await readFile(path.join(out, 'index.html'), 'utf8'), await readFile(new URL('../veto.html', import.meta.url), 'utf8'));
     const core = await readFile(path.join(out, 'core.js'), 'utf8');
     assert.match(core, /^ {2}id: '',\n {2}gid: '',$/m);

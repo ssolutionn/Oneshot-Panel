@@ -112,7 +112,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   `oneshot-player-veto` (последние ссылки админа),
   `oneshot-veto-log:<код>`, `oneshot-veto-keys:<код>`, `oneshot-veto-coin:<код>`. Логика покрыта `test/veto-room.test.js`,
   страница — `scripts/qa_veto_site.py` (три отдельных браузера).
-- Сайт вето — отдельный репозиторий `ssolutionn/oneshot-veto` (Cloudflare
+- Сайт вето — отдельный репозиторий `ssolutionn/Oneshot-Veto` (Cloudflare
   Pages, без сборки): его содержимое генерирует `node scripts/build-veto-site.mjs`
   (в `dist-veto/`, не коммитится): страницы вето (`index.html` = `veto.html`),
   `veto*.js`, `vdo.js`, `core.js` без таблицы составов (id/gid пустые) и без

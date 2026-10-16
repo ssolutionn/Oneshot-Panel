@@ -58,6 +58,17 @@ await writeFile(to('_headers'), `/*
   Referrer-Policy: no-referrer
 `);
 
+// Cloudflare Workers (static assets, the dashboard's default for a Git
+// repository): the files at the root are the site; .assetsignore keeps the
+// config and the README out of it. Pages works too (output directory /).
+await writeFile(to('wrangler.jsonc'), `{
+  "name": "oneshot-veto",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "." }
+}
+`);
+await writeFile(to('.assetsignore'), '.git\n.assetsignore\nwrangler.jsonc\nREADME.md\n');
+
 await writeFile(to('README.md'), `# Oneshot · captains' veto
 
 The CyberClash captains' map veto as a site of its own: personal signed links
@@ -68,11 +79,12 @@ the HLTV text. English by default, Russian with the flag.
 (\`veto.html\`, \`veto.js\`, \`veto-room.js\`, …); \`node scripts/build-veto-site.mjs\`
 there rebuilds this copy without any panel files or roster data.
 
-## Publish (Cloudflare Pages)
+## Publish (Cloudflare)
 
-Workers & Pages → Create → Pages → Connect to Git → this repository.
-Framework preset: None. Build command: empty. Build output directory: \`/\`.
-\`_headers\` sets the security headers.
+Workers & Pages → Create → Import a repository → this one. \`wrangler.jsonc\`
+serves the files as static assets (\`.assetsignore\` leaves the config out);
+turn the \`workers.dev\` address on in Settings → Domains & Routes. As Pages:
+no build command, output directory \`/\`. \`_headers\` sets the security headers.
 
 Locally: any static server, e.g. \`python3 -m http.server 8080\`.
 `);
