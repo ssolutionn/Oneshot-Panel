@@ -16,7 +16,7 @@ jobs:
       - name: Verify fixed public feeds and native packet layout
         run: |
           python3 - <<'PY'
-          import asyncio, gzip, json, re, struct
+          import asyncio, base64, gzip, json, re, struct
           from urllib.request import Request,urlopen
           from concurrent.futures import ThreadPoolExecutor
           from playwright.async_api import async_playwright
@@ -28,8 +28,10 @@ jobs:
              text=r.read(14000000).decode("utf8","replace");status=r.status
             d={"provider":label,"status":status,"size":len(text)}
             if label=="betboom-chunk":d["source"]=text
+           elif label in ("betboom-widget","baltbet-modules","baltbet-spa"):
+            d["excerpts"]=[text[max(0,m.start()-300):m.end()+1000] for m in list(re.finditer(r"events\\.baltbet|prematchServiceUrl|/api/prematch|/api/[^\\s]{0,100}|feed/|tournament|import[^;]{0,100}",text))[:35]]
             elif label=="winline-main":
-             d["excerpts"]=[text[max(0,m.start()-450):m.end()+1800] for m in list(re.finditer(r"getUint16\(|getUint32\(|case 16:|data_ng|prematch|readString|readUInt",text))[-60:]]
+             d["excerpts"]=[text[max(0,m.start()-450):m.end()+1800] for m in list(re.finditer(r"data_ng|readUInt|readString|parsePacket|readChamp|864e5|10800",text))[-60:]]
             elif label=="zenit-exact":d["publicLine"]=text[:30000]
             else:
              d["scripts"]=re.findall(r'<script[^>]+src=["\x27]([^"\x27]+)',text)[:30]
@@ -39,7 +41,9 @@ jobs:
           targets=[
            ("zenit-exact",ZENIT),
            ("betboom-chunk","https://site-static-blue2.betboom.ru/_next/static/chunks/pages/sport/%5B%5B...all%5D%5D-90550edd561c1cf7.js"),
-           ("betboom-widget","https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/"),
+           ("betboom-widget","https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/widget.js"),
+           ("baltbet-modules","https://baltbet.ru/bundles/scripts/modules.js"),
+           ("baltbet-spa","https://baltbet.ru/bundles/scripts/spa.js"),
            ("winline-main","https://winline.ru/main.2485c5709989c6dc.js"),
            ("baltbet-page","https://baltbet.ru/home/cybersport"),
            ("baltbet-feed","https://events.baltbet.ru/api/prematch"),
@@ -71,7 +75,7 @@ jobs:
            print("WINLINE_DICTIONARY:",json.dumps({"sports":sports,"markets":list(markets.values())[:12],"size":len(raw),"offset":r.p},ensure_ascii=False),flush=True)
            return markets
           def snapshot(raw,markets):
-           r=Reader(raw,18);champs={};events=[];champ=None;ev=None;counts={}
+           r=Reader(raw,18);champs={};events=[];champ=None;ev=None;counts={};selected=[]
            try:
             while r.p<len(raw):
              offset=r.p;tag=r.u8();counts[tag]=counts.get(tag,0)+1
@@ -96,7 +100,9 @@ jobs:
               elif kind==9:odds.extend([r.u16(),r.u16()])
               if ev and re.search("cyber.?clash",ev["champ"]["name"],re.I):ev["lines"].append({"id":lid,"market":m,"param":param,"favorite":favorite,"prices":odds})
              else:raise ValueError("unknown tag "+str(tag))
+             if champ and re.search("cyber.?clash",champ["name"],re.I) and tag in (2,21,3,4):selected.append(raw[offset:r.p])
             found=[x for x in events if x["champ"] and re.search("cyber.?clash",x["champ"]["name"],re.I)]
+            print("WINLINE_FIXTURE:",json.dumps({"packet":base64.b64encode(gzip.compress(raw[:18]+b"".join(selected))).decode()}),flush=True)
             print("WINLINE_SNAPSHOT:",json.dumps({"bytes":len(raw),"offset":r.p,"counts":counts,"total":len(events),"events":found},ensure_ascii=False),flush=True)
            except Exception as e:
             print("WINLINE_DECODE_ERROR:",json.dumps({"error":str(e),"offset":r.p,"block":offset,"hex":raw[max(0,offset-10):offset+180].hex(),"counts":counts,"event":ev,"champ":champ},ensure_ascii=False),flush=True)
@@ -110,7 +116,7 @@ jobs:
               raw=gzip.decompress(data);kind=struct.unpack_from("<H",raw)[0]
               if kind in (3,16) and kind not in raws:raws[kind]=raw
               if 3 in raws and 16 in raws and not decoded:
-               decoded=True;snapshot(raws[3],dictionary(raws[16]))
+               decoded=True;print("WINLINE_DICTIONARY_FIXTURE:",json.dumps({"packet":base64.b64encode(gzip.compress(raws[16])).decode()}),flush=True);snapshot(raws[3],dictionary(raws[16]))
              except Exception as e:print("WINLINE_ERROR:",str(e),flush=True)
             def opened(ws):ws.on("framereceived",frame)
             page.on("websocket",opened)
