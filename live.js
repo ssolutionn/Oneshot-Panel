@@ -635,7 +635,7 @@ function playerVetoLink(s) {
 const CV_STORE = 'oneshot-captain-veto', CV_KEEP = 6 * 3600000;
 // The veto lives on a site of its own (the oneshot-veto repo): captains and
 // viewers never see the panel's address.
-const VETO_SITE = 'https://oneshot-veto.pages.dev/';
+const VETO_SITE = 'https://oneshot-veto.cyberclash.workers.dev/';
 function vetoSite() {
   try {
     const url = new URL($('cvSite').value.trim() || VETO_SITE);
