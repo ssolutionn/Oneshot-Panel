@@ -31,6 +31,9 @@ jobs:
            return m[1]
           lang_symbol=alias("ur")
           m=re.search(re.escape(lang_symbol)+r"\.RU=(\d+)",src)
+          if not m:
+           definition=re.search(r"\b"+re.escape(lang_symbol)+r"=(.{0,3500})",src)
+           m=re.search(r"(?:\.RU=|RU:)(\d+)",definition[1]) if definition else None
           if not m:raise ValueError("public RU enum missing")
           language=int(m[1])
           period_symbol=alias("yn");filter_value=None
