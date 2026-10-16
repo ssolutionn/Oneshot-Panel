@@ -53,7 +53,7 @@ function matchPayload() {
   const players = [
     ...s.playersA.map(p => ({ ...p, team: s.a.name })),
     ...s.playersB.map(p => ({ ...p, team: s.b.name }))
-  ].map((p, i) => ({ slot: i + 1, team: p.team, nick: p.nick, id: p.id, room: p.room }));
+  ].map((p, i) => ({ slot: i + 1, team: p.team, nick: p.nick, id: p.id, room: p.room, password: p.password || '' }));
   return { title: `${s.a.name} vs ${s.b.name}`, match: { players, includeCards: s.includeCards, cardBase: cardBase() } };
 }
 function obsJson() {

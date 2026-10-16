@@ -146,8 +146,18 @@ async def run(args):
 
     async def sheets(route):
         is_schedule = parse_qs(urlsplit(route.request.url).query).get("gid") == ["815739139"]
-        body = gviz([["Group B", "October 15", "16:00", "6yuBoJlbl", "HYPERSPIRIT"]],
-                    ["Stage", "Date", "MSK", "Team 1", "Team 2"]) if is_schedule else sample_roster()
+        if is_schedule:
+            body = gviz([["Group B", "October 15", "16:00", "6yuBoJlbl", "HYPERSPIRIT"]],
+                        ["Stage", "Date", "MSK", "Team 1", "Team 2"])
+        else:
+            fixture = sample_roster()
+            data = json.loads(fixture[fixture.index("{"):fixture.rindex("}") + 1])
+            for row in data["table"]["rows"]:
+                cells = row["c"]
+                while len(cells) < 12:
+                    cells.append({"v": ""})
+                cells[11] = {"v": "qa-room-A &+" if cells[1]["v"] == "6yuBoJlbl" else "qa-room-B #/"}
+            body = "google.visualization.Query.setResponse(" + json.dumps(data) + ");"
         await route.fulfill(content_type="application/javascript", body=body)
 
     async with async_playwright() as p:
@@ -244,6 +254,7 @@ async def run(args):
         assert scene[0].startswith("CARD 06 | HYPERSPIRIT | ") and scene[1].startswith("CAM 06 | HYPERSPIRIT | "), scene
         camera = obs.inputs[scene[1]]
         assert camera["url"].endswith("&cleanoutput&transparent") and camera["width"] == 1920
+        assert parse_qs(urlsplit(camera["url"]).query)["password"] == ["qa-room-B #/"]
         assert obs.inputs[scene[0]]["url"].startswith(base + "/card.html?team=HYPERSPIRIT")
         await page.click("#obsSetupBtn")
         await page.fill("#obsPassword", "wrong")
@@ -328,6 +339,9 @@ async def run(args):
         await expect(dock.locator("#dockLog")).to_contain_text("Матч отправлен: 6yuBoJlbl vs HYPERSPIRIT")
         await expect(page.locator("#obsState")).to_have_text("Док OBS на связи")
         assert len(dock_obs.names("CAM ")) == 10 and len(dock_obs.names("CARD ")) == 10
+        for input_name in dock_obs.names("CAM "):
+            expected_password = "qa-room-B #/" if "HYPERSPIRIT" in input_name else "qa-room-A &+"
+            assert parse_qs(urlsplit(dock_obs.inputs[input_name]["url"]).query)["password"] == [expected_password]
         await dock.screenshot(path=str(output / "obs-dock.png"))
         passed("send to OBS through the dock: code typed from the dock, status per step, OBS port and password from the panel (QR), sealed match")
 
