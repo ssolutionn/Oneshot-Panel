@@ -27,8 +27,9 @@
 
     <section class="vt-create" id="vtCreate" hidden aria-labelledby="vtCreateHeading">
       <h2 id="vtCreateHeading">Новое вето для капитанов</h2>
-      <p class="vt-note">Сайт сделает три ссылки: по одной каждому капитану (в личку в Discord) и одну для зрителей и админа. Монетку сайт подбросит сам.</p>
+      <p class="vt-note">Сайт сделает три короткие ссылки: по одной каждому капитану (в личку в Discord) и одну для зрителей и админа. Монетку капитаны бросят сами прямо в комнате — заранее её не знает никто, даже ты.</p>
       <form id="vtForm" class="vt-form">
+        <label class="vt-wide">Матч из расписания<select id="vtMatch"><option value="">Загружаем расписание…</option></select></label>
         <label>Команда 1<input id="vtTeamA" list="vtTeamList" required autocomplete="off"></label>
         <label>Команда 2<input id="vtTeamB" list="vtTeamList" required autocomplete="off"></label>
         <label>Формат

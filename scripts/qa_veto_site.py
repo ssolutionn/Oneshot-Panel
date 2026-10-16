@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Captains' veto site (veto.html) in separate browsers: the admin's links,
-the coin, whole BO3/BO1/BO5 vetoes, keyboard play, reloads and late viewers,
+"""Captains' veto site (veto.html) in separate browsers: the admin's links
+(the match from the schedule sheet), the coin tossed in the room, whole BO3/BO1/BO5 vetoes, keyboard play, reloads and late viewers,
 forged moves and fake presence from a spectator, a captain rewriting a move,
 two tabs of one captain, the 5-minute clock, hostile team names, 375 px.
 
@@ -13,9 +13,14 @@ nobody else. With --real-vdo the real VDO.Ninja is used instead.
 import argparse
 import asyncio
 import re
+import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from playwright.async_api import async_playwright, expect
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from qa_browser import gviz  # noqa: E402
 
 FAKE_VDO = """<!doctype html><script>
 const q = new URLSearchParams(location.search);
@@ -34,7 +39,7 @@ addEventListener('message', e => {
 SIGN_IN_PAGE = """async ([kind, value, drop, shift]) => {
   const m = await import('/veto-room.js');
   const room = m.decodeLink(location.hash);
-  const key = await m.privateKey(room);
+  const key = await m.captainKey(room);
   const name = 'oneshot-veto-log:' + room.r;
   let log = JSON.parse(localStorage.getItem(name) || '[]').slice(0, drop === null ? undefined : drop);
   log = await m.signMove(room, log, key, kind, value, Date.now() + shift);
@@ -81,9 +86,20 @@ async def run(args):
         browser = await engine.launch(**launch)
         contexts = []
 
+        # The organizer's schedule: today's and tomorrow's matches (MSK).
+        msk = datetime.now(timezone.utc) + timedelta(hours=3)
+        day = lambda shift: (msk + timedelta(days=shift)).strftime("%B ") + str((msk + timedelta(days=shift)).day)
+        schedule = gviz([["Winners Match C4", day(0), "19:00", "PRIVATE (ex-RUBY)", "UPGRADE"],
+                         ["Group B2", day(1), "16:00", "Rune Eaters", "HyperSpirit"]],
+                        ["Stage", "Date", "MSK (GMT +3)", "Team 1", "Team 2"])
+
         async def open_context(width=1280, height=900):
             context = await browser.new_context(viewport={"width": width, "height": height}, locale="ru-RU")
             contexts.append(context)
+            # The group stage tab has the matches, the playoffs tab is empty.
+            await context.route("https://docs.google.com/**/gviz/**", lambda route: route.fulfill(
+                content_type="application/javascript",
+                body=gviz([], ["Stage"]) if "gid=1212769715" in route.request.url else schedule))
             if not args.real_vdo:
                 await context.route("https://vdo.ninja/**",
                                     lambda route: route.fulfill(content_type="text/html", body=FAKE_VDO))
@@ -98,11 +114,13 @@ async def run(args):
                 await context.grant_permissions(["clipboard-read", "clipboard-write"], origin=base)
             return context
 
-        async def open_page(url=None, width=1280, height=900, context=None):
+        async def open_page(url=None, width=1280, height=900, context=None, clock=False):
             context = context or await open_context(width, height)
             page = await context.new_page()
             page.on("pageerror", lambda error: errors.append(f"{page.url[:60]}: {error}"))
             page.on("dialog", lambda dialog: errors.append(f"dialog {dialog.message}"))
+            if clock:  # time flows; the scenario jumps it forward
+                await page.clock.install()
             if url:
                 await page.goto(url)
             return page
@@ -178,12 +196,22 @@ async def run(args):
         link_a = re.search(r"https?://\S+", message_a).group(0)
         link_b = re.search(r"https?://\S+", message_b).group(0)
         assert "Капитан **UPGRADE**" in message_a and "Капитан **Lavked**" in message_b
+        assert "Монетку бросите на сайте" in message_a
         assert len({link_a, link_b, link_s}) == 3
+        assert max(len(link_a), len(link_b), len(link_s)) < 150, (len(link_a), len(link_s))
         await admin.screenshot(path=str(output / "veto-site-admin.png"), full_page=True)
         await admin.reload()
         await expect(admin.locator("#vtMsgA")).to_have_value(message_a)
         await expect(admin.locator("#vtMade")).to_contain_text("Ссылки созданы в")
-        passed("admin makes three links; they survive a reload")
+        # The match from the schedule sheet fills the teams.
+        await admin.goto(base + "/veto.html")
+        await expect(admin.locator("#vtMatch option")).to_have_count(3, timeout=wait)
+        await expect(admin.locator("#vtMatch optgroup").first).to_have_attribute("label", re.compile("сегодня"))
+        option = admin.locator("#vtMatch option", has_text="PRIVATE vs UPGRADE")
+        await admin.select_option("#vtMatch", await option.get_attribute("value"))
+        await expect(admin.locator("#vtTeamA")).to_have_value("PRIVATE")
+        await expect(admin.locator("#vtTeamB")).to_have_value("UPGRADE")
+        passed("admin makes three short links; they survive a reload; the match comes from the schedule")
 
         # 2. Whole BO3: coin for everyone, turns, sides, result, copy.
         cap_a = await open_page(link_a)
@@ -227,10 +255,12 @@ async def run(args):
         broken = await open_page(base + "/veto.html#v=broken")
         await expect(broken.locator("#vtError")).to_contain_text("повреждена")
         payload = link_a.split("#v=")[1]
+        # Flip one byte of the captain's secret (after version, flags, room
+        # and two fingerprints): the key no longer fits the link.
         bad_key = await broken.evaluate("""p => {
-            const j = JSON.parse(atob(p.replace(/-/g,'+').replace(/_/g,'/')));
-            j.k = 'A'.repeat(43);
-            return btoa(JSON.stringify(j)).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');
+            const b = Uint8Array.from(atob(p.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
+            b[32] ^= 1;
+            return btoa(String.fromCharCode(...b)).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');
         }""", payload)
         await broken.goto(base + "/veto.html#v=" + bad_key)
         await expect(broken.locator("#vtError")).to_contain_text("повреждена", timeout=wait)
@@ -286,7 +316,8 @@ async def run(args):
         for page in (a, b, s):
             await expect(page.locator(f'.vt-map[data-map="{banned}"]')).to_have_attribute("data-status", "ban", timeout=wait)
         other_map = "Nuke" if banned != "Nuke" else "Mirage"
-        await first.evaluate(SIGN_IN_PAGE, ["ban", other_map, 1, 0])
+        # Keep the coin (3 moves) and the order, sign another ban.
+        await first.evaluate(SIGN_IN_PAGE, ["ban", other_map, 4, 0])
         await first.reload()
         await expect(second.locator("#vtError")).to_contain_text("подписал два разных хода", timeout=wait)
         await expect(second.locator(f'.vt-map[data-map="{banned}"]')).to_have_attribute("data-status", "ban")
@@ -332,12 +363,15 @@ async def run(args):
         for page in (a1, a2, b):
             await page.close()
 
-        # 9. The 5-minute clock runs out (the order move signed 5 min 10 s ago).
+        # 9. The 5-minute clock runs out (both clocks jump 5 min 10 s after the order).
         link_a, link_b, _ = await make_links(admin, "Walczaki", "Johnny Speeds", "BO1")
-        a, b = await open_page(link_a), await open_page(link_b)
+        a, b = await open_page(link_a, clock=True), await open_page(link_b, clock=True)
         first, _ = await winner_of(a, b)
-        await first.evaluate(SIGN_IN_PAGE, ["order", "0", None, -310000])
-        await first.reload()
+        await first.get_by_role("button", name="Баним первыми").click()
+        for page in (a, b):
+            await expect(page.locator("#vtLog li")).to_have_count(1, timeout=wait)
+        for page in (a, b):
+            await page.clock.fast_forward("05:10")
         await expect(first.locator("#vtClock .vt-clock-label")).to_have_text("время вышло", timeout=wait)
         await expect(first.locator("#vtClock")).to_have_attribute("data-state", "over")
         await expect(first.locator("#vtClockTime")).to_have_text("0:00")
