@@ -41,7 +41,20 @@ async def run(args):
             async def api(route):
                 nonlocal phase
                 assert route.request.method == "GET"
-                bookmaker = parse_qs(urlsplit(route.request.url).query)["id"][0]
+                query = parse_qs(urlsplit(route.request.url).query)
+                if "history" in query:
+                    day = query["history"][0]
+                    body = {"ok": True, "archive": {
+                        "version": 1, "day": day, "startedAt": NOW-3600000, "updatedAt": NOW,
+                        "books": {"fonbet": {"status":"ok","coverage":"line-and-live","checkedAt":NOW,
+                            "events": ([{"id":"archived","team1":"Archived Alpha","team2":"Archived Beta",
+                                "tournament":"CyberClash. Exact original name","start":NOW+3600000,
+                                "odds":[1.7,2.2],"open":[1.8,2.1],"first":NOW-3600000,"last":NOW,
+                                "url":"https://fon.bet/sports/esports/archived","names":["CyberClash. Exact original name"]}]
+                                if day == "2026-10-16" else [])}}}}
+                    await route.fulfill(content_type="application/json",body=json.dumps(body))
+                    return
+                bookmaker = query["id"][0]
                 generation = phase
                 calls.append((bookmaker, generation))
                 if bookmaker == "pari" and generation == 0:
@@ -51,7 +64,7 @@ async def run(args):
                                         body='{"message":"QA provider offline"}')
                     return
                 events = []
-                if bookmaker == "fonbet":
+                if bookmaker == "fonbet" and generation not in (7,8):
                     events.append({
                         "id": "first", "team1": "Rune Eaters Esports", "team2": "HyperSpirit",
                         "start": NOW + 4 * 3600000, "odds": [1.45, 2.55] if generation == 0 else [1.4, 2.7],
@@ -63,7 +76,7 @@ async def run(args):
                             "start": NOW + 7 * 3600000, "odds": [1.8, 2.1],
                             "live": False, "url": "https://fon.bet/sports/esports/147516/new",
                         })
-                if bookmaker == "fonbet" and generation >= 6:
+                if bookmaker == "fonbet" and 6 <= generation < 7:
                     events.extend([
                         {"id":"tomorrow","team1":"Rune Eaters","team2":"HyperSpirit",
                          "start":NOW+28*3600000,"odds":[9.1,9.2],"live":False,
@@ -73,7 +86,7 @@ async def run(args):
                          "url":"javascript:alert(1)"},
                     ])
                 await route.fulfill(content_type="application/json", body=json.dumps({
-                    "id": bookmaker, "ok": True, "errors": [], "events": events,
+                    "id": bookmaker, "ok": True, "errors": (["лайв: HTTP 503"] if bookmaker == "fonbet" and generation == 8 else []), "events": events,
                     "checkedAt": NOW + generation * 60000,
                 }))
 
@@ -155,6 +168,14 @@ async def run(args):
             await expect(page.locator("#bookiesCheck")).to_be_enabled()
             assert len(calls) == before + count
             assert await page.evaluate("window.__bookieNotes.length") == 1
+            # Shared history remains when no longer present in the current line.
+            await expect(page.locator("#history-fonbet")).to_contain_text("Archived Alpha – Archived Beta")
+            await expect(page.locator("#history-fonbet")).to_contain_text("Exact original name")
+            await page.locator("#bookiesDay").fill("2026-10-15")
+            await page.locator("#bookiesDay").dispatch_event("change")
+            await expect(page.locator("#history-fonbet")).not_to_contain_text("Archived Alpha")
+            await page.locator("#bookiesToday").click()
+            await expect(page.locator("#history-fonbet")).to_contain_text("Archived Alpha")
             phase = 6
             await page.locator("#bookiesCheck").click()
             await expect(page.locator("#bookiesCheck")).to_be_enabled()
@@ -173,9 +194,36 @@ async def run(args):
             rows = list(csv.reader(io.StringIO(text, newline=""), delimiter=";"))
             assert all(len(row) == 15 for row in rows), "CR in external data must not create a new CSV row"
             assert any(row[3] == "<img src=x onerror=alert(1)>\r=HYPERLINK(2)" for row in rows[1:])
+            # Day export includes the shared archive; quoted cells cannot be formulas.
+            async with page.expect_download() as day_download:
+                await page.locator("#bookiesHistoryCsv").click()
+            day_file = await day_download.value
+            daily = Path(await day_file.path()).read_bytes().decode("utf-8-sig")
+            assert "Archived Alpha" in daily and "CyberClash. Exact original name" in daily
+            assert "tomorrow" not in daily
+            assert "'\u00a0=HYPERLINK(1)" in daily
+            phase = 7
+            await page.locator("#bookiesCheck").click()
+            await expect(page.locator("#bookiesCheck")).to_be_enabled()
+            await expect(page.locator("#bookiesEmpty")).to_be_visible()
+            await expect(page.locator("#history-fonbet")).to_contain_text("QA New A")
+            await expect(page.locator("#history-fonbet")).to_contain_text("Archived Alpha")
+            # Reload keeps locally observed events and reloads shared records.
+            await page.reload()
+            await expect(page.locator("#bookiesCheck")).to_be_enabled()
+            await expect(page.locator("#history-fonbet")).to_contain_text("QA New A")
+            await expect(page.locator("#history-fonbet")).to_contain_text("Archived Alpha")
             output = Path(args.artifacts) / "bookies"
             output.mkdir(parents=True, exist_ok=True)
             await page.screenshot(path=str(output / (engine + ".png")), full_page=True)
+            phase = 8
+            await page.locator("#bookiesCheck").click()
+            await expect(page.locator("#bookiesCheck")).to_be_enabled()
+            await expect(row).to_contain_text("часть линии не прочитана")
+            await expect(row).not_to_contain_text("CyberClash в линии нет")
+            await expect(page.locator("#history-fonbet")).to_contain_text("QA New A")
+            await page.set_viewport_size({"width":375,"height":812})
+            assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "History must fit mobile"
             assert not errors, errors
             await browser.close()
             print("PASS: " + engine + " bookmaker discovery, minute polling, partial rendering, stale recovery, offline/visibility resume", flush=True)

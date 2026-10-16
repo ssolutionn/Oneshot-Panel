@@ -314,8 +314,21 @@
             <button id="bookiesCheck" class="button small" type="button">Проверить сейчас</button>
           </div>
         </div>
+        <p id="bookiesEmpty" class="bookies-empty" hidden></p>
         <div class="bookies-wrap"><table id="bookiesTable" class="bookies-table"></table></div>
         <p id="bookiesStatus" class="lobby-status" role="status">Матчи и коэффициенты обновляются автоматически каждую минуту.</p>
+        <div class="bookies-history">
+          <div class="panel-heading">
+            <div><span class="eyebrow">HISTORY</span><h3 id="bookiesHistoryHeading">Какие матчи были в линии</h3></div>
+            <div class="bookies-actions">
+              <label for="bookiesDay">День (МСК) <input id="bookiesDay" type="date" aria-label="День матчей по московскому времени"></label>
+              <button id="bookiesToday" class="button small" type="button">Сегодня</button>
+              <button id="bookiesHistoryCsv" class="button small" type="button">CSV дня</button>
+            </div>
+          </div>
+          <div class="bookies-wrap"><table id="bookiesHistoryTable" class="bookies-table" aria-labelledby="bookiesHistoryHeading"></table></div>
+          <p id="bookiesHistoryStatus" class="lobby-status" role="status"></p>
+        </div>
       </section>
     </div><!-- /web-only -->
     <!-- web-only --><div id="obsView" class="obs-view" role="tabpanel" aria-labelledby="obsNavBtn" hidden>

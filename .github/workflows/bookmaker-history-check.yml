@@ -1,0 +1,41 @@
+name: Bookmaker history verification
+on:
+  push:
+    branches: ["codex/bookmaker-daily-history"]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax, unit regressions and artifact generation
+        run: |
+          npm run check
+          node --check assets/bookmaker-history.js
+          node --check scripts/collect_bookmaker_history.mjs
+          npm test
+          python3 claude-artifact/build_oneshot_artifact.py
+          git diff --exit-code -- claude-artifact/oneshot-panel.html
+      - run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium webkit
+      - name: Bookmaker journeys in Chromium and WebKit
+        run: |
+          node server.js > /tmp/oneshot-history-server.log 2>&1 &
+          python3 scripts/qa_bookies.py --url http://127.0.0.1:3000
+      - name: Read actual Cloudflare sources
+        run: python3 scripts/read_bookmaker_observations.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bookmaker-history-proof
+          path: |
+            artifacts/bookies/
+            work/bookmaker-observations.json
