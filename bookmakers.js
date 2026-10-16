@@ -8,6 +8,9 @@
 const FONBET_HOSTS = ['line54w.bk6bba-resources.com', 'line55w.bk6bba-resources.com',
   'line31w.bk6bba-resources.com', 'line02w.bk6bba-resources.com'];
 const PARI_HOSTS = ['line-lb51-w.pb06e2-resources.com', 'line-lb01-w.pb06e2-resources.com'];
+// Bettery and 24bet run the same platform (hosts from their /urls.json).
+const BETTERY_HOSTS = ['line-vk01', 'line-nx-w', 'line-cv-w', 'line01', 'line51'].map(h => `${h}.at58f5-resources.ru`);
+const BET24_HOSTS = ['line51.tf39be-resources.com'];
 const showEvents = (host, scope, live) =>
   `https://${host}/line/mobile/showEvents?sysId=2&lang=ru&scopeMarket=${scope}&lineType=${live ? 'live_line' : 'line'}&skId=29086`;
 const OLIMP = live =>
@@ -27,6 +30,16 @@ export const BOOKMAKERS = [
     eventUrl: e => `https://pari.ru/${e.live ? 'live' : 'sports'}/esports/${e.group}/${e.id}`
   },
   {
+    id: 'bettery', name: 'Bettery', kind: 'fonbet', page: 'https://bettery.ru/sports/esports/category/cs',
+    feeds: [false, true].map(live => ({ live, urls: BETTERY_HOSTS.map(h => showEvents(h, 501, live)) })),
+    eventUrl: e => `https://bettery.ru/${e.live ? 'live' : 'sports'}/esports/${e.group}/${e.id}`
+  },
+  {
+    id: 'bet24', name: '24bet', kind: 'fonbet', page: 'https://24bet.ru/sports/esports',
+    feeds: [false, true].map(live => ({ live, urls: BET24_HOSTS.map(h => showEvents(h, 3000, live)) })),
+    eventUrl: e => `https://24bet.ru/${e.live ? 'live' : 'sports'}/esports/${e.group}/${e.id}`
+  },
+  {
     id: 'olimp', name: 'OLIMPBET', kind: 'olimp', page: 'https://www.olimp.bet/cybersport/cs2',
     feeds: [false, true].map(live => ({ live, urls: [OLIMP(live)] })),
     eventUrl: e => `https://www.olimp.bet/${e.live ? 'live' : 'line'}/kibersport-112/${e.group}/${e.id}`
@@ -41,6 +54,12 @@ export const BOOKMAKERS = [
     id: 'betcity', name: 'Бетсити', kind: 'betcity', page: 'https://betcity.ru/ru/line/cybersport',
     feeds: [false, true].map(live => ({ live, urls: [BETCITY(live)] })),
     eventUrl: e => `https://betcity.ru/ru/${e.live ? 'live' : 'line'}/cybersport/${e.group}/${e.id}`
+  },
+  {
+    id: 'leon', name: 'Леон', kind: 'leon', page: 'https://leon.ru/bets/esports/cs2',
+    feeds: [{ live: false, urls: ['https://leon.ru/api-ext/betline-exports/esports'] }],
+    // The export gives the match page itself; only a leon.ru address is taken.
+    eventUrl: e => /^https:\/\/leon\.ru\//.test(e.path) ? e.path : 'https://leon.ru/bets/esports/cs2'
   }
 ];
 // Licensed bookmakers without an automated check yet (websocket, signed
@@ -52,11 +71,8 @@ export const MANUAL = [
   { id: 'melbet', name: 'Мелбет', url: 'https://melbet.ru/' },
   { id: 'baltbet', name: 'Балтбет', url: 'https://baltbet.ru/' },
   { id: 'zenit', name: 'Зенит', url: 'https://zenit.win/line/556' },
-  { id: 'bettery', name: 'Bettery', url: 'https://bettery.ru/sports/esports/category/cs' },
-  { id: 'leon', name: 'Леон', url: 'https://leon.ru/bets/esports/cs2' },
-  { id: 'betm', name: 'БЕТ-М', url: 'https://betm.ru/' },
-  { id: 'sportbet', name: 'Спортбет', url: 'https://sportbet.ru/' },
-  { id: 'bet24', name: '24bet', url: 'https://24bet.ru/' }
+  { id: 'betm', name: 'БЕТ-М', url: 'https://bet-m.ru/' },
+  { id: 'sportbet', name: 'Спортбет', url: 'https://sportbet.ru/' }
 ];
 
 export const isCyberClash = name => /cyber\s*clash|кибер\s*клэш/i.test(String(name || ''));
@@ -149,6 +165,25 @@ function parseBetcity(body, live) {
     }));
 }
 
+// Leon's public export (api-ext/betline-exports/esports): events[] with
+// league, team1 / team2, kickoff (ISO with offset), matchUrl (the event id is
+// its number) and markets [{market: "Победитель", selections [{type 1|2, odds}]}].
+function parseLeon(body, live) {
+  const data = typeof body === 'string' ? JSON.parse(body) : body;
+  return (data?.events || []).filter(e => e && isCyberClash(e.league)).map(e => {
+    const winner = (e.markets || []).find(m => /победитель/i.test(m?.market || ''));
+    const pick = type => price(winner?.selections?.find(x => String(x?.type) === type)?.odds);
+    const path = String(e.matchUrl || '');
+    return {
+      id: path.match(/\/(\d+)-[^/]*$/)?.[1] || `${e.team1}-${e.team2}-${e.kickoff}`,
+      group: String(e.league), tournament: String(e.league),
+      team1: e.team1 || '', team2: e.team2 || '',
+      start: Date.parse(e.kickoff) || null,
+      odds: [pick('1'), pick('2')], live, path, markets: [], size: null
+    };
+  });
+}
+
 const decode = text => String(text).replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<')
   .replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 const stripTags = html => decode(String(html).replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
@@ -194,7 +229,7 @@ export function mskTime(text, now = Date.now()) {
   return Date.UTC(today.getUTCFullYear(), month, day, Number(m[3]) - 3, Number(m[4]));
 }
 
-const PARSERS = { fonbet: parseFonbet, olimp: parseOlimp, marathon: parseMarathon, betcity: parseBetcity };
+const PARSERS = { fonbet: parseFonbet, olimp: parseOlimp, marathon: parseMarathon, betcity: parseBetcity, leon: parseLeon };
 export function parseFeed(bookmaker, body, live, now = Date.now()) {
   const parse = PARSERS[bookmaker.kind];
   if (!parse) throw new Error('Неизвестный формат линии.');

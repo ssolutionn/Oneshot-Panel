@@ -470,7 +470,8 @@ async def run(args):
         await lobby.clock.run_for(3000)
         await expect(lobby.locator(".pause-on time")).to_have_text("0:03")
         await lobby.click('[data-resume="1-live"]')
-        await expect(lobby.locator("#lobbyLog")).to_contain_text("Пауза PCIFIC закончилась через 0:03")
+        # The installed clock still runs with real time: a slow machine adds a second.
+        await expect(lobby.locator("#lobbyLog")).to_contain_text(re.compile(r"Пауза PCIFIC закончилась через 0:0[34]"))
         # Map 1 ends.
         phase["value"] = 1
         await lobby.clock.run_for(21000)
@@ -545,7 +546,7 @@ async def run(args):
         assert "В линии у 3 из" in summary, summary
         assert "• Марафон: 1.42 · 2.70 (откр. 1.48 · 2.50) · был в лайве · Ф1 +1.5 1.30 · Ф2 -1.5 3.10 · ТБ 2.5 2.00 · ТМ 1.75" in summary, summary
         assert "• Фонбет: 1.50 · 2.40 · 76 исходов · LIVE · Ф1 -5.5 1.90 · Ф2 +5.5 1.80" in summary, summary
-        assert "Нет линии: PARI, OLIMPBET" in summary, summary
+        assert "Нет линии: PARI, Bettery, 24bet, OLIMPBET" in summary, summary
         async with lobby.expect_download() as info:
             await lobby.click("#bookiesCsv")
         download = await info.value

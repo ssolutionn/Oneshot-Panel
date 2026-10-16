@@ -54,7 +54,7 @@ export async function checkBookmaker(id, fetchImpl = fetch, now = Date.now()) {
 
 export async function bookmakersResponse(request, fetchImpl = fetch) {
   const id = new URL(request.url).searchParams.get('id') || '';
-  if (request.method !== 'GET' || !/^[a-z]{2,20}$/.test(id)) {
+  if (request.method !== 'GET' || !/^[a-z0-9]{2,20}$/.test(id)) {
     return Response.json({ error: 'not-allowed', message: 'Нужен id букмекера.' }, { status: 400 });
   }
   const { status, body } = await checkBookmaker(id, fetchImpl);

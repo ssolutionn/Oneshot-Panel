@@ -81,6 +81,38 @@ test('Betcity feed: championship «CS2. CIS Esports League CyberClash», Wm P1/P
     'https://betcity.ru/ru/live/cybersport/960748/24617849');
 });
 
+test('Bettery and 24bet: the Fonbet platform on their own hosts and links', async () => {
+  const bettery = parseFeed(book('bettery'), await fixture('bettery-line.json'), false);
+  assert.deepEqual(bettery.map(e => [e.team1, e.team2, e.odds]), [
+    ['Rune Eaters Esports', 'HyperSpirit', [1.45, 2.55]],
+    ['PRIVATE', 'UPGRADE', [1.72, 2]]
+  ]);
+  assert.equal(bettery[0].url, 'https://bettery.ru/sports/esports/147516/69002206');
+  assert.ok(book('bettery').feeds[0].urls.every(u => /^https:\/\/[a-z0-9-]+\.at58f5-resources\.ru\/.*scopeMarket=501&lineType=line&/.test(u)));
+  const bet24 = parseFeed(book('bet24'), await fixture('24bet-line.json'), true);
+  assert.deepEqual(bet24.map(e => [e.team1, e.team2, e.odds]), [
+    ['Rune Eaters Esports', 'HyperSpirit', [1.45, 2.55]],
+    ['PRIVATE', 'UPGRADE', [1.67, 2.07]]
+  ]);
+  assert.equal(bet24[1].url, 'https://24bet.ru/live/esports/147516/69002208');
+  assert.match(book('bet24').feeds[1].urls[0], /tf39be-resources\.com\/.*scopeMarket=3000&lineType=live_line/);
+});
+
+test('Leon export: league «CyberClash Closed Qualifier», ISO kickoff, the match page from the feed', async () => {
+  const events = parseFeed(book('leon'), await fixture('leon-esports.json'), false);
+  assert.deepEqual(events.map(e => [e.team1, e.team2, e.odds]), [
+    ['PRIVATE', 'UPGRADE', [1.7, 2.05]],
+    ['Honved', 'Lavked', [2.15, 1.62]],
+    ['Rune Eaters', 'HyperSpirit', [1.44, 2.6]]
+  ]);
+  assert.equal(events[2].start, Date.UTC(2026, 9, 16, 13, 0));
+  assert.equal(events[0].id, '1970324853915091');
+  assert.equal(events[0].url, 'https://leon.ru/bets/esports/cs2/cyberclash-closed-qualifier/1970324853915091-private-upgrade');
+  assert.equal(findMatch(events, 'Lavked', 'Honvéd').odds[0], 1.62);
+  const forged = JSON.stringify({ events: [{ league: 'CyberClash', team1: 'A1', team2: 'B1', matchUrl: 'javascript:alert(1)', markets: [] }] });
+  assert.equal(parseFeed(book('leon'), forged, false)[0].url, 'https://leon.ru/bets/esports/cs2', 'only leon.ru links');
+});
+
 test('team names match across bookmakers, in either order', () => {
   assert.equal(teamKey('Honvéd'), 'honved');
   assert.ok(sameTeam('Lenovo Legion Honved', 'Honvéd'));

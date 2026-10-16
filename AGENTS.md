@@ -91,13 +91,15 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   `oneshot-veto-log:<код>`. Логика покрыта `test/veto-room.test.js`,
   страница — `scripts/qa_veto_site.py` (три отдельных браузера).
 - `bookmakers.js` — без DOM: публичные линии лицензированных БК, где
-  есть открытый JSON/HTML без входа и капчи: Фонбет и PARI (одна платформа,
-  `showEvents`, skId 29086), OLIMPBET (`api/v4/0/{line|live}/…vids[]=112:`),
+  есть открытый JSON/HTML без входа и капчи: Фонбет, PARI, Bettery и 24bet
+  (одна платформа, `showEvents`, skId 29086, свои хосты и scopeMarket), Леон
+  (`leon.ru/api-ext/betline-exports/esports`, ссылка — только leon.ru), OLIMPBET (`api/v4/0/{line|live}/…vids[]=112:`),
   Марафон (HTML страницы CS2), Бетсити (`ad.betcity.ru/d/{off|on_air}/events…ids_sp=73`). Парсеры оставляют только CyberClash,
   `findMatch` сопоставляет команды без акцентов и суффиксов («Honved
   Esport» = «Honvéd»), в любом порядке. `MANUAL` — БК без открытой линии
-  (Winline — websocket, Зенит — подписанные заголовки, Леон, BetBoom,
-  Лига Ставок…): только ссылки. Покрыт `test/bookmakers.test.js` на
+  (Winline — websocket, Зенит — заголовок imprintHash, BetBoom и Лига Ставок —
+  капча Qrator, Мелбет и БЕТ-М — зашифрованные ответы Digitain; Балтбет,
+  Спортбет): только ссылки. Покрыт `test/bookmakers.test.js` на
   реальных ответах (`test/fixtures/bookmakers/`).
 - `netlify/functions/bookmakers.mjs` — `/api/bookmakers?id=<бк>`: сервер
   сам ходит в фиксированные адреса линий (из запроса берётся только id),
@@ -213,7 +215,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 
 ```sh
 npm run check        # синтаксис
-npm test             # 75 тестов (node:test)
+npm test             # 78 тестов (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
