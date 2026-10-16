@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Read precise anonymous line contracts
+      - name: Read remaining official public contracts
         run: |
           python3 - <<'PY'
           import json,re
@@ -18,32 +18,33 @@ jobs:
           def read(pair):
            label,url=pair
            try:
-            with urlopen(Request(url,headers={"User-Agent":"Mozilla/5.0"}),timeout=18) as r:text=r.read(12000000).decode("utf8","replace");status=r.status
-            data={"provider":label,"status":status,"size":len(text)}
-            if label=="winline-time":
-             data["excerpts"]=[text[max(0,m.start()-220):m.end()+500] for m in list(re.finditer("TZ_OFFSET_MS",text))[:15]]
-            elif label=="baltbet-line":
-             data["cyberclash"]=[text[max(0,m.start()-350):m.end()+2200] for m in list(re.finditer("cyber.?clash",text,re.I))[:10]]
-             data["sample"]=text[text.find('data-event-id'):text.find('data-event-id')+5000]
-             data["dataAttrs"]=list(dict.fromkeys(re.findall(r"data-([a-z-]+)=",text)))[:80]
-             data["scripts"]=re.findall(r'<script[^>]+src=["\x27]([^"\x27]+)',text)[:15]
-            print("FINAL_PUBLIC:",json.dumps(data,ensure_ascii=False),flush=True)
-           except Exception as e:print("FINAL_PUBLIC:",json.dumps({"provider":label,"error":str(e)[:100]}),flush=True)
-          with ThreadPoolExecutor(max_workers=3) as pool:list(pool.map(read,[
-           ("winline-time","https://winline.ru/main.2485c5709989c6dc.js"),
-           ("baltbet-line","https://baltbet.ru/prematch/cybersport")
-          ]))
-          base="https://siteapi.betboom.ru/api/site_api/v1/"
+            with urlopen(Request(url,headers={"User-Agent":"Mozilla/5.0"}),timeout=15) as r:text=r.read(14000000).decode("utf8","replace");status=r.status
+            d={"provider":label,"status":status,"size":len(text)}
+            if label=="runtime":
+             data=dict(re.findall(r'"([A-Z_]+)"\s*:\s*"([^"]*)"',text))
+             d["config"]={k:v for k,v in data.items() if k in ("FEED_WS_PROTOCOL","API_URL","PARTNER_API_URL","FEED_WS_URL_TEMPLATE")}
+            elif label=="bb-core":
+             d["excerpts"]=[text[max(0,m.start()-250):m.end()+1200] for m in list(re.finditer(r"FEED_WS_PROTOCOL|FEED_WS_URL_TEMPLATE|new WebSocket|sporthub/tree/|get_feed|GetFeed|subscribeTo|FeedWS|TreeWS|protobuf",text))[:55]]
+            elif label=="baltbet-shell":
+             d["excerpts"]=[text[max(0,m.start()-500):m.end()+1300] for m in list(re.finditer(r"data-group-ids|data-sport|data-category|PrematchTable|modeTable",text))[:12]]
+            else:
+             d["excerpts"]=[text[max(0,m.start()-250):m.end()+1000] for m in list(re.finditer(r"prematchServiceUrl|/api/prematch/|/Prematch/|/api/[^\"'\x60 ]{0,100}(?:line|event|sport|match)|cybersport|counter.?strike|FEED_WS",text,re.I))[:35]]
+            print("CONTRACT_PUBLIC:",json.dumps(d,ensure_ascii=False),flush=True)
+           except Exception as e:print("CONTRACT_PUBLIC:",json.dumps({"provider":label,"error":str(e)[:100]}),flush=True)
+          base="https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/"
+          targets=[("runtime",base+"runtime-env.js"),("bb-core",base+"BetShareModal-D1mFtPEC.js"),("baltbet-shell","https://baltbet.ru/prematch/cybersport"),("baltbet-vue","https://baltbet.ru/bundles/scripts/vue/uniru.bundle.js")]
+          targets.extend(("sportbet-"+s,"https://sportbet.ru/_next/static/chunks/"+s) for s in ["3157-a4254799dc839e40.js","3801-3dc6e1ffaa86ea9a.js","1988-88af00cc2bc547a3.js","414-c4f818f908eb7469.js","8176-03c377e6263c7026.js"])
+          with ThreadPoolExecutor(max_workers=8) as pool:list(pool.map(read,targets))
           for path,body in [
-           ("sporthub/search/get_tournaments",{"query":"CyberClash","page":1,"limit":20}),
-           ("sporthub/search/get",{"query":"CyberClash","page":1,"limit":20})
+           ("sporthub/tree/get_tournament_group",{"tournament_id":39428,"language":"ru"}),
+           ("sporthub/tree/get_match_details_info",{"match_id":6209059,"language":"ru","theme":"THEMES_BLACK"}),
+           ("sporthub/search/get",{"query":"PRIVATE","page":1,"limit":20})
           ]:
            try:
-            request=Request(base+path,data=json.dumps(body).encode(),headers={"Content-Type":"application/json","Accept":"application/json"},method="POST")
-            with urlopen(request,timeout=15) as r:
-             data=json.load(r);status=r.status
+            req=Request("https://siteapi.betboom.ru/api/site_api/v1/"+path,data=json.dumps(body).encode(),headers={"Content-Type":"application/json","Accept":"application/json"},method="POST")
+            with urlopen(req,timeout=12) as r:data=json.load(r);status=r.status
             data={k:v for k,v in data.items() if not k.startswith("_") and not re.search("token|secret|session|auth|user|account",k,re.I)}
-            print("BETBOOM_PUBLIC_QUERY:",json.dumps({"path":path,"status":status,"response":data},ensure_ascii=False)[:40000],flush=True)
-           except Exception as e:print("BETBOOM_PUBLIC_QUERY:",json.dumps({"path":path,"error":str(e)[:100]}),flush=True)
+            print("READ_PUBLIC_QUERY:",json.dumps({"path":path,"status":status,"response":data},ensure_ascii=False)[:40000],flush=True)
+           except Exception as e:print("READ_PUBLIC_QUERY:",json.dumps({"path":path,"error":str(e)[:100]}),flush=True)
           
           PY
