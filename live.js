@@ -6,6 +6,7 @@ import { buildObs, DEFAULT_CARD_BASE } from './core.js';
 import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto } from './obs.js';
 import { VdoLink, CamWatch, bridgeSecrets, newBridgeCode, normalizeCode } from './vdo.js';
 import { mountQrReader, parseObsQr, parsePairingQr } from './assets/obs-qr.js';
+import { createRoom, captainMessage, spectatorMessage } from './veto-room.js';
 
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
@@ -619,11 +620,78 @@ function onChange() {
   syncWatcher();
   sendVeto();
   playerVetoLink(s);
+  captainVeto(s);
 }
 // The captains' veto site (veto.html) opens with this match's teams and format.
 function playerVetoLink(s) {
-  const params = new URLSearchParams({ a: s.a?.name || '', b: s.b?.name || '', f: s.veto.format });
+  const params = new URLSearchParams({ a: s.a?.name || '', b: s.b?.name || '', f: $('cvFormat').value, m: $('cvTimer').value });
   $('playerVeto').href = '/veto.html#new&' + params;
+}
+
+// ---------- captains' veto ----------
+// Links for the selected match right here: the format follows the panel's
+// veto until changed in this block; the timer and the language of the
+// captains' messages are remembered. The admin's link (HLTV text) stays ours.
+const CV_STORE = 'oneshot-captain-veto', CV_KEEP = 6 * 3600000;
+const cv = { touched: false, made: null };
+{
+  const saved = read(CV_STORE) || {};
+  if (['0', '3', '5', '7', '10', '15'].includes(String(saved.timer))) $('cvTimer').value = String(saved.timer);
+  if (['en', 'ru'].includes(saved.lang)) $('cvLang').value = saved.lang;
+}
+const cvMatch = s => s.a?.name && s.b?.name ? JSON.stringify([s.a.name, s.b.name]) : '';
+function cvSave(last = read(CV_STORE)?.last) {
+  write(CV_STORE, { timer: $('cvTimer').value, lang: $('cvLang').value, last });
+}
+function cvShow(made) {
+  cv.made = made;
+  const lang = $('cvLang').value, { room, links } = made;
+  $('cvNameA').textContent = room.t[0];
+  $('cvNameB').textContent = room.t[1];
+  $('cvMsgA').value = captainMessage(room, 0, links.a, lang);
+  $('cvMsgB').value = captainMessage(room, 1, links.b, lang);
+  $('cvMsgS').value = spectatorMessage(room, links.s, lang);
+  $('cvMsgO').value = links.o;
+  $('cvOpen').href = links.o;
+  $('cvLinks').hidden = false;
+  const time = new Date(made.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  cvStatus(`Ссылки для ${room.t[0]} vs ${room.t[1]} (${room.f}${room.m ? `, ${room.m} мин` : ', без таймера'}) созданы в ${time}. ` +
+    'Новые ссылки — снова «Создать ссылки»: старые продолжат работать, но это будет другая комната.');
+}
+function cvStatus(text, kind = '') {
+  $('cvStatus').textContent = text;
+  $('cvStatus').dataset.kind = kind;
+}
+function captainVeto(s) {
+  if (!cv.touched && s.veto?.format) $('cvFormat').value = s.veto.format;
+  const match = cvMatch(s);
+  const last = read(CV_STORE)?.last;
+  if (cv.made?.match === match) return;
+  if (last?.match === match && match && Date.now() - last.at < CV_KEEP && last.links?.o) return cvShow(last);
+  cv.made = null;
+  $('cvLinks').hidden = true;
+  cvStatus(match ? '' : 'Выбери матч с двумя командами — ссылки сделаем для него.');
+}
+$('cvFormat').addEventListener('change', () => { cv.touched = true; playerVetoLink(panel.snapshot()); });
+$('cvTimer').addEventListener('change', () => { cvSave(); playerVetoLink(panel.snapshot()); });
+$('cvLang').addEventListener('change', () => { cvSave(); if (cv.made) cvShow(cv.made); });
+$('cvCreate').addEventListener('click', async () => {
+  const s = panel.snapshot();
+  try {
+    if (!cvMatch(s)) throw new Error('Выбери матч с двумя командами.');
+    $('cvCreate').disabled = true;
+    const base = new URL('/veto.html', location.href).href;
+    const made = await createRoom(base, [s.a.name, s.b.name], $('cvFormat').value, Number($('cvTimer').value));
+    const last = { match: cvMatch(s), at: Date.now(), room: made.room, links: made.links };
+    cvSave(last);
+    cvShow(last);
+    panel.toast('Ссылки на вето готовы: капитанам — в личку, админская — только у нас.');
+  } catch (error) {
+    cvStatus(error.message, 'bad');
+  } finally { $('cvCreate').disabled = false; }
+});
+for (const button of document.querySelectorAll('[data-cv-copy]')) {
+  button.addEventListener('click', () => { if ($(button.dataset.cvCopy).value) panel.copy($(button.dataset.cvCopy).value); });
 }
 document.addEventListener('oneshot:change', onChange);
 fillObsDialog();

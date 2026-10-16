@@ -112,7 +112,6 @@
           <select id="vetoLayout" aria-label="Вид оверлея"><option value="full">Весь экран</option><option value="strip">Плашка снизу</option></select>
           <button id="copyOverlay" class="text-button" type="button">⧉ Ссылка на оверлей для OBS</button>
         </span>
-        <a id="playerVeto" class="text-button" href="/veto.html" target="_blank" rel="noopener">Вето для капитанов ↗</a>
       </div>
       <p id="vetoLiveStatus" class="veto-live-status" role="status" aria-live="polite"></p>
       <p class="obs-field-hint" id="overlaySizeHint">В OBS добавь именно <b>Источники → + → Браузер</b>, вставь ссылку на оверлей и задай <b>1920 × 1080</b>. Док Oneshot управляет камерами; отдельный источник показывает графику в кадре. Живое вето соединяется с панелью по своей ссылке и не требует пароля OBS.</p><!-- /web-only -->
@@ -137,6 +136,47 @@
       <textarea id="vetoOutput" aria-label="Вето в формате HLTV" readonly placeholder="Выбирай карты — здесь появится текст вето"></textarea>
       <p class="copy-foot">На пике выбери стартовую сторону соперника. Смена матча сбрасывает текущее вето.</p>
     </section>
+
+    <!-- web-only --><section id="captainVeto" class="veto-panel captain-veto" aria-labelledby="captainVetoHeading">
+      <div class="panel-heading">
+        <div><span class="eyebrow">CAPTAINS' VETO</span><h2 id="captainVetoHeading">Вето для капитанов</h2></div>
+        <a id="playerVeto" class="text-button" href="/veto.html" target="_blank" rel="noopener">Отдельная страница ↗</a>
+      </div>
+      <p class="cv-intro">Капитаны банят сами на своём сайте, монетку бросают тоже сами. Команды — из выбранного матча. Ссылки короткие; текст для HLTV видит только админская ссылка.</p>
+      <div class="cv-settings">
+        <label>Формат<select id="cvFormat"><option>BO1</option><option>BO2</option><option selected>BO3</option><option>BO5</option></select></label>
+        <label>Таймер<select id="cvTimer">
+          <option value="5" selected>5 минут</option><option value="3">3 минуты</option><option value="7">7 минут</option>
+          <option value="10">10 минут</option><option value="15">15 минут</option><option value="0">Без таймера</option>
+        </select></label>
+        <label>Сообщения капитанам<select id="cvLang"><option value="en" selected>English</option><option value="ru">Русский</option></select></label>
+        <button id="cvCreate" class="button primary" type="button">Создать ссылки</button>
+      </div>
+      <p id="cvStatus" class="cv-status" role="status" aria-live="polite"></p>
+      <div id="cvLinks" class="cv-links" hidden>
+        <article class="cv-link">
+          <h3>Капитану <span id="cvNameA"></span> <small>в личку</small></h3>
+          <textarea id="cvMsgA" readonly rows="6" aria-label="Сообщение первому капитану"></textarea>
+          <button class="button small" type="button" data-cv-copy="cvMsgA">⧉ Скопировать</button>
+        </article>
+        <article class="cv-link">
+          <h3>Капитану <span id="cvNameB"></span> <small>в личку</small></h3>
+          <textarea id="cvMsgB" readonly rows="6" aria-label="Сообщение второму капитану"></textarea>
+          <button class="button small" type="button" data-cv-copy="cvMsgB">⧉ Скопировать</button>
+        </article>
+        <article class="cv-link">
+          <h3>Зрителям <small>можно в общий канал</small></h3>
+          <textarea id="cvMsgS" readonly rows="3" aria-label="Ссылка для зрителей"></textarea>
+          <button class="button small" type="button" data-cv-copy="cvMsgS">⧉ Скопировать</button>
+        </article>
+        <article class="cv-link cv-admin">
+          <h3>Админу <small>только у нас · текст для HLTV</small></h3>
+          <textarea id="cvMsgO" readonly rows="3" aria-label="Ссылка админа"></textarea>
+          <span class="cv-actions"><button class="button small" type="button" data-cv-copy="cvMsgO">⧉ Скопировать</button>
+          <a id="cvOpen" class="button small primary" target="_blank" rel="noopener">Открыть вето ↗</a></span>
+        </article>
+      </div>
+    </section><!-- /web-only -->
 
     <section id="copy" class="copy-panel" aria-label="Ссылки участникам">
       <div class="panel-heading">

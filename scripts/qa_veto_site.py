@@ -106,9 +106,12 @@ async def run(args):
                          ["Group B2", day(1), "16:00", "Rune Eaters", "HyperSpirit"]],
                         ["Stage", "Date", "MSK (GMT +3)", "Team 1", "Team 2"])
 
-        async def open_context(width=1280, height=900):
+        async def open_context(width=1280, height=900, english=False):
             context = await browser.new_context(viewport={"width": width, "height": height}, locale="ru-RU")
             contexts.append(context)
+            # The site is English by default; most scenarios read the Russian texts.
+            if not english:
+                await context.add_init_script("try { localStorage.setItem('oneshot-veto-lang', '\"ru\"') } catch {}")
             # The group stage tab has the matches, the playoffs tab is empty.
             await context.route("https://docs.google.com/**/gviz/**", lambda route: route.fulfill(
                 content_type="application/javascript",
@@ -126,8 +129,8 @@ async def run(args):
                 await context.grant_permissions(["clipboard-read", "clipboard-write"], origin=base)
             return context
 
-        async def open_page(url=None, width=1280, height=900, context=None, clock=False):
-            context = context or await open_context(width, height)
+        async def open_page(url=None, width=1280, height=900, context=None, clock=False, english=False):
+            context = context or await open_context(width, height, english)
             page = await context.new_page()
             page.on("pageerror", lambda error: errors.append(f"{page.url[:60]}: {error}"))
             page.on("dialog", lambda dialog: errors.append(f"dialog {dialog.message}"))
@@ -191,9 +194,14 @@ async def run(args):
                         await actor.screenshot(path=str(output / shot), full_page=True)
                     await actor.locator("#vtActions .vt-primary").click()
                 moves += 1
-            result = await cap_a.locator("#vtResultText").text_content()
-            for page in (cap_b, *watchers):
+            # The HLTV text is ours: the admin's page has it, captains don't.
+            await expect(watchers[0].locator("#vtResultText")).not_to_be_empty(timeout=wait)
+            result = await watchers[0].locator("#vtResultText").text_content()
+            for page in watchers[1:]:
                 await expect(page.locator("#vtResultText")).to_have_text(result, timeout=wait)
+            for page in (cap_a, cap_b):
+                await expect(page.locator("#vtStage")).to_have_attribute("data-phase", "done", timeout=wait)
+                await expect(page.locator("#vtResult")).to_be_hidden()
             return result
 
         # 1. Admin links.
@@ -204,12 +212,14 @@ async def run(args):
         await expect(admin.locator("#vtLinks")).to_be_visible()
         message_a = await admin.locator("#vtMsgA").input_value()
         message_b = await admin.locator("#vtMsgB").input_value()
-        link_s = await admin.locator("#vtWatch").get_attribute("href")
+        link_s = await admin.locator("#vtWatch").get_attribute("href")  # the admin's link
         link_a = re.search(r"https?://\S+", message_a).group(0)
         link_b = re.search(r"https?://\S+", message_b).group(0)
+        public = re.search(r"https?://\S+", await admin.locator("#vtMsgS").input_value()).group(0)
+        assert await admin.locator("#vtMsgO").input_value() == link_s and public != link_s
         assert "Капитан **UPGRADE**" in message_a and "Капитан **Lavked**" in message_b
         assert "Монетку бросите на сайте" in message_a
-        assert len({link_a, link_b, link_s}) == 3
+        assert len({link_a, link_b, link_s, public}) == 4
         assert max(len(link_a), len(link_b), len(link_s)) < 150, (len(link_a), len(link_s))
         await admin.screenshot(path=str(output / "veto-site-admin.png"), full_page=True)
         await admin.reload()
@@ -246,6 +256,11 @@ async def run(args):
         await expect(spectator.locator(".vt-map[data-status=decider]")).to_have_count(1)
         await expect(spectator.locator("#vtClock")).to_be_visible()
         await expect(spectator.locator("#vtClock .vt-clock-label")).to_have_text("вето за")
+        # Cards in veto order: the six moves, then the decider on the right.
+        statuses = await spectator.locator(".vt-map").evaluate_all("els => els.map(e => e.dataset.status)")
+        assert statuses[-1] == "decider" and all(x in ("ban", "pick") for x in statuses[:6]), statuses
+        maps = await spectator.locator(".vt-map").evaluate_all("els => els.map(e => e.dataset.map)")
+        assert maps[0] == lines[0].split(" removed ")[1], (maps, lines)
         if args.browser == "chromium":
             await spectator.get_by_role("button", name="Скопировать для HLTV").click()
             assert await spectator.evaluate("navigator.clipboard.readText()") == result
@@ -253,12 +268,17 @@ async def run(args):
         assert not [s for s in senders if s in spectator_pages], "spectators must only listen"
         passed("whole BO3 by turns; spectators only listen; HLTV text copies")
 
-        # 3. Reloads and late viewers.
+        # 3. Reloads and late viewers; the public spectator link has no HLTV text.
         await cap_a.reload()
-        await expect(cap_a.locator("#vtResultText")).to_have_text(result)
+        await expect(cap_a.locator("#vtStage")).to_have_attribute("data-phase", "done", timeout=wait)
+        await expect(cap_a.locator("#vtResult")).to_be_hidden()
         late = await open_page(link_s)
         await expect(late.locator("#vtResultText")).to_have_text(result, timeout=wait)
-        passed("a reload and a late spectator get the finished veto")
+        viewer = await open_page(public)
+        await expect(viewer.locator(".vt-map[data-status=decider]")).to_have_count(1, timeout=wait)
+        await expect(viewer.locator("#vtResult")).to_be_hidden()
+        await expect(viewer.locator("#vtFoot")).to_contain_text("Режим зрителя")
+        passed("a reload and late viewers get the finished veto; HLTV text only on the admin link")
 
         # 4. Layout and broken links.
         await cap_b.screenshot(path=str(output / "veto-site-mobile.png"), full_page=True)
@@ -396,6 +416,26 @@ async def run(args):
         passed("the 5-minute clock shows «время вышло» on every page; play goes on")
         for page in (a, b):
             await page.close()
+
+        # 11. English by default; the flag switches to Russian and stays.
+        english = await open_page(base + "/veto.html", english=True)
+        await expect(english.locator("html")).to_have_attribute("lang", "en")
+        await expect(english.locator("#vtCreateHeading")).to_have_text("New captains' veto")
+        await expect(english.locator('[data-lang="en"]')).to_have_attribute("aria-pressed", "true")
+        await english.click('[data-lang="ru"]')
+        await expect(english.locator("#vtCreateHeading")).to_have_text("Новое вето для капитанов")
+        await english.reload()
+        await expect(english.locator("#vtCreateHeading")).to_have_text("Новое вето для капитанов")
+        await english.click('[data-lang="en"]')
+        await english.select_option("#vtTimer", "0")
+        await english.fill("#vtTeamA", "Alpha")
+        await english.fill("#vtTeamB", "Bravo")
+        await english.click("#vtForm button[type=submit]")
+        await expect(english.locator("#vtMsgA")).to_have_value(re.compile(r"Captain of \*\*Alpha\*\*[\s\S]*No time limit"))
+        room_page = await open_page(await english.locator("#vtWatch").get_attribute("href"), english=True)
+        await expect(room_page.locator("#vtPrompt")).to_have_text("Waiting for the captains")
+        await expect(room_page.locator("#vtFoot")).to_contain_text("Admin view")
+        passed("English by default, the RU flag switches and is remembered; timer «No timer» in the message")
 
         # 10. Hostile team names stay text.
         link_a, link_b, link_s = await make_links(admin, '<img src=x onerror=alert(1)>', 'A"B</h1>', "BO3")

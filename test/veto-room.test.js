@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   createRoom, decodeLink, encodeLink, roomSecrets, captainKey, acceptKey, fingerprint, publicPoint,
   signMove, verifyLog, replay, nextTurn, mergeLog, clock, formatClock, mapBoard, resultText,
-  captainMessage, coinCommit, coinNonce
+  captainMessage, spectatorMessage, coinCommit, coinNonce
 } from '../veto-room.js';
 
 const BASE = 'https://oneshot-panel.pages.dev/veto.html';
@@ -53,6 +53,25 @@ test('links: short; each captain gets their own secret, spectators none', async 
   const odd = await createRoom(BASE, ['Honvéd', '<b>A"B</b>'], 'BO1');
   assert.deepEqual(decodeLink(new URL(odd.links.s).hash).t, ['Honvéd', '<b>A"B</b>']);
   assert.equal(encodeLink(BASE, s), links.s);
+  // The admin's link: a spectator that also gets the HLTV text; no secret.
+  const o = decodeLink(new URL(links.o).hash);
+  assert.equal(o.me, 'o');
+  assert.equal(o.k, undefined);
+  assert.equal(await captainKey(o), null);
+  assert.equal(new Set(Object.values(links)).size, 4);
+});
+
+test('timer: in the link, 5 minutes by default, 0 for none', async () => {
+  const plain = await createRoom(BASE, ['A1', 'B1'], 'BO1');
+  assert.equal(decodeLink(new URL(plain.links.b).hash).m, 5);
+  for (const minutes of [3, 7, 10, 15, 0]) {
+    const made = await createRoom(BASE, ['A1', 'B1'], 'BO5', minutes);
+    const room = decodeLink(new URL(made.links.s).hash);
+    assert.equal(room.m, minutes);
+    assert.equal(room.f, 'BO5');
+  }
+  await assert.rejects(createRoom(BASE, ['A1', 'B1'], 'BO1', 4), /таймер/);
+  assert.equal(clock({ startedAt: 0 }, 150000, 3).left, 30000);
 });
 
 test('captain key: a damaged secret or a foreign key is refused', async () => {
@@ -220,11 +239,17 @@ test('clock: five minutes from the order choice, then "over"', () => {
   assert.equal(formatClock(1e300), '99:59');
 });
 
-test('captain message: names the team, the coin in the room, warns about the link', async () => {
+test('captain message: names the team, the coin in the room, warns about the link; EN and RU', async () => {
   const { room, links } = await seats();
   const text = captainMessage(room, 1, links.b);
   assert.match(text, /Капитан \*\*Lavked\*\*/);
   assert.match(text, /Монетку бросите на сайте/);
+  assert.match(text, /На всё вето 5 минут/);
   assert.match(text, /никому не пересылай/);
   assert.ok(text.includes(links.b));
+  const en = captainMessage({ ...room, m: 0 }, 0, links.a, 'en');
+  assert.match(en, /Captain of \*\*UPGRADE\*\*/);
+  assert.match(en, /No time limit/);
+  assert.match(en, /Do not forward this link/);
+  assert.equal(spectatorMessage(room, links.s, 'en'), `Map veto UPGRADE vs Lavked (BO3) live:\n${links.s}`);
 });

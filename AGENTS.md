@@ -73,11 +73,16 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   лишь когда OBS их принял. Панель этот пароль не хранит. localStorage
   дока: `oneshot-obs-bridge`.
 - `veto.html`, `veto.js`, `veto.css`, `veto-room.js` — сайт вето для
-  капитанов (только сайт). Без `#v=` — форма админа (`#new&a=&b=&f=` от
-  кнопки `playerVeto` панели; список `vtMatch` — матчи из той же таблицы
-  расписания, источник панели из `webcam-desk-source`): три ссылки — капитану
-  каждой команды (в ЛС) и зрителям. Ссылка короткая (~140 символов):
-  `#v=` — base64url байтов: версия 2, место | формат << 2, код комнаты (10),
+  капитанов (только сайт). По умолчанию на английском, флаги EN/RU в шапке
+  (`data-lang`, тексты — `WORDS` в `veto.js`, атрибут `data-i18n`, выбор в
+  localStorage `oneshot-veto-lang`). Без `#v=` — форма админа (`#new&a=&b=&f=&m=` от
+  кнопки `playerVeto` панели; блок «Настройки вето»: `vtMatch` — матчи из той же таблицы
+  расписания, источник панели из `webcam-desk-source`, формат, таймер `vtTimer`):
+  четыре ссылки — капитану каждой команды (в ЛС), зрителям (можно публично) и
+  админу (`o`, только у нас: как зритель плюс текст для HLTV; у капитанов и
+  зрителей HLTV нет). Ссылка короткая (~140 символов):
+  `#v=` — base64url байтов: версия 2, место (a, b, s, o) | формат << 2 | таймер << 4
+  (`TIMERS`: 5, 3, 7, 10, 15 мин, 0 — без таймера), код комнаты (10),
   отпечатки ключей A и B (10 + 10), секрет капитана (16, только капитанам),
   названия команд. Ключ ECDSA P-256 капитана выводится из секрета
   (`captainKey`, своя арифметика P-256 — `publicPoint`), публичные ключи
@@ -89,9 +94,12 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   `oneshot-veto-coin:<код>`), B — `seed`, A — `reveal`; победитель —
   `(nonce[0] ^ seed[0]) & 1`; заранее не знает никто, включая админа.
   Победитель выбирает, кто банит первым; после пика сторону выбирает
-  соперник (как в core: `Y CT`). 5 минут — только счётчик от выбора
-  порядка, без автоходов (время хода проверяется: настоящая дата, по
-  порядку, ±1 мин между устройствами). Связь: каждый капитан публикует свой поток
+  соперник (как в core: `Y CT`). Таймер — только счётчик от выбора
+  порядка, без автоходов; отсчёт от min(время хода, когда этот браузер его
+  увидел), чтобы спешащие часы соперника его не останавливали (время хода
+  проверяется: настоящая дата, по порядку, ±1 мин между устройствами).
+  Карты по порядку вето, как в панели: сделанные ходы, пик без стороны,
+  остаток пула; переезд карты — анимация FLIP. Связь: каждый капитан публикует свой поток
   VDO.Ninja только с данными и смотрит поток соперника, зрители смотрят
   оба и сами ничего не шлют; ID потоков, пароль и ключ AES-GCM выводятся
   из кода комнаты. «На сайте» — только по сообщениям из потока соперника
@@ -104,6 +112,11 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   `oneshot-player-veto` (последние ссылки админа),
   `oneshot-veto-log:<код>`, `oneshot-veto-keys:<код>`, `oneshot-veto-coin:<код>`. Логика покрыта `test/veto-room.test.js`,
   страница — `scripts/qa_veto_site.py` (три отдельных браузера).
+- Блок панели «Вето для капитанов» (`live.js`, только сайт, `captainVeto`):
+  формат (как у вето панели, пока не изменён здесь), таймер, язык сообщений
+  капитанам (English по умолчанию) → четыре ссылки для текущего матча
+  (`createRoom` из `veto-room.js`); админская — отдельно, «Открыть вето ↗».
+  localStorage `oneshot-captain-veto` (таймер, язык, последние ссылки на 6 ч).
 - `bookmakers.js` — без DOM: публичные линии лицензированных БК, где
   есть открытый JSON/HTML без входа и капчи: Фонбет, PARI, Bettery и 24bet
   (одна платформа, `showEvents`, skId 29086, свои хосты и scopeMarket), Леон
@@ -211,7 +224,8 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   8 сценариев сайта: вкладка OBS с инструкцией, вкладки, статус вебок, OBS напрямую и через док,
   копирование JSON, оверлей вето, лобби FACEIT (Sheets, VDO.Ninja,
   obs-websocket и FACEIT подменены, время лобби ускорено).
-  `scripts/qa_veto_site.py` — 10 сценариев сайта вето капитанов: ссылки,
+  `scripts/qa_veto_site.py` — 11 сценариев сайта вето капитанов (английский
+  по умолчанию и флаг RU, HLTV только у админа, порядок карт): ссылки,
   монетка, BO3/BO1 (клавиатурой)/BO5 в отдельных браузерах, reload и
   поздний зритель, подделка хода и присутствия зрителем, переподписанный
   ход капитана, две вкладки капитана, конец 5 минут, HTML в названиях,
@@ -229,7 +243,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 
 ```sh
 npm run check        # синтаксис
-npm test             # 81 тест (node:test)
+npm test             # 82 теста (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
@@ -308,7 +322,8 @@ Netlify проверяет локальные фото, докачивает н�
   obsDialog obsForm closeObs vetoBroadcast overlaySizeHint obsBridgeFields obsDockUrl copyDockUrl obsCode
   newObsCode obsRemotePort obsRemotePassword sendObsConfig obsRemoteResult
   obsBridgeStatus obsCodeInput applyObsCode shareDockUrl obsDockMessage
-  obsRemoteBox obsMore playerVeto bookies bookiesCheck bookiesTable
+  obsRemoteBox obsMore playerVeto captainVeto cvFormat cvTimer cvLang cvCreate
+  cvStatus cvLinks cvNameA cvNameB cvMsgA cvMsgB cvMsgS cvMsgO cvOpen bookies bookiesCheck bookiesTable
   bookiesStatus bookiesCopy bookiesCsv
   obsDirectFields obsUrl obsPassword obsTestResult testObs
   saveObs notifyBtn soundBtn lobbyForm faceitUrl faceitKey lobbyStart

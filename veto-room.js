@@ -13,7 +13,11 @@ const enc = new TextEncoder(), dec = new TextDecoder('utf-8', { fatal: true });
 const SIGN = { name: 'ECDSA', hash: 'SHA-256' };
 const CURVE = { name: 'ECDSA', namedCurve: 'P-256' };
 const FORMATS = ['BO1', 'BO2', 'BO3', 'BO5'];
-const SEATS = ['a', 'b', 's'];
+// a, b: captains; s: spectators (may go to a public channel); o: the admin
+// (organizers only) — like a spectator, plus the HLTV text.
+const SEATS = ['a', 'b', 's', 'o'];
+// Minutes for the whole veto; 0 = no clock.
+export const TIMERS = [5, 3, 7, 10, 15, 0];
 const VERSION = 2, ROOM_BYTES = 10, PRINT_BYTES = 10, SEED_BYTES = 16, NAME_BYTES = 60;
 
 function b64url(bytes) {
@@ -92,13 +96,14 @@ export async function fingerprint([x, y]) {
 }
 
 // ---- Links: #v=<base64url bytes> ----
-// version, seat | format << 2, room (10), fingerprints A and B (10 + 10),
-// the captain's secret (16, captains only), then the team names (UTF-8):
-// the length of the first, the first, the second.
+// version, seat | format << 2 | timer << 4, room (10), fingerprints A and B
+// (10 + 10), the captain's secret (16, captains only), then the team names
+// (UTF-8): the length of the first, the first, the second.
 export function encodeLink(base, room) {
   const names = room.t.map(t => enc.encode(t));
   const me = SEATS.indexOf(room.me);
-  const parts = [[VERSION, me | FORMATS.indexOf(room.f) << 2], unb64url(room.r),
+  const timer = Math.max(0, TIMERS.indexOf(room.m ?? VETO_MINUTES));
+  const parts = [[VERSION, me | FORMATS.indexOf(room.f) << 2 | timer << 4], unb64url(room.r),
     ...room.fp.map(unb64url), me < 2 ? unb64url(room.k) : [], [names[0].length], names[0], names[1]];
   const bytes = new Uint8Array(parts.reduce((n, part) => n + part.length, 0));
   let at = 0;
@@ -112,8 +117,8 @@ export function decodeLink(hash) {
   if (!match) return null;
   try {
     const bytes = unb64url(match[1]);
-    const me = SEATS[bytes[1] & 3], f = FORMATS[bytes[1] >> 2];
-    if (bytes[0] !== VERSION || !me || !f) return null;
+    const me = SEATS[bytes[1] & 3], f = FORMATS[(bytes[1] >> 2) & 3], m = TIMERS[bytes[1] >> 4];
+    if (bytes[0] !== VERSION || !me || !f || m === undefined) return null;
     let at = 2;
     const take = n => {
       if (at + n > bytes.length) throw new Error('short');
@@ -121,22 +126,23 @@ export function decodeLink(hash) {
     };
     const r = b64url(take(ROOM_BYTES));
     const fp = [b64url(take(PRINT_BYTES)), b64url(take(PRINT_BYTES))];
-    const k = me === 's' ? undefined : b64url(take(SEED_BYTES));
+    const k = seat({ me }) === null ? undefined : b64url(take(SEED_BYTES));
     const first = take(1)[0];
     const t = [dec.decode(take(first)), dec.decode(bytes.slice(at))].map(name => name.trim());
     if (!t[0] || !t[1] || t[0] === t[1] || t.some(name => enc.encode(name).length > NAME_BYTES)) return null;
-    return { v: VERSION, r, t, f, me, fp, k, p: [null, null] };
+    return { v: VERSION, r, t, f, m, me, fp, k, p: [null, null] };
   } catch { return null; }
 }
 export const seat = room => room.me === 'a' ? 0 : room.me === 'b' ? 1 : null;
 
-// A new room: three links (captain of teams[0], of teams[1], spectators).
-export async function createRoom(base, teams, format) {
+// A new room: four links (captain of teams[0], of teams[1], spectators, admin).
+export async function createRoom(base, teams, format, minutes = VETO_MINUTES) {
   const names = teams.map(t => String(t || '').trim());
   if (!names[0] || !names[1] || names[0] === names[1]) throw new Error('Нужны две разные команды.');
   if (names.some(name => enc.encode(name).length > NAME_BYTES)) throw new Error('Слишком длинное название команды.');
   if (!FORMATS.includes(format)) throw new Error('Неизвестный формат вето.');
-  const room = { v: VERSION, r: b64url(random(ROOM_BYTES)), t: names, f: format, fp: [], p: [] };
+  if (!TIMERS.includes(Number(minutes))) throw new Error('Неизвестный таймер.');
+  const room = { v: VERSION, r: b64url(random(ROOM_BYTES)), t: names, f: format, m: Number(minutes), fp: [], p: [] };
   const secrets = [b64url(random(SEED_BYTES)), b64url(random(SEED_BYTES))];
   for (const team of [0, 1]) {
     const key = await keyFromSecret(room, team, secrets[team]);
@@ -148,7 +154,8 @@ export async function createRoom(base, teams, format) {
     links: {
       a: encodeLink(base, { ...room, me: 'a', k: secrets[0] }),
       b: encodeLink(base, { ...room, me: 'b', k: secrets[1] }),
-      s: encodeLink(base, { ...room, me: 's' })
+      s: encodeLink(base, { ...room, me: 's' }),
+      o: encodeLink(base, { ...room, me: 'o' })
     }
   };
 }
@@ -355,16 +362,31 @@ export function panelVeto(room, state) {
   return { format: room.f, first: state.first ?? state.coin ?? 0, actions: state.actions, pending: state.pending };
 }
 
-// Discord message for one captain. Their link is personal: whoever has it
-// can make moves for that team.
-export function captainMessage(room, team, link) {
-  return [
-    `**CyberClash · вето ${room.t[0]} vs ${room.t[1]} (${room.f})**`,
-    `Капитан **${room.t[team]}**, это твоя личная ссылка на вето:`,
-    link,
-    '',
-    '• Монетку бросите на сайте, когда оба капитана зайдут: каждый добавляет свою случайную часть, заранее результат не знает никто. Победитель решает, кто банит первым.',
-    `• На всё вето ${VETO_MINUTES} минут.`,
-    '• Ссылку никому не пересылай: по ней можно ходить за твою команду.'
-  ].join('\n');
+// Discord messages. A captain's link is personal: whoever has it can make
+// moves for that team.
+const MESSAGES = {
+  en: {
+    head: (room) => `**CyberClash · map veto ${room.t[0]} vs ${room.t[1]} (${room.f})**`,
+    captain: name => `Captain of **${name}**, this is your personal veto link:`,
+    coin: 'The coin is tossed on the site once both captains are in: each adds a random part, nobody knows the result in advance. The winner decides who bans first.',
+    clock: m => m ? `The whole veto takes ${m} minutes.` : 'No time limit.',
+    secret: 'Do not forward this link to anyone: it lets you move for your team.',
+    watch: room => `Map veto ${room.t[0]} vs ${room.t[1]} (${room.f}) live:`
+  },
+  ru: {
+    head: (room) => `**CyberClash · вето ${room.t[0]} vs ${room.t[1]} (${room.f})**`,
+    captain: name => `Капитан **${name}**, это твоя личная ссылка на вето:`,
+    coin: 'Монетку бросите на сайте, когда оба капитана зайдут: каждый добавляет свою случайную часть, заранее результат не знает никто. Победитель решает, кто банит первым.',
+    clock: m => m ? `На всё вето ${m} ${m % 10 >= 2 && m % 10 <= 4 && (m % 100 < 10 || m % 100 >= 20) ? 'минуты' : 'минут'}.` : 'Без ограничения по времени.',
+    secret: 'Ссылку никому не пересылай: по ней можно ходить за твою команду.',
+    watch: room => `Вето ${room.t[0]} vs ${room.t[1]} (${room.f}) вживую:`
+  }
+};
+export function captainMessage(room, team, link, lang = 'ru') {
+  const t = MESSAGES[lang] || MESSAGES.ru;
+  return [t.head(room), t.captain(room.t[team]), link, '', `• ${t.coin}`,
+    `• ${t.clock(room.m ?? VETO_MINUTES)}`, `• ${t.secret}`].join('\n');
+}
+export function spectatorMessage(room, link, lang = 'ru') {
+  return `${(MESSAGES[lang] || MESSAGES.ru).watch(room)}\n${link}`;
 }

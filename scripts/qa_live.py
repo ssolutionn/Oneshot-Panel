@@ -412,7 +412,23 @@ async def run(args):
         await page.uncheck("#vetoLive")
         player_veto = await page.get_attribute("#playerVeto", "href")
         assert player_veto.startswith("/veto.html#new&a=6yuBoJlbl&b=HYPERSPIRIT&f=BO"), player_veto
-        passed("live veto: real receiver acknowledgement, animated move and replay after reload; independent of the OBS control dock")
+        # Captains' veto block: links for the selected match, the admin's apart.
+        await page.select_option("#cvTimer", "3")
+        await page.select_option("#cvLang", "ru")
+        await page.click("#cvCreate")
+        await expect(page.locator("#cvLinks")).to_be_visible()
+        msg_a = await page.input_value("#cvMsgA")
+        assert "Капитан **6yuBoJlbl**" in msg_a and "На всё вето 3 минуты." in msg_a, msg_a
+        admin_link = await page.input_value("#cvMsgO")
+        assert admin_link.startswith(base + "/veto.html#v=") and admin_link not in msg_a
+        assert await page.get_attribute("#cvOpen", "href") == admin_link
+        assert "&m=3" in await page.get_attribute("#playerVeto", "href")
+        await page.select_option("#cvLang", "en")
+        await expect(page.locator("#cvMsgA")).to_have_value(re.compile(r"^\*\*CyberClash · map veto[\s\S]*Captain of \*\*6yuBoJlbl\*\*"))
+        await page.reload()
+        await expect(page.locator("#cvMsgO")).to_have_value(admin_link)
+        await expect(page.locator("#cvLang")).to_have_value("en")
+        passed("live veto: real receiver acknowledgement, animated move and replay after reload; captains' veto links in the panel")
 
         # Codex's animated overlay takes the panel's veto from the link and
         # from the live obs-browser event.

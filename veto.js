@@ -1,21 +1,22 @@
 // The captains' veto page. Without #v= it is the admin's form that makes the
 // links (the match from the schedule sheet); with it, a captain's (or
-// spectators') room. The signed log and the captains' public keys go
-// around every 2.5 s over VDO.Ninja data streams: each captain pushes their
-// own and views the other's, spectators view both. Same-browser tabs also
-// talk over a BroadcastChannel. Rules live in veto-room.js.
+// spectators', or the admin's) room. The signed log and the captains' public
+// keys go around every 2.5 s over VDO.Ninja data streams: each captain pushes
+// their own and views the other's, spectators view both. Same-browser tabs
+// also talk over a BroadcastChannel. Rules live in veto-room.js. English by
+// default, Russian with the flag (localStorage oneshot-veto-lang).
 import { MAP_POOL, teamLogo, DEFAULT_SOURCE, decodeGviz, parseSchedule } from './core.js';
 import { seal, unseal } from './vdo.js';
 import {
   decodeLink, createRoom, roomSecrets, captainKey, acceptKey, seat, verifyLog, replay, nextTurn,
-  signMove, mergeLog, clock, formatClock, mapBoard, resultText, captainMessage, coinCommit, coinNonce,
-  COIN_MOVES
+  signMove, mergeLog, clock, formatClock, mapBoard, resultText, captainMessage, spectatorMessage,
+  coinCommit, coinNonce, COIN_MOVES
 } from './veto-room.js';
 
 const $ = id => document.getElementById(id);
 const VDO = 'https://vdo.ninja/';
 const SEND_EVERY = 2500, ONLINE_FOR = 8000;
-const LAST_KEY = 'oneshot-player-veto';
+const LAST_KEY = 'oneshot-player-veto', LANG_KEY = 'oneshot-veto-lang';
 
 function store(key, value) {
   try {
@@ -24,6 +25,125 @@ function store(key, value) {
   } catch { /* private mode: the page still works */ }
   return null;
 }
+
+// ---- Words ----
+const WORDS = {
+  en: {
+    title: 'Map veto', createHeading: "New captains' veto",
+    createNote: 'The site makes short links: one per captain (DM on Discord), one for spectators and one for the admin. The captains toss the coin themselves in the room — nobody knows it in advance, not even you.',
+    settings: 'Veto settings', match: 'Match from the schedule', loadingSchedule: 'Loading the schedule…',
+    pickMatch: 'Pick a match — the teams fill in', noMatches: 'No upcoming matches in the schedule',
+    scheduleFailed: 'The schedule did not load — type the teams below', today: 'today', tomorrow: 'tomorrow', noDate: 'No date',
+    team1: 'Team 1', team2: 'Team 2', format: 'Format', timer: 'Timer',
+    min5: '5 minutes', min3: '3 minutes', min7: '7 minutes', min10: '10 minutes', min15: '15 minutes', noTimer: 'No timer',
+    create: 'Create links', toCaptain: 'Captain of', dm: 'DM', toSpectators: 'Spectators', public: 'any channel',
+    toAdmin: 'Admin', ours: 'ours only · HLTV text', copyMessage: 'Copy message', copyLink: 'Copy link',
+    watch: 'Watch the veto ↗',
+    linksNote: "A captain's link is personal: it lets them move for their team. Made a mistake — just create new links.",
+    made: time => `Links created at ${time}. For a new match press «Create links» again.`,
+    linksReady: 'Links are ready', copied: 'Copied', you: 'YOU', resultHeading: 'Veto result', copyHltv: 'Copy for HLTV',
+    newTitle: 'New veto · CyberClash', roomTitle: (a, b) => `Veto ${a} vs ${b} · CyberClash`,
+    footSpectator: 'Spectator mode: only the captains move, with their own links.',
+    footAdmin: 'Admin view: you watch and get the HLTV text. Keep this link to yourselves.',
+    footCaptain: name => `You are the captain of ${name}. This link is yours only — do not forward it.`,
+    itsYou: "that's you", online: 'on the site', offline: 'offline',
+    coin: 'Coin', tossing: 'Tossing…', waitCaptains: 'Waiting for the captains', waitCaptain: name => `Waiting for captain ${name}`,
+    coinHint: 'Both captains toss the coin once they open their links: each adds a random part, so nobody knows the result in advance — not the captains, not the admin.',
+    coinWinner: name => `Coin: ${name}`, youWon: 'You won the coin', decideOrder: 'Decide who bans first.',
+    weBanFirst: 'We ban first', theyBanFirst: name => `${name} ban first`, wonCoin: name => `${name} won the coin`,
+    decidingOrder: 'They decide who bans first…', yourTurnSide: 'Your turn · side', turnSide: name => `${name}'s turn · side`,
+    picked: (name, map) => `${name} picked ${map}`, whichSide: 'Which side do you start on?',
+    startOn: side => side === 'CT' ? 'Start as CT · defence' : 'Start as T · attack',
+    choosingSide: (name, map) => `${name} are choosing a side on ${map}…`,
+    done: 'Done', vetoDone: 'Veto complete', playing: maps => `We play: ${maps}`, decider: '(decider)',
+    yourTurn: kind => `Your turn · ${kind}`, turnOf: (name, kind) => `${name}'s turn · ${kind}`, ban: 'ban', pick: 'pick',
+    confirm: (kind, map) => kind === 'ban' ? `Ban ${map}?` : `Play ${map}?`,
+    removeOne: 'Remove one map', choosePlay: 'Choose a map to play',
+    confirmHint: 'Confirm — a move cannot be undone.', clickHint: 'Tap a map, then confirm.',
+    act: (kind, map) => kind === 'ban' ? `Ban ${map}` : `Play ${map}`, otherMap: 'Another map',
+    acting: (kind, name) => kind === 'ban' ? `${name} are banning a map…` : `${name} are picking a map…`,
+    tagPlay: 'PLAY', tagMap2: 'MAP 2', choosingShort: 'choosing a side…',
+    logOrder: (winner, first) => `${winner} won the coin: ${first} ban first`,
+    logBan: (name, map) => `${name} removed ${map}`, logPick: (name, map) => `${name} picked ${map}`,
+    logSide: (name, side, map) => `${name} start as ${side} on ${map}`,
+    clockRun: 'veto', clockDone: 'veto took', clockOver: "time's up",
+    brokenLink: 'The veto link is broken. Copy it from Discord in full or ask the admin for a new one.',
+    brokenKey: "The captain's link is broken (the key does not fit). Copy it from Discord in full or ask the admin for a new one.",
+    coinLost: 'The coin cannot be opened: your part stayed in the other browser or device where you joined first. Open the link there or ask the admin for new links.',
+    conflict: (who, step) => `Warning: ${who} signed two different moves for step ${step}. The first one counts. Tell the admin — they decide whether to replay the veto.`,
+    captainOf: name => `the captain of ${name}`, aCaptain: 'a captain',
+    'Сейчас не твой ход.': "It's not your turn.", 'Эта карта уже выбрана.': 'This map is already taken.',
+    'Нужны две разные команды.': 'Two different teams are needed.', 'Слишком длинное название команды.': 'A team name is too long.',
+    'Монетка не сходится.': 'The coin does not match.'
+  },
+  ru: {
+    title: 'Вето карт', createHeading: 'Новое вето для капитанов',
+    createNote: 'Сайт сделает короткие ссылки: по одной каждому капитану (в личку в Discord), одну для зрителей и одну для админа. Монетку капитаны бросят сами прямо в комнате — заранее её не знает никто, даже ты.',
+    settings: 'Настройки вето', match: 'Матч из расписания', loadingSchedule: 'Загружаем расписание…',
+    pickMatch: 'Выбери матч — команды подставятся сами', noMatches: 'В расписании нет предстоящих матчей',
+    scheduleFailed: 'Расписание не загрузилось — впиши команды ниже', today: 'сегодня', tomorrow: 'завтра', noDate: 'Без даты',
+    team1: 'Команда 1', team2: 'Команда 2', format: 'Формат', timer: 'Таймер',
+    min5: '5 минут', min3: '3 минуты', min7: '7 минут', min10: '10 минут', min15: '15 минут', noTimer: 'Без таймера',
+    create: 'Создать ссылки', toCaptain: 'Капитану', dm: 'в личку', toSpectators: 'Зрителям', public: 'можно в общий канал',
+    toAdmin: 'Админу', ours: 'только у нас · текст для HLTV', copyMessage: 'Скопировать сообщение', copyLink: 'Скопировать ссылку',
+    watch: 'Смотреть вето ↗',
+    linksNote: 'Ссылка капитана личная: по ней можно ходить за его команду. Ошиблись — просто создай новые ссылки.',
+    made: time => `Ссылки созданы в ${time}. Для нового матча нажми «Создать ссылки» ещё раз.`,
+    linksReady: 'Ссылки готовы', copied: 'Скопировано', you: 'ТЫ', resultHeading: 'Итог вето', copyHltv: 'Скопировать для HLTV',
+    newTitle: 'Новое вето · CyberClash', roomTitle: (a, b) => `Вето ${a} vs ${b} · CyberClash`,
+    footSpectator: 'Режим зрителя: ходят только капитаны по своим ссылкам.',
+    footAdmin: 'Вид админа: смотришь и получаешь текст для HLTV. Эту ссылку держите у себя.',
+    footCaptain: name => `Ты капитан ${name}. Эта ссылка только для тебя — не пересылай её.`,
+    itsYou: 'это ты', online: 'на сайте', offline: 'не в сети',
+    coin: 'Монетка', tossing: 'Подбрасываем…', waitCaptains: 'Ждём капитанов', waitCaptain: name => `Ждём капитана ${name}`,
+    coinHint: 'Монетку бросают оба капитана, когда откроют свои ссылки: каждый добавляет свою случайную часть, поэтому результат заранее не знает никто — ни капитаны, ни админ.',
+    coinWinner: name => `Монетка: ${name}`, youWon: 'Вы выиграли монетку', decideOrder: 'Решите, кто банит первым.',
+    weBanFirst: 'Баним первыми', theyBanFirst: name => `Первыми банят ${name}`, wonCoin: name => `${name} выиграли монетку`,
+    decidingOrder: 'Они решают, кто банит первым…', yourTurnSide: 'Твой ход · сторона', turnSide: name => `Ход ${name} · сторона`,
+    picked: (name, map) => `${name} взяли ${map}`, whichSide: 'За какую сторону начнёте?',
+    startOn: side => side === 'CT' ? 'Начинаем за CT · защита' : 'Начинаем за T · атака',
+    choosingSide: (name, map) => `${name} выбирают сторону на ${map}…`,
+    done: 'Готово', vetoDone: 'Вето завершено', playing: maps => `Играем: ${maps}`, decider: '(решающая)',
+    yourTurn: kind => `Твой ход · ${kind}`, turnOf: (name, kind) => `Ход ${name} · ${kind}`, ban: 'бан', pick: 'пик',
+    confirm: (kind, map) => kind === 'ban' ? `Забанить ${map}?` : `Играем ${map}?`,
+    removeOne: 'Убери одну карту', choosePlay: 'Выбери карту, которую играем',
+    confirmHint: 'Подтверди — ход нельзя отменить.', clickHint: 'Нажми на карту, потом подтверди.',
+    act: (kind, map) => kind === 'ban' ? `Забанить ${map}` : `Играем ${map}`, otherMap: 'Другая карта',
+    acting: (kind, name) => kind === 'ban' ? `${name} банят карту…` : `${name} выбирают карту…`,
+    tagPlay: 'ИГРАЕМ', tagMap2: 'КАРТА 2', choosingShort: 'выбирают сторону…',
+    logOrder: (winner, first) => `${winner} выиграли монетку: первыми банят ${first}`,
+    logBan: (name, map) => `${name} убрали ${map}`, logPick: (name, map) => `${name} взяли ${map}`,
+    logSide: (name, side, map) => `${name} начинают за ${side} на ${map}`,
+    clockRun: 'на вето', clockDone: 'вето за', clockOver: 'время вышло',
+    brokenLink: 'Ссылка на вето повреждена. Скопируй её из Discord целиком или попроси админа прислать новую.',
+    brokenKey: 'Ссылка капитана повреждена (ключ не подходит). Скопируй её из Discord целиком или попроси админа прислать новую.',
+    coinLost: 'Монетку открыть нельзя: твоя часть осталась в другом браузере или устройстве, где ты заходил первым. Открой ссылку там или попроси админа сделать новые ссылки.',
+    conflict: (who, step) => `Внимание: ${who} подписал два разных хода на шаге ${step}. Засчитан первый. Напишите админу — он решит, переигрывать ли вето.`,
+    captainOf: name => `капитан ${name}`, aCaptain: 'капитан'
+  }
+};
+let lang = store(LANG_KEY) === 'ru' ? 'ru' : 'en';
+const t = (key, ...args) => {
+  const word = WORDS[lang][key] ?? WORDS.en[key] ?? key;
+  return typeof word === 'function' ? word(...args) : word;
+};
+// veto-room.js speaks Russian; the page shows its errors in the page's language.
+const errorText = message => lang === 'ru' ? message : WORDS.en[message] || message;
+const relabel = new Set();
+function applyWords() {
+  document.documentElement.lang = lang;
+  for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+  for (const button of document.querySelectorAll('[data-lang]')) button.setAttribute('aria-pressed', String(button.dataset.lang === lang));
+  for (const redraw of relabel) redraw();
+}
+for (const button of document.querySelectorAll('[data-lang]')) {
+  button.addEventListener('click', () => {
+    lang = button.dataset.lang === 'ru' ? 'ru' : 'en';
+    store(LANG_KEY, lang);
+    applyWords();
+  });
+}
+
 let toastTimer;
 function toast(text) {
   const el = $('vtToast');
@@ -42,7 +162,7 @@ async function copy(text) {
     document.execCommand('copy');
     area.remove();
   }
-  toast('Скопировано');
+  toast(t('copied'));
 }
 document.addEventListener('click', event => {
   const button = event.target.closest('[data-copy]');
@@ -50,10 +170,13 @@ document.addEventListener('click', event => {
   const source = $(button.dataset.copy);
   copy(source.value ?? source.textContent);
 });
-function showError(text) {
+let errorKey = null;
+function showError(text, key = null) {
+  errorKey = key;
   $('vtError').textContent = text;
   $('vtError').hidden = !text;
 }
+relabel.add(() => { if (errorKey) showError(t(...errorKey), errorKey); });
 async function teamLogos() {
   try {
     const response = await fetch('/assets/teams/teams.json', { cache: 'no-cache' });
@@ -62,17 +185,21 @@ async function teamLogos() {
 }
 
 // ---- Admin: make the links ----
+let shownLinks = null;
 function showLinks(made) {
+  shownLinks = made;
   const { room, links } = made;
   $('vtLinkNameA').textContent = room.t[0];
   $('vtLinkNameB').textContent = room.t[1];
-  $('vtMsgA').value = captainMessage(room, 0, links.a);
-  $('vtMsgB').value = captainMessage(room, 1, links.b);
-  $('vtMsgS').value = `Вето ${room.t[0]} vs ${room.t[1]} (${room.f}) вживую:\n${links.s}`;
-  $('vtWatch').href = links.s;
+  $('vtMsgA').value = captainMessage(room, 0, links.a, lang);
+  $('vtMsgB').value = captainMessage(room, 1, links.b, lang);
+  $('vtMsgS').value = spectatorMessage(room, links.s, lang);
+  $('vtMsgO').value = links.o;
+  $('vtWatch').href = links.o;
   $('vtLinks').hidden = false;
-  $('vtMade').textContent = '';
+  $('vtMade').textContent = made.restored ? t('made', new Date(made.at).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-GB', { hour: '2-digit', minute: '2-digit' })) : '';
 }
+relabel.add(() => { if (shownLinks) showLinks(shownLinks); });
 const RESTORE_FOR = 6 * 3600000;
 // The schedule sheet the panel reads (its own source if changed there):
 // matches from today (MSK) on fill the teams, nobody types them.
@@ -82,16 +209,41 @@ async function scheduleRows(id, gid) {
   const url = new URL(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq`);
   url.search = new URLSearchParams({ gid, range: 'A1:N300', headers: '1', tqx: 'out:json', _t: String(Date.now()) });
   const response = await fetch(url, { credentials: 'omit', cache: 'no-store', signal: AbortSignal.timeout(20000) });
-  if (!response.ok) throw new Error(`Google Sheets недоступен (${response.status}).`);
+  if (!response.ok) throw new Error(`Google Sheets ${response.status}`);
   return decodeGviz(await response.text());
 }
-async function loadMatches() {
+let matches = null;
+function fillMatches() {
   const select = $('vtMatch');
+  const kept = select.value;
+  if (matches === null) return;
+  if (matches instanceof Error) {
+    select.replaceChildren(Object.assign(document.createElement('option'), { value: '', textContent: t('scheduleFailed') }));
+    select.title = matches.message;
+    return;
+  }
+  const label = date => date === mskDay() ? `${date} · ${t('today')}` : date === mskDay(1) ? `${date} · ${t('tomorrow')}` : date || t('noDate');
+  const groups = new Map();
+  for (const m of matches) {
+    if (!groups.has(m.date)) groups.set(m.date, Object.assign(document.createElement('optgroup'), { label: label(m.date) }));
+    groups.get(m.date).append(Object.assign(document.createElement('option'), {
+      value: JSON.stringify([m.team1, m.team2]),
+      textContent: `${m.time} · ${m.team1} vs ${m.team2}${m.stage ? ` · ${m.stage}` : ''}`
+    }));
+  }
+  const first = Object.assign(document.createElement('option'), { value: '', textContent: matches.length ? t('pickMatch') : t('noMatches') });
+  select.replaceChildren(first, ...groups.values());
+  // The panel's teams (#new&a=&b=) pick their match in the list.
+  const asked = kept || JSON.stringify([$('vtTeamA').value, $('vtTeamB').value]);
+  if ([...select.options].some(o => o.value === asked)) select.value = asked;
+}
+relabel.add(fillMatches);
+async function loadMatches() {
   let source = DEFAULT_SOURCE;
   try { source = { ...DEFAULT_SOURCE, ...(JSON.parse(localStorage.getItem('webcam-desk-source')) || {}) }; } catch { /* default */ }
   const id = source.scheduleId || source.id, gid = source.scheduleGid;
   try {
-    if (!gid) throw new Error('В панели не указан лист расписания.');
+    if (!gid) throw new Error('no schedule sheet');
     const tabs = [scheduleRows(id, gid)];
     if (id === DEFAULT_SOURCE.scheduleId && gid === DEFAULT_SOURCE.scheduleGid) {
       tabs.push(scheduleRows(id, DEFAULT_SOURCE.playoffsGid).catch(() => []));
@@ -99,33 +251,14 @@ async function loadMatches() {
     const rows = (await Promise.all(tabs)).flat();
     const key = date => Number(date.slice(3, 5)) * 100 + Number(date.slice(0, 2));
     const today = key(mskDay());
-    const matches = parseSchedule(rows).filter(m => !m.date || key(m.date) >= today);
-    const label = date => date === mskDay() ? `${date} · сегодня` : date === mskDay(1) ? `${date} · завтра` : date || 'Без даты';
-    const groups = new Map();
-    for (const m of matches) {
-      if (!groups.has(m.date)) groups.set(m.date, Object.assign(document.createElement('optgroup'), { label: label(m.date) }));
-      groups.get(m.date).append(Object.assign(document.createElement('option'), {
-        value: JSON.stringify([m.team1, m.team2]),
-        textContent: `${m.time} · ${m.team1} vs ${m.team2}${m.stage ? ` · ${m.stage}` : ''}`
-      }));
-    }
-    const first = Object.assign(document.createElement('option'), {
-      value: '', textContent: matches.length ? 'Выбери матч — команды подставятся сами' : 'В расписании нет предстоящих матчей'
-    });
-    select.replaceChildren(first, ...groups.values());
-    // The panel's teams (#new&a=&b=) pick their match in the list.
-    const asked = JSON.stringify([$('vtTeamA').value, $('vtTeamB').value]);
-    if ([...select.options].some(o => o.value === asked)) select.value = asked;
-  } catch (error) {
-    select.replaceChildren(Object.assign(document.createElement('option'), {
-      value: '', textContent: 'Расписание не загрузилось — впиши команды ниже'
-    }));
-    select.title = error.message;
-  }
+    matches = parseSchedule(rows).filter(m => !m.date || key(m.date) >= today);
+  } catch (error) { matches = error; }
+  fillMatches();
 }
 async function setupCreate() {
-  document.title = 'Новое вето · CyberClash';
   $('vtCreate').hidden = false;
+  relabel.add(() => { document.title = t('newTitle'); });
+  applyWords();
   // The form works before anything else loads (a slow teams.json or odd
   // saved data must not leave it submitting natively).
   $('vtForm').addEventListener('submit', async event => {
@@ -133,12 +266,12 @@ async function setupCreate() {
     showError('');
     try {
       const base = new URL('/veto.html', location.href).href;
-      const made = await createRoom(base, [$('vtTeamA').value, $('vtTeamB').value], $('vtFormat').value);
+      const made = await createRoom(base, [$('vtTeamA').value, $('vtTeamB').value], $('vtFormat').value, Number($('vtTimer').value));
       made.at = Date.now();
       store(LAST_KEY, made);
       showLinks(made);
-      toast('Ссылки готовы');
-    } catch (error) { showError(error.message); }
+      toast(t('linksReady'));
+    } catch (error) { showError(errorText(error.message)); }
   });
   $('vtMatch').addEventListener('change', () => {
     if (!$('vtMatch').value) return;
@@ -152,6 +285,7 @@ async function setupCreate() {
     $('vtTeamA').value = asked[0];
     $('vtTeamB').value = asked[1];
     if (['BO1', 'BO2', 'BO3', 'BO5'].includes(asked[2])) $('vtFormat').value = asked[2];
+    if (['0', '3', '5', '7', '10', '15'].includes(params.get('m'))) $('vtTimer').value = params.get('m');
   }
   // The last links made in this browser, for a few hours, so a reload does
   // not lose them; from the panel only when they are for the same match.
@@ -159,13 +293,13 @@ async function setupCreate() {
     const last = store(LAST_KEY);
     const room = last?.room;
     const fresh = Date.now() - (Number(last?.at) || 0) < RESTORE_FOR;
-    if (fresh && room && Array.isArray(room.t) && last.links?.a && last.links?.b && last.links?.s &&
+    if (fresh && room && Array.isArray(room.t) && last.links?.a && last.links?.b && last.links?.s && last.links?.o &&
         (!asked || (asked[0] === room.t[0] && asked[1] === room.t[1] && asked[2] === room.f))) {
       $('vtTeamA').value = room.t[0];
       $('vtTeamB').value = room.t[1];
       $('vtFormat').value = room.f;
-      showLinks(last);
-      $('vtMade').textContent = `Ссылки созданы в ${new Date(last.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}. Для нового матча нажми «Создать ссылки» ещё раз.`;
+      $('vtTimer').value = String(room.m ?? 5);
+      showLinks({ ...last, restored: true });
     }
   } catch { /* odd saved data: start clean */ }
   loadMatches();
@@ -185,7 +319,7 @@ class Link {
       url.search = new URLSearchParams({ [side]: stream, password: secrets.password, label: 'oneshot-veto' }) +
         '&dataonly&cleanoutput';
       const iframe = document.createElement('iframe');
-      Object.assign(iframe, { src: url.href, title: 'Связь вето', className: 'vdo-frame', tabIndex: -1 });
+      Object.assign(iframe, { src: url.href, title: 'Veto link', className: 'vdo-frame', tabIndex: -1 });
       iframe.allow = 'autoplay';
       iframe.setAttribute('aria-hidden', 'true');
       document.body.append(iframe);
@@ -219,11 +353,9 @@ class Link {
 }
 
 // ---- Room ----
-const VERB = { ban: 'Забанить', pick: 'Играем' };
-const SIDE_NAME = { CT: 'CT · защита', T: 'T · атака' };
-
 async function enterRoom(room) {
   const me = seat(room);
+  const admin = room.me === 'o';
   const names = room.t;
   const logKey = 'oneshot-veto-log:' + room.r, keysKey = 'oneshot-veto-keys:' + room.r;
   const coinKey = 'oneshot-veto-coin:' + room.r;
@@ -231,16 +363,16 @@ async function enterRoom(room) {
   const seen = { a: 0, b: 0 };
   const conflicts = new Map();
   let log = [], key = null, selected = '', busy = false, coin = 'hidden', autoTried = '';
-  let queue = Promise.resolve(), pending = null;
+  let queue = Promise.resolve(), pending = null, orderSeen = null;
 
-
-  document.title = `Вето ${names[0]} vs ${names[1]} · CyberClash`;
+  $('vtTitle').removeAttribute('data-i18n');
   $('vtTitle').textContent = `${names[0]} vs ${names[1]}`;
   $('vtEyebrow').textContent = `MAP VETO · ${room.f}`;
   $('vtRoom').hidden = false;
-  $('vtFoot').textContent = me === null ?
-    'Режим зрителя: ходят только капитаны по своим ссылкам.' :
-    `Ты капитан ${names[me]}. Эта ссылка только для тебя — не пересылай её.`;
+  relabel.add(() => {
+    document.title = t('roomTitle', names[0], names[1]);
+    $('vtFoot').textContent = me !== null ? t('footCaptain', names[me]) : admin ? t('footAdmin') : t('footSpectator');
+  });
   for (const team of [0, 1]) {
     const card = $('vtTeam' + team);
     card.querySelector('.vt-team-name').textContent = names[team];
@@ -264,12 +396,13 @@ async function enterRoom(room) {
       face.replaceChildren(logo);
     }
   });
+  applyWords();
 
   const secrets = await roomSecrets(room);
   if (me !== null) {
     try { key = await captainKey(room); } catch {
       $('vtRoom').hidden = true;
-      return showError('Ссылка капитана повреждена (ключ не подходит). Скопируй её из Discord целиком или попроси админа прислать новую.');
+      return showError(t('brokenKey'), ['brokenKey']);
     }
   }
   // Public keys come with the captains' messages (and stay for a reload);
@@ -287,7 +420,7 @@ async function enterRoom(room) {
     me === null ? secrets.streams : [secrets.streams[1 - me]], receive);
 
   const online = team => team === me || Date.now() - seen[team ? 'b' : 'a'] < ONLINE_FOR;
-  // Spectators only listen: they add no load on the captains' phones.
+  // Spectators and the admin only listen: they add no load on the captains' phones.
   const send = () => { if (me !== null) link.send({ t: 'log', from: room.me, log, p: room.p }); };
 
   function adopt(incoming, keys) {
@@ -326,7 +459,11 @@ async function enterRoom(room) {
     let team = null;
     try { team = nextTurn(room, replay(room, log.slice(0, index))).team; } catch { /* unknown */ }
     conflicts.set(index, theirs);
-    showError(`Внимание: ${team === null ? 'капитан' : `капитан ${names[team]}`} подписал два разных хода на шаге ${index + 1}. Засчитан первый. Напишите админу — он решит, переигрывать ли вето.`);
+    const who = team === null ? ['aCaptain'] : ['captainOf', names[team]];
+    const words = () => t('conflict', t(...who), index + 1);
+    showError(words(), ['conflict', t(...who), index + 1]);
+    errorKey = null;
+    relabel.add(() => showError(words()));
   }
 
   // Two tabs of one captain take turns: the lock plus the log both tabs
@@ -349,7 +486,7 @@ async function enterRoom(room) {
     try {
       if (navigator.locks?.request) await navigator.locks.request('oneshot-veto-sign:' + room.r, sign);
       else await sign();
-    } catch (error) { if (!quiet) toast(error.message); }
+    } catch (error) { if (!quiet) toast(errorText(error.message)); }
     finally { busy = false; render(); autoCoin(); }
   }
   // The coin goes by itself once both captains are here: A commits to a
@@ -373,9 +510,7 @@ async function enterRoom(room) {
       move('seed', coinNonce(), true);
     } else {
       const nonce = store(coinKey);
-      if (typeof nonce !== 'string') {
-        return showError('Монетку открыть нельзя: твоя часть осталась в другом браузере или устройстве, где ты заходил первым. Открой ссылку там или попроси админа сделать новые ссылки.');
-      }
+      if (typeof nonce !== 'string') return showError(t('coinLost'), ['coinLost']);
       move('reveal', nonce, true);
     }
   }
@@ -405,34 +540,63 @@ async function enterRoom(room) {
     const prior = replay(room, log.slice(0, index));
     const team = nextTurn(room, prior).team;
     if (COIN_MOVES.includes(entry.k)) return '';
-    if (entry.k === 'order') {
-      const first = Number(entry.v);
-      return `${names[team]} выиграли монетку: первыми банят ${names[first]}`;
-    }
-    if (entry.k === 'ban') return `${names[team]} убрали ${entry.v}`;
-    if (entry.k === 'pick') return `${names[team]} взяли ${entry.v}`;
-    return `${names[team]} начинают за ${entry.v} на ${prior.pending?.map || state.pending?.map || ''}`;
+    if (entry.k === 'order') return t('logOrder', names[team], names[Number(entry.v)]);
+    if (entry.k === 'ban') return t('logBan', names[team], entry.v);
+    if (entry.k === 'pick') return t('logPick', names[team], entry.v);
+    return t('logSide', names[team], entry.v, prior.pending?.map || state.pending?.map || '');
   }
 
+  // The clock runs from the order choice. Its time is the signer's clock: if
+  // that one is ahead of ours, the moment we first saw the move counts, so
+  // the clock does not stand still until our clock catches up.
+  function startedAt(state) {
+    if (state.startedAt === null) return null;
+    if (orderSeen === null) orderSeen = Date.now();
+    return Math.min(state.startedAt, orderSeen);
+  }
   function showClock(state, turn) {
-    const t = clock(state);
-    $('vtClock').hidden = !t.started;
-    if (!t.started) return;
+    const minutes = room.m ?? 5;
+    const start = startedAt(state);
+    const c = clock({ startedAt: start }, Date.now(), minutes);
+    $('vtClock').hidden = !c.started || !minutes;
+    if ($('vtClock').hidden) return;
     const done = turn.kind === 'done';
     const spent = done ? log[log.length - 1].at - state.startedAt : 0;
-    $('vtClockTime').textContent = formatClock(done ? Math.max(0, spent) : t.left);
-    $('vtClock').querySelector('.vt-clock-label').textContent = done ? 'вето за' : t.over ? 'время вышло' : 'на вето';
-    $('vtClock').dataset.state = done ? 'done' : t.over ? 'over' : t.left < 60000 ? 'low' : 'run';
+    $('vtClockTime').textContent = formatClock(done ? Math.max(0, spent) : c.left);
+    $('vtClock').querySelector('.vt-clock-label').textContent = done ? t('clockDone') : c.over ? t('clockOver') : t('clockRun');
+    $('vtClock').dataset.state = done ? 'done' : c.over ? 'over' : c.left < 60000 ? 'low' : 'run';
   }
   // Rebuilding the map buttons every second would eat clicks: the tick only
   // moves the clock and re-renders when presence changed.
   let shownFor = '';
   const presenceKey = () => [online(0), online(1)].join();
   function tick() {
-    autoCoin();
+    try { autoCoin(); } catch { /* the clock still moves */ }
     if (presenceKey() !== shownFor) return render();
     const state = replay(room, log);
     showClock(state, nextTurn(room, state));
+  }
+
+  // Map cards in veto order: the moves made, the pick waiting for its side,
+  // then the rest of the pool — a chosen map moves to the left at once.
+  function ordered(board, state) {
+    const index = new Map(state.actions.map((a, i) => [a.map, i]));
+    if (state.pending) index.set(state.pending.map, state.actions.length);
+    const rank = card => index.has(card.map) ? index.get(card.map) : 100 + MAP_POOL.indexOf(card.map);
+    return [...board].sort((x, y) => rank(x) - rank(y));
+  }
+  // Cards slide to their new place instead of jumping (FLIP).
+  function slide(before) {
+    if (!before.size || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    for (const el of $('vtMaps').children) {
+      const old = before.get(el.dataset.map);
+      if (!old) continue;
+      const now = el.getBoundingClientRect();
+      const dx = old.left - now.left, dy = old.top - now.top;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+      el.animate?.([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
+        { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    }
   }
 
   const setText = (el, text) => { if (el.textContent !== text) el.textContent = text; };
@@ -457,7 +621,7 @@ async function enterRoom(room) {
       const card = $('vtTeam' + team);
       const live = online(team);
       card.dataset.online = live ? 'yes' : 'no';
-      card.querySelector('.vt-presence').textContent = team === me ? 'это ты' : live ? 'на сайте' : 'не в сети';
+      card.querySelector('.vt-presence').textContent = team === me ? t('itsYou') : live ? t('online') : t('offline');
       card.classList.toggle('is-turn', turn.team === team && coin === 'shown');
     }
 
@@ -471,55 +635,55 @@ async function enterRoom(room) {
     const opp = me === null ? null : 1 - me;
     if (coin !== 'shown') {
       stage.dataset.phase = 'coin';
-      kicker = 'Монетка';
+      kicker = t('coin');
       const tossing = state.commit !== null || (online(0) && online(1));
-      if (coin === 'flipping' || tossing) { prompt = 'Подбрасываем…'; }
-      else prompt = me === null ? 'Ждём капитанов' : `Ждём капитана ${names[opp]}`;
-      hint = 'Монетку бросают оба капитана, когда откроют свои ссылки: каждый добавляет свою случайную часть, поэтому результат заранее не знает никто — ни капитаны, ни админ.';
+      if (coin === 'flipping' || tossing) prompt = t('tossing');
+      else prompt = me === null ? t('waitCaptains') : t('waitCaptain', names[opp]);
+      hint = t('coinHint');
     } else if (turn.kind === 'order') {
       stage.dataset.phase = mine ? 'mine' : 'wait';
-      kicker = `Монетка: ${names[state.coin]}`;
+      kicker = t('coinWinner', names[state.coin]);
       if (mine) {
-        prompt = 'Вы выиграли монетку';
-        hint = 'Решите, кто банит первым.';
-        actions.push(button('Баним первыми', () => move('order', String(me)), true));
-        actions.push(button(`Первыми банят ${names[opp]}`, () => move('order', String(opp))));
+        prompt = t('youWon');
+        hint = t('decideOrder');
+        actions.push(button(t('weBanFirst'), () => move('order', String(me)), true));
+        actions.push(button(t('theyBanFirst', names[opp]), () => move('order', String(opp))));
       } else {
-        prompt = `${names[state.coin]} выиграли монетку`;
-        hint = 'Они решают, кто банит первым…';
+        prompt = t('wonCoin', names[state.coin]);
+        hint = t('decidingOrder');
       }
     } else if (turn.kind === 'side') {
       const map = state.pending.map;
       stage.dataset.phase = mine ? 'mine' : 'wait';
-      kicker = mine ? 'Твой ход · сторона' : `Ход ${names[turn.team]} · сторона`;
+      kicker = mine ? t('yourTurnSide') : t('turnSide', names[turn.team]);
       if (mine) {
-        prompt = `${names[state.pending.team]} взяли ${map}`;
-        hint = 'За какую сторону начнёте?';
-        for (const side of ['CT', 'T']) actions.push(button(`Начинаем за ${SIDE_NAME[side]}`, () => move('side', side), side === 'CT'));
+        prompt = t('picked', names[state.pending.team], map);
+        hint = t('whichSide');
+        for (const side of ['CT', 'T']) actions.push(button(t('startOn', side), () => move('side', side), side === 'CT'));
       } else {
-        prompt = `${names[turn.team]} выбирают сторону на ${map}…`;
+        prompt = t('choosingSide', names[turn.team], map);
       }
     } else if (turn.kind === 'done') {
       stage.dataset.phase = 'done';
-      kicker = 'Готово';
-      prompt = 'Вето завершено';
+      kicker = t('done');
+      prompt = t('vetoDone');
       const board = mapBoard(room, state);
       const play = [...state.actions.filter(a => a.type === 'pick').map(a => a.map),
-        ...board.filter(m => m.status === 'decider').map(m => m.map + (room.f === 'BO3' || room.f === 'BO5' ? ' (решающая)' : ''))];
-      hint = `Играем: ${play.join(', ')}`;
+        ...board.filter(m => m.status === 'decider').map(m => m.map + (room.f === 'BO3' || room.f === 'BO5' ? ` ${t('decider')}` : ''))];
+      hint = t('playing', play.join(', '));
     } else {
       stage.dataset.phase = mine ? 'mine' : 'wait';
-      const ban = turn.kind === 'ban';
-      kicker = mine ? `Твой ход · ${ban ? 'бан' : 'пик'}` : `Ход ${names[turn.team]} · ${ban ? 'бан' : 'пик'}`;
+      const kind = t(turn.kind);
+      kicker = mine ? t('yourTurn', kind) : t('turnOf', names[turn.team], kind);
       if (mine) {
-        prompt = selected ? `${VERB[turn.kind]} ${selected}?` : ban ? 'Убери одну карту' : 'Выбери карту, которую играем';
-        hint = selected ? 'Подтверди — ход нельзя отменить.' : 'Нажми на карту, потом подтверди.';
+        prompt = selected ? t('confirm', turn.kind, selected) : turn.kind === 'ban' ? t('removeOne') : t('choosePlay');
+        hint = selected ? t('confirmHint') : t('clickHint');
         if (selected) {
-          actions.push(button(`${VERB[turn.kind]} ${selected}`, () => move(turn.kind, selected), true));
-          actions.push(button('Другая карта', () => { selected = ''; render(); }));
+          actions.push(button(t('act', turn.kind, selected), () => move(turn.kind, selected), true));
+          actions.push(button(t('otherMap'), () => { selected = ''; render(); }));
         }
       } else {
-        prompt = `${names[turn.team]} ${ban ? 'банят' : 'выбирают'} карту…`;
+        prompt = t('acting', turn.kind, names[turn.team]);
       }
     }
     setText($('vtKicker'), kicker);
@@ -531,7 +695,8 @@ async function enterRoom(room) {
     const choosing = mine && coin === 'shown' && (turn.kind === 'ban' || turn.kind === 'pick');
     const order = new Map(state.actions.map((a, i) => [a.map, i + 1]));
     if (state.pending) order.set(state.pending.map, state.actions.length + 1);
-    $('vtMaps').replaceChildren(...mapBoard(room, state).map(card => {
+    const before = new Map([...$('vtMaps').children].map(el => [el.dataset.map, el.getBoundingClientRect()]));
+    $('vtMaps').replaceChildren(...ordered(mapBoard(room, state), state).map(card => {
       const el = document.createElement('button');
       el.type = 'button';
       el.className = 'vt-map';
@@ -547,11 +712,11 @@ async function enterRoom(room) {
       tag.className = 'vt-map-tag';
       if (card.status === 'ban') tag.textContent = `BAN · ${names[card.team]}`;
       else if (card.status === 'pick') tag.textContent = `PICK · ${names[card.team]}`;
-      else if (card.status === 'decider') tag.textContent = room.f === 'BO1' ? 'ИГРАЕМ' : room.f === 'BO2' ? 'КАРТА 2' : 'DECIDER';
+      else if (card.status === 'decider') tag.textContent = room.f === 'BO1' ? t('tagPlay') : room.f === 'BO2' ? t('tagMap2') : 'DECIDER';
       const side = document.createElement('span');
       side.className = 'vt-map-side';
       if (card.side) side.textContent = `${names[card.sideTeam]} · ${card.side}`;
-      else if (card.status === 'pick') side.textContent = 'выбирают сторону…';
+      else if (card.status === 'pick') side.textContent = t('choosingShort');
       const num = Object.assign(document.createElement('span'), { className: 'vt-map-num', textContent: order.get(card.map) || '' });
       el.append(...[img, num, name, tag, side].filter(Boolean));
       el.addEventListener('click', () => {
@@ -561,6 +726,7 @@ async function enterRoom(room) {
       });
       return el;
     }));
+    slide(before);
     if (focusConfirm && $('vtActions').firstElementChild) {
       focusConfirm = false;
       $('vtActions').firstElementChild.focus({ preventScroll: true });
@@ -571,12 +737,14 @@ async function enterRoom(room) {
       ($('vtActions').children[focusAction] || $('vtActions').firstElementChild)?.focus({ preventScroll: true });
     }
 
-    const result = resultText(room, state);
+    // The HLTV text is ours: only the admin's link shows it.
+    const result = admin ? resultText(room, state) : '';
     $('vtResult').hidden = !result;
     $('vtResultText').textContent = result;
     $('vtLog').replaceChildren(...log.map((entry, i) => describe(entry, i, state)).filter(Boolean)
       .map(text => Object.assign(document.createElement('li'), { textContent: text })));
   }
+  relabel.add(render);
 
   const saved = store(logKey);
   if (saved) await adopt(saved);
@@ -592,5 +760,6 @@ addEventListener('hashchange', () => location.reload());
 const room = decodeLink(location.hash);
 if (room) enterRoom(room).catch(error => showError(error.message));
 else if (/(?:^#|&)v=/.test(location.hash)) {
-  showError('Ссылка на вето повреждена. Скопируй её из Discord целиком или попроси админа прислать новую.');
+  applyWords();
+  showError(t('brokenLink'), ['brokenLink']);
 } else setupCreate();

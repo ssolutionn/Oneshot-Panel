@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
-  <title>Вето карт · CyberClash</title>
+  <title>Map veto · CyberClash</title>
   <link rel="icon" type="image/png" sizes="256x256" href="/assets/favicon-night.png">
   <link rel="stylesheet" href="/veto.css">
   <script type="module" src="/veto.js"></script>
@@ -14,11 +14,15 @@
     <img class="vt-event" src="/assets/card/cyberclash-logo.png" alt="CyberClash" width="265" height="134">
     <div class="vt-heading">
       <span class="vt-eyebrow" id="vtEyebrow">MAP VETO · CS2</span>
-      <h1 id="vtTitle">Вето карт</h1>
+      <h1 id="vtTitle" data-i18n="title">Map veto</h1>
     </div>
     <div class="vt-clock" id="vtClock" hidden>
-      <span class="vt-clock-label">на вето</span>
+      <span class="vt-clock-label">veto</span>
       <span class="vt-clock-time" id="vtClockTime">5:00</span>
+    </div>
+    <div class="vt-lang" role="group" aria-label="Language / Язык">
+      <button type="button" class="vt-flag" data-lang="en" aria-label="English" title="English"><img src="/assets/flags/gb.svg" alt="" width="24" height="16"><span>EN</span></button>
+      <button type="button" class="vt-flag" data-lang="ru" aria-label="Русский" title="Русский"><img src="/assets/flags/ru.svg" alt="" width="24" height="16"><span>RU</span></button>
     </div>
   </header>
 
@@ -26,54 +30,72 @@
     <p class="vt-error" id="vtError" role="alert" hidden></p>
 
     <section class="vt-create" id="vtCreate" hidden aria-labelledby="vtCreateHeading">
-      <h2 id="vtCreateHeading">Новое вето для капитанов</h2>
-      <p class="vt-note">Сайт сделает три короткие ссылки: по одной каждому капитану (в личку в Discord) и одну для зрителей и админа. Монетку капитаны бросят сами прямо в комнате — заранее её не знает никто, даже ты.</p>
+      <h2 id="vtCreateHeading" data-i18n="createHeading">New captains' veto</h2>
+      <p class="vt-note" data-i18n="createNote">The site makes short links: one per captain (DM on Discord), one for spectators and one for the admin. The captains toss the coin themselves in the room — nobody knows it in advance, not even you.</p>
       <form id="vtForm" class="vt-form">
-        <label class="vt-wide">Матч из расписания<select id="vtMatch"><option value="">Загружаем расписание…</option></select></label>
-        <label>Команда 1<input id="vtTeamA" list="vtTeamList" required autocomplete="off"></label>
-        <label>Команда 2<input id="vtTeamB" list="vtTeamList" required autocomplete="off"></label>
-        <label>Формат
-          <select id="vtFormat"><option>BO1</option><option>BO2</option><option selected>BO3</option><option>BO5</option></select>
-        </label>
+        <fieldset class="vt-settings">
+          <legend data-i18n="settings">Veto settings</legend>
+          <label class="vt-wide"><span data-i18n="match">Match from the schedule</span><select id="vtMatch"><option value="" data-i18n="loadingSchedule">Loading the schedule…</option></select></label>
+          <label><span data-i18n="team1">Team 1</span><input id="vtTeamA" list="vtTeamList" required autocomplete="off"></label>
+          <label><span data-i18n="team2">Team 2</span><input id="vtTeamB" list="vtTeamList" required autocomplete="off"></label>
+          <label><span data-i18n="format">Format</span>
+            <select id="vtFormat"><option>BO1</option><option>BO2</option><option selected>BO3</option><option>BO5</option></select>
+          </label>
+          <label><span data-i18n="timer">Timer</span>
+            <select id="vtTimer">
+              <option value="5" data-i18n="min5" selected>5 minutes</option>
+              <option value="3" data-i18n="min3">3 minutes</option>
+              <option value="7" data-i18n="min7">7 minutes</option>
+              <option value="10" data-i18n="min10">10 minutes</option>
+              <option value="15" data-i18n="min15">15 minutes</option>
+              <option value="0" data-i18n="noTimer">No timer</option>
+            </select>
+          </label>
+        </fieldset>
         <datalist id="vtTeamList"></datalist>
-        <button class="vt-button vt-primary" type="submit">Создать ссылки</button>
+        <button class="vt-button vt-primary" type="submit" data-i18n="create">Create links</button>
       </form>
       <div class="vt-links" id="vtLinks" hidden>
         <article class="vt-link">
-          <h3>Капитану <span id="vtLinkNameA"></span> <small>в личку</small></h3>
-          <textarea id="vtMsgA" readonly rows="8" aria-label="Сообщение для первого капитана"></textarea>
-          <button class="vt-button" type="button" data-copy="vtMsgA">Скопировать сообщение</button>
+          <h3><span data-i18n="toCaptain">Captain of</span> <span id="vtLinkNameA"></span> <small data-i18n="dm">DM</small></h3>
+          <textarea id="vtMsgA" readonly rows="8" aria-label="Captain 1"></textarea>
+          <button class="vt-button" type="button" data-copy="vtMsgA" data-i18n="copyMessage">Copy message</button>
         </article>
         <article class="vt-link">
-          <h3>Капитану <span id="vtLinkNameB"></span> <small>в личку</small></h3>
-          <textarea id="vtMsgB" readonly rows="8" aria-label="Сообщение для второго капитана"></textarea>
-          <button class="vt-button" type="button" data-copy="vtMsgB">Скопировать сообщение</button>
+          <h3><span data-i18n="toCaptain">Captain of</span> <span id="vtLinkNameB"></span> <small data-i18n="dm">DM</small></h3>
+          <textarea id="vtMsgB" readonly rows="8" aria-label="Captain 2"></textarea>
+          <button class="vt-button" type="button" data-copy="vtMsgB" data-i18n="copyMessage">Copy message</button>
         </article>
         <article class="vt-link">
-          <h3>Зрителям и админу <small>можно в общий канал</small></h3>
-          <textarea id="vtMsgS" readonly rows="3" aria-label="Ссылка для зрителей"></textarea>
+          <h3><span data-i18n="toSpectators">Spectators</span> <small data-i18n="public">any channel</small></h3>
+          <textarea id="vtMsgS" readonly rows="3" aria-label="Spectators"></textarea>
+          <button class="vt-button" type="button" data-copy="vtMsgS" data-i18n="copyLink">Copy link</button>
+        </article>
+        <article class="vt-link vt-admin">
+          <h3><span data-i18n="toAdmin">Admin</span> <small data-i18n="ours">ours only · HLTV text</small></h3>
+          <textarea id="vtMsgO" readonly rows="2" aria-label="Admin"></textarea>
           <div class="vt-row">
-            <button class="vt-button" type="button" data-copy="vtMsgS">Скопировать ссылку</button>
-            <a class="vt-button vt-primary" id="vtWatch" target="_blank" rel="noopener">Смотреть вето ↗</a>
+            <button class="vt-button" type="button" data-copy="vtMsgO" data-i18n="copyLink">Copy link</button>
+            <a class="vt-button vt-primary" id="vtWatch" target="_blank" rel="noopener" data-i18n="watch">Watch the veto ↗</a>
           </div>
         </article>
-        <p class="vt-note">Ссылка капитана личная: по ней можно ходить за его команду. Если ошиблись — просто создай новые ссылки.</p>
+        <p class="vt-note" data-i18n="linksNote">A captain's link is personal: it lets them move for their team. Made a mistake — just create new links.</p>
         <p class="vt-note" id="vtMade"></p>
       </div>
     </section>
 
-    <section class="vt-room" id="vtRoom" hidden aria-label="Вето">
+    <section class="vt-room" id="vtRoom" hidden aria-label="Veto">
       <div class="vt-teams">
         <article class="vt-team" id="vtTeam0" data-team="0">
           <span class="vt-logo"><img alt="" hidden></span>
-          <div><b class="vt-team-name"></b><span class="vt-presence">не в сети</span></div>
-          <span class="vt-you" hidden>ТЫ</span>
+          <div><b class="vt-team-name"></b><span class="vt-presence"></span></div>
+          <span class="vt-you" hidden data-i18n="you">YOU</span>
         </article>
         <span class="vt-versus" aria-hidden="true">VS</span>
         <article class="vt-team" id="vtTeam1" data-team="1">
           <span class="vt-logo"><img alt="" hidden></span>
-          <div><b class="vt-team-name"></b><span class="vt-presence">не в сети</span></div>
-          <span class="vt-you" hidden>ТЫ</span>
+          <div><b class="vt-team-name"></b><span class="vt-presence"></span></div>
+          <span class="vt-you" hidden data-i18n="you">YOU</span>
         </article>
       </div>
 
@@ -83,8 +105,8 @@
           <span class="vt-coin-face vt-coin-1"></span>
         </div>
         <div class="vt-stage-text">
-          <span class="vt-stage-kicker" id="vtKicker">Монетка</span>
-          <h2 id="vtPrompt">Ждём капитанов</h2>
+          <span class="vt-stage-kicker" id="vtKicker"></span>
+          <h2 id="vtPrompt"></h2>
           <p id="vtHint"></p>
         </div>
         <div class="vt-actions" id="vtActions"></div>
@@ -93,12 +115,12 @@
       <div class="vt-maps" id="vtMaps"></div>
 
       <section class="vt-result" id="vtResult" hidden aria-labelledby="vtResultHeading">
-        <h2 id="vtResultHeading">Итог вето</h2>
+        <h2 id="vtResultHeading" data-i18n="resultHeading">Veto result</h2>
         <pre id="vtResultText"></pre>
-        <button class="vt-button" type="button" data-copy="vtResultText">Скопировать для HLTV</button>
+        <button class="vt-button" type="button" data-copy="vtResultText" data-i18n="copyHltv">Copy for HLTV</button>
       </section>
 
-      <ol class="vt-log" id="vtLog" aria-label="Ходы"></ol>
+      <ol class="vt-log" id="vtLog" aria-label="Moves"></ol>
       <p class="vt-foot" id="vtFoot"></p>
     </section>
   </main>

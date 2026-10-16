@@ -293,6 +293,22 @@ dialog textarea { margin:0; width:100%; }
 /* Veto overlay */
 .veto-overlay-bar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:8px 16px; border-bottom:1px solid var(--divider); }
 .veto-overlay-bar .check { font-size:11px; cursor:pointer; }
+/* Captains' veto: settings, then the links for the captains, viewers and us. */
+.cv-intro { margin:0 16px 12px; color:var(--sub); font-size:12px; line-height:1.6; }
+.cv-settings { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)) auto; gap:12px; align-items:end; padding:0 16px 12px; }
+.cv-settings label { display:grid; gap:6px; min-width:0; color:var(--muted); font-size:11px; font-weight:600; }
+.cv-settings select { min-width:0; min-height:40px; padding:8px 10px; border:1px solid var(--field-line); border-radius:6px; background:var(--field); color:var(--ink); font-size:12px; }
+.cv-status { margin:0 16px 12px; color:var(--muted); font-size:12px; line-height:1.6; }
+.cv-status:empty { display:none; }
+.cv-status[data-kind=bad] { color:var(--red); }
+.cv-links { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; padding:0 16px 16px; }
+.cv-link { display:grid; gap:8px; align-content:start; min-width:0; padding:12px; border:1px solid var(--divider-2); border-radius:6px; background:var(--surface-2); }
+.cv-link h3 { margin:0; color:var(--ink); font-size:13px; font-weight:700; }
+.cv-link h3 small { color:var(--muted); font-size:11px; font-weight:400; }
+.cv-link textarea { width:100%; min-width:0; box-sizing:border-box; padding:9px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; resize:vertical; }
+.cv-link .button { justify-self:start; }
+.cv-admin { border-color:var(--red); }
+.cv-actions { display:flex; flex-wrap:wrap; gap:8px; }
 .overlay-link { display:flex; align-items:center; gap:6px; }
 .overlay-link select { border:1px solid var(--line); border-radius:5px; background:var(--surface-2); color:var(--ink); padding:5px; font-size:11px; min-height:30px; }
 /* OBS dialog */
@@ -437,6 +453,8 @@ body.dock { background:var(--bg); font-size:12px; }
   dialog { padding:18px; } .dialog-actions { flex-wrap:wrap; } .dialog-actions .button { flex:1; }
   .cam-summary { flex-wrap:wrap; padding:9px 12px; }
   .veto-overlay-bar { padding:8px 12px; }
+  .cv-settings { grid-template-columns:minmax(0,1fr) minmax(0,1fr); padding:0 12px 12px; } .cv-settings .button { grid-column:1/-1; }
+  .cv-links { grid-template-columns:minmax(0,1fr); padding:0 12px 12px; } .cv-intro,.cv-status { margin-left:12px; margin-right:12px; }
   .lobby-form { grid-template-columns:minmax(0,1fr); padding:0 12px 12px; }
   .lobby-status { padding:10px 12px; } .lobby-panel .error-box { margin:0 12px 12px; }
   .lobby-matches { grid-template-columns:minmax(0,1fr); }
@@ -567,6 +585,8 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
       <textarea id="vetoOutput" aria-label="Вето в формате HLTV" readonly placeholder="Выбирай карты — здесь появится текст вето"></textarea>
       <p class="copy-foot">На пике выбери стартовую сторону соперника. Смена матча сбрасывает текущее вето.</p>
     </section>
+
+    
 
     <section id="copy" class="copy-panel" aria-label="Ссылки участникам">
       <div class="panel-heading">
