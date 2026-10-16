@@ -63,7 +63,7 @@ test('Netlify and Cloudflare serve the same security headers as server.js', asyn
     const page = await fetch(`http://127.0.0.1:${server.address().port}`);
     assert.match(cloudflare, /^\/\*$/m);
     for (const name of [
-      'Content-Security-Policy', 'X-Content-Type-Options', 'Referrer-Policy'
+      'Content-Security-Policy', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy'
     ]) {
       const value = toml.match(new RegExp(`^\\s*${name} = "(.*)"$`, 'm'))?.[1];
       assert.equal(value, page.headers.get(name), name);
