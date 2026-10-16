@@ -109,20 +109,33 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   (одна платформа, `showEvents`, skId 29086, свои хосты и scopeMarket), Леон
   (`leon.ru/api-ext/betline-exports/esports`, ссылка — только leon.ru), OLIMPBET (`api/v4/0/{line|live}/…vids[]=112:`),
   Марафон (HTML страницы CS2), Бетсити (`ad.betcity.ru/d/{off|on_air}/events…ids_sp=73`). Парсеры оставляют только CyberClash,
-  `findMatch` сопоставляет команды без акцентов и суффиксов («Honved
-  Esport» = «Honvéd»), в любом порядке. `MANUAL` — БК без открытой линии
-  (Winline — websocket, Зенит — заголовок imprintHash, BetBoom и Лига Ставок —
-  капча Qrator, Мелбет и БЕТ-М — зашифрованные ответы Digitain; Балтбет,
-  Спортбет): только ссылки. Покрыт `test/bookmakers.test.js` на
-  реальных ответах (`test/fixtures/bookmakers/`).
+  `findMatch` сопоставляет команды без акцентов и суффиксов в любом
+  порядке. Winline — публичный бинарный WebSocket прематча, отдельный
+  модуль `assets/bookmaker-winline.js`: gzip, словарь 16, снимок 3,
+  подписка только lang/AA==/data/WINLINE/getdate, без учётной записи.
+  На Cloudflare используется HTTP Upgrade. Повреждённые/неизвестные
+  пакеты дают ошибку, не пустой турнир. Реальные сжатые фикстуры —
+  `test/fixtures/bookmakers/winline-*.base64`, тесты — `test/winline.test.js`.
+  Балтбет — полная JSON-линия `events.baltbet.ru/api/prematch/sport/25/events?offset=all`,
+  публичный appSource UniRu, только CS2 и CyberClash; размеры дополнительных
+  коэффициентов подписаны именно как дополнительные, не общим числом рынков.
+  Спортбет — `bthm-server.sportbet.ru/events.table`, фиксированный slug
+  `esport-counter-strike`, прематч и лайв; валидная пустая таблица отличается
+  от ошибки источника. Реальный ответ был пуст; положительный тест явно
+  использует синтетические названия на реальном формате другого спорта.
+  `MANUAL` — пять ещё не подключённых контор, всегда явно отмечены;
+  не считать их отсутствием линии. Подробности — `BOOKMAKERS_STATUS.md`.
 - `netlify/functions/bookmakers.mjs` — `/api/bookmakers?id=<бк>`: сервер
   сам ходит в фиксированные адреса линий (из запроса берётся только id),
   зеркала по очереди, линия и лайв отдельно; отдаёт только CyberClash.
   Обёртки: `functions/api/bookmakers.js` (Cloudflare), `server.js`.
+- `assets/bookmaker-transport.js` — ограниченные чтения и WebSocket Upgrade:
+  дедлайн не зависит от поддержки AbortSignal, поздние ответы закрываются.
+  Проверен на зависшем fetch и теле ответа в `test/bookmaker-transport.test.js`.
 - `bookies.js` — только сайт: блок «Наш турнир у букмекеров» во вкладке
   «Лобби» (`bookies`, `bookiesCheck`, `bookiesCopy`, `bookiesCsv`,
   `bookiesTable`, `bookiesStatus`):
-  раз в 5 минут; строки — все 16 лицензированных БК (автоматические и
+  раз в минуту, с возобновлением после скрытия вкладки/потери сети; строки — все 16 лицензированных БК (автоматические и
   `MANUAL` со ссылкой), столбцы — матчи ближайшего дня; кэфы текстом, ссылка
   отдельной ↗ (блокировщики рекламы прячут ссылки на БК вместе с текстом);
   в клетке ещё другие рынки ленты (`markets`: фора по нашей первой команде,
@@ -229,7 +242,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 
 ```sh
 npm run check        # синтаксис
-npm test             # 81 тест (node:test)
+npm test             # тесты node:test
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
