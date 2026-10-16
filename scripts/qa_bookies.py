@@ -64,7 +64,7 @@ async def run(args):
                                         body='{"message":"QA provider offline"}')
                     return
                 events = []
-                if bookmaker == "fonbet":
+                if bookmaker == "fonbet" and generation != 7:
                     events.append({
                         "id": "first", "team1": "Rune Eaters Esports", "team2": "HyperSpirit",
                         "start": NOW + 4 * 3600000, "odds": [1.45, 2.55] if generation == 0 else [1.4, 2.7],
@@ -76,7 +76,7 @@ async def run(args):
                             "start": NOW + 7 * 3600000, "odds": [1.8, 2.1],
                             "live": False, "url": "https://fon.bet/sports/esports/147516/new",
                         })
-                if bookmaker == "fonbet" and generation >= 6:
+                if bookmaker == "fonbet" and 6 <= generation < 7:
                     events.extend([
                         {"id":"tomorrow","team1":"Rune Eaters","team2":"HyperSpirit",
                          "start":NOW+28*3600000,"odds":[9.1,9.2],"live":False,
@@ -201,7 +201,13 @@ async def run(args):
             daily = Path(await day_file.path()).read_bytes().decode("utf-8-sig")
             assert "Archived Alpha" in daily and "CyberClash. Exact original name" in daily
             assert "tomorrow" not in daily
-            assert "'\\u00a0=HYPERLINK(1)" in daily
+            assert "'\u00a0=HYPERLINK(1)" in daily
+            phase = 7
+            await page.locator("#bookiesCheck").click()
+            await expect(page.locator("#bookiesCheck")).to_be_enabled()
+            await expect(page.locator("#bookiesEmpty")).to_be_visible()
+            await expect(page.locator("#history-fonbet")).to_contain_text("QA New A")
+            await expect(page.locator("#history-fonbet")).to_contain_text("Archived Alpha")
             # Reload keeps locally observed events and reloads shared records.
             await page.reload()
             await expect(page.locator("#bookiesCheck")).to_be_enabled()
@@ -210,6 +216,8 @@ async def run(args):
             output = Path(args.artifacts) / "bookies"
             output.mkdir(parents=True, exist_ok=True)
             await page.screenshot(path=str(output / (engine + ".png")), full_page=True)
+            await page.set_viewport_size({"width":375,"height":812})
+            assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "History must fit mobile"
             assert not errors, errors
             await browser.close()
             print("PASS: " + engine + " bookmaker discovery, minute polling, partial rendering, stale recovery, offline/visibility resume", flush=True)

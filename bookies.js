@@ -360,7 +360,7 @@ function renderHistory() {
         el('b',{textContent:e.team1 + ' – ' + e.team2}),open(e.url),
         el('small',{textContent:(e.start ? matchTime(e.start) + ' МСК · ' : 'время матча не указано · ') +
           'последние замеченные кэфы: ' + (pair(e.odds) || 'не опубликованы')}),
-        el('small',{textContent:'Видели: ' + msk(e.first,true) + ' — ' + msk(e.last,true) + ' МСК' +
+        el('small',{textContent:(e.first && e.last ? 'Видели: ' + msk(e.first,true) + ' — ' + msk(e.last,true) + ' МСК' : 'Восстановлено из сохранённого ответа; время наблюдения неизвестно') +
           (e.liveSeen ? ' · был в лайве' : '')}),
         (e.names?.length || e.tournament) ? el('em',{className:'bk-tournament',
           textContent:quoted(e.names?.length ? e.names : [e.tournament])}) : null
@@ -377,6 +377,7 @@ function renderHistory() {
     'Сохранено наблюдений матчей: ' + total + '. ' +
     (archive?.day === historyDay && archive.updatedAt ? 'Общий архив обновлён ' + msk(archive.updatedAt,true) + ' МСК. ' :
       'Общий архив за этот день пока не заполнен. ') +
+    (archive?.note ? archive.note + ' ' : '') +
     'Время матчей — МСК. История означает «видели в линии», а не результат матча. ' +
     'Фоновый сбор — примерно раз в 10 минут, даже при закрытой панели; возможны задержки планировщика.';
 }

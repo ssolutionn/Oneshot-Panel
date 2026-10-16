@@ -26,6 +26,7 @@ export function normalizeDay(value, day) {
   if (!validDay(day) || value?.version !== 1 || value.day !== day || !value.books || typeof value.books !== 'object') throw Error('Неверный формат истории');
   const out = emptyDay(day);
   out.startedAt = stamp(value.startedAt); out.updatedAt = stamp(value.updatedAt);
+  if (typeof value.note === 'string') out.note = text(value.note,500);
   for (const book of BOOKMAKERS) {
     const row = value.books[book.id];
     if (!row || !Array.isArray(row.events) || row.events.length > 500) continue;

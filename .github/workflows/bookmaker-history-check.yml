@@ -22,6 +22,39 @@ jobs:
           node --check scripts/collect_bookmaker_history.mjs
           npm test
           python3 claude-artifact/build_oneshot_artifact.py
+          git diff --exit-code -- claude-artifact/oneshot-panel.html
+
+      - name: Repeat anonymous server reads for unconnected providers
+        run: |
+          python3 - <<'PY'
+          import json
+          from concurrent.futures import ThreadPoolExecutor
+          from urllib.request import Request,urlopen
+          urls=[("zenit","https://zenit.win/ajax/line/printer/react?all=0&onlyview=0&timeline=0&tournaments_mode=1&sport=7&tournament=61004&tournament_region=3432&tournament_info=&league=&games=&ross=0&lang_id=1&timezone=3&offset=0&show_from_main=0&client_v=&length=50&sort_mode=2&b_id=&popular=1"),("melbet","https://melbet.ru/"),("betm","https://bet-m.ru/"),("ligastavok","https://www.ligastavok.ru/bets/cybersport")]
+          def read(item):
+            name,url=item
+            try:
+              with urlopen(Request(url,headers={"User-Agent":"Mozilla/5.0","Accept":"application/json,text/html"}),timeout=18) as r:
+                value={"provider":name,"status":r.status,"contentType":r.headers.get("content-type","")}
+            except Exception as e:value={"provider":name,"status":getattr(e,"code",0),"error":type(e).__name__}
+            print("SERVER_RECHECK:",json.dumps(value),flush=True)
+          with ThreadPoolExecutor(max_workers=4) as pool:list(pool.map(read,urls))
+          url="https://siteapi.betboom.ru/api/site_api/v1/sporthub/search/get"
+          try:
+            with urlopen(Request(url,data=json.dumps({"query":"CyberClash","page":1,"limit":20}).encode(),headers={"Content-Type":"application/json"},method="POST"),timeout=18) as r:
+              body=json.load(r)
+              print("BETBOOM_SEARCH:",json.dumps({"status":r.status,"code":body.get("code"),"matches":len(body.get("matches",[]))}),flush=True)
+          except Exception as e:print("BETBOOM_SEARCH:",json.dumps({"status":getattr(e,"code",0),"error":type(e).__name__}),flush=True)
+          PY
+      - name: Decode real captured Winline snapshot
+        run: |
+          node --input-type=module <<'JS'
+          import {readFile} from 'node:fs/promises';
+          import {gunzipSync} from 'node:zlib';
+          import {winlineDictionary,winlineSnapshot} from './assets/bookmaker-winline.js';
+          const raw=async name=>gunzipSync(Buffer.from(await readFile('test/fixtures/bookmakers/winline-'+name+'.base64','utf8'),'base64'));
+          console.log('WINLINE_HISTORICAL:',JSON.stringify(winlineSnapshot(await raw('line'),winlineDictionary(await raw('dictionary')))));
+          JS
       - run: |
           python3 -m pip install playwright
           python3 -m playwright install --with-deps chromium webkit
