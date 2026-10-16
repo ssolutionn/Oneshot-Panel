@@ -325,10 +325,11 @@ async def run(args):
         await page.click('[data-view="a"][data-slot="0"]')
         assert await page.locator("#copyDialog").is_visible()
         payload = await page.input_value("#manualCopy")
-        assert payload.startswith("https://vdo.ninja/?view=")
+        assert payload.startswith("https://vdo.ninja/?room=")
+        assert "&broadcast&do&push=" in payload and "?view=" not in payload
         assert "removed" not in payload
         await page.click("#closeCopy")
-        passed("denied clipboard shows exact requested text")
+        passed("right copy icon gives the player PUSH URL, including manual fallback")
 
         # ↻ next to a player: two clicks, new stream ID, message copied,
         # kept after reload, «вернуть» restores the sheet's ID.
@@ -336,6 +337,19 @@ async def run(args):
         subline = page.locator('.player-row').first.locator('.player-subline')
         old_view = await subline.inner_text()
         old_id = re.search(r"view=([^&]+)", old_view).group(1)
+        # An armed confirmation belongs to the selected player, not the slot.
+        selected = page.locator('[data-player="a"][data-slot="0"]')
+        old_selection = await selected.input_value()
+        other = await selected.evaluate("""el => [...el.options].find(o=>o.value && !o.selected && !o.disabled).value""")
+        await regen.click()
+        await expect(regen).to_have_text("✓?")
+        await selected.select_option(other)
+        await expect(regen).to_have_text("↻")
+        await regen.click()
+        await expect(regen).to_have_text("✓?")
+        assert await page.locator("#copyDialog").is_hidden()
+        await selected.select_option(old_selection)
+        await expect(regen).to_have_text("↻")
         await regen.click()
         await expect(regen).to_have_text("✓?")
         assert await page.locator("#copyDialog").is_hidden()
@@ -347,6 +361,11 @@ async def run(args):
         assert re.fullmatch(re.sub(r"[^A-Za-z0-9]", "", nick)[:16] + r"_[a-z2-9]{6}", new_id), message
         assert new_id != old_id
         assert message.startswith("## ") and f"**" in message and message.count("https://") == 1
+        await page.click("#closeCopy")
+        await page.click('[data-view="a"][data-slot="0"]')
+        await expect(page.locator("#copyDialog")).to_be_visible()
+        fresh_push = await page.input_value("#manualCopy")
+        assert fresh_push.endswith(f"&broadcast&do&push={new_id}") and "?view=" not in fresh_push
         await page.click("#closeCopy")
         await expect(subline).to_contain_text("Новый ID")
         await expect(subline).to_contain_text(f"view={new_id}&")

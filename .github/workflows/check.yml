@@ -71,6 +71,8 @@ jobs:
           asyncio.run(qr["run"](args))
           veto = runpy.run_path("scripts/qa_veto_site.py", run_name="veto_site_qa")
           asyncio.run(veto["run"](args))
+          artifact = runpy.run_path("scripts/qa_artifact.py", run_name="artifact_qa")
+          asyncio.run(artifact["run"](args))
           PY
       - name: Verify the published site
         # Production follows only this branch; same-repo pull requests get a preview.

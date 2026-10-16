@@ -1,7 +1,7 @@
 import {
   DEFAULT_SOURCE, decodeGviz, parseTeams, parseSchedule, scheduleDay,
   defaultLineup, lineupCandidates, roleSuffix, selectedPlayers,
-  validatePlayers, validateMatch, viewUrl, directorUrl,
+  validatePlayers, validateMatch, viewUrl, pushUrl, directorUrl,
   newStreamId, applyStreamIds,
   observerText, playerText, buildObs, safeFilename, validateMetadata,
   MAP_POOL, VETO_RULES, validateVeto, appendVeto, vetoText
@@ -104,8 +104,12 @@ function applyIds() {
   state.streamIds = applied.saved;
   writeStorage('oneshot-stream-ids', state.streamIds);
 }
-// ↻ next to a player: a new stream ID, so a leaked link stops being theirs.
-// The new message for the player is copied right away.
+// Rotate the future stream ID and prepare a fresh player link. This does not
+// terminate an already open VDO.Ninja session; OBS must switch to the new ID.
+function regenKey(side, slot) {
+  const player = chosen(side)[slot];
+  return player ? JSON.stringify([side, Number(slot), player.key, player.id]) : '';
+}
 function regenerate(side, slot) {
   const team = getTeam(side), player = chosen(side)[slot];
   if (!team || !player) return;
@@ -114,8 +118,8 @@ function regenerate(side, slot) {
   render();
   const fresh = chosen(side)[slot];
   copy(playerText(getTeam(side), [fresh])).then(() => toast(
-    `Новая ссылка для ${fresh.nick} скопирована — отправь игроку. Старая больше не его. ` +
-    'В OBS камеру обновит «Отправить в OBS» (или новый JSON).'));
+    `Новая ссылка для ${fresh.nick} ${$('copyDialog').open ? 'открыта для копирования' : 'скопирована'}. ` +
+    'Отправь её игроку и обнови OBS кнопкой «Отправить в OBS» или новым JSON. Старый сеанс VDO.Ninja сам не закрывается.'));
   document.dispatchEvent(new CustomEvent('oneshot:stream-id', { detail: { team: team.name, nick: fresh.nick } }));
 }
 function unregenerate(side, slot) {
@@ -397,17 +401,17 @@ function render() {
               escapeHtml(viewUrl(player)) :
               'Место не заполнено'}</span>
           </div>
-          <button class="copy-icon regen-icon${state.regenAsk === `${side}${i}` ? ' asking' : ''}"
+          <button class="copy-icon regen-icon${state.regenAsk === regenKey(side, i) ? ' asking' : ''}"
             id="regen-${side}-${i}" type="button" data-regen="${side}" data-slot="${i}"
-            aria-label="${state.regenAsk === `${side}${i}` ?
+            aria-label="${state.regenAsk === regenKey(side, i) ?
               `Нажми ещё раз: новая ссылка для ${player ? escapeHtml(player.nick) : ''}` :
               `Новая ссылка игроку ${player ? escapeHtml(player.nick) : ''}`}"
-            title="${state.regenAsk === `${side}${i}` ? 'Нажми ещё раз — сделать новую ссылку' :
+            title="${state.regenAsk === regenKey(side, i) ? 'Нажми ещё раз — сделать новую ссылку' :
               'Новая ссылка игроку (если старая утекла)'}" ${!player ? 'disabled' : ''}
-            >${state.regenAsk === `${side}${i}` ? '✓?' : '↻'}</button>
+            >${state.regenAsk === regenKey(side, i) ? '✓?' : '↻'}</button>
           <button class="copy-icon" data-view="${side}" data-slot="${i}"
-            aria-label="Скопировать VIEW ${player ? escapeHtml(player.nick) : ''}"
-            title="Копировать VIEW" ${!player ? 'disabled' : ''}>⧉</button>
+            aria-label="Скопировать ссылку игроку ${player ? escapeHtml(player.nick) : ''}"
+            title="Ссылка игроку — подключить камеру" ${!player ? 'disabled' : ''}>⧉</button>
         </div>`;
       }).join('')}</div>
       <div class="card-actions">
@@ -448,7 +452,8 @@ function render() {
   // Two clicks: the first arms the button for 4 s, the second makes the link.
   $('teamGrid').querySelectorAll('[data-regen]').forEach(el =>
     el.addEventListener('click', () => {
-      const id = el.dataset.regen + el.dataset.slot;
+      const id = regenKey(el.dataset.regen, el.dataset.slot);
+      if (!id) return;
       clearTimeout(regenTimer);
       if (state.regenAsk !== id) {
         state.regenAsk = id;
@@ -463,7 +468,7 @@ function render() {
   $('teamGrid').querySelectorAll('[data-view]').forEach(el =>
     el.addEventListener('click', () => {
       const player = chosen(el.dataset.view)[Number(el.dataset.slot)];
-      if (player) copy(viewUrl(player));
+      if (player) copy(pushUrl(player));
     }));
   $('teamGrid').querySelectorAll('[data-copy-team]').forEach(el =>
     el.addEventListener('click', () => {

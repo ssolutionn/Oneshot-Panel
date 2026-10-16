@@ -230,7 +230,7 @@ export function applyStreamIds(teams, saved) {
 }
 // The card page lives on the panel's own site; the artifact has no site of
 // its own, so its JSON points at the public panel.
-export const DEFAULT_CARD_BASE = 'https://onepanel.netlify.app';
+export const DEFAULT_CARD_BASE = 'https://oneshot-panel.pages.dev';
 export function cardUrl(p, base = DEFAULT_CARD_BASE) {
   const url = new URL('/card.html', base);
   url.searchParams.set('team', line(p.team));

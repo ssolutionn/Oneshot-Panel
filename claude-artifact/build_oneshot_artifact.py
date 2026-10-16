@@ -330,10 +330,11 @@ REFRESH = r'''async function refresh(options = {}) {
   }
 }
 function applyData(data) {
-  const teams = parseTeams(data.roster);
+  state.sheetTeams = parseTeams(data.roster);
+  applyIds();
+  const teams = state.teams;
   const names = teams.map(t => t.name);
   state.cache = data;
-  state.teams = teams;
   state.schedule = upcoming(parseSchedule(data.schedule || []), names);
   state.scheduleDay = scheduleDay(data.schedule || []) ||
     scheduleDay([[data.scheduleName || '']]);
