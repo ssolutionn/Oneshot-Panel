@@ -2,12 +2,12 @@
   "version": 1,
   "day": "2026-10-16",
   "startedAt": 1792178593146,
-  "updatedAt": 1792178593146,
+  "updatedAt": 1792179348932,
   "books": {
     "fonbet": {
-      "checkedAt": 0,
-      "status": "partial",
-      "coverage": "prematch",
+      "checkedAt": 1792179348898,
+      "status": "ok",
+      "coverage": "line-and-live",
       "events": [
         {
           "id": "69002206",
@@ -59,10 +59,16 @@
         }
       ]
     },
+    "pari": {
+      "checkedAt": 1792179348886,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
     "bettery": {
-      "checkedAt": 0,
-      "status": "partial",
-      "coverage": "prematch",
+      "checkedAt": 1792179348875,
+      "status": "ok",
+      "coverage": "line-and-live",
       "events": [
         {
           "id": "69002206",
@@ -115,9 +121,9 @@
       ]
     },
     "bet24": {
-      "checkedAt": 0,
-      "status": "partial",
-      "coverage": "prematch",
+      "checkedAt": 1792179348882,
+      "status": "ok",
+      "coverage": "line-and-live",
       "events": [
         {
           "id": "69002206",
@@ -170,9 +176,9 @@
       ]
     },
     "olimp": {
-      "checkedAt": 0,
-      "status": "partial",
-      "coverage": "prematch",
+      "checkedAt": 1792179348888,
+      "status": "ok",
+      "coverage": "line-and-live",
       "events": [
         {
           "id": "86083372",
@@ -249,8 +255,8 @@
       ]
     },
     "marathon": {
-      "checkedAt": 0,
-      "status": "partial",
+      "checkedAt": 1792179348892,
+      "status": "ok",
       "coverage": "prematch",
       "events": [
         {
@@ -304,9 +310,9 @@
       ]
     },
     "betcity": {
-      "checkedAt": 0,
-      "status": "partial",
-      "coverage": "prematch",
+      "checkedAt": 1792179348883,
+      "status": "ok",
+      "coverage": "line-and-live",
       "events": [
         {
           "id": "24617848",
@@ -358,9 +364,15 @@
         }
       ]
     },
+    "sportbet": {
+      "checkedAt": 1792179348886,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
     "baltbet": {
-      "checkedAt": 0,
-      "status": "partial",
+      "checkedAt": 1792179348885,
+      "status": "ok",
       "coverage": "prematch",
       "events": [
         {
@@ -389,9 +401,40 @@
         }
       ]
     },
+    "winline": {
+      "checkedAt": 1792179348879,
+      "status": "ok",
+      "coverage": "prematch",
+      "events": [
+        {
+          "id": "16940438",
+          "team1": "PRIVATE ESPORTS",
+          "team2": "UPGRADE",
+          "tournament": "CyberClash",
+          "start": 1792166400000,
+          "odds": [
+            1.71,
+            2.02
+          ],
+          "url": "https://winline.ru/stavki/sport/kibersport/counter-strike",
+          "live": false,
+          "liveOffered": true,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.71,
+            2.02
+          ],
+          "liveSeen": false,
+          "names": [
+            "CyberClash"
+          ]
+        }
+      ]
+    },
     "leon": {
-      "checkedAt": 0,
-      "status": "partial",
+      "checkedAt": 1792179348932,
+      "status": "ok",
       "coverage": "prematch",
       "events": [
         {
@@ -464,37 +507,6 @@
           "liveSeen": false,
           "names": [
             "CyberClash Closed Qualifier"
-          ]
-        }
-      ]
-    },
-    "winline": {
-      "checkedAt": 0,
-      "status": "partial",
-      "coverage": "prematch",
-      "events": [
-        {
-          "id": "16940438",
-          "team1": "PRIVATE ESPORTS",
-          "team2": "UPGRADE",
-          "tournament": "CyberClash",
-          "start": 1792166400000,
-          "odds": [
-            1.71,
-            2.02
-          ],
-          "url": "https://winline.ru/stavki/sport/kibersport/counter-strike",
-          "live": false,
-          "liveOffered": true,
-          "first": 0,
-          "last": 0,
-          "open": [
-            1.71,
-            2.02
-          ],
-          "liveSeen": false,
-          "names": [
-            "CyberClash"
           ]
         }
       ]
