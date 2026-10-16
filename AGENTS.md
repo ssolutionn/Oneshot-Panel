@@ -1,11 +1,13 @@
 # Заметки для ИИ-агентов (Codex, ChatGPT, Claude)
 
 Oneshot Panel — статическая веб-панель эфирной команды CyberClash.
-Две вкладки. «Подготовка»: составы и расписание из Google Sheets, 10 вебок
+Четыре вкладки. «Подготовка»: составы и расписание из Google Sheets, 10 вебок
 по слотам 01–05 / 06–10, ссылки VDO.Ninja игрокам, статус вебок, OBS
-(отправка в открытый OBS или JSON-коллекция 1920×1080) и вето карт
-BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: турнир FACEIT, оповещения
-о концах карт и матчей, тексты для Discord, журнал пауз.
+(отправка в открытый OBS или JSON-коллекция 1920×1080). «Вето»: живая
+комната вето капитанов, вето карт BO1/2/3/5 с текстом для HLTV и оверлеем,
+ссылки капитанам (в артефакте Claude вето остаётся на одной странице).
+«Лобби»: турнир FACEIT, оповещения о концах карт и матчей, тексты для
+Discord, журнал пауз, букмекеры. «OBS»: подключение и инструкция.
 Подробности для людей — в README.md.
 
 ## Карта файлов
@@ -31,8 +33,11 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   копирование, скачивание JSON. Отдаёт `window.oneshotPanel.snapshot()`
   и событие `oneshot:change` для `live.js` и `lobby.js`; сам их не знает
   (в артефакте Claude их нет).
-- `live.js` — только сайт: вкладки, «Отправить в OBS», «Копировать JSON»,
-  вкладку «OBS» (`obsNavBtn` — третья вкладка, `obsView`: форма «Подключение к OBS» и
+- `live.js` — только сайт: вкладки (Подготовка, Вето, Лобби, OBS), «Отправить в OBS», «Копировать JSON»,
+  вкладку «Вето» (`vetoNavBtn`, `vetoView`: живая комната капитанов `cvLive`,
+  затем `#veto` — live.js переносит его туда из «Подготовки», в артефакте он
+  остаётся на месте, — затем блок ссылок `captainVeto`),
+  вкладку «OBS» (`obsNavBtn` — четвёртая вкладка, `obsView`: форма «Подключение к OBS» и
   пошаговая инструкция `.obs-manual`), статус вебок, живое вето в OBS и ссылка на оверлей.
   localStorage: `oneshot-obs` (режим, код связи, адрес и пароль OBS),
   `oneshot-view`, `oneshot-watch-cams`, `oneshot-veto-live`,
@@ -134,6 +139,24 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   https://oneshot-veto.cyberclash.workers.dev/, поле `cvSite` меняет); админская — отдельно,
   «Открыть вето ↗». localStorage `oneshot-captain-veto` (таймер, язык, адрес
   сайта, последние ссылки на 6 ч).
+- Живая комната во вкладке «Вето» (`live.js` + `veto-watch.js`, только
+  сайт): панель смотрит комнату последних ссылок (6 ч, при смене матча
+  не отключается) или вставленную ссылку любой комнаты (`cvWatchLink`;
+  секрет капитана отбрасывается, хранится только админская ссылка) как
+  админская ссылка: два скрытых view-iframe VDO.Ninja на потоки капитанов,
+  только слушает. Кто online (по потоку, не по from), монетка, ходы со
+  временем, таймер, «Позвать админа» (баннер `cvAlert`, звук, бейдж
+  `vetoBadge`, мигающий title, уведомление браузера, если разрешено),
+  HLTV команд (`assets/teams/hltv.json`: `cv-hltv` у капитанов и
+  `vetoHltv` под статусом вето панели). Галочка `cvSync`: каждый новый
+  ход капитанов → `window.oneshotPanel.setVeto` (в порядке команд панели,
+  ⇄ учитывается; другой матч — не переносится) → вето панели и оверлей.
+  Ручная правка в панели держится до следующего хода. localStorage
+  `oneshot-veto-watch` (вставленная комната, проверенный журнал, отвеченные
+  вызовы).
+- `veto-watch.js` — `RoomWatch` (проверка подписей и `mergeLog` из
+  `veto-room.js`, присутствие, вызовы; транспорт подменяется в тестах),
+  `adminRoom`, `roomToPanel`, `roomMoves`. Покрыт `test/veto-watch.test.js`.
 - `bookmakers.js` — без DOM: публичные линии лицензированных БК, где
   есть открытый JSON/HTML без входа и капчи: Фонбет, PARI, Bettery и 24bet
   (одна платформа, `showEvents`, skId 29086, свои хосты и scopeMarket), Леон
@@ -257,8 +280,9 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   8 сценариев сайта: вкладка OBS с инструкцией, вкладки, статус вебок, OBS напрямую и через док,
   копирование JSON, оверлей вето, лобби FACEIT (Sheets, VDO.Ninja,
   obs-websocket и FACEIT подменены, время лобби ускорено).
-  `scripts/qa_veto_site.py` — 11 сценариев сайта вето капитанов (английский
-  по умолчанию и флаг RU, HLTV только у админа, порядок карт): ссылки,
+  `scripts/qa_veto_site.py` — 13 сценариев сайта вето капитанов (английский
+  по умолчанию и флаг RU, HLTV только у админа, порядок карт, «Позвать
+  админа», вкладка «Вето» панели следит за капитанами): ссылки,
   монетка, BO3/BO1 (клавиатурой)/BO5 в отдельных браузерах, reload и
   поздний зритель, подделка хода и присутствия зрителем, переподписанный
   ход капитана, две вкладки капитана, конец 5 минут, HTML в названиях,
@@ -350,6 +374,9 @@ Netlify проверяет локальные фото, докачивает н�
   sourceGid scheduleUrl scheduleGid resetSource copyDialog copyHeading
   closeCopy manualCopy toast
 - id сайта (`live.js`, `lobby.js`, `obs-bridge.js`): viewPrep viewLobby
+  vetoNavBtn vetoBadge vetoView vetoHltv cvLive cvLiveState cvAlert cvAlertText
+  cvAlertOk cvLiveEmpty cvRoom cvTeam0 cvTeam1 cvClock cvStage cvMoves
+  cvCopyResult cvSync cvSyncNote cvWatchLink cvWatchGo cvWatchStop cvAdminOpen
   lobbyBadge prepView lobbyView obsView obsTabDot camSummary watchCams camTotal sendObsBtn
   copyJsonBtn obsNavBtn obsSetupBtn obsDot obsState vetoLive vetoLiveStatus vetoLayout copyOverlay
   obsDialog obsForm closeObs vetoBroadcast overlaySizeHint obsBridgeFields obsDockUrl copyDockUrl obsCode

@@ -2,11 +2,12 @@
 // match to OBS (directly or through the OBS dock), copying the JSON, webcam
 // status from VDO.Ninja and the live veto overlay. app.js keeps working
 // without this file (the Claude artifact has none of it).
-import { buildObs, DEFAULT_CARD_BASE } from './core.js';
+import { buildObs, DEFAULT_CARD_BASE, teamHltv } from './core.js';
 import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto } from './obs.js';
 import { VdoLink, CamWatch, bridgeSecrets, newBridgeCode, normalizeCode } from './vdo.js';
 import { mountQrReader, parseObsQr, parsePairingQr } from './assets/obs-qr.js';
-import { createRoom, captainMessage, spectatorMessage } from './veto-room.js';
+import { createRoom, captainMessage, spectatorMessage, nextTurn, clock, formatClock, resultText } from './veto-room.js';
+import { RoomWatch, adminRoom, roomToPanel, roomMoves } from './veto-watch.js';
 
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
@@ -21,7 +22,11 @@ function write(key, value) {
 const cardBase = () => /^https?:$/.test(location.protocol) ? location.origin : DEFAULT_CARD_BASE;
 
 // ---------- tabs ----------
-const views = [['prep', 'viewPrep', 'prepView'], ['lobby', 'viewLobby', 'lobbyView'], ['obs', 'obsNavBtn', 'obsView']];
+const views = [['prep', 'viewPrep', 'prepView'], ['veto', 'vetoNavBtn', 'vetoView'], ['lobby', 'viewLobby', 'lobbyView'],
+  ['obs', 'obsNavBtn', 'obsView']];
+// On the site the panel's veto has a tab of its own, under the captains' room
+// (the Claude artifact keeps it on the one page).
+$('cvLive').after($('veto'));
 export function showView(name, focus = false) {
   for (const [view, tab, pane] of views) {
     const on = view === name;
@@ -621,6 +626,9 @@ function onChange() {
   sendVeto();
   playerVetoLink(s);
   captainVeto(s);
+  paintHltv(s);
+  followRoom();
+  syncPanel(true);
 }
 // The captains' veto site (veto.html) opens with this match's teams and format.
 function playerVetoLink(s) {
@@ -697,6 +705,8 @@ $('cvCreate').addEventListener('click', async () => {
     const last = { match: cvMatch(s), at: Date.now(), room: made.room, links: made.links };
     cvSave(last);
     cvShow(last);
+    watchSave({ pasted: null });
+    followRoom();
     panel.toast('Ссылки на вето готовы: капитанам — в личку, админская — только у нас.');
   } catch (error) {
     cvStatus(error.message, 'bad');
@@ -705,6 +715,257 @@ $('cvCreate').addEventListener('click', async () => {
 for (const button of document.querySelectorAll('[data-cv-copy]')) {
   button.addEventListener('click', () => { if ($(button.dataset.cvCopy).value) panel.copy($(button.dataset.cvCopy).value); });
 }
+
+// ---------- the captains' room, live ----------
+// The panel watches the room of this match's links (or a room link pasted
+// here) the way the admin's link does: who is in, the coin, every move and
+// «Call admin». With «Переносить» on, each new move of the captains lands in
+// the panel's veto, and so in the OBS overlay; a manual edit in the panel
+// stays until the captains' next move.
+const WATCH_STORE = 'oneshot-veto-watch';
+const watch = { live: null, adminLink: '', pasted: false, ringing: new Map(), answered: new Set(), synced: '' };
+function watchSave(patch) {
+  write(WATCH_STORE, { ...(read(WATCH_STORE) || {}), ...patch });
+}
+// A pasted room wins over the last links made here while it is fresh. The
+// room stays watched when another match is selected (a call still rings);
+// its moves go to the panel only while the panel shows its teams.
+function watchTarget() {
+  const pasted = read(WATCH_STORE)?.pasted;
+  if (pasted && Date.now() - pasted.at < CV_KEEP) {
+    const found = adminRoom(pasted.link);
+    if (found) return { ...found, pasted: true };
+  }
+  const made = read(CV_STORE)?.last;
+  if (!made?.room?.r || !made.links?.o || !(Date.now() - made.at < CV_KEEP)) return null;
+  const p = Array.isArray(made.room.p) ? [...made.room.p] : [null, null];
+  return { room: { ...made.room, p, me: 'o' }, adminLink: made.links.o, pasted: false };
+}
+function followRoom() {
+  const target = watchTarget();
+  if ((target?.room.r || '') !== (watch.live?.room.r || '')) {
+    watch.live?.stop();
+    watch.live = null;
+    watch.ringing.clear();
+    watch.synced = '';
+    if (target) {
+      const stored = read(WATCH_STORE) || {};
+      watch.answered = new Set(stored.calls?.r === target.room.r ? stored.calls.ids : []);
+      const live = new RoomWatch(target.room, {
+        saved: stored.log,
+        onChange: () => { if (live === watch.live) roomChanged(); },
+        onCall: (team, at) => { if (live === watch.live) roomCall(team, at); }
+      });
+      watch.live = live;
+    }
+  }
+  watch.adminLink = target?.adminLink || '';
+  watch.pasted = !!target?.pasted;
+  paintWatch();
+}
+function roomChanged() {
+  watchSave({ log: watch.live.saved() });
+  syncPanel();
+  paintWatch();
+}
+const vetoKey = v => JSON.stringify([v.format, v.first, v.pending || null,
+  v.actions.map(a => [a.map, a.type, a.team, a.side || ''])]);
+// fromPanel: the panel changed. Only another match (or ⇄) brings the room's
+// veto back; a manual edit of the same match stays until the next move.
+function syncPanel(fromPanel = false) {
+  const live = watch.live;
+  if (!live || !$('cvSync').checked) return;
+  const s = panel.snapshot();
+  const teams = [s.a?.name, s.b?.name];
+  const next = roomToPanel(live.room, live.state, teams);
+  const key = next ? JSON.stringify(teams) : '';
+  if (fromPanel && key === watch.synced) return;
+  watch.synced = key;
+  if (!next || vetoKey(next) === vetoKey({ ...s.veto, pending: s.pending })) return;
+  try { panel.setVeto(next); } catch (error) { panel.toast(error.message); }
+}
+
+const callTime = at => new Date(at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+let roomAudio = null;
+addEventListener('pointerdown', () => {
+  try { roomAudio ||= new AudioContext(); if (roomAudio.state === 'suspended') roomAudio.resume(); } catch { roomAudio = null; }
+}, { once: true });
+function callBeep() {
+  try {
+    roomAudio ||= new AudioContext();
+    const now = roomAudio.currentTime;
+    for (let i = 0; i < 3; i++) {
+      const tone = roomAudio.createOscillator(), gain = roomAudio.createGain();
+      tone.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, now + i * 0.35);
+      gain.gain.exponentialRampToValueAtTime(0.3, now + i * 0.35 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.35 + 0.25);
+      tone.connect(gain).connect(roomAudio.destination);
+      tone.start(now + i * 0.35);
+      tone.stop(now + i * 0.35 + 0.3);
+    }
+  } catch { /* no sound: the banner, the badge and the title still ring */ }
+}
+// A captain's «Call admin» rides their messages for two minutes: one ring per call.
+function roomCall(team, at) {
+  const id = `${team}:${at}`;
+  if (watch.answered.has(id) || watch.ringing.has(id)) return;
+  const name = watch.live.room.t[team];
+  watch.ringing.set(id, { name, at: Date.now() });
+  callBeep();
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try { new Notification('Oneshot · Вето', { body: `Капитан ${name} зовёт админа`, tag: 'oneshot-veto-call' }); } catch { /* the banner is enough */ }
+  }
+  paintWatch();
+}
+$('cvAlertOk').addEventListener('click', () => {
+  for (const id of watch.ringing.keys()) watch.answered.add(id);
+  watch.ringing.clear();
+  if (watch.live) watchSave({ calls: { r: watch.live.room.r, ids: [...watch.answered].slice(-50) } });
+  paintWatch();
+});
+// The title blinks only while a call rings (the lobby's siren blinks it too).
+const panelTitle = document.title, CALL_TITLE = '🔔 Капитан зовёт админа';
+setInterval(() => {
+  if (watch.ringing.size) document.title = document.title === CALL_TITLE ? panelTitle : CALL_TITLE;
+  else if (document.title === CALL_TITLE) document.title = panelTitle;
+}, 1000);
+
+const setText = (el, text) => { if (el.textContent !== text) el.textContent = text; };
+// The teams' HLTV pages (assets/teams/hltv.json): under the panel's veto for
+// the selected match and beside the captains in the room.
+let hltvPages = null;
+fetch('/assets/teams/hltv.json').then(r => r.ok ? r.json() : null).catch(() => null).then(pages => {
+  hltvPages = pages;
+  paintHltv(panel.snapshot());
+  paintWatch();
+});
+function hltvLink(link, team) {
+  const url = teamHltv(hltvPages, team);
+  link.hidden = !url;
+  if (url && link.href !== url) link.href = url;
+  link.title = url ? `${team} · HLTV` : '';
+  return url;
+}
+function paintHltv(s) {
+  const names = [s.a?.name, s.b?.name].filter(Boolean);
+  const links = names.map(name => {
+    const a = Object.assign(document.createElement('a'), { target: '_blank', rel: 'noreferrer', textContent: `${name} ↗` });
+    return hltvLink(a, name) ? a : null;
+  }).filter(Boolean);
+  const key = links.map(a => a.href).join(' ');
+  if ($('vetoHltv').dataset.key === key) return;
+  $('vetoHltv').dataset.key = key;
+  $('vetoHltv').replaceChildren(...(links.length ? ['HLTV: ', ...links.flatMap((a, i) => i ? [' · ', a] : [a])] : []));
+  $('vetoHltv').hidden = !links.length;
+}
+function moveText(names, move) {
+  if (move.kind === 'coin') return `Монетка — ${names[move.team]}`;
+  if (move.kind === 'order') return `${names[move.team]}: первыми банят ${names[Number(move.value)]}`;
+  if (move.kind === 'side') return `${names[move.team]} — ${move.value} на ${move.map}`;
+  return `${names[move.team]} — ${move.kind === 'ban' ? 'BAN' : 'PICK'} ${move.value}`;
+}
+function paintWatch() {
+  const live = watch.live;
+  const [ring] = watch.ringing.values();
+  $('cvAlert').hidden = !ring;
+  if (ring) setText($('cvAlertText'), `🔔 Капитан ${ring.name} зовёт админа · ${callTime(ring.at)}`);
+  $('vetoBadge').hidden = !watch.ringing.size;
+  $('vetoBadge').textContent = watch.ringing.size ? '!' : '';
+  $('cvLiveEmpty').hidden = !!live;
+  $('cvRoom').hidden = !live;
+  $('cvWatchStop').hidden = !watch.pasted;
+  $('cvAdminOpen').hidden = !live;
+  if (watch.adminLink) $('cvAdminOpen').href = watch.adminLink;
+  if (!live) {
+    $('cvLiveState').dataset.state = 'off';
+    return setText($('cvLiveState'), 'нет комнаты');
+  }
+  const { room } = live, names = room.t;
+  let state;
+  try { state = live.state; } catch { return; }
+  const turn = nextTurn(room, state);
+  const online = [0, 1].map(team => live.online(team));
+  for (const team of [0, 1]) {
+    const card = $('cvTeam' + team);
+    card.dataset.online = online[team] ? 'yes' : 'no';
+    card.classList.toggle('is-turn', turn.team === team && state.coin !== null);
+    setText(card.querySelector('b'), names[team]);
+    setText(card.querySelector('span'), online[team] ? 'online' : 'offline');
+    hltvLink(card.querySelector('.cv-hltv'), names[team]);
+  }
+  const done = turn.kind === 'done';
+  $('cvLiveState').dataset.state = done ? 'done' : online.some(Boolean) ? 'live' : 'wait';
+  setText($('cvLiveState'), done ? 'вето готово' : online.every(Boolean) ? 'оба капитана здесь' :
+    online.some(Boolean) ? `здесь ${names[online.indexOf(true)]}` : 'капитанов нет');
+  let stage;
+  if (state.coin === null) {
+    stage = state.commit !== null || online.every(Boolean) ? 'Капитаны бросают монетку…' :
+      `Ждём капитанов: ${names.filter((_, team) => !online[team]).join(' и ')}.`;
+  } else if (turn.kind === 'order') stage = `Монетку выиграли ${names[state.coin]} — выбирают, кто банит первым.`;
+  else if (turn.kind === 'side') stage = `${names[turn.team]} выбирают сторону на ${state.pending.map}.`;
+  else if (done) stage = 'Вето завершено. Текст для HLTV — в вето панели ниже.';
+  else stage = `Ход ${state.actions.length + 1}/6 · ${names[turn.team]} · ${turn.kind === 'ban' ? 'BAN — убирают карту' : 'PICK — выбирают карту'}`;
+  if (live.conflict) stage += ` Внимание: на шаге ${live.conflict.index + 1} капитан подписал два разных хода — остался первый.`;
+  setText($('cvStage'), stage);
+  const minutes = room.m ?? 5, start = live.startedAt(state);
+  $('cvClock').hidden = !minutes || start === null;
+  if (!$('cvClock').hidden) {
+    const c = clock({ startedAt: start }, Date.now(), minutes);
+    const spent = done ? live.log[live.log.length - 1].at - state.startedAt : 0;
+    setText($('cvClock'), done ? `вето за ${formatClock(Math.max(0, spent))}` : c.over ? 'время вышло' : formatClock(c.left));
+    $('cvClock').dataset.state = done ? 'done' : c.over || c.left < 60000 ? 'low' : 'run';
+  }
+  const moves = roomMoves(room, live.log).map(move => {
+    const li = document.createElement('li');
+    const time = Object.assign(document.createElement('time'), {
+      textContent: new Date(move.at).toLocaleTimeString('ru-RU'), dateTime: new Date(move.at).toISOString()
+    });
+    li.append(time, ' ', moveText(names, move));
+    return li;
+  });
+  const movesKey = room.r + moves.map(li => li.textContent).join('|');
+  if ($('cvMoves').dataset.key !== movesKey) {
+    $('cvMoves').dataset.key = movesKey;
+    $('cvMoves').replaceChildren(...moves);
+  }
+  const s = panel.snapshot();
+  const synced = roomToPanel(room, state, [s.a?.name, s.b?.name]);
+  const sameTeams = roomToPanel(room, { ...state, first: state.first ?? 0 }, [s.a?.name, s.b?.name]);
+  setText($('cvSyncNote'), !$('cvSync').checked ? 'Ходы не переносятся: вето панели ведётся вручную.' :
+    !sameTeams ? `В панели выбран другой матч — ходы ${names[0]} vs ${names[1]} не переносятся. Выбери этот матч в «Подготовке».` :
+    !synced ? 'Ходы появятся в вето панели, как только победитель монетки выберет порядок.' :
+    done ? 'Вето панели и оверлей повторяют комнату капитанов.' : 'Вето панели и оверлей идут за капитанами: каждый новый ход переносится сам.');
+  $('cvSyncNote').dataset.kind = !sameTeams && $('cvSync').checked ? 'bad' : '';
+  $('cvCopyResult').hidden = !done;
+}
+setInterval(() => { if (watch.live) paintWatch(); }, 1000);
+$('cvSync').addEventListener('change', () => {
+  watch.synced = '';
+  syncPanel();
+  paintWatch();
+});
+$('cvCopyResult').addEventListener('click', () => {
+  const live = watch.live;
+  if (live) panel.copy(resultText(live.room, live.state));
+});
+$('cvWatchGo').addEventListener('click', () => {
+  const found = adminRoom($('cvWatchLink').value);
+  if (!found) return panel.toast('Это не ссылка комнаты вето: нужна ссылка с …#v=…');
+  watchSave({ pasted: { link: found.adminLink, at: Date.now() } });
+  // A captain's link must not stay on screen: only the admin's view is kept.
+  $('cvWatchLink').value = '';
+  followRoom();
+  panel.toast(`Следим за комнатой ${found.room.t[0]} vs ${found.room.t[1]}`);
+});
+$('cvWatchLink').addEventListener('keydown', event => {
+  if (event.key === 'Enter') { event.preventDefault(); $('cvWatchGo').click(); }
+});
+$('cvWatchStop').addEventListener('click', () => {
+  watchSave({ pasted: null });
+  followRoom();
+});
+
 document.addEventListener('oneshot:change', onChange);
 fillObsDialog();
 function revealPairing() {

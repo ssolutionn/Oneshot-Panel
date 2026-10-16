@@ -20,7 +20,8 @@ from pathlib import Path
 from playwright.async_api import async_playwright, expect
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from qa_browser import gviz  # noqa: E402
+from qa_browser import gviz, sample_roster  # noqa: E402
+from urllib.parse import parse_qs, urlsplit  # noqa: E402
 
 FAKE_VDO = """<!doctype html><script>
 const q = new URLSearchParams(location.search);
@@ -466,6 +467,99 @@ async def run(args):
         for page in (cap, boss, viewer):
             await page.close()
         passed("«Call admin» rings on the admin's page only, once answered stays quiet; HLTV links by team")
+
+        # 13. The panel's «Вето» tab watches the captains' room as the admin:
+        # presence, the coin, «Call admin», and every move lands in the
+        # panel's own veto (HLTV text, OBS overlay).
+        panel_ctx = await open_context(1440, 1000)
+        await panel_ctx.unroute("https://docs.google.com/**/gviz/**")
+        panel_schedule = gviz([["Group B1", day(0), "18:00", "UPGRADE", "Lavked"]],
+                              ["Stage", "Date", "MSK (GMT +3)", "Team 1", "Team 2"])
+
+        async def panel_sheets(route):
+            gid = parse_qs(urlsplit(route.request.url).query).get("gid", [""])[0]
+            body = (panel_schedule if gid == "815739139" else gviz([], ["Stage"]) if gid == "1212769715"
+                    else sample_roster(("UPGRADE", "Lavked")))
+            await route.fulfill(content_type="application/javascript", body=body)
+        await panel_ctx.route("https://docs.google.com/**/gviz/**", panel_sheets)
+        panel = await open_page(base + "/", context=panel_ctx)
+        await expect(panel.locator("#syncTitle")).to_contain_text("команд из таблицы", timeout=wait)
+        await panel.click("#vetoNavBtn")
+        await expect(panel.locator("#cvLiveEmpty")).to_be_visible()
+        # Both teams' HLTV pages under the panel's veto.
+        await expect(panel.locator("#vetoHltv a")).to_have_count(2)
+        await expect(panel.locator("#vetoHltv a").first).to_have_attribute("href", "https://www.hltv.org/team/13989/upgrade")
+        await expect(panel.locator("#vetoHltv a").last).to_have_text("Lavked ↗")
+        await panel.fill("#cvSite", base + "/veto.html")
+        await panel.locator("#cvSite").dispatch_event("change")
+        await panel.select_option("#cvLang", "ru")
+        await panel.click("#cvCreate")
+        await expect(panel.locator("#cvRoom")).to_be_visible()
+        await expect(panel.locator("#cvLiveState")).to_have_text("капитанов нет")
+        own_admin = await panel.input_value("#cvMsgO")
+        await expect(panel.locator("#cvAdminOpen")).to_have_attribute("href", own_admin)
+        link_a = re.search(r"https?://\S+", await panel.input_value("#cvMsgA")).group(0)
+        link_b = re.search(r"https?://\S+", await panel.input_value("#cvMsgB")).group(0)
+        assert link_a.startswith(base + "/veto.html#v="), link_a
+        cap_a = await open_page(link_a)
+        await expect(panel.locator("#cvTeam0")).to_have_attribute("data-online", "yes", timeout=wait)
+        await expect(panel.locator("#cvTeam1")).to_have_attribute("data-online", "no")
+        await expect(panel.locator("#cvLiveState")).to_have_text("здесь UPGRADE")
+        cap_b = await open_page(link_b)
+        await expect(panel.locator("#cvStage")).to_contain_text("Монетку выиграли", timeout=wait)
+        await expect(panel.locator("#cvLiveState")).to_have_text("оба капитана здесь")
+        await expect(panel.locator("#cvTeam1 .cv-hltv")).to_have_attribute("href", "https://www.hltv.org/team/12609/lavked")
+        # A captain calls: the panel rings (banner, tab badge) until «Понял».
+        await cap_b.click("#vtCallAdmin")
+        await expect(panel.locator("#cvAlert")).to_be_visible(timeout=wait)
+        await expect(panel.locator("#cvAlertText")).to_contain_text("Капитан Lavked зовёт админа")
+        await panel.click("#viewPrep")
+        await expect(panel.locator("#vetoBadge")).to_be_visible()
+        await panel.click("#vetoNavBtn")
+        await panel.click("#cvAlertOk")
+        await expect(panel.locator("#cvAlert")).to_be_hidden()
+        await expect(panel.locator("#vetoBadge")).to_be_hidden()
+        await panel.wait_for_timeout(3000)  # the call still rides the messages: answered stays answered
+        await expect(panel.locator("#cvAlert")).to_be_hidden()
+        boss = await open_page(own_admin)
+        result = await play(cap_a, cap_b, [boss])
+        await expect(panel.locator("#vetoOutput")).to_have_value(result, timeout=wait)
+        await expect(panel.locator("#cvLiveState")).to_have_text("вето готово")
+        await expect(panel.locator("#cvMoves li")).to_have_count(10)  # coin, order, six moves, two sides
+        await expect(panel.locator("#cvClock")).to_contain_text("вето за")
+        await expect(panel.locator("#cvCopyResult")).to_be_visible()
+        await expect(panel.locator("#mapGrid [data-map].leftover")).to_have_count(1)  # after the 1.5 s decider delay
+        await panel.screenshot(path=str(output / "panel-veto-live.png"), full_page=True)
+        # ⇄ in the panel relabels the sides: the room's moves keep their real teams.
+        await panel.click("#viewPrep")
+        await panel.click("#swapBtn")
+        await expect(panel.locator("#vetoOutput")).to_have_value(result)
+        await panel.click("#swapBtn")
+        await panel.click("#vetoNavBtn")
+        # A manual edit stays while «Переносить» is off; on again, the room's veto is back.
+        await panel.uncheck("#cvSync")
+        await expect(panel.locator("#cvSyncNote")).to_contain_text("вручную")
+        await panel.click("#vetoUndo")
+        await panel.wait_for_timeout(3000)
+        assert await panel.input_value("#vetoOutput") != result
+        await panel.check("#cvSync")
+        await expect(panel.locator("#vetoOutput")).to_have_value(result)
+        # After a reload the room comes back from this browser at once.
+        await panel.reload()
+        await expect(panel.locator("#cvMoves li")).to_have_count(10)
+        await expect(panel.locator("#vetoOutput")).to_have_value(result)
+        # Any link of a room can be pasted; a captain's secret is dropped.
+        await panel.fill("#cvWatchLink", link_a)
+        await panel.click("#cvWatchGo")
+        await expect(panel.locator("#cvWatchLink")).to_have_value("")
+        await expect(panel.locator("#cvWatchStop")).to_be_visible()
+        await expect(panel.locator("#cvAdminOpen")).to_have_attribute("href", own_admin)
+        assert link_a.split("#v=")[1] not in await panel.evaluate("localStorage.getItem('oneshot-veto-watch')")
+        await panel.click("#cvWatchStop")
+        await expect(panel.locator("#cvWatchStop")).to_be_hidden()
+        for page in (cap_a, cap_b, boss, panel):
+            await page.close()
+        passed("the panel's «Вето» tab watches the captains: presence, coin, call admin; moves land in the panel's veto")
 
         # 10. Hostile team names stay text.
         link_a, link_b, link_s = await make_links(admin, '<img src=x onerror=alert(1)>', 'A"B</h1>', "BO3")

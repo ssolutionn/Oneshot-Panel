@@ -258,6 +258,10 @@ async def run(args):
         await page.fill("#matchStage", "Группа B")
         passed("missing metadata blocks JSON while links remain available")
 
+        # On the site the panel's veto has a tab of its own.
+        await page.click("#vetoNavBtn")
+        await expect(page.locator("#vetoView #veto")).to_be_visible()
+        await expect(page.locator("#prepView")).to_be_hidden()
         selected_maps = []
         for name in ["Anubis", "Nuke", "Dust2", "Cache", "Inferno", "Mirage"]:
             await page.click(f'[data-map="{name}"]')
@@ -316,6 +320,7 @@ async def run(args):
         await page.locator("#veto").screenshot(
             path=str(artifacts / "veto.png")
         )
+        await page.click("#viewPrep")
 
         await page.evaluate(
             "Object.defineProperty(navigator, 'clipboard', {value: "
@@ -411,6 +416,14 @@ async def run(args):
         await page.screenshot(
             path=str(artifacts / "mobile.png"), full_page=True
         )
+        await page.click("#vetoNavBtn")
+        assert await page.evaluate(
+            "document.documentElement.scrollWidth <= window.innerWidth"
+        )
+        await page.screenshot(
+            path=str(artifacts / "mobile-veto.png"), full_page=True
+        )
+        await page.click("#viewPrep")
         passed("375px mobile layout has no page overflow")
 
         modes["delay"] = True

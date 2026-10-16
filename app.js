@@ -177,7 +177,7 @@ function snapshot() {
 function notify() {
   document.dispatchEvent(new CustomEvent('oneshot:change'));
 }
-window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError };
+window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next) };
 // The header opens the organizer's sheet (the schedule source), not the
 // roster sheet: the panel is public and the rosters are ours to edit.
 function updateSourceLinks() {
@@ -705,6 +705,18 @@ function commitVeto(map, side) {
       copy($('vetoOutput').value);
     }
   } catch (error) { toast(error.message); }
+}
+// The site's captains' room (live.js) writes the captains' moves here, in the
+// panel's team order; pending is the map of a pick waiting for its side.
+function setVeto({ format, first, actions, pending = null }) {
+  const left = validateVeto(actions, format, first);
+  if (pending !== null && (!left.includes(pending) || VETO_RULES[format][actions.length] !== 'pick')) {
+    throw new Error('Некорректное вето.');
+  }
+  state.veto = { ...state.veto, format, first, actions: actions.map(a => ({ ...a })) };
+  state.pending = pending;
+  renderVeto();
+  persist();
 }
 
 $('chooseCT').addEventListener('click', () => {

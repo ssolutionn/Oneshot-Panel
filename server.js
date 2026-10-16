@@ -10,7 +10,7 @@ const publicFiles = new Set([
   'index.html', 'app.js', 'core.js', 'style.css', 'theme.js',
   'card.html', 'card.js', 'card.css', 'live.js', 'obs.js', 'vdo.js',
   'lobby.js', 'faceit.js', 'obs-bridge.html', 'obs-bridge.js',
-  'veto.html', 'veto.js', 'veto.css', 'veto-room.js', 'bookmakers.js', 'bookies.js'
+  'veto.html', 'veto.js', 'veto.css', 'veto-room.js', 'veto-watch.js', 'bookmakers.js', 'bookies.js'
 ]);
 const mime = {
   '.html': 'text/html; charset=utf-8',

@@ -312,6 +312,43 @@ dialog textarea { margin:0; width:100%; }
 .cv-link .button { justify-self:start; }
 .cv-admin { border-color:var(--red); }
 .cv-actions { display:flex; flex-wrap:wrap; gap:8px; }
+/* The captains' room, live, at the top of the «Вето» tab. Until live.js moves
+   the panel's veto there, it stays out of «Подготовка» (site only). */
+body:has(.view-tabs) #prepView > #veto { display:none; }
+.veto-view > * + * { margin-top:14px; }
+.cv-live-state { padding:4px 10px; border-radius:12px; background:var(--soft); color:var(--muted); font-size:11px; font-weight:700; white-space:nowrap; }
+.cv-live-state[data-state=live] { background:var(--success-bg); color:var(--success-ink); }
+.cv-live-state[data-state=done] { background:var(--strong); color:var(--on-strong); }
+.cv-alert { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin:0 16px 12px; padding:12px 14px; border:2px solid var(--red); border-radius:8px; background:var(--accent-soft); color:var(--ink); font-size:13px; animation:cv-ring 1s ease-in-out infinite alternate; }
+@keyframes cv-ring { from { box-shadow:0 0 0 0 var(--accent-soft); } to { box-shadow:0 0 0 6px var(--accent-soft); } }
+.cv-room { display:grid; gap:10px; padding:0 16px 14px; }
+.cv-teams { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+.cv-team { display:flex; align-items:center; gap:8px; min-width:0; padding:8px 12px; border:1px solid var(--divider-2); border-radius:6px; background:var(--surface-2); }
+.cv-team b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); font-size:13px; }
+.cv-team span { color:var(--muted); font-size:11px; }
+.cv-team i { flex:none; width:8px; height:8px; border-radius:50%; background:var(--muted); }
+.cv-team[data-online=yes] i { background:var(--success); box-shadow:0 0 0 3px var(--success-bg); }
+.cv-team[data-online=yes] span { color:var(--success-ink); }
+.cv-team.is-turn { border-color:var(--red); box-shadow:inset 3px 0 0 var(--red); }
+.cv-vs { color:var(--muted); font-size:11px; font-weight:700; }
+.cv-hltv { color:var(--red); font-size:11px; font-weight:700; text-decoration:none; white-space:nowrap; }
+.cv-hltv:hover { text-decoration:underline; }
+.veto-hltv { margin:0; padding:8px 16px; border-bottom:1px solid var(--divider); color:var(--muted); font-size:12px; }
+.veto-hltv a { color:var(--red); font-weight:700; text-decoration:none; }
+.veto-hltv a:hover { text-decoration:underline; }
+.cv-clock { margin-left:auto; padding:6px 10px; border-radius:6px; background:var(--soft); color:var(--ink); font-size:15px; font-weight:700; font-variant-numeric:tabular-nums; }
+.cv-clock[data-state=low] { background:var(--accent-soft); color:var(--red); }
+.cv-clock[data-state=done] { font-size:12px; color:var(--muted); }
+.cv-stage { margin:0; color:var(--ink); font-size:13px; font-weight:600; line-height:1.5; }
+.cv-moves { display:grid; gap:4px; margin:0; padding:0 0 0 22px; color:var(--sub); font-size:12px; line-height:1.5; }
+.cv-moves:empty { display:none; }
+.cv-moves time { color:var(--muted); font-variant-numeric:tabular-nums; }
+.cv-room > .button { justify-self:start; }
+.cv-sync { font-size:12px; cursor:pointer; }
+.cv-room .cv-status { margin:0; }
+.cv-watch { display:flex; align-items:end; flex-wrap:wrap; gap:8px; padding:12px 16px 16px; border-top:1px solid var(--divider); }
+.cv-watch label { display:grid; flex:1 1 260px; gap:6px; min-width:0; color:var(--muted); font-size:11px; font-weight:600; }
+.cv-watch input { min-width:0; min-height:34px; padding:7px 10px; border:1px solid var(--field-line); border-radius:6px; background:var(--field); color:var(--ink); font-size:12px; }
 .overlay-link { display:flex; align-items:center; gap:6px; }
 .overlay-link select { border:1px solid var(--line); border-radius:5px; background:var(--surface-2); color:var(--ink); padding:5px; font-size:11px; min-height:30px; }
 /* OBS dialog */
@@ -461,6 +498,7 @@ body.dock { background:var(--bg); font-size:12px; }
   .veto-overlay-bar { padding:8px 12px; }
   .cv-settings { grid-template-columns:minmax(0,1fr) minmax(0,1fr); padding:0 12px 12px; } .cv-settings .button { grid-column:1/-1; }
   .cv-links { grid-template-columns:minmax(0,1fr); padding:0 12px 12px; } .cv-intro,.cv-status { margin-left:12px; margin-right:12px; }
+  .cv-room { padding:0 12px 12px; } .veto-hltv { padding:8px 12px; } .cv-alert { margin-left:12px; margin-right:12px; } .cv-watch { padding:12px; } .cv-clock { margin-left:0; }
   .lobby-form { grid-template-columns:minmax(0,1fr); padding:0 12px 12px; }
   .lobby-status { padding:10px 12px; } .lobby-panel .error-box { margin:0 12px 12px; }
   .lobby-matches { grid-template-columns:minmax(0,1fr); }
@@ -471,6 +509,7 @@ body.dock { background:var(--bg); font-size:12px; }
 }
 @media(max-width:680px) and (prefers-color-scheme:dark) { :root:not([data-mode=light]):not([data-theme=light]) .theme-toggle::before { transform:translateX(12px); } }
 @media(prefers-reduced-motion:reduce) {
+  .cv-alert { animation:none; }
   html { scroll-behavior:auto; }
   *,*::before,*::after { transition:none!important; }
 }
@@ -570,6 +609,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
       </div>
       <p class="veto-status" id="vetoStatus" role="status" aria-live="polite">Выбери две разные команды.</p>
       
+      
       <div id="sideChoice" class="side-choice" hidden>
         <strong id="sideLabel"></strong>
         <button id="chooseCT" class="button dark">CT</button>
@@ -592,7 +632,6 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
       <p class="copy-foot">На пике выбери стартовую сторону соперника. Смена матча сбрасывает текущее вето.</p>
     </section>
 
-    
 
     <section id="copy" class="copy-panel" aria-label="Ссылки участникам">
       <div class="panel-heading">
@@ -614,6 +653,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
 
     </div>
 
+    
     
     
 
@@ -949,6 +989,16 @@ function teamLogo(logos, team) {
   if (!logos || typeof logos !== 'object') return '';
   const found = Object.entries(logos).find(([name, file]) =>
     personKey(name) === personKey(team) && assetFile(file));
+  return found ? found[1] : '';
+}
+// The team's HLTV page (assets/teams/hltv.json: name → URL); only
+// https://www.hltv.org/team/<id>/<slug> addresses are taken.
+function teamHltv(pages, team) {
+  if (!pages || typeof pages !== 'object') return '';
+  // Accents do not count either here: «Honved» finds «Honvéd».
+  const key = value => personKey(String(value ?? '').normalize('NFKD').replace(/\p{M}/gu, ''));
+  const found = Object.entries(pages).find(([name, url]) => key(name) === key(team) &&
+    typeof url === 'string' && /^https:\/\/www\.hltv\.org\/team\/\d+\/[a-z0-9-]+$/.test(url));
   return found ? found[1] : '';
 }
 // Slot order only: the observer gets the cameras from the OBS JSON.
@@ -1494,7 +1544,7 @@ function snapshot() {
 function notify() {
   document.dispatchEvent(new CustomEvent('oneshot:change'));
 }
-window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError };
+window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next) };
 // The header opens the organizer's sheet (the schedule source), not the
 // roster sheet: the panel is public and the rosters are ours to edit.
 function updateSourceLinks() {
@@ -2065,6 +2115,18 @@ function commitVeto(map, side) {
       copy($('vetoOutput').value);
     }
   } catch (error) { toast(error.message); }
+}
+// The site's captains' room (live.js) writes the captains' moves here, in the
+// panel's team order; pending is the map of a pick waiting for its side.
+function setVeto({ format, first, actions, pending = null }) {
+  const left = validateVeto(actions, format, first);
+  if (pending !== null && (!left.includes(pending) || VETO_RULES[format][actions.length] !== 'pick')) {
+    throw new Error('Некорректное вето.');
+  }
+  state.veto = { ...state.veto, format, first, actions: actions.map(a => ({ ...a })) };
+  state.pending = pending;
+  renderVeto();
+  persist();
 }
 
 $('chooseCT').addEventListener('click', () => {

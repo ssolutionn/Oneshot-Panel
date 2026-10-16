@@ -216,6 +216,12 @@ async def run(args):
         await expect(page.locator("#viewLobby")).to_have_attribute("aria-selected", "true")
         await page.focus("#viewLobby")
         await page.keyboard.press("ArrowLeft")
+        await expect(page.locator("#vetoView")).to_be_visible()
+        await expect(page.locator("#vetoNavBtn")).to_be_focused()
+        # The panel's veto moved here, under the captains' room; the links block follows.
+        await expect(page.locator("#vetoView > #cvLive + #veto + #captainVeto")).to_be_visible()
+        await expect(page.locator("#cvLiveEmpty")).to_be_visible()
+        await page.keyboard.press("ArrowLeft")
         await expect(page.locator("#prepView")).to_be_visible()
         await expect(page.locator("#viewPrep")).to_be_focused()
         await page.click("#viewLobby")
@@ -379,6 +385,7 @@ async def run(args):
         # Veto has its own display-only encrypted stream. A green OBS dock
         # must not claim that a missing browser source has received a move.
         await dock.close()
+        await page.click("#vetoNavBtn")
         await page.check("#vetoLive")
         await expect(page.locator("#vetoLiveStatus")).to_contain_text("Ждём оверлей")
         await page.evaluate("window.__copied = []; navigator.clipboard.writeText = async t => { window.__copied.push(t); };")
@@ -405,7 +412,9 @@ async def run(args):
         await overlay.wait_for_selector("body[data-ready='true']")
         await overlay.wait_for_function("() => window.vetoOverlay.getState()?.actions.length === 1", timeout=15000)
         assert (await overlay.evaluate("window.vetoOverlay.getState()"))["actions"][0]["map"] == "Ancient"
+        await page.click("#viewPrep")
         await page.fill("#matchStage", "Группа B")
+        await page.click("#vetoNavBtn")
         await page.click("#copyOverlay")
         overlay_link = await page.evaluate("window.__copied.at(-1)")
         await page.select_option("#vetoLayout", "strip")
@@ -420,6 +429,10 @@ async def run(args):
         await page.select_option("#cvLang", "ru")
         await page.click("#cvCreate")
         await expect(page.locator("#cvLinks")).to_be_visible()
+        # The panel watches the new room at once (as the admin's link does).
+        await expect(page.locator("#cvRoom")).to_be_visible()
+        await expect(page.locator("#cvLiveState")).to_have_text("капитанов нет")
+        await expect(page.locator("#vetoHltv")).to_contain_text("HLTV: 6yuBoJlbl ↗ · HYPERSPIRIT ↗")
         msg_a = await page.input_value("#cvMsgA")
         assert "Капитан **6yuBoJlbl**" in msg_a and "На всё вето 3 минуты." in msg_a, msg_a
         admin_link = await page.input_value("#cvMsgO")
@@ -427,6 +440,7 @@ async def run(args):
         assert admin_link.startswith("https://oneshot-veto.cyberclash.workers.dev/#v=") and admin_link not in msg_a, admin_link
         assert base not in msg_a and base not in await page.input_value("#cvMsgS")
         assert await page.get_attribute("#cvOpen", "href") == admin_link
+        await expect(page.locator("#cvAdminOpen")).to_have_attribute("href", admin_link)
         assert "&m=3" in await page.get_attribute("#playerVeto", "href")
         await page.select_option("#cvLang", "en")
         await expect(page.locator("#cvMsgA")).to_have_value(re.compile(r"^\*\*CyberClash · map veto[\s\S]*Captain of \*\*6yuBoJlbl\*\*"))
