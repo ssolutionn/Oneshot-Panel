@@ -1,0 +1,40 @@
+name: Veto appearance release checks
+on:
+  push:
+    branches: ["codex/veto-smoke-progress"]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Syntax, unit tests and generated veto copy
+        run: |
+          node --check assets/veto-appearance.js
+          npm run check
+          npm test
+          node scripts/build-veto-site.mjs
+      - name: Install browsers
+        run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium webkit
+      - name: Existing captain flows, desktop and mobile
+        run: |
+          node server.js > /tmp/oneshot-server.log 2>&1 &
+          python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --browser chromium --artifacts artifacts/chromium
+          python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --browser webkit --artifacts artifacts/webkit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: veto-appearance-evidence
+          path: artifacts/
