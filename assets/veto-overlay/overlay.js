@@ -28,13 +28,26 @@ function update() {
   $('previewStatus').textContent=scene?.description()||'Загрузка оформления…';
   $('sceneStatus').textContent=scene?.description()||'Загрузка оформления…';
 }
+// One load per pair of teams: the panel resends the same state every 2.5 s,
+// and a resend must wait for the load already running, not restart it.
+const artworkLoads=new Map();
+function teamArtwork(teams) {
+  const key=JSON.stringify(teams);
+  if(!artworkLoads.has(key)) {
+    if(artworkLoads.size>8)artworkLoads.clear();
+    artworkLoads.set(key,artwork(teams).catch(error=>{artworkLoads.delete(key);throw error;}));
+  }
+  return artworkLoads.get(key);
+}
+// Resolves with the drawn snapshot, or null when a newer state replaced this
+// one before it was drawn (then it must not be confirmed to the panel).
 async function apply(value,{animate=true}={}) {
   const next=snapshot(value);
   if(!scene)throw new Error('Оформление ещё загружается.');
   const token=++boot;
   if(JSON.stringify(current?.teams)!==JSON.stringify(next.teams)) {
-    const assets=await artwork(next.teams);
-    if(token!==boot)return;
+    const assets=await teamArtwork(next.teams);
+    if(token!==boot)return null;
     // Only team changes need an asset refresh; rendering remains atomic.
     for(const [key,img] of assets)scene.assets.set(key,img);
   }
@@ -126,8 +139,8 @@ async function init() {
       displayLink=new VdoLink(secrets,'veto',async message=>{
         if(message.type!=='veto-state'||typeof message.id!=='string')return;
         try {
-          await apply(message.state);
-          await displayLink?.send({type:'veto-received',id:message.id});
+          // Confirm only what is actually on screen.
+          if(await apply(message.state))await displayLink?.send({type:'veto-received',id:message.id});
         } catch { /* A malformed update must not replace the on-air state. */ }
       });
     }

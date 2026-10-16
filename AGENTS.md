@@ -177,7 +177,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 
 ```sh
 npm run check        # синтаксис
-npm test             # 64 теста (node:test)
+npm test             # 67 тестов (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome

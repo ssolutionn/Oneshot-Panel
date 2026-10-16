@@ -281,3 +281,47 @@ test('OBS dock link: codes, derived room and sealed messages', async () => {
   assert.equal(new URL(watchUrl('team-room', ['a1'], 'pw')).searchParams.get('password'), 'pw');
   assert.ok(!watch.searchParams.has('password'));
 });
+
+// Review fixes: BO2 ends after two maps, a round backup is not a new map,
+// a reload during a map point does not repeat it.
+const state = (rounds, { score = [0, 0], maps = [], bestOf = 3, live = true } = {}) =>
+  ({ id: 'm1', teams: ['A', 'B'], status: live ? 'ONGOING' : 'FINISHED', live, done: !live,
+    bestOf, score, maps: maps.map(winner => ({ winner })), rounds });
+
+test('matchEvents: BO2 map 1 is a map, not the end of the match', async () => {
+  const { seriesOver } = await import('../faceit.js');
+  assert.equal(seriesOver([1, 0], 2), false);
+  assert.equal(seriesOver([1, 1], 2), true);
+  assert.equal(seriesOver([2, 0], 3), true);
+  assert.equal(seriesOver([1, 1], 3), false);
+  const before = state([12, 5], { bestOf: 2 });
+  matchEvents(null, before);
+  const won = state([13, 5], { bestOf: 2 });
+  const events = matchEvents(before, won);
+  assert.deepEqual(events.map(e => e.type), ['map']);
+});
+
+test('matchEvents: a round backup restore is not a new map', () => {
+  const a = state([10, 8]);
+  matchEvents(null, a);
+  const restored = state([9, 8]);
+  assert.deepEqual(matchEvents(a, restored), []);
+  assert.equal(restored.liveMap, 1);
+  const point = state([12, 8]);
+  assert.deepEqual(matchEvents(restored, point).map(e => [e.type, e.map]), [['mappoint', 1]]);
+  // Next map really starts after a won map: rounds drop back.
+  const won = state([13, 8]);
+  matchEvents(point, won);
+  const next = state([1, 0], { score: [1, 0], maps: [0] });
+  matchEvents(won, next);
+  assert.equal(next.liveMap, 2);
+});
+
+test('matchEvents: reload at a map point stays quiet', () => {
+  const first = state([12, 10]);
+  assert.deepEqual(matchEvents(null, first), []);
+  assert.deepEqual(matchEvents(first, state([12, 10])), []);
+  const reloadedWon = state([13, 10]);
+  assert.deepEqual(matchEvents(null, reloadedWon), []);
+  assert.deepEqual(matchEvents(reloadedWon, state([13, 10])), []);
+});

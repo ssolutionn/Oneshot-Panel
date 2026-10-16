@@ -113,30 +113,42 @@ export function mapPointTeam(a, b) {
 // "map point" and one "map taken"; the map that decides the series is
 // reported once, as the end of the match. `after.sent` remembers what was
 // reported, so repeated polls never repeat an alert.
+// The series is over: a majority of maps, or every map of a BO2 played.
+export function seriesOver(score, bestOf) {
+  const best = bestOf || 1;
+  return Math.max(score[0], score[1]) >= Math.floor(best / 2) + 1 || score[0] + score[1] >= best;
+}
 export function matchEvents(before, after) {
   if (!after?.id) return [];
   const sent = after.sent = new Set(before?.sent || []);
   const decided = after.maps.filter(m => m.winner !== null).length;
-  // The map being played: rounds dropping back means the next map started.
+  // The map being played: rounds dropping back means the next map started,
+  // but only after a won map or a big drop (a round backup restore takes
+  // back a round or two and is not a new map).
   const rounds = after.rounds, prev = before?.rounds;
-  after.liveMap = Math.max(decided + 1, !before ? 1 :
-    (before.liveMap || 1) + (rounds && prev && rounds[0] + rounds[1] < prev[0] + prev[1] ? 1 : 0));
+  const drop = rounds && prev ? prev[0] + prev[1] - rounds[0] - rounds[1] : 0;
+  const nextMap = drop > 0 && (mapWon(prev[0], prev[1]) || drop >= 6);
+  after.liveMap = Math.max(decided + 1, !before ? 1 : (before.liveMap || 1) + (nextMap ? 1 : 0));
   if (!before) {
-    // First sight: remember what has already happened, alert nothing.
+    // First sight: remember what has already happened, alert nothing —
+    // including a map point or a won map on the live map after a reload.
     for (let map = 1; map <= mapsPlayed(after); map++) sent.add(`map:${map}`);
     if (after.done) sent.add('match');
+    if (after.live && rounds) {
+      if (mapWon(rounds[0], rounds[1])) sent.add(`map:${after.liveMap}`).add(`point:${after.liveMap}`);
+      else if (mapPointTeam(rounds[0], rounds[1]) !== null) sent.add(`point:${after.liveMap}`);
+    }
     return [];
   }
   const events = [];
   const ended = !before.done && after.done;
-  const seriesMax = Math.ceil((after.bestOf || 1) / 2);
   const played = mapsPlayed(after);
   if (!ended) {
     for (let map = 1; map <= played; map++) {
       if (sent.has(`map:${map}`)) continue;
       sent.add(`map:${map}`);
       const winner = after.maps[map - 1]?.winner ?? null;
-      if (winner !== null && after.score[winner] >= seriesMax) continue; // the match event says it
+      if (winner !== null && seriesOver(after.score, after.bestOf)) continue; // the match event says it
       events.push({ type: 'map', match: after, map, winner });
     }
   }
@@ -147,10 +159,11 @@ export function matchEvents(before, after) {
       const winner = a > b ? 0 : 1;
       const score = [0, 1].map(t => after.score[t] + (t === winner && decided < map ? 1 : 0));
       const view = { ...after, score };
-      if (score[winner] >= seriesMax && !sent.has('match')) {
+      const over = seriesOver(score, after.bestOf);
+      if (over && !sent.has('match')) {
         sent.add('match');
         events.push({ type: 'match', match: view, map, rounds });
-      } else if (score[winner] < seriesMax) {
+      } else if (!over) {
         events.push({ type: 'map', match: view, map, winner, rounds });
       }
     } else {
@@ -248,7 +261,9 @@ export class FaceitClient {
     if (!viaProxy) {
       try { response = await this.send(direct.href); } catch (error) {
         if (!this.proxy || error?.name === 'TimeoutError') throw new Error('FACEIT не отвечает. Проверь интернет.');
-        this.viaProxy = viaProxy = true;
+        // Only this request: a moment offline must not route the rest of the
+        // day through the proxy (that switch is kept once the proxy answers).
+        viaProxy = true;
       }
       // A client-side key may be refused for this site's address: the same
       // request through the site's proxy leaves from the server instead.

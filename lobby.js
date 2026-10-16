@@ -87,10 +87,14 @@ function badge() {
 }
 // loud: the siren repeats until «Принял»; quiet: one beep and a notification.
 function alertAdmins(text, tag, { loud = true } = {}) {
-  lobby.alert = text;
   lobby.unread++;
   badge();
-  $('lobbyAlertText').textContent = text;
+  // A quiet note (map point) does not cover a loud alert nobody has accepted yet.
+  if (loud || $('lobbyAlert').hidden || !lobby.loudShown) {
+    lobby.alert = text;
+    lobby.loudShown = loud;
+    $('lobbyAlertText').textContent = text;
+  }
   $('lobbyAlert').hidden = false;
   if ('Notification' in window && Notification.permission === 'granted') {
     try {
@@ -146,23 +150,36 @@ function nextOptions() {
   }
   return options;
 }
+// A message the admin edited by hand stays until the generated text changes
+// (another match, a new result); polls must not wipe their edits.
+function setMessage(id, text) {
+  const el = $(id);
+  if (el.dataset.generated === text) return;
+  el.dataset.generated = text;
+  el.value = text;
+}
 function renderMessages() {
   const { delay, templates } = settings();
   const options = nextOptions();
+  // Options are keyed by the two teams, so a match going live or a new one
+  // appearing in the list never moves the selection to other teams.
+  const keyOf = o => JSON.stringify([o.team1, o.team2]);
   const current = $('nextMatch').value;
-  $('nextMatch').innerHTML = '<option value="">Выбери команды</option>' + options.map((o, i) =>
-    `<option value="${i}">${escapeHtml(o.label)}</option>`).join('');
-  if (current && options[Number(current)]) $('nextMatch').value = current;
-  else if (options.length) $('nextMatch').value = '0';
-  const next = options[Number($('nextMatch').value)];
+  const seen = new Set();
+  const unique = options.filter(o => !seen.has(keyOf(o)) && seen.add(keyOf(o)));
+  $('nextMatch').innerHTML = '<option value="">Выбери команды</option>' + unique.map(o =>
+    `<option value="${escapeHtml(keyOf(o))}">${escapeHtml(o.label)}</option>`).join('');
+  if (current && unique.some(o => keyOf(o) === current)) $('nextMatch').value = current;
+  else if (unique.length) $('nextMatch').value = keyOf(unique[0]);
+  const next = unique.find(o => keyOf(o) === $('nextMatch').value);
   const done = lobby.finished;
   const time = nextStart(done?.finishedAt || Date.now(), delay);
-  $('msgThanks').value = done ? fillTemplate(templates.thanks, {
+  setMessage('msgThanks', done ? fillTemplate(templates.thanks, {
     team1: done.teams[0], team2: done.teams[1], score: scoreLine(done), time,
     maps: (done.mapScores || []).join(', ')
-  }) : '';
+  }) : '');
   $('msgThanks').placeholder = 'Появится после конца матча на FACEIT';
-  $('msgNext').value = next ? fillTemplate(templates.next, { team1: next.team1, team2: next.team2, time }) : '';
+  setMessage('msgNext', next ? fillTemplate(templates.next, { team1: next.team1, team2: next.team2, time }) : '');
 }
 function fillTemplatesForm() {
   const { templates, delay } = settings();

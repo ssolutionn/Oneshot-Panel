@@ -32,14 +32,21 @@ export function createServer() {
     }
     // The Netlify function, served here too so the lobby works locally.
     if (request.url.startsWith('/api/faceit?') && request.method === 'GET') {
-      const reply = await proxyFaceit(new Request('http://localhost' + request.url, {
-        headers: {
-          authorization: request.headers.authorization || '',
-          'sec-fetch-site': request.headers['sec-fetch-site'] || ''
-        }
-      }), process.env.FACEIT_API_KEY);
-      response.writeHead(reply.status, Object.fromEntries(reply.headers));
-      response.end(Buffer.from(await reply.arrayBuffer()));
+      // An upstream that fails mid-body must answer 502, not stop the server.
+      try {
+        const reply = await proxyFaceit(new Request('http://localhost' + request.url, {
+          headers: {
+            authorization: request.headers.authorization || '',
+            'sec-fetch-site': request.headers['sec-fetch-site'] || ''
+          }
+        }), process.env.FACEIT_API_KEY);
+        const body = Buffer.from(await reply.arrayBuffer());
+        response.writeHead(reply.status, Object.fromEntries(reply.headers));
+        response.end(body);
+      } catch {
+        if (!response.headersSent) response.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify({ error: 'upstream', message: 'FACEIT не ответил.' }));
+      }
       return;
     }
     try {
