@@ -150,12 +150,14 @@ export function cardIndex(card, camera) {
 
 async function applySlot(obs, plan) {
   const { scene, camera, card, hideCard } = plan;
-  await obs.request('SetInputSettings', {
-    inputName: camera.item.sourceName, inputSettings: camera.settings, overlay: true
-  });
+  // Name first: if anything stops halfway, a camera never shows one player's
+  // stream under another player's name.
   if (camera.item.sourceName !== camera.name) {
     await obs.request('SetInputName', { inputName: camera.item.sourceName, newInputName: camera.name });
   }
+  await obs.request('SetInputSettings', {
+    inputName: camera.name, inputSettings: camera.settings, overlay: true
+  });
   await obs.request('SetSceneItemTransform', {
     sceneName: scene, sceneItemId: camera.item.sceneItemId, sceneItemTransform: FIT
   });

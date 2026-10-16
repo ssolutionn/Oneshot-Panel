@@ -34,6 +34,7 @@ function connectObs() {
   obs = new ObsClient(url || OBS_DEFAULT_URL, password || '');
   const client = obs;
   connecting = client.connect().then(() => {
+    if (obs !== client) return client; // replaced meanwhile: its status is not ours to show
     status('dockObs', `OBS: подключён${client.version ? ` · WebSocket ${client.version}` : ''}`, 'good');
     announce();
     return client;
@@ -64,11 +65,30 @@ async function adoptObs({ url, password }) {
   return { ok: true, obs: $('dockObs').textContent };
 }
 
-async function handle(message) {
+// Commands run one at a time (two admins, or a retry, must not interleave
+// renames in OBS), and a repeated id gets the same result without running
+// again: the panel resends until it hears back.
+let queue = Promise.resolve();
+const results = new Map();
+function handle(message) {
   panelSeen = Date.now();
   status('dockPanel', 'Панель: на связи', 'good');
   if (!message || typeof message !== 'object' || typeof message.id !== 'string') return;
-  const reply = extra => link.send({ type: 'result', id: message.id, ...extra });
+  if (results.has(message.id)) {
+    const done = results.get(message.id);
+    if (done) link?.send(done);
+    return;
+  }
+  results.set(message.id, null);
+  if (results.size > 100) results.delete(results.keys().next().value);
+  queue = queue.then(() => run(message)).catch(() => {});
+}
+async function run(message) {
+  const reply = extra => {
+    const result = { type: 'result', id: message.id, ...extra };
+    results.set(message.id, result);
+    return link?.send(result);
+  };
   try {
     if (message.type === 'hello') {
       await connectObs().catch(() => {});
@@ -97,7 +117,20 @@ function announce() {
   link?.send({ type: 'presence', obs: $('dockObs').textContent, ok: !!obs?.socket });
 }
 
+// OBS restarted or its WebSocket server was switched off: say so and retry.
+function watchObs() {
+  if (obs && !obs.socket && !connecting) obs = null;
+  if (obs && obs.socket === null) {
+    obs = null;
+    connecting = null;
+    status('dockObs', 'OBS: связь потеряна, подключаемся снова…', 'bad');
+    log('Связь с OBS потеряна', 'bad');
+  }
+  if (!obs) connectObs().catch(() => {});
+}
+let startRevision = 0;
 async function start() {
+  const revision = ++startRevision;
   const settings = read();
   link?.close();
   link = null;
@@ -107,12 +140,14 @@ async function start() {
     return;
   }
   const secrets = await bridgeSecrets(settings.code);
+  // A second «Подключить» while the key was derived: only the newest starts.
+  if (revision !== startRevision) return;
   link = new VdoLink(secrets, 'dock', handle, peers => {
     if (!peers && Date.now() - panelSeen > 30000) status('dockPanel', 'Панель: ждём', '');
   });
   status('dockPanel', 'Панель: ждём', '');
   connectObs().catch(() => {});
-  presence = setInterval(announce, 10000);
+  presence = setInterval(() => { watchObs(); announce(); }, 10000);
 }
 
 const fromHash = normalizeCode(new URLSearchParams(location.hash.slice(1)).get('k'));

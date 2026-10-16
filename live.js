@@ -184,11 +184,17 @@ async function obsCommand(message, timeout = 30000) {
         'Док OBS не ответил вовремя. Попробуй ещё раз или скачай JSON.' :
         'Окно Oneshot у обсервера не на связи: он должен сделать пункты из сообщения (шаг 1). Пока можно скачать JSON.'));
     }, timeout);
+    // Sent again every 3 s until the dock answers: a command sent while the
+    // link was still connecting is not lost (the dock runs each id once).
+    const resend = setInterval(() => link.send({ ...message, id }), 3000);
     bridge.waiting.set(id, reply => {
       clearTimeout(timer);
+      clearInterval(resend);
       bridge.waiting.delete(id);
       reply.ok ? resolve(reply) : reject(new Error(reply.error || 'OBS не принял команду.'));
     });
+    const stop = () => clearInterval(resend);
+    setTimeout(stop, timeout);
     link.send({ ...message, id });
   });
 }
@@ -281,6 +287,14 @@ function pairWith(code) {
   fillObsDialog();
   ensureBridge().catch(() => {});
   renderObsState();
+}
+// These fields sit inside #obsForm: Enter must not save the old settings.
+for (const [field, button] of [['obsCodeInput', 'applyObsCode'], ['obsRemotePassword', 'sendObsConfig'], ['obsRemotePort', 'sendObsConfig']]) {
+  $(field).addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    $(button).click();
+  });
 }
 $('applyObsCode').addEventListener('click', () => {
   const code = normalizeCode($('obsCodeInput').value);

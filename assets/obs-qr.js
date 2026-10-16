@@ -10,7 +10,9 @@ export function parseObsQr(value) {
   if (!/^obsws:\/\//i.test(text) || /[\x00-\x20\x7f]/.test(text)) throw invalid();
   let url, password;
   try {
-    url = new URL(text);
+    // OBS's own browser (older Chromium) gives custom schemes no hostname:
+    // parse it as ws:// with the same host, port and path.
+    url = new URL('ws://' + text.slice(text.indexOf('://') + 3));
     password = decodeURIComponent(url.pathname.slice(1));
   } catch { throw invalid(); }
   const port = Number(url.port);
