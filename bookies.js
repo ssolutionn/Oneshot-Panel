@@ -235,14 +235,15 @@ function render() {
 function summary() {
   const cols = matches();
   const out = [`CyberClash у букмекеров — ${msk(lastCheck || Date.now(), true)} МСК`];
-  const listed = BOOKMAKERS.filter(b => results.get(b.id)?.events?.length).map(b => b.name);
+  const listed = BOOKMAKERS.filter(b => { const r = results.get(b.id); return r?.events?.length && !r.failed && r.ok !== false && navigator.onLine !== false; }).map(b => b.name);
   out.push(`В линии у ${listed.length} из ${BOOKMAKERS.length} проверяемых${listed.length ? `: ${listed.join(', ')}` : ''}` +
     ` (ещё ${MANUAL.length} — вручную)`);
   for (const m of cols) {
     out.push('', `${m.team1} – ${m.team2}${m.sub ? ` (${m.sub})` : ''}`);
     const none = [], unknown = [];
     for (const b of BOOKMAKERS) {
-      const found = findMatch(results.get(b.id)?.events || [], m.team1, m.team2);
+      const found = findMatch((results.get(b.id)?.events || []).filter(e =>
+        !m.date || !e.start || eventDate(e) === m.date), m.team1, m.team2);
       const result = results.get(b.id);
       const stale = !result || result.failed || result.ok === false || navigator.onLine === false;
       if (!found) { (stale || result.errors?.length ? unknown : none).push(b.name); continue; }

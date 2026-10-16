@@ -8,6 +8,8 @@ import { BOOKMAKERS, parseFeed } from '../../bookmakers.js';
 
 const FEED_BUDGET = 24000, ATTEMPT_TIMEOUT = 6000;
 const cacheByFetcher = new WeakMap();
+// Workers expose fetch on their global object; retain its receiver.
+const publicFetch = (url, init) => globalThis.fetch(url, init);
 const HEADERS = {
   Accept: 'application/json, text/html;q=0.9',
   'Accept-Language': 'ru-RU,ru;q=0.9',
@@ -21,20 +23,24 @@ async function fetchFeed(urls, fetchImpl) {
   for (const url of urls) {
     const remaining = deadline - Date.now();
     if (remaining <= 0) break;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), Math.min(ATTEMPT_TIMEOUT,
+      Math.max(1000, Math.floor(FEED_BUDGET / urls.length)), remaining));
     try {
       const response = await fetchImpl(url, {
-        headers: HEADERS, signal: AbortSignal.timeout(Math.min(ATTEMPT_TIMEOUT, Math.max(1000, Math.floor(FEED_BUDGET / urls.length)), remaining)), redirect: 'error'
+        headers: HEADERS, signal: controller.signal, redirect: 'manual'
       });
       if (!response.ok) { lastError = `HTTP ${response.status}`; continue; }
       return await response.text();
     } catch (error) {
-      lastError = error?.name === 'TimeoutError' ? 'долго не отвечает' : 'нет связи';
-    }
+      lastError = controller.signal.aborted || error?.name === 'TimeoutError' ? 'долго не отвечает' :
+        /illegal invocation/i.test(error?.message || '') ? 'ошибка вызова сетевого клиента' : 'нет связи';
+    } finally { clearTimeout(timeout); }
   }
   throw new Error(lastError);
 }
 
-export async function checkBookmaker(id, fetchImpl = fetch, now = Date.now()) {
+export async function checkBookmaker(id, fetchImpl = publicFetch, now = Date.now()) {
   const bookmaker = BOOKMAKERS.find(b => b.id === id);
   if (!bookmaker) return { status: 400, body: { error: 'unknown', message: 'Неизвестная букмекерская контора.' } };
   const started = Date.now();
@@ -77,7 +83,7 @@ async function currentBookmaker(id, fetchImpl) {
   return entry.pending;
 }
 
-export async function bookmakersResponse(request, fetchImpl = fetch) {
+export async function bookmakersResponse(request, fetchImpl = publicFetch) {
   const headers = {
     'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
     'referrer-policy': 'no-referrer',

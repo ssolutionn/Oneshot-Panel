@@ -201,3 +201,13 @@ test('Maintenance pages and changed schemas are unavailable, never an empty tour
   assert.deepEqual(body.events, []);
   assert.equal(body.errors.length, 2);
 });
+
+test('default server reader keeps the global fetch receiver for Workers', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = function () {
+    assert.equal(this, globalThis);
+    return Promise.resolve(new Response(JSON.stringify({events: []})));
+  };
+  try { assert.equal((await checkBookmaker('fonbet')).body.ok, true); }
+  finally { globalThis.fetch = original; }
+});
