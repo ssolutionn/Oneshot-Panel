@@ -209,6 +209,14 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   текст для чата, «CSV» — все линии недели (открытие и текущие кэфы).
   localStorage: `oneshot-bookies` (`lines` — линии недели, `checked` —
   когда БК проверяли в этом браузере).
+  Блок `bookiesHistoryTable` показывает общий архив и локальные наблюдения за
+  выбранный `bookiesDay` (МСК). Общий архив — ветка `bookmaker-history`,
+  `days/YYYY-MM-DD.json`; читает `/api/bookmakers?history=YYYY-MM-DD`.
+  `assets/bookmaker-history.js` проверяет и объединяет только публичные поля;
+  workflow `bookmaker-history.yml` собирает ответы API Cloudflare раз в 10 мин
+  (`scripts/read_bookmaker_observations.py`, `collect_bookmaker_history.mjs`).
+  Сайт не принимает записи. Пустой/неуспешный ответ не удаляет виденные матчи;
+  отсутствие наблюдений не является отсутствием линии. Старый CSV недели остаётся.
 - `faceit.js` — без DOM: разбор ссылки турнира, сводка матча, события
   (карта, матч, отмена, PAUSED), тексты «GG» и «Next xx:MM», клиент Data API.
   Пока карта идёт, FACEIT кладёт в results.score раунды этой карты

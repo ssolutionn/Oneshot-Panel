@@ -176,7 +176,13 @@ async def run(args):
         }
 
         async def bookmakers(route):
-            bid = parse_qs(urlsplit(route.request.url).query)["id"][0]
+            query = parse_qs(urlsplit(route.request.url).query)
+            if "history" in query:
+                await route.fulfill(content_type="application/json",body=json.dumps({
+                    "ok":True,"archive":{"version":1,"day":query["history"][0],
+                        "startedAt":0,"updatedAt":0,"books":{}}}))
+                return
+            bid = query["id"][0]
             await route.fulfill(content_type="application/json", body=json.dumps({
                 "id": bid, "name": bid, "page": "https://example.invalid/", "ok": bid != "pari",
                 "errors": ["линия: HTTP 503"] if bid == "pari" else [], "checkedAt": 0, "ms": 5,

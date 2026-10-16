@@ -1,0 +1,93 @@
+name: Bookmaker daily archive
+on:
+  schedule:
+    - cron: "7,17,27,37,47,57 * * * *"
+  workflow_dispatch:
+  push:
+    branches: ["claude/gracious-sagan-apztcc"]
+    paths:
+      - ".github/workflows/bookmaker-history.yml"
+      - "scripts/collect_bookmaker_history.mjs"
+      - "scripts/read_bookmaker_observations.py"
+      - "assets/bookmaker-history.js"
+      - "bookmakers.js"
+concurrency:
+  group: bookmaker-daily-archive
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Read fixed public feeds from the actual Cloudflare API
+        run: python3 scripts/read_bookmaker_observations.py
+      - name: Save only public match data to the archive branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/collect_bookmaker_history.mjs
+
+  verify-published:
+    if: github.event_name == 'push'
+    needs: archive
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Verify actual published history and read-only API
+        env:
+          EXPECTED_COMMIT: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import asyncio,json,os,time
+          from playwright.async_api import async_playwright,expect
+          async def main():
+            async with async_playwright() as p:
+              browser=await p.chromium.launch(headless=True)
+              page=await browser.new_page(viewport={"width":1440,"height":1000})
+              base="https://oneshot-panel.pages.dev"
+              until=time.monotonic()+240
+              while True:
+                response=await page.goto(base+"/build.txt",wait_until="domcontentloaded")
+                if response and response.status==200 and (await response.text()).strip()==os.environ["EXPECTED_COMMIT"]:break
+                assert time.monotonic()<until,"Cloudflare has not published this commit"
+                await page.wait_for_timeout(5000)
+              await page.goto(base,wait_until="domcontentloaded")
+              await page.locator("#bookiesNavBtn").click()
+              await expect(page.locator("#bookiesHistoryTable tbody tr")).to_have_count(16)
+              await expect(page.locator("#bookiesHistoryStatus")).not_to_contain_text("Загружаем",timeout=20000)
+              assert "временно недоступен" not in await page.locator("#bookiesHistoryStatus").inner_text()
+              day=await page.locator("#bookiesDay").input_value()
+              result=await page.evaluate("""async day=>{
+                const r=await fetch('/api/bookmakers?history='+day,{cache:'no-store'});
+                const b=await r.json();
+                const write=await fetch('/api/bookmakers?history='+day,{method:'POST'});
+                return{status:r.status,ok:b.ok,books:Object.keys(b.archive?.books||{}).length,write:write.status};
+              }""",day)
+              assert result=={"status":200,"ok":True,"books":11,"write":405},result
+              await page.screenshot(path="artifacts/bookmaker-history-live.png",full_page=True)
+              print("PUBLISHED_HISTORY:",json.dumps({"commit":os.environ["EXPECTED_COMMIT"],"day":day,**result}),flush=True)
+              await page.set_viewport_size({"width":375,"height":812})
+              assert await page.evaluate("document.documentElement.scrollWidth<=innerWidth")
+              await browser.close()
+          asyncio.run(main())
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bookmaker-history-published
+          path: artifacts/
