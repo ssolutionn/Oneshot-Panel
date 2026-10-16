@@ -244,3 +244,44 @@ h1,h2,h3 { font-family:var(--vt-display); font-weight:600; letter-spacing:.02em;
   .vt-coin.is-flipping { animation:none; }
   .vt-map,.vt-coin { transition:none; }
 }
+
+/* CyberClash appearance: independent from room/authentication logic. */
+:root{--vt-bg:#050e12;--vt-bg-2:#081b23;--vt-panel:#061b23e8;--vt-accent:#00d9ed;--vt-pick:#63dba5;--vt-ban:#ff4d55;--vt-decider:#edc05b}
+body{position:relative;isolation:isolate;background:var(--vt-bg)}
+.vt-smoke-background{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;opacity:.85;background:center/cover url('/assets/card/background.jpg');mask-image:radial-gradient(ellipse 62% 52% at 50% 49%,transparent 27%,#000 100%);-webkit-mask-image:radial-gradient(ellipse 62% 52% at 50% 49%,transparent 27%,#000 100%)}
+.vt-smoke-background canvas{width:100%;height:100%;object-fit:cover}
+.vt-top{max-width:1180px;margin:auto;background:transparent;padding-top:24px;padding-bottom:22px}
+.vt-main{padding-top:32px}
+.vt-team{background:transparent;border-color:transparent;border-radius:0;padding:12px 0}
+.vt-team.is-turn{border-color:transparent;box-shadow:none}
+.vt-team.is-turn .vt-team-name{color:var(--vt-accent)}
+.vt-logo{background:transparent;width:64px;height:64px;border-radius:0}
+.vt-logo img{width:56px;height:56px}
+.vt-team-name{font-size:clamp(22px,3vw,36px)}
+.vt-stage{border-radius:8px;background:var(--vt-panel);border-color:var(--vt-line)}
+.vt-map{border-radius:7px;aspect-ratio:2/3}
+.vt-map[data-status=ban] .vt-map-name{text-decoration:none}
+.vt-map[data-status=ban] img{filter:grayscale(1) brightness(.43)}
+.vt-map.is-selected{box-shadow:0 0 0 1px var(--vt-accent),0 0 24px #00d9ed25}
+.vt-progress{margin:20px 0 0;padding:22px 0;border-block:1px solid var(--vt-line)}
+.vt-progress ol{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));list-style:none;padding:0;margin:0}
+.vt-progress-step{position:relative;text-align:center;color:#667d87;font:500 12px var(--vt-display);letter-spacing:.055em}
+.vt-progress-step:before{content:'';position:absolute;left:50%;top:16px;width:100%;height:2px;background:#34424d}
+.vt-progress-step:last-child:before{display:none}
+.vt-progress-number{position:relative;z-index:1;margin:0 auto 9px;display:grid;place-items:center;width:34px;height:34px;border:2px solid currentColor;border-radius:50%;background:#081418;font:500 20px var(--vt-display);transition:color .25s,box-shadow .25s}
+.vt-progress-label{display:block}
+.vt-progress-step[data-kind=ban][data-state=done]{color:var(--vt-ban)}
+.vt-progress-step[data-kind=ban][data-state=done]:before{background:linear-gradient(90deg,var(--vt-ban),#8b3740)}
+.vt-progress-step[data-kind=pick][data-state=done]{color:var(--vt-pick)}
+.vt-progress-step[data-kind=pick][data-state=done]:before{background:linear-gradient(90deg,var(--vt-pick),#326b65)}
+.vt-progress-step:last-child{color:#b9994d}
+.vt-progress-step[data-state=active]{color:var(--vt-accent)}
+.vt-progress-step[data-state=active] .vt-progress-number{background:#08313a;box-shadow:0 0 9px #00d9edd9,0 0 26px #00d9ed42}
+.vt-progress-step[data-state=active]:before{background:linear-gradient(90deg,var(--vt-accent) 0 38%,#34424d 38%)}
+.vt-progress-step:last-child[data-state=done]{color:var(--vt-decider)}
+.vt-reveal-pending .vt-map[data-status=decider]{border-color:var(--vt-line);box-shadow:none}
+.vt-reveal-pending .vt-map[data-status=decider] .vt-map-tag{visibility:hidden}
+.vt-reveal-pending .vt-map[data-status=decider] img{filter:brightness(.4)}
+@media(max-width:900px){.vt-map{aspect-ratio:3/4}.vt-logo{width:52px;height:52px}.vt-logo img{width:44px;height:44px}}
+@media(max-width:620px){.vt-top{padding-top:16px;padding-bottom:16px}.vt-main{padding-top:20px}.vt-team{padding:8px 0}.vt-team-name{font-size:24px}.vt-map{aspect-ratio:4/3}.vt-progress{padding:18px 0;margin-top:16px}.vt-progress-step{font-size:9px;letter-spacing:0}.vt-progress-number{width:27px;height:27px;font-size:16px;margin-bottom:7px}.vt-progress-step:before{top:12px}.vt-smoke-background{opacity:.65}}
+@media(prefers-reduced-motion:reduce){.vt-progress-number{transition:none}}

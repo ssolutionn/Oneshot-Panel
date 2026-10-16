@@ -289,6 +289,9 @@ async def run(args):
             assert await spectator.evaluate("navigator.clipboard.readText()") == result
         spectator_pages = {spectator}
         assert not [s for s in senders if s in spectator_pages], "spectators must only listen"
+        await expect(spectator.locator(".vt-progress-step")).to_have_count(7)
+        assert await spectator.locator(".vt-progress-label").all_text_contents() == ["BAN", "BAN", "PICK", "PICK", "BAN", "BAN", "DECIDER"]
+        await expect(spectator.locator('.vt-progress-step[data-state=done]')).to_have_count(7)
         passed("whole BO3 by turns; spectators only listen; HLTV text copies")
 
         # 3. Reloads and late viewers; the public spectator link has no HLTV text.

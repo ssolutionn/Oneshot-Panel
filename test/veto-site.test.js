@@ -26,7 +26,7 @@ test('veto site build: veto pages and assets only, no roster sheet, no panel add
     const headers = await readFile(path.join(out, '_headers'), 'utf8');
     assert.match(headers, /connect-src 'self' https:\/\/docs\.google\.com;/);
     assert.match(headers, /frame-src https:\/\/vdo\.ninja;/);
-    assert.deepEqual((await readdir(path.join(out, 'assets'))).sort(), ['card', 'favicon-night.png', 'flags', 'fonts', 'maps', 'teams']);
+    assert.deepEqual((await readdir(path.join(out, 'assets'))).sort(), ['card', 'favicon-night.png', 'flags', 'fonts', 'maps', 'teams', 'veto-appearance.js']);
   } finally {
     await rm(out, { recursive: true, force: true });
   }
