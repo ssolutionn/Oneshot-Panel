@@ -581,7 +581,8 @@ async def run(args):
         assert "В линии у 3 из" in summary, summary
         assert "• Марафон: 1.42 · 2.70 (откр. 1.48 · 2.50) · был в лайве · Ф1 +1.5 1.30 · Ф2 -1.5 3.10 · ТБ 2.5 2.00 · ТМ 1.75" in summary, summary
         assert "• Фонбет: 1.50 · 2.40 · 76 исходов · LIVE · Ф1 -5.5 1.90 · Ф2 +5.5 1.80" in summary, summary
-        assert "Нет линии: PARI, Bettery, 24bet, OLIMPBET" in summary, summary
+        assert "Не удалось проверить: PARI" in summary, summary
+        assert "Нет линии: Bettery, 24bet, OLIMPBET" in summary, summary
         async with lobby.expect_download() as info:
             await lobby.click("#bookiesCsv")
         download = await info.value

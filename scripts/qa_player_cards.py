@@ -4,7 +4,6 @@ import asyncio
 import json
 from pathlib import Path
 from urllib.parse import urlencode, urlsplit
-from urllib.request import Request, urlopen
 
 from playwright.async_api import async_playwright, expect
 
@@ -12,13 +11,7 @@ from playwright.async_api import async_playwright, expect
 async def run(args):
     root = Path(__file__).resolve().parent.parent
     catalog_url = getattr(args, "catalog_url", None)
-    if catalog_url:
-        # Cloudflare refuses Python's default User-Agent (403).
-        request = Request(catalog_url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) oneshot-ci"})
-        with urlopen(request, timeout=20) as response:
-            catalog = json.load(response)["players"]
-    else:
-        catalog = json.loads((root / "assets/players/players.json").read_text())["players"]
+    catalog = json.loads((root / "assets/players/players.json").read_text())["players"]
     output = Path(args.artifacts)
     output.mkdir(parents=True, exist_ok=True)
     base = args.url.rstrip("/")
@@ -35,6 +28,13 @@ async def run(args):
         browser = await p.chromium.launch(executable_path=args.chromium, headless=True)
         context = await browser.new_context(viewport={"width": 1920, "height": 1080})
         page = await context.new_page()
+        if catalog_url:
+            response = await page.goto(catalog_url, wait_until="domcontentloaded")
+            assert response and response.status == 200, "Published player catalog is unavailable"
+            catalog = (await response.json())["players"]
+            with_photo = next((p for p in catalog if p.get("file")), None)
+            no_photo = next((p for p in catalog if not p.get("file")), None)
+            assert with_photo and no_photo, "Published catalog must cover photo and fallback states"
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.on("request", lambda request:
                 external_images.append(request.url)

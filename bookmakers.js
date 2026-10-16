@@ -56,6 +56,26 @@ export const BOOKMAKERS = [
     eventUrl: e => `https://betcity.ru/ru/${e.live ? 'live' : 'line'}/cybersport/${e.group}/${e.id}`
   },
   {
+    id: 'sportbet', name: 'Спортбет', kind: 'sportbet', page: 'https://sportbet.ru/',
+    feeds:[false,true].map(live => ({live, urls:[
+      'https://bthm-server.sportbet.ru/events.table?lang=ru&status=' + (live ? 'live' : 'prematch') + '&sport=esport-counter-strike'
+    ]})),
+    eventUrl: () => 'https://sportbet.ru/'
+  },
+  {
+    id: 'baltbet', name: 'Балтбет', kind: 'baltbet', page: 'https://baltbet.ru/prematch/cybersport',
+    feeds: [{live:false, urls:['https://events.baltbet.ru/api/prematch/sport/25/events?offset=all'],
+      headers:{bb_appSource:'UniRu'}}],
+    eventUrl: e => typeof e.path === 'string' && e.path.startsWith('/cybersport/') ?
+      'https://baltbet.ru' + e.path : 'https://baltbet.ru/prematch/cybersport'
+  },
+  {
+    id: 'winline', name: 'Winline', kind: 'winline',
+    page: 'https://winline.ru/stavki/sport/kibersport/counter-strike',
+    feeds: [{live:false, urls:[]}],
+    eventUrl: () => 'https://winline.ru/stavki/sport/kibersport/counter-strike'
+  },
+  {
     id: 'leon', name: 'Леон', kind: 'leon', page: 'https://leon.ru/bets/esports/cs2',
     feeds: [{ live: false, urls: ['https://leon.ru/api-ext/betline-exports/esports'] }],
     // The export gives the match page itself; only a leon.ru address is taken.
@@ -65,14 +85,11 @@ export const BOOKMAKERS = [
 // Licensed bookmakers without an automated check yet (websocket, signed
 // headers, foreign IPs dropped): the lobby lists them with a link to look.
 export const MANUAL = [
-  { id: 'winline', name: 'Winline', url: 'https://winline.ru/stavki/sport/kibersport/counter-strike' },
-  { id: 'ligastavok', name: 'Лига Ставок', url: 'https://www.ligastavok.ru/bets/cybersport' },
-  { id: 'betboom', name: 'BetBoom', url: 'https://betboom.ru/esport/counter-strike-2' },
-  { id: 'melbet', name: 'Мелбет', url: 'https://melbet.ru/' },
-  { id: 'baltbet', name: 'Балтбет', url: 'https://baltbet.ru/' },
-  { id: 'zenit', name: 'Зенит', url: 'https://zenit.win/line/556' },
-  { id: 'betm', name: 'БЕТ-М', url: 'https://bet-m.ru/' },
-  { id: 'sportbet', name: 'Спортбет', url: 'https://sportbet.ru/' }
+  { id: 'ligastavok', name: 'Лига Ставок', url: 'https://www.ligastavok.ru/bets/cybersport', reason: 'Публичный серверный запрос отклонён; линия не проверена' },
+  { id: 'betboom', name: 'BetBoom', url: 'https://betboom.ru/sport/esport/3/39428', reason: 'Турнир найден; получение матчей и коэффициентов ещё не подключено' },
+  { id: 'melbet', name: 'Мелбет', url: 'https://melbet.ru/', reason: 'Публичный серверный запрос отклонён; линия не проверена' },
+  { id: 'zenit', name: 'Зенит', url: 'https://zenit.win/line/556', reason: 'Линия видна в браузере; серверное чтение ещё не подтверждено' },
+  { id: 'betm', name: 'БЕТ-М', url: 'https://bet-m.ru/', reason: 'Публичный серверный запрос отклонён; линия не проверена' }
 ];
 
 export const isCyberClash = name => /cyber\s*clash|кибер\s*клэш/i.test(String(name || ''));
@@ -229,11 +246,71 @@ export function mskTime(text, now = Date.now()) {
   return Date.UTC(today.getUTCFullYear(), month, day, Number(m[3]) - 3, Number(m[4]));
 }
 
-const PARSERS = { fonbet: parseFonbet, olimp: parseOlimp, marathon: parseMarathon, betcity: parseBetcity, leon: parseLeon };
+// Sportbet's complete table endpoint, filtered by the official CS2 slug.
+// An empty sports[] is a verified empty table; homepage/top/upcoming are not.
+function parseSportbet(data, live) {
+  return data.data.sports.filter(s => s.slug === 'esport-counter-strike')
+    .flatMap(s => (s.tournaments || []).filter(t => isCyberClash(t.name))
+      .flatMap(t => (t.events || []).filter(e => !['finished','ended','cancelled','closed'].includes(e.status)).map(e => {
+        const winner = (e.markets || []).find(m => m.status === 'active' && /^(Победитель|Исход|Победа в матче)$/i.test(m.name));
+        const quote = name => price(winner?.outcomes?.find(o => o.name === name && o.active !== false)?.odd);
+        return {
+          id:String(e.id), group:String(t.id), tournament:t.name,
+          team1:e.teams?.team1?.name || '', team2:e.teams?.team2?.name || '',
+          start:Number(e.scheduled) || null, odds:[quote('Поб 1'),quote('Поб 2')],
+          live:live || e.status === 'live', score:e.score || '', markets:[], size:null
+        };
+      })));
+}
+
+// Baltbet: complete cyber sport prematch list, not the homepage's hot picks.
+// Result2 and ExtResult2 coefficient IDs are described by superMarkets.
+function parseBaltbet(data, live) {
+  const result = data.superMarkets.find(m => m.kind === 'Result2');
+  const maps = data.superMarkets.find(m => m.kind === 'ExtResult2');
+  const idOf = (def, name) => def?.coefs?.find(c => c.name === name)?.id;
+  const first = idOf(result, '1'), second = idOf(result, '2');
+  if (!result || first == null || second == null) throw new Error('формат линии изменился: нет рынка победителя');
+  const quote = (values, id) => price(values?.find(c => Number(c.smcid) === Number(id))?.value);
+  return data.leagues.filter(l => isCyberClash(l.title) && /counter-?strike|cs\s*2/i.test(l.title))
+    .flatMap(l => (l.events || []).map(e => {
+      const values = e.markets?.find(m => Number(m.smid) === Number(result.id))?.coefs || [];
+      const mapMarkets = (e.markets || []).filter(m => Number(m.smid) === Number(maps?.id))
+        .map(m => market(m.coefs?.find(c => !maps.coefs?.find(d => Number(d.id) === Number(c.smcid))?.isNumeric)?.text || maps.name,
+          '', [quote(m.coefs, idOf(maps,'1')),quote(m.coefs, idOf(maps,'2'))])).filter(Boolean);
+      return {
+        id:String(e.id), group:String(l.id), tournament:l.title,
+        team1:e.team1 || '', team2:e.team2 || '', start:Number(e.startTime)*1000 || null,
+        odds:[quote(values,first),quote(values,second)], live, path:e.webLink,
+        markets:mapMarkets,
+        size:size(e.additionalCoefsCount, 'доп. коэффициентов')
+      };
+    }));
+}
+
+const PARSERS = { sportbet: parseSportbet, baltbet: parseBaltbet, fonbet: parseFonbet, olimp: parseOlimp, marathon: parseMarathon, betcity: parseBetcity, leon: parseLeon };
 export function parseFeed(bookmaker, body, live, now = Date.now()) {
   const parse = PARSERS[bookmaker.kind];
   if (!parse) throw new Error('Неизвестный формат линии.');
-  return parse(body, live, now).map(e => ({ ...e, url: bookmaker.eventUrl(e) }));
+  // A successful HTTP response can still be a maintenance page or a changed
+  // schema. Treat that as unavailable, never as proof that the tournament vanished.
+  const data = bookmaker.kind === 'marathon' ? body : typeof body === 'string' ? JSON.parse(body) : body;
+  const valid = ['fonbet', 'leon'].includes(bookmaker.kind) ? Array.isArray(data?.events) :
+    bookmaker.kind === 'sportbet' ? data?.status === 'ok' && Number(data?.statusCode) === 200 && Array.isArray(data?.data?.sports) &&
+      data.data.sports.every(s => s?.slug === 'esport-counter-strike' && Array.isArray(s.tournaments) &&
+        s.tournaments.every(t => typeof t?.name === 'string' && Array.isArray(t.events) &&
+          t.events.every(e => e && e.id != null && typeof e.status === 'string' &&
+            typeof e.teams?.team1?.name === 'string' && typeof e.teams?.team2?.name === 'string' && Array.isArray(e.markets)))) :
+    bookmaker.kind === 'baltbet' ? Number(data?.sportId) === 25 && Array.isArray(data?.superMarkets) && Array.isArray(data?.leagues) :
+    bookmaker.kind === 'olimp' ? (Array.isArray(data) ? data : [data])
+      .some(item => Array.isArray(item?.payload?.competitionsWithEvents)) :
+    bookmaker.kind === 'betcity' ? data?.ok !== false && data?.reply?.sports &&
+      typeof data.reply.sports === 'object' :
+    bookmaker.kind === 'marathon' ? /class="[^"]*category-container/.test(String(data)) : true;
+  if (!valid) throw new Error('формат линии изменился или источник вернул страницу ошибки');
+  return parse(data, live, now).map(e => ({ ...e,
+    start:Number.isFinite(e.start) && e.start > 0 && e.start <= 8640000000000000 ? e.start : null,
+    url: bookmaker.eventUrl(e) }));
 }
 
 // Team names differ per bookmaker ("Rune Eaters Esports", "Honved Esport",

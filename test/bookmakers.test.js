@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { BOOKMAKERS, parseFeed, findMatch, sameTeam, teamKey, mskTime, isCyberClash, marketText } from '../bookmakers.js';
+import { BOOKMAKERS, MANUAL, parseFeed, findMatch, sameTeam, teamKey, mskTime, isCyberClash, marketText } from '../bookmakers.js';
 import { checkBookmaker, bookmakersResponse } from '../netlify/functions/bookmakers.mjs';
 import { onRequest } from '../functions/api/bookmakers.js';
 
@@ -153,7 +153,168 @@ test('checkBookmaker: tries mirrors, keeps a failing feed apart, never takes URL
   assert.ok(asked.every(u => u.startsWith('https://line')), 'only fixed hosts');
   const bad = await bookmakersResponse(new Request('http://x/api/bookmakers?id=../evil'));
   assert.equal(bad.status, 400);
-  const unknown = await bookmakersResponse(new Request('http://x/api/bookmakers?id=winline'));
+  const unknown = await bookmakersResponse(new Request('http://x/api/bookmakers?id=unknown-id'));
   assert.equal(unknown.status, 400);
   assert.equal(typeof onRequest, 'function');
+});
+
+test('Bookmaker endpoint caches completed public data and rejects writes', async () => {
+  const source = await fixture('fonbet-line.json');
+  let calls = 0;
+  const fake = async (url, options) => {
+    calls++;
+    assert.equal(options.redirect, 'manual');
+    assert.ok(options.signal instanceof AbortSignal);
+    await new Promise(resolve => setTimeout(resolve, 5));
+    return new Response(source, {status:200});
+  };
+  const url = 'https://panel.example/api/bookmakers?id=fonbet';
+  const replies = await Promise.all(Array.from({length:8}, () =>
+    bookmakersResponse(new Request(url), fake)));
+  assert.equal(calls, 16, 'each request owns its line and live I/O');
+  for (const reply of replies) {
+    assert.equal(reply.status, 200);
+    assert.equal(reply.headers.get('cache-control'), 'no-store');
+    assert.equal(reply.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal((await reply.json()).events.length, 2);
+  }
+  await bookmakersResponse(new Request(url), fake);
+  assert.equal(calls, 16, 'a short completed-data cache avoids repeated upstream requests');
+  for (const method of ['POST','PUT','PATCH','DELETE','OPTIONS']) {
+    const reply = await bookmakersResponse(new Request(url, {method}), fake);
+    assert.equal(reply.status, 405);
+    assert.equal(reply.headers.get('allow'), 'GET');
+  }
+  assert.equal(calls, 16);
+});
+
+
+test('a stalled old request cannot block a later Cloudflare reader', {timeout:2000}, async () => {
+  const source=await fixture('fonbet-line.json');
+  const held=[];let calls=0;
+  const fake=async()=> {
+    calls++;
+    if(calls<=2)return new Promise(resolve=>held.push(resolve));
+    return new Response(source);
+  };
+  const url='https://panel.example/api/bookmakers?id=fonbet';
+  const first=bookmakersResponse(new Request(url),fake);
+  let timer;
+  try {
+    const next=await Promise.race([
+      bookmakersResponse(new Request(url),fake),
+      new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('old request blocked new reader')),500);})
+    ]);
+    assert.equal((await next.json()).ok,true);
+    assert.equal(calls,4);
+  } finally {
+    clearTimeout(timer);
+    for(const resolve of held)resolve(new Response(source));
+    await first;
+  }
+});
+
+test('Maintenance pages and changed schemas are unavailable, never an empty tournament', async () => {
+  for (const id of ['fonbet','pari','olimp','betcity']) {
+    assert.throws(() => parseFeed(book(id), '{"status":"maintenance"}', false), /формат линии/);
+  }
+  assert.throws(() => parseFeed(book('marathon'), '<html>Maintenance</html>', false), /формат линии/);
+  assert.deepEqual(parseFeed(book('fonbet'), '{"events":[]}', false), []);
+  const fake = async () => new Response('{"status":"maintenance"}', {status:200});
+  const {body} = await checkBookmaker('fonbet', fake, NOW);
+  assert.equal(body.ok, false);
+  assert.deepEqual(body.events, []);
+  assert.equal(body.errors.length, 2);
+});
+
+test('default server reader keeps the global fetch receiver for Workers', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = function () {
+    assert.equal(this, globalThis);
+    return Promise.resolve(new Response(JSON.stringify({events: []})));
+  };
+  try { assert.equal((await checkBookmaker('fonbet')).body.ok, true); }
+  finally { globalThis.fetch = original; }
+});
+
+test('public line errors do not reflect raw upstream JSON into the panel', async () => {
+  const {body}=await checkBookmaker('fonbet',async()=>new Response('<html>private-upstream-detail</html>'));
+  assert.equal(body.ok,false);
+  assert.ok(body.errors.every(e=>!e.includes('private-upstream-detail')));
+});
+test('declared oversized line responses are rejected without reading the body', async () => {
+  const {body}=await checkBookmaker('leon',async()=>new Response('not read',{
+    headers:{'content-length':String(17*1024*1024)}
+  }));
+  assert.equal(body.ok,false);
+  assert.match(body.errors.join(),/слишком большой/);
+});
+
+test('all 16 requested bookmakers remain visible exactly once, including unsupported sources', () => {
+  const expected=['fonbet','pari','bettery','bet24','olimp','marathon','betcity','leon','winline',
+    'ligastavok','betboom','melbet','baltbet','zenit','betm','sportbet'].sort();
+  assert.deepEqual([...BOOKMAKERS,...MANUAL].map(b=>b.id).sort(),expected);
+  assert.ok(MANUAL.every(b=>typeof b.reason==='string' && b.reason.length>10));
+});
+
+test('Baltbet complete public cyber list: CyberClash, winner and first-map prices', async () => {
+  const raw=JSON.parse(await fixture('baltbet-line.json'));
+  raw.leagues.push({...raw.leagues[0],title:'Counter-Strike. CCT'});
+  raw.leagues.push({...raw.leagues[0],title:'Dota 2. CyberClash'});
+  const events=parseFeed(book('baltbet'),raw,false);
+  assert.equal(events.length,1);
+  const [e]=events;
+  assert.deepEqual([e.team1,e.team2,e.odds],['Private','UPGRADE',[1.51,2.23]]);
+  assert.equal(e.start,Date.UTC(2026,9,16,16));
+  assert.equal(e.url,'https://baltbet.ru/cybersport/counter-strike/east-europe/cyberclash/qualifier/private-upgrade-id-31699523');
+  assert.deepEqual(e.markets,[{kind:'other',name:'1-я карта',line:'',odds:[1.61,2.05]}]);
+  assert.deepEqual(e.size,{count:13,unit:'доп. коэффициентов'});
+  const out=await checkBookmaker('baltbet',async(url,init)=>{
+    assert.equal(url,'https://events.baltbet.ru/api/prematch/sport/25/events?offset=all');
+    assert.equal(init.headers.bb_appSource,'UniRu');
+    return new Response(JSON.stringify(raw));
+  });
+  assert.equal(out.body.ok,true);
+  assert.equal(out.body.coverage,'prematch');
+  assert.throws(()=>parseFeed(book('baltbet'),'{"error":"maintenance"}',false),/формат линии/);
+  assert.deepEqual(parseFeed(book('baltbet'),{sportId:25,superMarkets:raw.superMarkets,leagues:[]},false),[]);
+});
+
+test('Sportbet native full CS2 tables verify absence in prematch and live', async () => {
+  const fixtureBody=await fixture('sportbet-native-schema.json');
+  assert.deepEqual(parseFeed(book('sportbet'),await fixture('sportbet-cs2-line.json'),false),[]);
+  assert.deepEqual(parseFeed(book('sportbet'),await fixture('sportbet-cs2-live.json'),true),[]);
+  assert.throws(()=>parseFeed(book('sportbet'),fixtureBody,false),/формат линии/,'a response for the wrong sport never proves absence');
+  assert.throws(()=>parseFeed(book('sportbet'),'{"status":"error","data":{"sports":[]},"statusCode":500}',false),/формат линии/);
+  const asked=[];
+  const {body}=await checkBookmaker('sportbet',async url=>{
+    asked.push(url);
+    return new Response(await fixture(url.includes('status=live')?'sportbet-cs2-live.json':'sportbet-cs2-line.json'));
+  });
+  assert.equal(body.ok,true);
+  assert.equal(body.coverage,'line-and-live');
+  assert.equal(asked.length,2);
+  assert.ok(asked.every(u=>u.startsWith('https://bthm-server.sportbet.ru/events.table?')&&u.endsWith('sport=esport-counter-strike')));
+});
+test('Sportbet parser routes a synthetic CS2 tournament using the verified native event schema', async () => {
+  // Representative real Dota payload; only sport/tournament labels below are synthetic.
+  // No production CyberClash prices are claimed by this test.
+  const raw=JSON.parse(await fixture('sportbet-native-schema.json'));
+  const sport=raw.data.sports[0], tournament=sport.tournaments[0];
+  sport.slug='esport-counter-strike';tournament.name='CyberClash';
+  const events=parseFeed(book('sportbet'),raw,false);
+  assert.equal(events.length,2);
+  assert.deepEqual(events[0].odds,[1.08,7.4]);
+  assert.equal(events[0].team1,'Team Lynx');
+  assert.equal(events[0].start,1792159200000);
+  tournament.events[0].markets[0].outcomes[0].active=false;
+  assert.equal(parseFeed(book('sportbet'),raw,false)[0].odds[0],null,'inactive prices are never presented as available');
+  tournament.events[0].status='finished';
+  assert.equal(parseFeed(book('sportbet'),raw,true).length,1,'finished games do not stay in the live table');
+});
+
+test('external non-finite timestamps cannot break browser date rendering', async () => {
+  const raw=JSON.parse(await fixture('fonbet-line.json'));
+  raw.events.forEach(e=>{e.startTimeTimestamp=1e300;});
+  assert.ok(parseFeed(book('fonbet'),raw,false).every(e=>e.start===null));
 });
