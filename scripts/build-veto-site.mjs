@@ -86,6 +86,12 @@ serves the files as static assets (\`.assetsignore\` leaves the config out);
 turn the \`workers.dev\` address on in Settings → Domains & Routes. As Pages:
 no build command, output directory \`/\`. \`_headers\` sets the security headers.
 
+Every push to \`main\` should go live by itself. Settings → Builds: production
+branch \`main\`, no build command, deploy command \`npx wrangler deploy\`
+(\`wrangler versions upload\` would only upload a version with 0 % traffic).
+A push that shows no new row in Deployments means the Cloudflare GitHub app
+does not see this repository: Settings → Builds → Git repository → Manage.
+
 Locally: any static server, e.g. \`python3 -m http.server 8080\`.
 `);
 
