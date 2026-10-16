@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createRoom, decodeLink, roomSecrets, privateKey, signMove, verifyLog, replay,
-  nextTurn, pickLog, clock, formatClock, mapBoard, resultText, captainMessage
+  nextTurn, mergeLog, clock, formatClock, mapBoard, resultText, captainMessage
 } from '../veto-room.js';
 
 const BASE = 'https://oneshot-panel.pages.dev/veto.html';
@@ -44,7 +44,7 @@ test('BO3: coin winner orders, picks get the opponent\'s side, decider is left',
   let log = [];
   assert.deepEqual(nextTurn(s, replay(s, log)), { kind: 'order', team: 1 });
   await assert.rejects(signMove(a, log, ka, 'order', '0'), /не твой ход/);
-  log = await signMove(b, log, kb, 'order', '0', 1000); // Lavked gives UPGRADE the first ban
+  log = await signMove(b, log, kb, 'order', '0'); // Lavked gives UPGRADE the first ban
   log = await signMove(a, log, ka, 'ban', 'Ancient');
   log = await signMove(b, log, kb, 'ban', 'Anubis');
   log = await signMove(a, log, ka, 'pick', 'Mirage');
@@ -89,14 +89,41 @@ test('verifyLog: forged, edited or foreign moves are dropped', async () => {
   assert.equal((await verifyLog(s, [{ ...log[0], v: '0' }], checked)).length, 0, 'cache keys the content');
 });
 
-test('pickLog: longer wins, ties settle the same everywhere', async () => {
-  const { a, ka } = await seats('BO1', 0);
+test('mergeLog: only continuations are taken; a second move for a step is a conflict', async () => {
+  const { a, b, s, ka, kb } = await seats('BO1', 0);
   const base = await signMove(a, [], ka, 'order', '0');
   const one = await signMove(a, base, ka, 'ban', 'Nuke');
   const two = await signMove(a, base, ka, 'ban', 'Mirage');
-  assert.equal(pickLog(base, one), one);
-  assert.equal(pickLog(one, base), one);
-  assert.equal(pickLog(one, two), pickLog(two, one));
+  assert.equal(mergeLog(base, one).log, one);
+  assert.equal(mergeLog(one, base).log, one);
+  // Captain A tries to take back Nuke: the move once seen stays.
+  const undo = mergeLog(one, two);
+  assert.equal(undo.log, one);
+  assert.equal(undo.conflict.index, 1);
+  assert.equal(undo.conflict.theirs.v, 'Mirage');
+  // Erase: A let B ban first; after B's ban, A publishes another history of
+  // the same length («A bans first» plus A's own ban).
+  const replied = await signMove(b, await signMove(a, [], ka, 'order', '1'), kb, 'ban', 'Ancient');
+  const rewritten = await signMove(a, await signMove(a, [], ka, 'order', '0'), ka, 'ban', 'Nuke');
+  assert.equal(mergeLog(replied, rewritten).log, replied);
+  assert.equal(mergeLog(replied, rewritten).conflict.index, 0);
+  // The same moves with other valid signatures change nothing.
+  const resigned = await signMove(a, [], ka, 'order', '0', base[0].at);
+  assert.equal(mergeLog(base, resigned).log, base);
+  assert.equal(mergeLog(base, resigned).conflict, null);
+  assert.equal((await verifyLog(s, replied)).length, 2);
+});
+
+test('replay: move times must be real, in order and close together', async () => {
+  const { a, b, s, ka, kb } = await seats('BO1', 0);
+  const now = Date.now();
+  await assert.rejects(signMove(a, [], ka, 'order', '0', 0), /время/);
+  await assert.rejects(signMove(a, [], ka, 'order', '0', 1e300), /время/);
+  const base = await signMove(a, [], ka, 'order', '1', now);
+  await assert.rejects(signMove(b, base, kb, 'ban', 'Nuke', now - 120000), /время/);
+  await assert.rejects(signMove(b, base, kb, 'ban', 'Nuke', now + 7 * 3600000), /время/);
+  const ok = await signMove(b, base, kb, 'ban', 'Nuke', now - 30000); // a little clock skew
+  assert.equal((await verifyLog(s, ok)).length, 2);
 });
 
 test('clock: five minutes from the order choice, then "over"', () => {
@@ -107,6 +134,8 @@ test('clock: five minutes from the order choice, then "over"', () => {
   assert.equal(formatClock(300000), '5:00');
   assert.equal(formatClock(61001), '1:02');
   assert.equal(formatClock(0), '0:00');
+  assert.equal(formatClock(1e300), '99:59');
+
 });
 
 test('captain message: names the team and warns about the link', async () => {

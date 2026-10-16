@@ -113,9 +113,17 @@ function signed(room, index, prev, entry) {
 // (signatures are checked by verifyLog).
 export function replay(room, log) {
   const state = { first: null, actions: [], pending: null, startedAt: null };
+  let prevAt = null;
   for (const entry of log) {
     const turn = nextTurn(room, state);
     if (!entry || entry.k !== turn.kind) throw new Error('Нарушен порядок вето.');
+    // Times are the signer's clock: a real date, in order (a minute of skew
+    // between two devices is fine), and within hours of the previous move.
+    if (!Number.isSafeInteger(entry.at) || entry.at < 1600000000000 || entry.at > 4102444800000 ||
+        (prevAt !== null && (entry.at < prevAt - 60000 || entry.at > prevAt + 6 * 3600000))) {
+      throw new Error('Неверное время хода.');
+    }
+    prevAt = entry.at;
     if (entry.k === 'order') {
       if (!['0', '1'].includes(entry.v)) throw new Error('Неверный выбор порядка.');
       state.first = Number(entry.v);
@@ -184,14 +192,18 @@ export async function signMove(room, log, key, kind, value, at = Date.now()) {
   return [...log, entry];
 }
 
-// Two verified logs of the same room: the longer one wins; on a tie the
-// smaller signature at the first difference, so every page settles the same.
-export function pickLog(a, b) {
-  if (b.length !== a.length) return b.length > a.length ? b : a;
-  for (let i = 0; i < a.length; i++) {
-    if (a[i].s !== b[i].s) return b[i].s < a[i].s ? b : a;
+// A verified log from another page is taken only when it continues ours
+// move for move (same kind, value and time; signatures may differ, ECDSA
+// gives many valid ones). A different move at a step we already have is a
+// conflict: one captain signed two moves for the same step. We keep ours —
+// a move, once seen, is never undone — and report it.
+export function mergeLog(current, incoming) {
+  const same = (a, b) => a.k === b.k && a.v === b.v && a.at === b.at;
+  const n = Math.min(current.length, incoming.length);
+  for (let i = 0; i < n; i++) {
+    if (!same(current[i], incoming[i])) return { log: current, conflict: { index: i, ours: current[i], theirs: incoming[i] } };
   }
-  return a;
+  return { log: incoming.length > current.length ? incoming : current, conflict: null };
 }
 
 // The 5-minute clock starts with the coin winner's choice of order.
@@ -201,7 +213,7 @@ export function clock(state, now = Date.now(), minutes = VETO_MINUTES) {
   return { started: true, left: Math.max(0, left), over: left <= 0 };
 }
 export function formatClock(ms) {
-  const seconds = Math.ceil(ms / 1000);
+  const seconds = Math.min(99 * 60 + 59, Math.max(0, Math.ceil(ms / 1000)));
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
@@ -236,7 +248,7 @@ export function captainMessage(room, team, link) {
     `Капитан **${room.t[team]}**, это твоя личная ссылка на вето:`,
     link,
     '',
-    '• Кто начинает — решит монетка на сайте, когда оба капитана зайдут.',
+    '• Монетку сайт уже подбросил: результат покажет, когда оба капитана зайдут. Победитель решает, кто банит первым.',
     `• На всё вето ${VETO_MINUTES} минут.`,
     '• Ссылку никому не пересылай: по ней можно ходить за твою команду.'
   ].join('\n');

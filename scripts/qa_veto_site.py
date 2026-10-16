@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Captains' veto site (veto.html): the admin makes links, two captains and
-a spectator in separate browsers go through a whole BO3.
+"""Captains' veto site (veto.html) in separate browsers: the admin's links,
+the coin, whole BO3/BO1/BO5 vetoes, keyboard play, reloads and late viewers,
+forged moves and fake presence from a spectator, a captain rewriting a move,
+two tabs of one captain, the 5-minute clock, hostile team names, 375 px.
 
-VDO.Ninja is replaced by a page that relays sendData through Python between
-frames that share the derived password, so the three browsers only talk the
-way the real site does (no shared BroadcastChannel across contexts).
+VDO.Ninja is replaced by a page that relays sendData through Python the way
+VDO.Ninja routes data: a publisher (push=X) talks with the viewers of X and
+nobody else. With --real-vdo the real VDO.Ninja is used instead.
 
     python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 """
@@ -18,53 +20,154 @@ from playwright.async_api import async_playwright, expect
 FAKE_VDO = """<!doctype html><script>
 const q = new URLSearchParams(location.search);
 const me = Math.random().toString(36).slice(2);
+const role = q.get('push') ? 'push' : 'view', stream = q.get('push') || q.get('view');
 window.__deliver = data => parent.postMessage(data, '*');
-window.vdoHello?.(q.get('password'), me);
+window.vdoHello?.(q.get('password'), me, role, stream);
 addEventListener('message', e => {
   const d = e.data || {};
   if (d.sendData) window.vdoRelay?.(q.get('password'), me, d.sendData);
 });
 </script>"""
 
+# Signs a move in the page with its own captain key, for scenarios that play
+# a dishonest or slow captain (the page code stays untouched).
+SIGN_IN_PAGE = """async ([kind, value, drop, shift]) => {
+  const m = await import('/veto-room.js');
+  const room = m.decodeLink(location.hash);
+  const key = await m.privateKey(room);
+  const name = 'oneshot-veto-log:' + room.r;
+  let log = JSON.parse(localStorage.getItem(name) || '[]').slice(0, drop === null ? undefined : drop);
+  log = await m.signMove(room, log, key, kind, value, Date.now() + shift);
+  localStorage.setItem(name, JSON.stringify(log));
+  return log.length;
+}"""
+
 
 async def run(args):
+    # check.yml passes the panel QA's arguments: fill in this script's own.
+    args.browser = getattr(args, "browser", "chromium")
+    args.real_vdo = getattr(args, "real_vdo", False)
+    args.chromium = getattr(args, "chromium", None)
     base = args.url.rstrip("/")
     output = Path(args.artifacts)
     output.mkdir(parents=True, exist_ok=True)
-    frames, errors = {}, []
+    frames, senders, errors, checks = {}, [], [], []
+    wait = 30000 if args.real_vdo else 8000
 
-    async def hello(source, password, me):
-        frames[me] = (password, source["frame"])
+    def passed(name):
+        checks.append(name)
+        print("PASS:", name, flush=True)
+
+    async def hello(source, password, me, role, stream):
+        frames[me] = (password, source["frame"], role, stream, source["page"])
 
     async def relay(source, password, me, data):
-        for other, (pw, frame) in list(frames.items()):
-            if other != me and pw == password:
+        if me not in frames:
+            return
+        _, _, role, stream, page = frames[me]
+        senders.append(page)
+        for other, (pw, frame, other_role, other_stream, _) in list(frames.items()):
+            if other != me and pw == password and other_stream == stream and other_role != role:
                 try:
                     await frame.evaluate("d => window.__deliver(d)", {"dataReceived": data, "UUID": me})
                 except Exception:
                     frames.pop(other, None)
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=args.chromium, headless=True)
+        engine = getattr(p, args.browser)
+        launch = {"headless": True}
+        if args.chromium and args.browser == "chromium":
+            launch["executable_path"] = args.chromium
+        browser = await engine.launch(**launch)
+        contexts = []
 
         async def open_context(width=1280, height=900):
             context = await browser.new_context(viewport={"width": width, "height": height}, locale="ru-RU")
-            await context.route("https://vdo.ninja/**",
-                                lambda route: route.fulfill(content_type="text/html", body=FAKE_VDO))
-            await context.expose_binding("vdoHello", hello)
-            await context.expose_binding("vdoRelay", relay)
+            contexts.append(context)
+            if not args.real_vdo:
+                await context.route("https://vdo.ninja/**",
+                                    lambda route: route.fulfill(content_type="text/html", body=FAKE_VDO))
+                await context.expose_binding("vdoHello", hello)
+                await context.expose_binding("vdoRelay", relay)
             await context.expose_binding("reportCsp", lambda source, text: errors.append(f"CSP {text}")
                                          if source["frame"] == source["page"].main_frame else None)
             await context.add_init_script("""
                 addEventListener('securitypolicyviolation', event =>
                   window.reportCsp?.(`${event.violatedDirective} ${event.blockedURI}`));""")
-            await context.grant_permissions(["clipboard-read", "clipboard-write"], origin=base)
+            if args.browser == "chromium":
+                await context.grant_permissions(["clipboard-read", "clipboard-write"], origin=base)
+            return context
+
+        async def open_page(url=None, width=1280, height=900, context=None):
+            context = context or await open_context(width, height)
             page = await context.new_page()
-            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.on("pageerror", lambda error: errors.append(f"{page.url[:60]}: {error}"))
+            page.on("dialog", lambda dialog: errors.append(f"dialog {dialog.message}"))
+            if url:
+                await page.goto(url)
             return page
 
-        admin = await open_context()
-        await admin.goto(base + "/veto.html#new&a=UPGRADE&b=Lavked&f=BO3")
+        async def make_links(admin, a, b, fmt):
+            await admin.goto(base + "/veto.html")
+            await admin.fill("#vtTeamA", a)
+            await admin.fill("#vtTeamB", b)
+            await admin.select_option("#vtFormat", fmt)
+            await admin.click("#vtForm button[type=submit]")
+            await expect(admin.locator("#vtMsgA")).to_have_value(re.compile(re.escape(f"vs {b} ({fmt})")))
+            message_a = await admin.locator("#vtMsgA").input_value()
+            message_b = await admin.locator("#vtMsgB").input_value()
+            link_s = await admin.locator("#vtWatch").get_attribute("href")
+            return (re.search(r"https?://\S+", message_a).group(0),
+                    re.search(r"https?://\S+", message_b).group(0), link_s)
+
+        async def coin_shown(*pages):
+            for page in pages:
+                await expect(page.locator("#vtKicker")).to_contain_text("Монетка:", timeout=wait)
+
+        async def winner_of(cap_a, cap_b):
+            await coin_shown(cap_a, cap_b)
+            return (cap_a, cap_b) if await cap_a.locator("#vtActions button").count() else (cap_b, cap_a)
+
+        async def play(cap_a, cap_b, watchers, keyboard=False, shot=None):
+            first, _ = await winner_of(cap_a, cap_b)
+            await first.get_by_role("button", name="Баним первыми").click()
+            moves = 1
+            while moves < 20:
+                for page in (cap_a, cap_b, *watchers):
+                    await expect(page.locator("#vtLog li")).to_have_count(moves, timeout=wait)
+                if await cap_a.locator("#vtStage[data-phase=done]").count():
+                    break
+                actor = None
+                for page in (cap_a, cap_b):
+                    if await page.locator("#vtStage[data-phase=mine]").count():
+                        actor = page
+                assert actor, "nobody has the move"
+                other = cap_b if actor is cap_a else cap_a
+                assert await other.locator(".vt-map:not([disabled])").count() == 0
+                for watcher in watchers:
+                    assert await watcher.locator(".vt-map:not([disabled]), #vtActions button").count() == 0
+                side = actor.get_by_role("button", name=re.compile("Начинаем за CT"))
+                if await side.count():
+                    await side.click()
+                elif keyboard:
+                    await actor.locator(".vt-map:not([disabled])").first.focus()
+                    await actor.keyboard.press("Enter")
+                    await expect(actor.locator("#vtActions .vt-primary")).to_be_focused()
+                    await actor.keyboard.press("Enter")
+                else:
+                    await actor.locator(".vt-map:not([disabled])").first.click()
+                    await expect(actor.locator("#vtActions .vt-primary")).to_be_visible()
+                    if shot and moves == 2:
+                        await actor.screenshot(path=str(output / shot), full_page=True)
+                    await actor.locator("#vtActions .vt-primary").click()
+                moves += 1
+            result = await cap_a.locator("#vtResultText").text_content()
+            for page in (cap_b, *watchers):
+                await expect(page.locator("#vtResultText")).to_have_text(result, timeout=wait)
+            return result
+
+        # 1. Admin links.
+        admin = await open_page(base + "/veto.html#new&a=UPGRADE&b=Lavked&f=BO3")
         await expect(admin.locator("#vtTeamA")).to_have_value("UPGRADE")
         await expect(admin.locator("#vtFormat")).to_have_value("BO3")
         await admin.click("#vtForm button[type=submit]")
@@ -79,93 +182,189 @@ async def run(args):
         await admin.screenshot(path=str(output / "veto-site-admin.png"), full_page=True)
         await admin.reload()
         await expect(admin.locator("#vtMsgA")).to_have_value(message_a)
-        print("PASS: admin makes three links; they survive a reload", flush=True)
+        await expect(admin.locator("#vtMade")).to_contain_text("Ссылки созданы в")
+        passed("admin makes three links; they survive a reload")
 
-        cap_a = await open_context()
-        await cap_a.goto(link_a)
+        # 2. Whole BO3: coin for everyone, turns, sides, result, copy.
+        cap_a = await open_page(link_a)
         await expect(cap_a.locator("#vtTitle")).to_have_text("UPGRADE vs Lavked")
         await expect(cap_a.locator("#vtPrompt")).to_have_text("Ждём капитана Lavked")
         await expect(cap_a.locator("#vtTeam0 .vt-you")).to_be_visible()
-        spectator = await open_context()
-        await spectator.goto(link_s)
-        cap_b = await open_context(375, 800)
-        await cap_b.goto(link_b)
-        pages = {"a": cap_a, "b": cap_b, "s": spectator}
-        for page in pages.values():
-            await expect(page.locator("#vtTeam0")).to_have_attribute("data-online", "yes", timeout=8000)
-            await expect(page.locator("#vtTeam1")).to_have_attribute("data-online", "yes", timeout=8000)
-            await expect(page.locator("#vtKicker")).to_contain_text("Монетка:", timeout=8000)
-        print("PASS: captains see each other, the coin flips for everyone", flush=True)
-
-        winner = cap_a if await cap_a.locator("#vtActions button").count() else cap_b
-        loser = cap_b if winner is cap_a else cap_a
-        assert await loser.locator("#vtActions button").count() == 0
+        spectator = await open_page(link_s)
+        cap_b = await open_page(link_b, 375, 800)
+        for page in (cap_a, cap_b, spectator):
+            await expect(page.locator("#vtTeam0")).to_have_attribute("data-online", "yes", timeout=wait)
+            await expect(page.locator("#vtTeam1")).to_have_attribute("data-online", "yes", timeout=wait)
+        await coin_shown(cap_a, cap_b, spectator)
         assert await spectator.locator("#vtActions button").count() == 0
-        await winner.get_by_role("button", name="Баним первыми").click()
-        await expect(spectator.locator("#vtClock")).to_be_visible(timeout=8000)
-        await expect(spectator.locator("#vtClockTime")).to_have_text(re.compile(r"^[45]:\d\d$"))
-
-        moves = 0
-        while moves < 20:
-            await expect(spectator.locator("#vtLog li")).to_have_count(moves + 1, timeout=8000)
-            if await spectator.locator("#vtStage[data-phase=done]").count():
-                break
-            for page in (cap_a, cap_b):
-                await expect(page.locator("#vtLog li")).to_have_count(moves + 1, timeout=8000)
-            actor = None
-            for page in (cap_a, cap_b):
-                if await page.locator("#vtStage[data-phase=mine]").count():
-                    actor = page
-            assert actor, "nobody has the move"
-            other = cap_b if actor is cap_a else cap_a
-            assert await other.locator(".vt-map:not([disabled])").count() == 0
-            assert await spectator.locator(".vt-map:not([disabled])").count() == 0
-            side = actor.get_by_role("button", name=re.compile("Начинаем за CT"))
-            if await side.count():
-                await side.click()
-            else:
-                await actor.locator(".vt-map:not([disabled])").first.click()
-                await expect(actor.locator("#vtActions .vt-primary")).to_be_visible()
-                if moves == 1:
-                    await actor.screenshot(path=str(output / "veto-site-confirm.png"), full_page=True)
-                await actor.locator("#vtActions .vt-primary").click()
-            moves += 1
-
-        result = await spectator.locator("#vtResultText").text_content()
+        result = await play(cap_a, cap_b, [spectator], shot="veto-site-confirm.png")
         lines = result.splitlines()
         assert len(lines) == 7 and lines[-1].endswith("was left over"), result
         assert re.match(r"^(UPGRADE|Lavked) pick \w+ \((UPGRADE|Lavked) CT\)$", lines[2]), result
-        for page in (cap_a, cap_b):
-            await expect(page.locator("#vtResultText")).to_have_text(result, timeout=8000)
-            await expect(page.locator("#vtStage")).to_have_attribute("data-phase", "done")
         await expect(spectator.locator(".vt-map[data-status=ban]")).to_have_count(4)
         await expect(spectator.locator(".vt-map[data-status=pick]")).to_have_count(2)
         await expect(spectator.locator(".vt-map[data-status=decider]")).to_have_count(1)
-        print("PASS: a whole BO3 by turns; only the captain on the move can click", flush=True)
+        await expect(spectator.locator("#vtClock")).to_be_visible()
+        await expect(spectator.locator("#vtClock .vt-clock-label")).to_have_text("вето за")
+        if args.browser == "chromium":
+            await spectator.get_by_role("button", name="Скопировать для HLTV").click()
+            assert await spectator.evaluate("navigator.clipboard.readText()") == result
+        spectator_pages = {spectator}
+        assert not [s for s in senders if s in spectator_pages], "spectators must only listen"
+        passed("whole BO3 by turns; spectators only listen; HLTV text copies")
 
+        # 3. Reloads and late viewers.
         await cap_a.reload()
         await expect(cap_a.locator("#vtResultText")).to_have_text(result)
-        late = await open_context()
-        await late.goto(link_s)
-        await expect(late.locator("#vtResultText")).to_have_text(result, timeout=8000)
-        print("PASS: a reload and a late spectator get the finished veto", flush=True)
+        late = await open_page(link_s)
+        await expect(late.locator("#vtResultText")).to_have_text(result, timeout=wait)
+        passed("a reload and a late spectator get the finished veto")
 
+        # 4. Layout and broken links.
         await cap_b.screenshot(path=str(output / "veto-site-mobile.png"), full_page=True)
         assert not await cap_b.evaluate("document.documentElement.scrollWidth > innerWidth")
         await spectator.screenshot(path=str(output / "veto-site-done.png"), full_page=True)
-        broken = await open_context()
-        await broken.goto(base + "/veto.html#v=broken")
+        broken = await open_page(base + "/veto.html#v=broken")
         await expect(broken.locator("#vtError")).to_contain_text("повреждена")
-        print("PASS: 375px without horizontal scroll; a broken link explains itself", flush=True)
+        payload = link_a.split("#v=")[1]
+        bad_key = await broken.evaluate("""p => {
+            const j = JSON.parse(atob(p.replace(/-/g,'+').replace(/_/g,'/')));
+            j.k = 'A'.repeat(43);
+            return btoa(JSON.stringify(j)).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');
+        }""", payload)
+        await broken.goto(base + "/veto.html#v=" + bad_key)
+        await expect(broken.locator("#vtError")).to_contain_text("повреждена", timeout=wait)
+        passed("375 px without horizontal scroll; broken link and broken key explain themselves")
 
+        # 5. BO1 by keyboard, BO5 by mouse.
+        for fmt, keyboard, maps in (("BO1", True, 7), ("BO5", False, 7)):
+            link_a, link_b, link_s = await make_links(admin, "PRIVATE", "Honvéd", fmt)
+            a, b, s = await open_page(link_a), await open_page(link_b), await open_page(link_s)
+            result = await play(a, b, [s], keyboard=keyboard)
+            lines = result.splitlines()
+            assert len(lines) == maps, result
+            if fmt == "BO1":
+                assert all("removed" in line for line in lines[:6]) and lines[6].endswith("was left over")
+                await expect(s.locator(".vt-map[data-status=decider] .vt-map-tag")).to_have_text("ИГРАЕМ")
+            else:
+                assert sum(" pick " in line for line in lines) == 4 and all("CT)" in line for line in lines if " pick " in line)
+                await expect(s.locator(".vt-map[data-status=decider] .vt-map-tag")).to_have_text("DECIDER")
+            for page in (a, b, s):
+                await page.close()
+        passed("BO1 by keyboard only (select with Enter, focus lands on confirm) and BO5 with four sides")
+
+        # 6. A spectator forges a move and fakes the absent captain's presence.
+        link_a, link_b, link_s = await make_links(admin, "Omega", "Fire Flux", "BO1")
+        a = await open_page(link_a)
+        s = await open_page(link_s)
+        await expect(a.locator("#vtPrompt")).to_have_text("Ждём капитана Fire Flux")
+        if not args.real_vdo:
+            await s.evaluate("""async () => {
+              const m = await import('/veto-room.js'), v = await import('/vdo.js');
+              const room = m.decodeLink(location.hash), secrets = await m.roomSecrets(room);
+              const forged = [{ k: 'order', v: '0', at: Date.now(), s: 'A'.repeat(86) }];
+              const box = await v.seal(secrets.key, { t: 'log', from: 'b', log: forged });
+              for (const frame of document.querySelectorAll('iframe.vdo-frame')) {
+                frame.contentWindow.postMessage({ sendData: { oneshotVeto: box } }, '*');
+              }
+            }""")
+            await a.wait_for_timeout(3000)
+            await expect(a.locator("#vtTeam1")).to_have_attribute("data-online", "no")
+            await expect(a.locator("#vtLog li")).to_have_count(0)
+            await expect(a.locator("#vtKicker")).to_have_text("Монетка")
+            passed("spectator cannot forge a move or fake the opponent being online")
+
+        # 7. A captain re-signs a move after it was seen: the others keep it and warn.
+        b = await open_page(link_b)
+        first, second = await winner_of(a, b)
+        await first.get_by_role("button", name="Баним первыми").click()
+        for page in (a, b):
+            await expect(page.locator("#vtLog li")).to_have_count(1, timeout=wait)
+        await first.locator(".vt-map:not([disabled])").first.click()
+        banned = await first.locator(".vt-map.is-selected").get_attribute("data-map")
+        await first.locator("#vtActions .vt-primary").click()
+        for page in (a, b, s):
+            await expect(page.locator(f'.vt-map[data-map="{banned}"]')).to_have_attribute("data-status", "ban", timeout=wait)
+        other_map = "Nuke" if banned != "Nuke" else "Mirage"
+        await first.evaluate(SIGN_IN_PAGE, ["ban", other_map, 1, 0])
+        await first.reload()
+        await expect(second.locator("#vtError")).to_contain_text("подписал два разных хода", timeout=wait)
+        await expect(second.locator(f'.vt-map[data-map="{banned}"]')).to_have_attribute("data-status", "ban")
+        await expect(second.locator(f'.vt-map[data-map="{other_map}"]')).to_have_attribute("data-status", "open")
+        passed("a re-signed move is not taken back: the opponent keeps the first and sees a warning")
+        for page in (a, b, s):
+            await page.close()
+
+        # 8. Two tabs of one captain confirm at once: one move counts, no conflict.
+        link_a, link_b, link_s = await make_links(admin, "Rune Eaters", "PCIFIC", "BO3")
+        ctx = await open_context()
+        a1 = await open_page(link_a, context=ctx)
+        a2 = await open_page(link_a, context=ctx)
+        b = await open_page(link_b)
+        await coin_shown(a1, b)
+        if await b.locator("#vtActions button").count():
+            await b.get_by_role("button", name=re.compile("Первыми банят")).click()
+        else:
+            await a1.get_by_role("button", name="Баним первыми").click()
+        for page in (a1, a2, b):
+            await expect(page.locator("#vtStage")).to_have_attribute(
+                "data-phase", re.compile("mine|wait"), timeout=wait)
+            await expect(page.locator("#vtLog li")).to_have_count(1, timeout=wait)
+        await expect(a1.locator("#vtStage")).to_have_attribute("data-phase", "mine")
+        await expect(a2.locator("#vtStage")).to_have_attribute("data-phase", "mine")
+        enabled = a1.locator(".vt-map:not([disabled])")
+        await enabled.nth(0).click()
+        await a2.locator(".vt-map:not([disabled])").nth(1).click()
+        await expect(a1.locator("#vtActions .vt-primary")).to_be_visible()
+        await expect(a2.locator("#vtActions .vt-primary")).to_be_visible()
+        # Both confirm within the same moment (scheduled in each page).
+        at = await a1.evaluate("Date.now() + 400")
+        await asyncio.gather(*(page.evaluate("""t => setTimeout(() =>
+            document.querySelector('#vtActions .vt-primary')?.click(), t - Date.now())""", at)
+            for page in (a1, a2)))
+        for page in (a1, a2, b):
+            await expect(page.locator("#vtLog li")).to_have_count(2, timeout=wait)
+        await b.wait_for_timeout(3000)
+        await expect(b.locator("#vtError")).to_be_hidden()
+        texts = [await page.locator("#vtLog").inner_text() for page in (a1, a2, b)]
+        assert len(set(texts)) == 1, texts
+        passed("two tabs of one captain confirm together: one move counts, no conflict")
+        for page in (a1, a2, b):
+            await page.close()
+
+        # 9. The 5-minute clock runs out (the order move signed 5 min 10 s ago).
+        link_a, link_b, _ = await make_links(admin, "Walczaki", "Johnny Speeds", "BO1")
+        a, b = await open_page(link_a), await open_page(link_b)
+        first, _ = await winner_of(a, b)
+        await first.evaluate(SIGN_IN_PAGE, ["order", "0", None, -310000])
+        await first.reload()
+        await expect(first.locator("#vtClock .vt-clock-label")).to_have_text("время вышло", timeout=wait)
+        await expect(first.locator("#vtClock")).to_have_attribute("data-state", "over")
+        await expect(first.locator("#vtClockTime")).to_have_text("0:00")
+        other = b if first is a else a
+        await expect(other.locator("#vtClock .vt-clock-label")).to_have_text("время вышло", timeout=wait)
+        passed("the 5-minute clock shows «время вышло» on every page; play goes on")
+        for page in (a, b):
+            await page.close()
+
+        # 10. Hostile team names stay text.
+        link_a, link_b, link_s = await make_links(admin, '<img src=x onerror=alert(1)>', 'A"B</h1>', "BO3")
+        a = await open_page(link_a)
+        await expect(a.locator("#vtTitle")).to_have_text('<img src=x onerror=alert(1)> vs A"B</h1>')
+        assert await a.locator("#vtTitle img, .vt-team-name img").count() == 0
+        passed("HTML in team names is shown as text")
+
+        await asyncio.sleep(0.5)
         assert not errors, errors
         await browser.close()
-    print("veto site: 5 scenarios passed", flush=True)
+    print(f"veto site: {len(checks)} scenarios passed", flush=True)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default="http://127.0.0.1:3000")
-    parser.add_argument("--chromium", default="/usr/bin/chromium")
+    parser.add_argument("--chromium", default=None)
+    parser.add_argument("--browser", default="chromium", choices=["chromium", "webkit"])
+    parser.add_argument("--real-vdo", action="store_true", help="use the real VDO.Ninja (needs internet)")
     parser.add_argument("--artifacts", default="artifacts")
     asyncio.run(run(parser.parse_args()))

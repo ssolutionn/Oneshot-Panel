@@ -7,7 +7,7 @@ import { MAP_POOL, teamLogo } from './core.js';
 import { seal, unseal } from './vdo.js';
 import {
   decodeLink, createRoom, roomSecrets, privateKey, seat, verifyLog, replay, nextTurn,
-  signMove, pickLog, clock, formatClock, mapBoard, resultText, captainMessage
+  signMove, mergeLog, clock, formatClock, mapBoard, resultText, captainMessage
 } from './veto-room.js';
 
 const $ = id => document.getElementById(id);
@@ -69,40 +69,51 @@ function showLinks(made) {
   $('vtMsgS').value = `Вето ${room.t[0]} vs ${room.t[1]} (${room.f}) вживую:\n${links.s}`;
   $('vtWatch').href = links.s;
   $('vtLinks').hidden = false;
+  $('vtMade').textContent = '';
 }
+const RESTORE_FOR = 6 * 3600000;
 async function setupCreate() {
   document.title = 'Новое вето · CyberClash';
   $('vtCreate').hidden = false;
-  const logos = await teamLogos();
-  $('vtTeamList').replaceChildren(...Object.keys(logos).sort((a, b) => a.localeCompare(b))
-    .map(name => Object.assign(document.createElement('option'), { value: name })));
-  const params = new URLSearchParams(location.hash.slice(1));
-  // The last links made in this browser, so a reload does not lose them;
-  // from the panel only when they are for the same match.
-  const last = store(LAST_KEY);
-  const asked = params.has('new') ? [params.get('a') || '', params.get('b') || '', params.get('f')] : null;
-  if (last?.room && last?.links &&
-      (!asked || (asked[0] === last.room.t[0] && asked[1] === last.room.t[1] && asked[2] === last.room.f))) {
-    $('vtTeamA').value = last.room.t[0];
-    $('vtTeamB').value = last.room.t[1];
-    $('vtFormat').value = last.room.f;
-    showLinks(last);
-  } else if (asked) {
-    $('vtTeamA').value = asked[0];
-    $('vtTeamB').value = asked[1];
-    if (['BO1', 'BO2', 'BO3', 'BO5'].includes(asked[2])) $('vtFormat').value = asked[2];
-  }
+  // The form works before anything else loads (a slow teams.json or odd
+  // saved data must not leave it submitting natively).
   $('vtForm').addEventListener('submit', async event => {
     event.preventDefault();
     showError('');
     try {
       const base = new URL('/veto.html', location.href).href;
       const made = await createRoom(base, [$('vtTeamA').value, $('vtTeamB').value], $('vtFormat').value);
+      made.at = Date.now();
       store(LAST_KEY, made);
       showLinks(made);
       toast('Ссылки готовы');
     } catch (error) { showError(error.message); }
   });
+  const params = new URLSearchParams(location.hash.slice(1));
+  const asked = params.has('new') ? [params.get('a') || '', params.get('b') || '', params.get('f')] : null;
+  if (asked) {
+    $('vtTeamA').value = asked[0];
+    $('vtTeamB').value = asked[1];
+    if (['BO1', 'BO2', 'BO3', 'BO5'].includes(asked[2])) $('vtFormat').value = asked[2];
+  }
+  // The last links made in this browser, for a few hours, so a reload does
+  // not lose them; from the panel only when they are for the same match.
+  try {
+    const last = store(LAST_KEY);
+    const room = last?.room;
+    const fresh = Date.now() - (Number(last?.at) || 0) < RESTORE_FOR;
+    if (fresh && room && Array.isArray(room.t) && last.links?.a && last.links?.b && last.links?.s &&
+        (!asked || (asked[0] === room.t[0] && asked[1] === room.t[1] && asked[2] === room.f))) {
+      $('vtTeamA').value = room.t[0];
+      $('vtTeamB').value = room.t[1];
+      $('vtFormat').value = room.f;
+      showLinks(last);
+      $('vtMade').textContent = `Ссылки созданы в ${new Date(last.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}. Для нового матча нажми «Создать ссылки» ещё раз.`;
+    }
+  } catch { /* odd saved data: start clean */ }
+  const logos = await teamLogos();
+  $('vtTeamList').replaceChildren(...Object.keys(logos).sort((a, b) => a.localeCompare(b))
+    .map(name => Object.assign(document.createElement('option'), { value: name })));
 }
 
 // ---- Transport ----
@@ -110,6 +121,7 @@ class Link {
   constructor(secrets, push, views, onMessage) {
     Object.assign(this, { secrets, onMessage });
     this.frames = [];
+    this.streams = new Map();
     const make = (side, stream) => {
       const url = new URL(VDO);
       url.search = new URLSearchParams({ [side]: stream, password: secrets.password, label: 'oneshot-veto' }) +
@@ -120,22 +132,26 @@ class Link {
       iframe.setAttribute('aria-hidden', 'true');
       document.body.append(iframe);
       this.frames.push(iframe);
+      if (side === 'view') this.streams.set(iframe, stream);
     };
     if (push) make('push', push);
     for (const stream of views) make('view', stream);
     addEventListener('message', event => {
-      if (!this.frames.some(f => f.contentWindow === event.source)) return;
+      const frame = this.frames.find(f => f.contentWindow === event.source);
+      if (!frame) return;
       const box = event.data?.dataReceived?.oneshotVeto;
-      if (box) this.open(box);
+      // Through a view frame the sender is that stream's owner; through our
+      // own push frame it is anyone viewing us (not proof of who it is).
+      if (box) this.open(box, this.streams.get(frame) || '');
     });
     try {
       this.channel = new BroadcastChannel('oneshot-veto:' + secrets.streams.join(':'));
-      this.channel.onmessage = event => this.open(event.data);
+      this.channel.onmessage = event => this.open(event.data, 'tab');
     } catch { this.channel = null; }
   }
-  async open(box) {
+  async open(box, via) {
     const message = await unseal(this.secrets.key, box);
-    if (message) this.onMessage(message);
+    if (message) this.onMessage(message, via);
   }
   async send(message) {
     const box = await seal(this.secrets.key, message);
@@ -155,8 +171,10 @@ async function enterRoom(room) {
   const checked = new Set();
   const seen = { a: 0, b: 0 };
   const opened = Date.now();
+  const conflicts = new Map();
   let log = [], key = null, selected = '', busy = false, coin = 'hidden';
-  let queue = Promise.resolve();
+  let queue = Promise.resolve(), pending = null;
+
 
   document.title = `Вето ${names[0]} vs ${names[1]} · CyberClash`;
   $('vtTitle').textContent = `${names[0]} vs ${names[1]}`;
@@ -190,39 +208,72 @@ async function enterRoom(room) {
   });
 
   const secrets = await roomSecrets(room);
-  if (me !== null) key = await privateKey(room);
+  if (me !== null) {
+    try { key = await privateKey(room); } catch {
+      $('vtRoom').hidden = true;
+      return showError('Ссылка капитана повреждена (ключ не подходит). Скопируй её из Discord целиком или попроси админа прислать новую.');
+    }
+  }
   const link = new Link(secrets, me === null ? '' : secrets.streams[me],
     me === null ? secrets.streams : [secrets.streams[1 - me]], receive);
 
   const online = team => team === me || Date.now() - seen[team ? 'b' : 'a'] < ONLINE_FOR;
-  const send = () => link.send({ t: 'log', from: room.me, log });
+  // Spectators only listen: they add no load on the captains' phones.
+  const send = () => { if (me !== null) link.send({ t: 'log', from: room.me, log }); };
 
   function adopt(incoming) {
     queue = queue.then(async () => {
       const verified = await verifyLog(room, incoming, checked);
-      const best = pickLog(log, verified);
-      if (best === log) return;
-      log = best;
-      selected = '';
+      const { log: merged, conflict } = mergeLog(log, verified);
+      if (conflict) noteConflict(conflict);
+      if (merged === log) return;
+      log = merged;
+      if (selected && !mapBoard(room, replay(room, log)).some(c => c.map === selected && c.status === 'open')) selected = '';
       store(logKey, log);
       render();
       send();
     });
     return queue;
   }
-  function receive(message) {
-    if (!message || message.t !== 'log') return;
-    if (message.from === 'a' || message.from === 'b') seen[message.from] = Date.now();
-    adopt(message.log);
+  // Only the newest log from each source waits for verification, so a flood
+  // of junk cannot hold real moves back.
+  function receive(message, via) {
+    if (!message || message.t !== 'log' || !Array.isArray(message.log)) return;
+    // Presence: the opponent's own stream (or another tab of this browser).
+    const from = via === 'tab' ? message.from :
+      via === secrets.streams[0] ? 'a' : via === secrets.streams[1] ? 'b' : '';
+    if (from === 'a' || from === 'b') seen[from] = Date.now();
+    if (message.log.length < log.length) return;
+    const idle = !pending;
+    pending = message.log;
+    // Not chained into queue itself: adopt() appends to it.
+    if (idle) queue.then(() => { const next = pending; pending = null; if (next) adopt(next); });
+  }
+  function noteConflict({ index, theirs }) {
+    if (conflicts.has(index)) return;
+    let team = null;
+    try { team = nextTurn(room, replay(room, log.slice(0, index))).team; } catch { /* unknown */ }
+    conflicts.set(index, theirs);
+    showError(`Внимание: ${team === null ? 'капитан' : `капитан ${names[team]}`} подписал два разных хода на шаге ${index + 1}. Засчитан первый. Напишите админу — он решит, переигрывать ли вето.`);
   }
 
+  // Two tabs of one captain take turns: the lock plus the log both tabs
+  // write to localStorage keep them from signing two moves for one step.
   async function move(kind, value) {
     if (busy || !key) return;
     busy = true;
-    try {
+    render();
+    const sign = async () => {
+      const stored = store(logKey);
+      if (Array.isArray(stored) && stored.length > log.length) await adopt(stored);
+      else await queue;
       const next = await signMove(room, log, key, kind, value);
       selected = '';
       await adopt(next);
+    };
+    try {
+      if (navigator.locks?.request) await navigator.locks.request('oneshot-veto-sign:' + room.r, sign);
+      else await sign();
     } catch (error) { toast(error.message); }
     finally { busy = false; render(); }
   }
@@ -280,7 +331,13 @@ async function enterRoom(room) {
     showClock(state, nextTurn(room, state));
   }
 
+  const setText = (el, text) => { if (el.textContent !== text) el.textContent = text; };
+  let focusConfirm = false;
   function render() {
+    // Rebuilt buttons must not throw keyboard users back to the page start.
+    const active = document.activeElement;
+    const focusMap = active?.closest?.('#vtMaps') ? active.dataset.map : '';
+    const focusAction = active?.closest?.('#vtActions') ? [...$('vtActions').children].indexOf(active) : -1;
     let state;
     try { state = replay(room, log); } catch { log = []; state = replay(room, log); }
     const turn = nextTurn(room, state);
@@ -312,10 +369,10 @@ async function enterRoom(room) {
       if (coin === 'flipping') { prompt = 'Подбрасываем…'; }
       else {
         prompt = me === null ? 'Ждём капитанов' : `Ждём капитана ${names[opp]}`;
-        hint = 'Монетку подбросим, когда оба капитана откроют свои ссылки.';
-        if (Date.now() - opened > COIN_WAIT) {
-          hint += ' Соперник не появляется? Напиши админу или подбрось сейчас — результат от этого не меняется.';
-          actions.push(button('Подбросить сейчас', flipCoin));
+        hint = 'Монетку покажем, когда оба капитана откроют свои ссылки. Результат уже выпал, его не переиграть.';
+        if (me !== null && Date.now() - opened > COIN_WAIT) {
+          hint += ' Соперник не появляется? Напиши админу или покажи монетку сейчас.';
+          actions.push(button('Показать монетку', flipCoin));
         }
       }
     } else if (turn.kind === 'order') {
@@ -347,7 +404,7 @@ async function enterRoom(room) {
       prompt = 'Вето завершено';
       const board = mapBoard(room, state);
       const play = [...state.actions.filter(a => a.type === 'pick').map(a => a.map),
-        ...board.filter(m => m.status === 'decider').map(m => m.map + (room.f === 'BO1' ? '' : ' (решающая)'))];
+        ...board.filter(m => m.status === 'decider').map(m => m.map + (room.f === 'BO3' || room.f === 'BO5' ? ' (решающая)' : ''))];
       hint = `Играем: ${play.join(', ')}`;
     } else {
       stage.dataset.phase = mine ? 'mine' : 'wait';
@@ -364,9 +421,9 @@ async function enterRoom(room) {
         prompt = `${names[turn.team]} ${ban ? 'банят' : 'выбирают'} карту…`;
       }
     }
-    $('vtKicker').textContent = kicker;
-    $('vtPrompt').textContent = prompt;
-    $('vtHint').textContent = hint;
+    setText($('vtKicker'), kicker);
+    setText($('vtPrompt'), prompt);
+    setText($('vtHint'), hint);
     $('vtActions').replaceChildren(...actions);
     $('vtCoin').hidden = coin === 'shown' && turn.kind !== 'order';
 
@@ -389,7 +446,7 @@ async function enterRoom(room) {
       tag.className = 'vt-map-tag';
       if (card.status === 'ban') tag.textContent = `BAN · ${names[card.team]}`;
       else if (card.status === 'pick') tag.textContent = `PICK · ${names[card.team]}`;
-      else if (card.status === 'decider') tag.textContent = room.f === 'BO1' ? 'ИГРАЕМ' : 'DECIDER';
+      else if (card.status === 'decider') tag.textContent = room.f === 'BO1' ? 'ИГРАЕМ' : room.f === 'BO2' ? 'КАРТА 2' : 'DECIDER';
       const side = document.createElement('span');
       side.className = 'vt-map-side';
       if (card.side) side.textContent = `${names[card.sideTeam]} · ${card.side}`;
@@ -398,10 +455,20 @@ async function enterRoom(room) {
       el.append(...[img, num, name, tag, side].filter(Boolean));
       el.addEventListener('click', () => {
         selected = selected === card.map ? '' : card.map;
+        focusConfirm = !!selected;
         render();
       });
       return el;
     }));
+    if (focusConfirm && $('vtActions').firstElementChild) {
+      focusConfirm = false;
+      $('vtActions').firstElementChild.focus({ preventScroll: true });
+    } else if (focusMap) {
+      const again = $('vtMaps').querySelector(`[data-map="${focusMap}"]`);
+      (again && !again.disabled ? again : $('vtMaps').querySelector('.vt-map:not(:disabled)'))?.focus({ preventScroll: true });
+    } else if (focusAction >= 0) {
+      ($('vtActions').children[focusAction] || $('vtActions').firstElementChild)?.focus({ preventScroll: true });
+    }
 
     const result = resultText(room, state);
     $('vtResult').hidden = !result;
@@ -416,9 +483,10 @@ async function enterRoom(room) {
   send();
   setInterval(send, SEND_EVERY);
   setInterval(tick, 1000);
-  addEventListener('hashchange', () => location.reload());
 }
 
+// A room link pasted into the form's tab: open it.
+addEventListener('hashchange', () => location.reload());
 const room = decodeLink(location.hash);
 if (room) enterRoom(room).catch(error => showError(error.message));
 else if (/(?:^#|&)v=/.test(location.hash)) {
