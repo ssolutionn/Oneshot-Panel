@@ -59,6 +59,9 @@ async def run(args):
     output.mkdir(parents=True, exist_ok=True)
     frames, senders, errors, checks = {}, [], [], []
     wait = 30000 if args.real_vdo else 8000
+    # A page that watched a stream before it existed (the other captain came
+    # later) gets it from the real VDO.Ninja only on a retry: a minute or more.
+    join = 90000 if args.real_vdo else wait
 
     def passed(name):
         checks.append(name)
@@ -358,6 +361,7 @@ async def run(args):
 
         # 7. A captain re-signs a move after it was seen: the others keep it and warn.
         b = await open_page(link_b)
+        await expect(a.locator("#vtTeam1")).to_have_attribute("data-online", "yes", timeout=join)
         first, second = await winner_of(a, b)
         await first.get_by_role("button", name="Баним первыми").click()
         for page in (a, b):
@@ -520,10 +524,12 @@ async def run(args):
         link_b = re.search(r"https?://\S+", await panel.input_value("#cvMsgB")).group(0)
         assert link_a.startswith(base + "/veto.html#v="), link_a
         cap_a = await open_page(link_a)
-        await expect(panel.locator("#cvTeam0")).to_have_attribute("data-online", "yes", timeout=wait)
+        await expect(panel.locator("#cvTeam0")).to_have_attribute("data-online", "yes", timeout=join)
         await expect(panel.locator("#cvTeam1")).to_have_attribute("data-online", "no")
         await expect(panel.locator("#cvLiveState")).to_have_text("здесь UPGRADE")
         cap_b = await open_page(link_b)
+        await expect(cap_a.locator("#vtTeam1")).to_have_attribute("data-online", "yes", timeout=join)
+        await expect(panel.locator("#cvTeam1")).to_have_attribute("data-online", "yes", timeout=join)
         await expect(panel.locator("#cvStage")).to_contain_text("Монетку выиграли", timeout=wait)
         await expect(panel.locator("#cvLiveState")).to_have_text("оба капитана здесь")
         await expect(panel.locator("#cvTeam1 .cv-hltv")).to_have_attribute("href", "https://www.hltv.org/team/12609/lavked")
