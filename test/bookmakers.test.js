@@ -52,6 +52,20 @@ test('Marathonbet page: the CyberClash block only, Moscow times, 2-way prices', 
   assert.equal(mskTime('нет', NOW), null);
 });
 
+test('Betcity feed: championship «CS2. CIS Esports League CyberClash», Wm P1/P2, live without odds', async () => {
+  const events = parseFeed(book('betcity'), await fixture('betcity-line.json'), false);
+  assert.deepEqual(events.map(e => [e.team1, e.team2, e.odds]), [
+    ['Rune Eaters Esports', 'HyperSpirit', [1.45, 2.55]],
+    ['PRIVATE', 'UPGRADE', [1.85, 1.85]]
+  ]);
+  assert.equal(events[0].start, Date.UTC(2026, 9, 16, 12, 55), 'closes 5 minutes before 16:00 MSK');
+  assert.equal(events[0].url, 'https://betcity.ru/ru/line/cybersport/960748/24617848');
+  assert.ok(!events.some(e => e.team1 === 'BIG'), 'the «Private Club» tournament is not ours');
+  assert.deepEqual(parseFeed(book('betcity'), await fixture('betcity-live.json'), true), [], 'no CyberClash live then');
+  assert.equal(parseFeed(book('betcity'), await fixture('betcity-line.json'), true)[1].url,
+    'https://betcity.ru/ru/live/cybersport/960748/24617849');
+});
+
 test('team names match across bookmakers, in either order', () => {
   assert.equal(teamKey('Honvéd'), 'honved');
   assert.ok(sameTeam('Lenovo Legion Honved', 'Honvéd'));

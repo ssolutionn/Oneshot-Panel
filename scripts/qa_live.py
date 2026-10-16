@@ -172,7 +172,7 @@ async def run(args):
             await route.fulfill(content_type="application/json", body=json.dumps({
                 "id": bid, "name": bid, "page": "https://example.invalid/", "ok": bid != "pari",
                 "errors": ["линия: HTTP 503"] if bid == "pari" else [], "checkedAt": 0, "ms": 5,
-                "events": bookie_lines[bid]}))
+                "events": bookie_lines.get(bid, [])}))
         await context.route("**/api/bookmakers?**", bookmakers)
         errors = []
         # CSP violations of our own pages only: the published site also gets
@@ -509,7 +509,8 @@ async def run(args):
         await expect(olimp.locator("td").nth(rune_col)).to_have_text("—")
         first_rows = await table.locator("tbody tr th span").all_inner_texts()
         assert first_rows[:2] == ["Фонбет", "Марафон"], first_rows
-        await expect(table.locator("tbody tr.manual")).to_have_count(12)
+        manual = await lobby.evaluate("import('/bookmakers.js').then(m => m.MANUAL.length)")
+        await expect(table.locator("tbody tr.manual")).to_have_count(manual)
         await expect(lobby.locator("#bookiesStatus")).to_contain_text("Турнир в линии: Фонбет, Марафон")
         bookie_lines["olimp"] = [{"id": "5", "team1": "Honved Esport", "team2": "Lavked", "odds": [2.2, 1.62],
                                   "start": 1792177200000, "live": False, "url": "https://www.olimp.bet/line/x"}]

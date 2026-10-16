@@ -12,6 +12,8 @@ const showEvents = (host, scope, live) =>
   `https://${host}/line/mobile/showEvents?sysId=2&lang=ru&scopeMarket=${scope}&lineType=${live ? 'live_line' : 'line'}&skId=29086`;
 const OLIMP = live =>
   `https://www.olimp.bet/api/v4/0/${live ? 'live' : 'line'}/sports-with-competitions-with-events?vids%5B%5D=112%3A`;
+// Betcity: sport 73 is esports; "off" is the line, "on_air" the live.
+const BETCITY = live => `https://ad.betcity.ru/d/${live ? 'on_air' : 'off'}/events?rev=6&ver=69&lng=1&csn=ooca9s&ids_sp=73`;
 
 export const BOOKMAKERS = [
   {
@@ -34,6 +36,11 @@ export const BOOKMAKERS = [
     page: 'https://www.marathonbet.ru/su/betting/e-Sports/Counter-Strike+2+-+16339652',
     feeds: [{ live: false, urls: ['https://www.marathonbet.ru/su/betting/e-Sports/Counter-Strike+2+-+16339652'] }],
     eventUrl: e => `https://www.marathonbet.ru/su/betting/${e.path}`
+  },
+  {
+    id: 'betcity', name: 'Бетсити', kind: 'betcity', page: 'https://betcity.ru/ru/line/cybersport',
+    feeds: [false, true].map(live => ({ live, urls: [BETCITY(live)] })),
+    eventUrl: e => `https://betcity.ru/ru/${e.live ? 'live' : 'line'}/cybersport/${e.group}/${e.id}`
   }
 ];
 // Licensed bookmakers without an automated check yet (websocket, signed
@@ -41,7 +48,6 @@ export const BOOKMAKERS = [
 export const MANUAL = [
   { id: 'winline', name: 'Winline', url: 'https://winline.ru/stavki/sport/kibersport/counter-strike' },
   { id: 'ligastavok', name: 'Лига Ставок', url: 'https://www.ligastavok.ru/bets/cybersport' },
-  { id: 'betcity', name: 'Бетсити', url: 'https://betcity.ru/ru/line/cybersport' },
   { id: 'betboom', name: 'BetBoom', url: 'https://betboom.ru/esport/counter-strike-2' },
   { id: 'melbet', name: 'Мелбет', url: 'https://melbet.ru/' },
   { id: 'baltbet', name: 'Балтбет', url: 'https://baltbet.ru/' },
@@ -96,6 +102,25 @@ function parseOlimp(body, live) {
   }));
 }
 
+// Betcity: {reply: {sports: {73: {chmps: {<id>: {name_ch, evts: {<id>: …}}}}}}};
+// the match result is main["69"] (blocks.Wm.P1 / P2, kf). The live list
+// carries no odds, only the score.
+function parseBetcity(body, live) {
+  const data = typeof body === 'string' ? JSON.parse(body) : body;
+  return Object.values(data?.reply?.sports || {}).flatMap(sport => Object.values(sport?.chmps || {}))
+    .filter(c => isCyberClash(c?.name_ch))
+    .flatMap(c => Object.values(c.evts || {}).filter(e => e && !e.del_ev).map(e => {
+      const result = e.main?.['69']?.data?.[e.id_ev]?.blocks?.Wm || {};
+      return {
+        id: String(e.id_ev), group: String(c.id_ch), tournament: c.name_ch,
+        team1: e.name_ht || '', team2: e.name_at || '',
+        start: Number(e.date_ev) * 1000 || null,
+        odds: [price(result.P1?.kf), price(result.P2?.kf)], live,
+        score: e.sc_ev || ''
+      };
+    }));
+}
+
 const decode = text => String(text).replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<')
   .replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 const stripTags = html => decode(String(html).replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
@@ -138,7 +163,7 @@ export function mskTime(text, now = Date.now()) {
   return Date.UTC(today.getUTCFullYear(), month, day, Number(m[3]) - 3, Number(m[4]));
 }
 
-const PARSERS = { fonbet: parseFonbet, olimp: parseOlimp, marathon: parseMarathon };
+const PARSERS = { fonbet: parseFonbet, olimp: parseOlimp, marathon: parseMarathon, betcity: parseBetcity };
 export function parseFeed(bookmaker, body, live, now = Date.now()) {
   const parse = PARSERS[bookmaker.kind];
   if (!parse) throw new Error('Неизвестный формат линии.');
