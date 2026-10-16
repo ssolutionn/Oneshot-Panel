@@ -58,7 +58,8 @@ export function winlineSnapshot(bytes, markets) {
       const team1 = r.text(), team2 = r.text();
       event = championship?.sport === 205 && cyber(championship.name) ? {
         id: String(id), group: String(championship.id), tournament: championship.name,
-        team1, team2, start: start ? start * 1000 : null, odds: [null, null],
+        // The official client sets TZ_OFFSET_MS=10800000 and rounds to a minute.
+        team1, team2, start: start ? Math.floor((start * 1000 + 29999 - 10800000) / 60000) * 60000 : null, odds: [null, null],
         live: false, liveOffered, markets: [], size: count ? {count, unit:'рынков'} : null
       } : null;
       if (event) events.push(event);

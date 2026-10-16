@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { BOOKMAKERS, parseFeed, findMatch, sameTeam, teamKey, mskTime, isCyberClash, marketText } from '../bookmakers.js';
+import { BOOKMAKERS, MANUAL, parseFeed, findMatch, sameTeam, teamKey, mskTime, isCyberClash, marketText } from '../bookmakers.js';
 import { checkBookmaker, bookmakersResponse } from '../netlify/functions/bookmakers.mjs';
 import { onRequest } from '../functions/api/bookmakers.js';
 
@@ -223,4 +223,11 @@ test('declared oversized line responses are rejected without reading the body', 
   }));
   assert.equal(body.ok,false);
   assert.match(body.errors.join(),/слишком большой/);
+});
+
+test('all 16 requested bookmakers remain visible exactly once, including unsupported sources', () => {
+  const expected=['fonbet','pari','bettery','bet24','olimp','marathon','betcity','leon','winline',
+    'ligastavok','betboom','melbet','baltbet','zenit','betm','sportbet'].sort();
+  assert.deepEqual([...BOOKMAKERS,...MANUAL].map(b=>b.id).sort(),expected);
+  assert.ok(MANUAL.every(b=>typeof b.reason==='string' && b.reason.length>10));
 });

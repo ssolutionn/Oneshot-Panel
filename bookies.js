@@ -207,9 +207,9 @@ function render() {
       ...cells);
     return { row, order: events.length ? 0 : 1 };
   });
-  const manual = MANUAL.map(m => ({ order: 2, row: el('tr', { className: 'manual' },
+  const manual = MANUAL.map(m => ({ order: 2, row: el('tr', { className: 'manual', id:'bookie-' + m.id },
     el('th', { scope: 'row' }, el('span', { textContent: m.name }), open(m.url),
-      el('small', { textContent: 'авто-проверки нет — смотреть вручную' })),
+      el('small', { textContent: m.reason ? 'Вручную: ' + m.reason : 'авто-проверки нет — смотреть вручную' })),
     ...cols.map(() => el('td', { className: 'none', textContent: '?' }))) }));
   const rows = [...auto, ...manual].sort((x, y) => x.order - y.order).map(x => x.row);
   table.replaceChildren(el('thead', {}, head), el('tbody', {}, ...rows));

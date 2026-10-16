@@ -71,12 +71,12 @@ export const BOOKMAKERS = [
 // Licensed bookmakers without an automated check yet (websocket, signed
 // headers, foreign IPs dropped): the lobby lists them with a link to look.
 export const MANUAL = [
-  { id: 'ligastavok', name: 'Лига Ставок', url: 'https://www.ligastavok.ru/bets/cybersport' },
-  { id: 'betboom', name: 'BetBoom', url: 'https://betboom.ru/esport/counter-strike-2' },
-  { id: 'melbet', name: 'Мелбет', url: 'https://melbet.ru/' },
-  { id: 'baltbet', name: 'Балтбет', url: 'https://baltbet.ru/' },
-  { id: 'zenit', name: 'Зенит', url: 'https://zenit.win/line/556' },
-  { id: 'betm', name: 'БЕТ-М', url: 'https://bet-m.ru/' },
+  { id: 'ligastavok', name: 'Лига Ставок', url: 'https://www.ligastavok.ru/bets/cybersport', reason: 'Публичный серверный запрос отклонён; линия не проверена' },
+  { id: 'betboom', name: 'BetBoom', url: 'https://betboom.ru/sport/esport/3/39428', reason: 'Турнир найден; получение матчей и коэффициентов ещё не подключено' },
+  { id: 'melbet', name: 'Мелбет', url: 'https://melbet.ru/', reason: 'Публичный серверный запрос отклонён; линия не проверена' },
+  { id: 'baltbet', name: 'Балтбет', url: 'https://baltbet.ru/', reason: 'Полная лента матчей ещё не подключена' },
+  { id: 'zenit', name: 'Зенит', url: 'https://zenit.win/line/556', reason: 'Линия видна в браузере; серверное чтение ещё не подтверждено' },
+  { id: 'betm', name: 'БЕТ-М', url: 'https://bet-m.ru/', reason: 'Публичный серверный запрос отклонён; линия не проверена' },
   { id: 'sportbet', name: 'Спортбет', url: 'https://sportbet.ru/' }
 ];
 

@@ -95,12 +95,15 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   (одна платформа, `showEvents`, skId 29086, свои хосты и scopeMarket), Леон
   (`leon.ru/api-ext/betline-exports/esports`, ссылка — только leon.ru), OLIMPBET (`api/v4/0/{line|live}/…vids[]=112:`),
   Марафон (HTML страницы CS2), Бетсити (`ad.betcity.ru/d/{off|on_air}/events…ids_sp=73`). Парсеры оставляют только CyberClash,
-  `findMatch` сопоставляет команды без акцентов и суффиксов («Honved
-  Esport» = «Honvéd»), в любом порядке. `MANUAL` — БК без открытой линии
-  (Winline — websocket, Зенит — заголовок imprintHash, BetBoom и Лига Ставок —
-  капча Qrator, Мелбет и БЕТ-М — зашифрованные ответы Digitain; Балтбет,
-  Спортбет): только ссылки. Покрыт `test/bookmakers.test.js` на
-  реальных ответах (`test/fixtures/bookmakers/`).
+  `findMatch` сопоставляет команды без акцентов и суффиксов в любом
+  порядке. Winline — публичный бинарный WebSocket прематча, отдельный
+  модуль `assets/bookmaker-winline.js`: gzip, словарь 16, снимок 3,
+  подписка только lang/AA==/data/WINLINE/getdate, без учётной записи.
+  На Cloudflare используется HTTP Upgrade. Повреждённые/неизвестные
+  пакеты дают ошибку, не пустой турнир. Реальные сжатые фикстуры —
+  `test/fixtures/bookmakers/winline-*.base64`, тесты — `test/winline.test.js`.
+  `MANUAL` — семь ещё не подключённых контор, всегда явно отмечены;
+  не считать их отсутствием линии. Подробности — `BOOKMAKERS_STATUS.md`.
 - `netlify/functions/bookmakers.mjs` — `/api/bookmakers?id=<бк>`: сервер
   сам ходит в фиксированные адреса линий (из запроса берётся только id),
   зеркала по очереди, линия и лайв отдельно; отдаёт только CyberClash.
@@ -215,7 +218,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 
 ```sh
 npm run check        # синтаксис
-npm test             # 78 тестов (node:test)
+npm test             # тесты node:test
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome

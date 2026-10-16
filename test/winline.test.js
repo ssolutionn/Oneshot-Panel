@@ -17,6 +17,7 @@ test('Winline real public binary packets: winner, total, handicap and match scop
   assert.equal(e.team2, 'UPGRADE');
   assert.deepEqual(e.odds, [1.71,2.02]);
   assert.equal(e.tournament, 'CyberClash');
+  assert.equal(e.start, Date.UTC(2026,9,16,16,0), '19:00 Moscow, matching the official client timezone');
   assert.equal(e.live, false);
   assert.equal(e.liveOffered, true);
   assert.deepEqual(e.markets, [
