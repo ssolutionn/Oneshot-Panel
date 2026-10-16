@@ -168,7 +168,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   Cloudflare Pages; `functions/api/faceit.js` — прокси FACEIT как Pages
   Function (обёртка над `netlify/functions/faceit.mjs`). Тест сверяет
   заголовки всех трёх. `check.yml` ждёт `build.txt` на сайте
-  `vars.PUBLISHED_URL` (иначе onepanel.netlify.app) перед проверкой.
+  `vars.PUBLISHED_URL` (иначе oneshot-panel.pages.dev) перед проверкой.
 - `assets/` — `obs-template.json` (оригинальный шаблон OBS, не
   переформатировать), `oneshot-logo-day.png` / `oneshot-logo-night.png`,
   `favicon.png`. Карты `assets/maps/*.jpg` — локальные миниатюры; происхождение и
@@ -205,7 +205,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 
 ```sh
 npm run check        # синтаксис
-npm test             # 73 теста (node:test)
+npm test             # 74 теста (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
@@ -230,7 +230,7 @@ Netlify проверяет локальные фото, докачивает н�
   называются `CAM NN | Команда | Ник`. По умолчанию экспорт без карточек.
   Галочка includeCards добавляет прямо под камерой источник браузера
   `CARD NN | Команда | Ник` с card.html сайта панели (в артефакте —
-  https://onepanel.netlify.app). Выбор не сохраняется в localStorage.
+  https://oneshot-panel.pages.dev). Выбор не сохраняется в localStorage.
   Ссылка камеры
   заканчивается на `&cleanoutput&transparent`: без видео VDO.Ninja
   прозрачен, и видна карточка.

@@ -222,17 +222,27 @@ async function refresh() {
   showError('');
   if (!state.template) loadTemplate();
   try {
-    const [roster, schedule] = await Promise.allSettled([
+    // The organizer's default sheet: the playoffs tab comes along with the
+    // group stage; it may be missing or empty without failing the schedule.
+    const organizer = source.scheduleGid === DEFAULT_SOURCE.scheduleGid &&
+      (source.scheduleId || source.id) === DEFAULT_SOURCE.scheduleId;
+    const [roster, schedule, playoffs] = await Promise.allSettled([
       sheetRows(source, source.gid, 'A1:L2000', signal),
       source.scheduleGid ?
         // Header row as labels: the organizer's columns are found by name.
         sheetRows(source, source.scheduleGid, 'A1:N300',
           signal, source.scheduleId || source.id, '1') :
-        Promise.resolve([])
+        Promise.resolve([]),
+      organizer ? sheetRows(source, DEFAULT_SOURCE.playoffsGid, 'A1:N100',
+        signal, DEFAULT_SOURCE.scheduleId, '1') : Promise.resolve([])
     ]);
+    if (schedule.status === 'fulfilled' && playoffs.status === 'fulfilled') {
+      schedule.value = [...schedule.value, ...playoffs.value];
+    }
     if (request !== refreshId) return;
     if (roster.status !== 'fulfilled') throw roster.reason;
     state.sheetTeams = parseTeams(roster.value);
+    const skipped = state.sheetTeams.skipped || [];
     applyIds();
     const teams = state.teams;
     const names = teams.map(t => t.name);
@@ -268,6 +278,8 @@ async function refresh() {
       showError('Составы загружены. Расписание недоступно — выбери команды, время и стадию вручную.');
     } else if (state.scheduleDay && state.scheduleDay !== mskToday()) {
       showError(`Расписание в таблице на ${state.scheduleDay}, а сегодня ${mskToday()} по МСК. Если для нового дня завели новый лист, укажи его GID в «Источник данных».`);
+    } else if (skipped.length) {
+      showError(`В составах пропущены строки (поправь в таблице): ${skipped.slice(0, 3).join('; ')}${skipped.length > 3 ? ` и ещё ${skipped.length - 3}` : ''}.`);
     }
   } catch (error) {
     if (request !== refreshId) return;

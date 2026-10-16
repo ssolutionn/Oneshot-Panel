@@ -42,13 +42,18 @@ test('Roster keeps order, substitutes and coaches', () => {
   assert.equal(a.players[6].role, 'Тренер');
 });
 
-test('Reject duplicate IDs, missing rooms and empty roster', () => {
+test('Skip duplicate IDs and missing rooms (reported), reject an empty roster', () => {
   const rows = makeRows();
+  const all = parseTeams(makeRows()).flatMap(t => t.players).length;
   rows[7][0] = rows[0][0];
-  assert.throws(() => parseTeams(rows), /Повтор ID/);
+  const dup = parseTeams(rows);
+  assert.equal(dup.flatMap(t => t.players).length, all - 1, 'other rows still load');
+  assert.match(dup.skipped.join(), /повтор ID/);
   const missing = makeRows();
   missing[0][5] = '';
-  assert.throws(() => parseTeams(missing), /комната/);
+  const noRoom = parseTeams(missing);
+  assert.match(noRoom.skipped.join(), /не указана комната/);
+  assert.equal(noRoom.flatMap(t => t.players).length, all - 1);
   assert.throws(() => parseTeams([]), /не найден состав/);
 });
 
@@ -476,4 +481,22 @@ test('applyStreamIds: a new ID holds until the sheet changes, then the sheet win
   // Junk in storage is ignored.
   assert.deepEqual(applyStreamIds(teams, { 'UPGRADE|1': { id: '<x>', was: 'synyx' } }).saved, {});
   assert.deepEqual(applyStreamIds(teams, null).saved, {});
+});
+
+test('parseSchedule: group stage and playoffs tabs read together', async () => {
+  const { parseSchedule } = await import('../core.js');
+  const group = [
+    ['Match #', 'Stage', 'Date', 'GMT', 'CET', 'CEST', 'MSK (GMT +3)', 'Stream', '', 'Team 1', 'Score', '', '', 'Team 2'],
+    ['12', 'Wiiners Match C4', 'October 16', '16:00', '17:00', '18:00', '19:00', 'A', '', 'PRIVATE (ex-RUBY)', '', 'vs', '', 'UPGRADE']
+  ];
+  const playoffs = [
+    ['Match #', 'Stage', 'Date', 'CET', 'MSK', 'Stream', '', 'Team 1', 'Score', '', '', 'Team 2'],
+    ['1', 'Quarterfinal 1', 'October 29', '9:00', '10:00', 'A', '', 'Lavked', '', '', '', 'Honvéd'],
+    ['2', 'Quarterfinal 2', 'October 29', '11:00', '12:00', 'A']
+  ];
+  const matches = parseSchedule([...group, ...playoffs]);
+  assert.deepEqual(matches.map(m => [m.date, m.time, m.team1, m.team2, m.stage]), [
+    ['16.10', '19:00', 'PRIVATE', 'UPGRADE', 'Группа C'],
+    ['29.10', '10:00', 'Lavked', 'Honvéd', 'Четвертьфинал 1']
+  ]);
 });

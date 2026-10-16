@@ -9,7 +9,7 @@ import {
 
 const day = process.argv.find(a => a.startsWith('--day='))?.slice(6) || '15.10';
 const output = path.resolve(process.argv.find(a => a.startsWith('--out='))?.slice(6) || 'work/match-package');
-const site = 'https://onepanel.netlify.app';
+const site = 'https://oneshot-panel.pages.dev';
 async function save(file, value) {
   const target = path.join(output, file);
   await mkdir(path.dirname(target), {recursive:true});
@@ -107,7 +107,7 @@ await save('README.txt', [
   'Карточки уже собраны в JPG 1920×1080 и работают без сайта и HLTV.',
   'Не перемещайте папку после подготовки JSON; после переноса запустите подготовку заново.',
   '',
-  'OBS_ONLINE — вариант JSON со ссылками на onepanel.netlify.app; для карточек нужен доступ к сайту.',
+  'OBS_ONLINE — вариант JSON со ссылками на oneshot-panel.pages.dev; для карточек нужен доступ к сайту.',
   'OFFLINE_TEMPLATES — шаблоны с относительными путями, напрямую их не импортировать.',
   'cards — готовые эфирные карточки; photos — исходные реальные фото HLTV;',
   'team-logos и artwork — отдельные элементы; observer и player-links — тексты для копирования.',

@@ -3,7 +3,9 @@ export const DEFAULT_SOURCE = {
   gid: '1315978454',
   // Schedule (Group Stage) of the organizer's sheet: every day, by date.
   scheduleId: '1GtwcpVnyxY1YOs6ZTrXwJr5mjZqI0QxjLSKjimn9G2o',
-  scheduleGid: '815739139'
+  scheduleGid: '815739139',
+  // Schedule (Playoffs), read together with the group stage (from 29.10).
+  playoffsGid: '1212769715'
 };
 
 const line = value => String(value ?? '').replace(/[\r\n\t]+/g, ' ').trim();
@@ -25,16 +27,18 @@ export function decodeGviz(text) {
   return labels.some(Boolean) ? [labels, ...rows] : rows;
 }
 
+// A bad row (no room, a repeated ID) is skipped and reported in
+// teams.skipped: one pasted stand-in must not take every roster down.
 export function parseTeams(rows) {
-  const teams = [], byName = new Map(), ids = new Set();
+  const teams = [], byName = new Map(), ids = new Set(), skipped = [];
   rows.forEach((row, index) => {
     const v = row.map(line);
     if (!v[0] || !v[1] || !v[3] ||
         !['Основной', 'Запасной', 'Тренер'].includes(v[8])) return;
     // L: the team's VDO.Ninja room password (sheet «Комнаты», column «Пароль»).
     const name = v[1], nick = v[3], id = v[4] || nick, room = v[5], password = v[11] || '';
-    if (!room) throw new Error(`Не указана комната команды ${name}.`);
-    if (ids.has(v[0])) throw new Error(`Повтор ID в таблице: ${v[0]}`);
+    if (!room) { skipped.push(`строка ${index + 1}: у ${nick} (${name}) не указана комната`); return; }
+    if (ids.has(v[0])) { skipped.push(`строка ${index + 1}: повтор ID ${v[0]}`); return; }
     ids.add(v[0]);
     if (!byName.has(name)) {
       const team = { name, room, password, players: [], sourceRow: index + 1 };
@@ -46,6 +50,7 @@ export function parseTeams(rows) {
       role: v[8], sourceRow: index + 1
     });
   });
+  teams.skipped = skipped;
   if (!teams.length) {
     throw new Error('На листе не найден состав. Нужен лист «Все игроки»: ID, команда, слот, ник, ID потока, room, PUSH, VIEW, роль.');
   }
@@ -230,7 +235,7 @@ export function applyStreamIds(teams, saved) {
 }
 // The card page lives on the panel's own site; the artifact has no site of
 // its own, so its JSON points at the public panel.
-export const DEFAULT_CARD_BASE = 'https://onepanel.netlify.app';
+export const DEFAULT_CARD_BASE = 'https://oneshot-panel.pages.dev';
 export function cardUrl(p, base = DEFAULT_CARD_BASE) {
   const url = new URL('/card.html', base);
   url.searchParams.set('team', line(p.team));

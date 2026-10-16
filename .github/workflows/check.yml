@@ -78,8 +78,8 @@ jobs:
         env:
           # Production: repository variable PUBLISHED_URL (e.g. the Cloudflare Pages
           # address), else Netlify. Pull requests are checked on Netlify deploy previews.
-          SITE_URL: ${{ vars.PUBLISHED_URL || 'https://onepanel.netlify.app' }}
-          PREVIEW_URL: ${{ github.event_name == 'pull_request' && format('https://deploy-preview-{0}--onepanel.netlify.app', github.event.pull_request.number) || vars.PUBLISHED_URL || 'https://onepanel.netlify.app' }}
+          SITE_URL: ${{ vars.PUBLISHED_URL || 'https://oneshot-panel.pages.dev' }}
+          PREVIEW_URL: ${{ github.event_name == 'pull_request' && format('https://deploy-preview-{0}--onepanel.netlify.app', github.event.pull_request.number) || vars.PUBLISHED_URL || 'https://oneshot-panel.pages.dev' }}
           # scripts/build-site.sh writes the pushed or PR head commit to build.txt.
           EXPECTED_COMMIT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
