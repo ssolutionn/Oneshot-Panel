@@ -29,9 +29,9 @@ jobs:
             d={"provider":label,"status":status,"size":len(text)}
             if label=="betboom-chunk":d["source"]=text
             elif label.startswith("betboom-") or label in ("baltbet-modules","baltbet-spa"):
-             d["excerpts"]=[text[max(0,m.start()-300):m.end()+1000] for m in list(re.finditer(r"/api/|prematchServiceUrl|/prematch/|feed/|tree/|from[\x22\x27`]",text))[:35]]
+             d["excerpts"]=[text[max(0,m.start()-300):m.end()+1000] for m in list(re.finditer(r"sporthub/tree/|get_feed|prepareHeaders|baseQuery|API_URL|/prematch/|prematchServiceUrl",text))[:35]]
             elif label=="winline-main":
-             d["excerpts"]=[text[max(0,m.start()-450):m.end()+1800] for m in list(re.finditer(r"case 20000:|case 1180:|case 34:|readUInt|ReadUInt|event_date:|startDate:|eventDate:|timezoneOffset",text))[-60:]]
+             d["excerpts"]=[text[max(0,m.start()-450):m.end()+1800] for m in list(re.finditer(r"case 1180:|case 34:|readDate|ReadDate|108e5|10800000|1e3.{0,15}-|Date.{0,30}36e5",text))[-60:]]
             elif label=="zenit-exact":d["publicLine"]=text[:30000]
             else:
              d["scripts"]=re.findall(r'<script[^>]+src=["\x27]([^"\x27]+)',text)[:30]
@@ -41,7 +41,7 @@ jobs:
           targets=[
            ("zenit-exact",ZENIT),
            ("betboom-app","https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/App-Dkow5Vv7.js"),
-           ("betboom-base","https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/Base-Ct_kLB6C.js"),
+           ("betboom-core","https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/BetShareModal-D1mFtPEC.js"),
            ("betboom-view","https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/ViewManager-CcW7L5ud.js"),
            ("ligastavok-page","https://www.ligastavok.ru/bets/cybersport"),
            ("melbet-page","https://melbet.ru/"),
@@ -139,9 +139,9 @@ jobs:
             def safe_url(url):
              p=urlsplit(url)
              return urlunsplit((p.scheme,p.netloc,p.path,urlencode([(k,v) for k,v in parse_qsl(p.query) if not re.search("token|session|uuid|finger|secret|sign|auth|hash|key",k,re.I)]),""))
-            for label,url in [("baltbet","https://baltbet.ru/home/cybersport"),("sportbet","https://sportbet.ru/"),("betboom","https://betboom.ru/sport/esport/3/39428")]:
+            for label,url in [("baltbet","https://baltbet.ru/home/cybersport"),("sportbet","https://sportbet.ru/sport"),("betboom","https://betboom.ru/sport/esport/3/39428")]:
              context=await browser.new_context(locale="ru-RU")
-             await context.route("**/*",lambda route:route.continue_() if route.request.method in ("GET","HEAD") else route.abort())
+             await context.route("**/*",lambda route:route.continue_() if route.request.method in ("GET","HEAD") or re.match(r"^https://siteapi\.betboom\.ru/api/site_api/v1/sporthub/tree/get_",route.request.url) else route.abort())
              pg=await context.new_page();tasks=[]
              async def reply(r):
               content=r.headers.get("content-type","")
@@ -161,6 +161,12 @@ jobs:
               text=await pg.locator("body").inner_text()
               print("NATIVE_PAGE:",json.dumps({"provider":label,"status":response.status if response else 0,"text":text[:1200],
                "cyber":[text[max(0,m.start()-200):m.end()+1000] for m in list(re.finditer("cyber.?clash",text,re.I))[:5]]},ensure_ascii=False),flush=True)
+              print("NATIVE_LINKS:",json.dumps({"provider":label,"links":await pg.locator("a[href]").evaluate_all("(els)=>els.map(x=>({text:x.innerText.slice(0,70),href:x.href})).filter(x=>/линия|ставки|counter|кибер|cyber|cs2|sport/i.test(x.text+' '+x.href)).slice(0,40)")},ensure_ascii=False),flush=True)
+              if label=="baltbet":
+               anchors=pg.get_by_role("link",name="ЛИНИЯ",exact=True)
+               if await anchors.count():
+                await anchors.first.click();await pg.wait_for_timeout(8000)
+                print("BALT_LINE:",json.dumps({"url":pg.url,"text":(await pg.locator("body").inner_text())[:1600]},ensure_ascii=False),flush=True)
               if tasks:await asyncio.gather(*tasks,return_exceptions=True)
              except Exception as e:print("NATIVE_PAGE:",json.dumps({"provider":label,"error":type(e).__name__}),flush=True)
              await context.close()
