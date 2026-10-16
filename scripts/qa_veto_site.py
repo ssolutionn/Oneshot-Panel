@@ -67,12 +67,18 @@ async def run(args):
     # WebKit has no isolated world for Playwright's own helpers: the styles
     # it injects (screenshots, actionability) trip the page's style-src. Those
     # come from no file of ours; a style or script from our files still fails.
+    # WebKit also reports inline styles of its own form controls (selects and
+    # fields made by our scripts, blamed on that script) while no element of
+    # the page has a style attribute: those are WebKit's, not ours.
     injected = []
 
     def csp_violation(source, directive, blocked, file, detail=""):
         if source["frame"] != source["page"].main_frame:
             return
         if args.browser == "webkit" and directive.startswith("style-src") and not file.startswith(base):
+            injected.append(directive)
+            return
+        if args.browser == "webkit" and directive == "style-src-attr" and detail == "no inline style in the DOM":
             injected.append(directive)
             return
         errors.append(f"CSP {directive} {blocked} {file} {detail}".rstrip())
@@ -124,21 +130,17 @@ async def run(args):
                 await context.expose_binding("vdoRelay", relay)
             await context.expose_binding("reportCsp", csp_violation)
             # Where a violation comes from: line and column, and for inline
-            # styles the last style attributes written (by the page or a helper).
+            # styles the page's elements that carry a style attribute.
             await context.add_init_script("""{
-                const styleWrites = [];
-                new MutationObserver(records => {
-                  for (const r of records) {
-                    const el = r.target;
-                    styleWrites.push(`${el.tagName?.toLowerCase()}${el.id ? '#' + el.id : ''}` +
-                      `${el.classList?.length ? '.' + [...el.classList].join('.') : ''}=${el.getAttribute?.('style')}`);
-                    if (styleWrites.length > 20) styleWrites.shift();
-                  }
-                }).observe(document, { attributes: true, attributeFilter: ['style'], subtree: true });
+                const styled = () => {
+                  const els = [...document.querySelectorAll('[style]')].filter(el => el.getAttribute('style').trim());
+                  return els.length ? els.slice(0, 3).map(el => `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}` +
+                    `[style="${el.getAttribute('style')}"]`).join(' ; ') : 'no inline style in the DOM';
+                };
                 addEventListener('securitypolicyviolation', event =>
                   window.reportCsp?.(event.violatedDirective, event.blockedURI,
                     `${event.sourceFile || ''}:${event.lineNumber}:${event.columnNumber}`,
-                    event.violatedDirective === 'style-src-attr' ? styleWrites.slice(-3).join(' ; ') : ''));
+                    event.violatedDirective === 'style-src-attr' ? styled() : ''));
             }""")
             if args.browser == "chromium":
                 await context.grant_permissions(["clipboard-read", "clipboard-write"], origin=base)
