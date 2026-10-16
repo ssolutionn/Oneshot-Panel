@@ -96,9 +96,13 @@ jobs:
           expected = os.environ["EXPECTED_COMMIT"]
           production = os.environ["SITE_URL"]
 
+          # Cloudflare refuses Python's default User-Agent (403): ask like a browser.
+          AGENT = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36 oneshot-ci"}
+          def get(url, **headers):
+              return urlopen(Request(url, headers={**AGENT, **headers}), timeout=20)
+
           def published_commit():
-              request = Request(preview + "/build.txt", headers={"Cache-Control": "no-cache"})
-              with urlopen(request, timeout=20) as response:
+              with get(preview + "/build.txt", **{"Cache-Control": "no-cache"}) as response:
                   return response.read().decode().strip()
 
           # The host and Actions start together: wait for the deploy of this commit,
@@ -110,7 +114,7 @@ jobs:
               except HTTPError as error:
                   if error.code == 401 and preview != production:
                       # Deploy previews may require a Netlify login. OBS must use the public site.
-                      with urlopen(production + "/card.html", timeout=20) as public:
+                      with get(production + "/card.html") as public:
                           assert public.status == 200
                       print("::notice::Netlify preview requires authentication; production is publicly accessible. Full browser QA passed on the prepared site.")
                       raise SystemExit(0)
@@ -124,7 +128,7 @@ jobs:
                   break
               assert time.monotonic() < deadline, f"{preview} has not published {expected} within 6 minutes."
               time.sleep(10)
-          with urlopen(preview + "/card.html", timeout=20) as response:
+          with get(preview + "/card.html") as response:
               assert "img-src 'self'" in response.headers.get("Content-Security-Policy", "")
           args = argparse.Namespace(
               url=preview, chromium=None, roster=None, schedule=None,
