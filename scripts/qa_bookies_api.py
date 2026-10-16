@@ -16,6 +16,7 @@ async def run(args):
         page = await browser.new_page()
         await page.goto(args.url.rstrip("/") + "/build.txt")
         results = await page.evaluate("""async ids => Promise.all(ids.map(async id => {
+            try {
             const response = await fetch('/api/bookmakers?id=' + id, {
                 cache:'no-store', signal:AbortSignal.timeout(55000)
             });
@@ -25,11 +26,13 @@ async def run(args):
             if (body.id !== id || typeof body.ok !== 'boolean' || !Array.isArray(body.events))
                 throw new Error(id + ': invalid response');
             return {id, ok:body.ok, events:body.events.length, errors:body.errors || []};
+            } catch(error) { return {id,transportError:error.name,message:error.message}; }
         }))""", ids)
         await browser.close()
     for result in results:
         print("BOOKMAKER_PUBLIC_API:", json.dumps(result, ensure_ascii=False), flush=True)
-    assert any(result["ok"] for result in results), "All public feeds are unavailable from this hosting region."
+    assert not any(result.get("transportError") for result in results), "Published API transport failures recorded above."
+    assert any(result.get("ok") for result in results), "All public feeds are unavailable from this hosting region."
     print("PASS: deployed read-only bookmaker API; provider availability recorded separately", flush=True)
 
 

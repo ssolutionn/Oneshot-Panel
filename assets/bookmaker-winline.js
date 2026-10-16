@@ -1,3 +1,4 @@
+import {openPublicSocket} from './bookmaker-transport.js';
 // Winline's anonymous public line protocol, observed on 16 October 2026.
 // No account, betting commands or stored socket/session identifiers.
 const MAX_COMPRESSED = 2 * 1024 * 1024, MAX_PLAIN = 12 * 1024 * 1024;
@@ -112,19 +113,12 @@ async function inflate(input) {
   return output;
 }
 export async function readWinline(fetchImpl, timeoutMs = 18000) {
-  // Cloudflare's outgoing WebSocket is obtained by a public HTTP upgrade.
-  const controller = new AbortController();
   let socket, timer;
   const opened = Date.now();
   try {
-    timer = setTimeout(() => controller.abort(), timeoutMs);
-    const response = await fetchImpl('https://wss.winline.ru/data_ng?client=newsite&nb=true', {
-      headers:{Upgrade:'websocket', Origin:'https://winline.ru'}, redirect:'manual', signal:controller.signal
-    });
-    if (response.status !== 101 || !response.webSocket) throw new Error('Winline: публичный поток недоступен.');
-    socket = response.webSocket;
+    socket = await openPublicSocket('https://wss.winline.ru/data_ng?client=newsite&nb=true',
+      fetchImpl, timeoutMs, {Origin:'https://winline.ru'});
     socket.accept();
-    clearTimeout(timer);
     return await new Promise((resolve, reject) => {
       const packets = new Map(); let chain = Promise.resolve(), finished = false, received = 0, receivedBytes = 0;
       const finish = (error, value) => {
@@ -156,5 +150,5 @@ export async function readWinline(fetchImpl, timeoutMs = 18000) {
       timer = setTimeout(() => finish(new Error('Winline: долго не отвечает.')), Math.max(1, timeoutMs - (Date.now() - opened)));
       for (const command of ['lang', 'AA==', 'data', 'WINLINE', 'getdate']) socket.send(command);
     });
-  } finally { clearTimeout(timer); controller.abort(); try { socket?.close(); } catch { /* closed */ } }
+  } finally { clearTimeout(timer); try { socket?.close(); } catch { /* closed */ } }
 }

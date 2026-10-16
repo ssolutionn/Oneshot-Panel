@@ -6,24 +6,8 @@
 // id. Cloudflare (functions/api/bookmakers.js) and server.js use it too.
 import { BOOKMAKERS, parseFeed } from '../../bookmakers.js';
 import { readWinline } from '../../assets/bookmaker-winline.js';
+import { readPublicText } from '../../assets/bookmaker-transport.js';
 
-const MAX_FEED_BYTES = 16 * 1024 * 1024;
-async function feedText(response) {
-  if (Number(response.headers.get('content-length')) > MAX_FEED_BYTES) throw new Error('слишком большой ответ источника');
-  const reader = response.body?.getReader();
-  if (!reader) return '';
-  const decoder = new TextDecoder(); let text = '', total = 0;
-  try {
-    while (true) {
-      const {value, done} = await reader.read();
-      if (done) break;
-      total += value.length;
-      if (total > MAX_FEED_BYTES) throw new Error('слишком большой ответ источника');
-      text += decoder.decode(value, {stream:true});
-    }
-    return text + decoder.decode();
-  } finally { await reader.cancel().catch(() => {}); }
-}
 const safeError = error => {
   const message = String(error?.message || '');
   if (/^HTTP \d{3}$/.test(message) || /^(?:нет связи|долго не отвечает|нет ответа|слишком большой ответ источника|ошибка вызова сетевого клиента)$/.test(message)) return message;
@@ -43,25 +27,21 @@ const HEADERS = {
 
 // Tries the feed's mirrors in turn; the first that answers counts.
 async function fetchFeed(urls, fetchImpl, sourceHeaders = {}) {
-  let lastError = 'нет ответа';
-  const deadline = Date.now() + FEED_BUDGET;
-  for (const url of urls) {
-    const remaining = deadline - Date.now();
-    if (remaining <= 0) break;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), Math.min(urls.length === 1 ? 18000 : ATTEMPT_TIMEOUT,
-      Math.max(1000, Math.floor(FEED_BUDGET / urls.length)), remaining));
-    try {
-      const response = await fetchImpl(url, {
-        headers: {...HEADERS, ...sourceHeaders}, signal: controller.signal, redirect: 'manual'
+  let lastError='нет ответа';
+  const deadline=Date.now()+FEED_BUDGET;
+  for(const url of urls){
+    const remaining=deadline-Date.now();if(remaining<=0)break;
+    try{
+      return await readPublicText(url,fetchImpl,{
+        headers:{...HEADERS,...sourceHeaders},
+        timeoutMs:Math.min(urls.length===1?18000:ATTEMPT_TIMEOUT,
+          Math.max(1000,Math.floor(FEED_BUDGET/urls.length)),remaining)
       });
-      if (!response.ok) { lastError = `HTTP ${response.status}`; continue; }
-      return await feedText(response);
-    } catch (error) {
-      lastError = controller.signal.aborted || error?.name === 'TimeoutError' ? 'долго не отвечает' :
-        /illegal invocation/i.test(error?.message || '') ? 'ошибка вызова сетевого клиента' :
-        error?.message === 'слишком большой ответ источника' ? error.message : 'нет связи';
-    } finally { clearTimeout(timeout); }
+    }catch(error){
+      const message=String(error?.message||'');
+      lastError=/^HTTP \d{3}$/.test(message)||['долго не отвечает','слишком большой ответ источника'].includes(message) ?
+        message : 'нет связи';
+    }
   }
   throw new Error(lastError);
 }
