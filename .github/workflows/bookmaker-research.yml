@@ -7,35 +7,34 @@ permissions:
 jobs:
   read:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 2
     steps:
-      - name: Capture public Baltbet fixture and Sportbet sport contracts
+      - name: Verify native public sport event list contract
         run: |
           python3 - <<'PY'
           import json,re
-          from concurrent.futures import ThreadPoolExecutor
           from urllib.request import Request,urlopen
+          from concurrent.futures import ThreadPoolExecutor
+          targets=[
+           ("206","https://sportbet.ru/_next/static/chunks/206-b5c0931a74f0699d.js"),
+           ("5537","https://sportbet.ru/_next/static/chunks/5537-3ace912e499f8100.js"),
+           ("sports-live","https://bthm-server.sportbet.ru/sports?status=live&lang=ru"),
+           ("events-upcoming","https://bthm-server.sportbet.ru/events.upcoming?lang=ru"),
+           ("public-baltbet","https://events.baltbet.ru/api/prematch/sport/25/events?offset=all")
+          ]
           def read(pair):
            label,url=pair
            try:
-            with urlopen(Request(url,headers={"User-Agent":"Mozilla/5.0","Accept":"application/json,text/javascript,*/*","bb_appSource":"UniRu"}),timeout=12) as r:text=r.read(6000000).decode("utf8","replace");status=r.status
+            with urlopen(Request(url,headers={"User-Agent":"Mozilla/5.0","Accept":"application/json,*/*"}),timeout=15) as r:text=r.read(4000000).decode("utf8","replace");status=r.status
             d={"provider":label,"status":status,"size":len(text)}
-            if label=="baltbet-line":
-             obj=json.loads(text);obj["leagues"]=[x for x in obj.get("leagues",[]) if re.search("cyber.?clash",x.get("title",""),re.I)]
-             d["fixture"]=obj
-            elif label=="sportbet-sports":d["body"]=json.loads(text)
-            elif "events." in text or "bthm-server" in text:
-             d["paths"]=list(dict.fromkeys(re.findall(r'["\x27\x60](/?events[^"\x27\x60]{0,100})',text)))[:40]
-             d["excerpts"]=[text[max(0,m.start()-300):m.end()+800] for m in list(re.finditer(r"events\.upcoming|events\.top|bthm-server|sports/|/events\?|getEvents|eventsBySport",text))[:8]]
-            else:return
-            print("LINE_CONTRACT:",json.dumps(d,ensure_ascii=False),flush=True)
-           except Exception as e:print("LINE_CONTRACT:",json.dumps({"provider":label,"error":str(e)[:100]}),flush=True)
-          targets=[
-           ("baltbet-line","https://events.baltbet.ru/api/prematch/sport/25/events?offset=all"),
-           ("sportbet-sports","https://bthm-server.sportbet.ru/sports?status=prematch&lang=ru")
-          ]
-          
-          targets.extend([["/_next/static/chunks/3157-a4254799dc839e40.js","https://sportbet.ru/_next/static/chunks/3157-a4254799dc839e40.js"],["/_next/static/chunks/3801-3dc6e1ffaa86ea9a.js","https://sportbet.ru/_next/static/chunks/3801-3dc6e1ffaa86ea9a.js"],["/_next/static/chunks/1988-88af00cc2bc547a3.js","https://sportbet.ru/_next/static/chunks/1988-88af00cc2bc547a3.js"],["/_next/static/chunks/414-c4f818f908eb7469.js","https://sportbet.ru/_next/static/chunks/414-c4f818f908eb7469.js"],["/_next/static/chunks/8176-03c377e6263c7026.js","https://sportbet.ru/_next/static/chunks/8176-03c377e6263c7026.js"],["/_next/static/chunks/184-90d4c978a8400f3d.js","https://sportbet.ru/_next/static/chunks/184-90d4c978a8400f3d.js"],["/_next/static/chunks/7067-a59e2efe3c7b7def.js","https://sportbet.ru/_next/static/chunks/7067-a59e2efe3c7b7def.js"],["/_next/static/chunks/3875-7b035e8edf7ce170.js","https://sportbet.ru/_next/static/chunks/3875-7b035e8edf7ce170.js"],["/_next/static/chunks/4612-a0fbc0e5c91ae8a5.js","https://sportbet.ru/_next/static/chunks/4612-a0fbc0e5c91ae8a5.js"],["/_next/static/chunks/1803-3334fa6f03018570.js","https://sportbet.ru/_next/static/chunks/1803-3334fa6f03018570.js"],["/_next/static/chunks/3783-0d4eecdf5664fc7d.js","https://sportbet.ru/_next/static/chunks/3783-0d4eecdf5664fc7d.js"],["/_next/static/chunks/6292-4d7a50a7e50ffa53.js","https://sportbet.ru/_next/static/chunks/6292-4d7a50a7e50ffa53.js"],["/_next/static/chunks/9570-5f5a66ce88ec4c34.js","https://sportbet.ru/_next/static/chunks/9570-5f5a66ce88ec4c34.js"],["/_next/static/chunks/1226-c9a083a159335dfb.js","https://sportbet.ru/_next/static/chunks/1226-c9a083a159335dfb.js"],["/_next/static/chunks/7935-2f167eb9a6587c5c.js","https://sportbet.ru/_next/static/chunks/7935-2f167eb9a6587c5c.js"],["/_next/static/chunks/7465-23d3ee46f1036a69.js","https://sportbet.ru/_next/static/chunks/7465-23d3ee46f1036a69.js"],["/_next/static/chunks/8838-cf8d2d8d9baf4688.js","https://sportbet.ru/_next/static/chunks/8838-cf8d2d8d9baf4688.js"],["/_next/static/chunks/1220-71e0462a166e26fe.js","https://sportbet.ru/_next/static/chunks/1220-71e0462a166e26fe.js"],["/_next/static/chunks/4538-eda6792445080b3c.js","https://sportbet.ru/_next/static/chunks/4538-eda6792445080b3c.js"],["/_next/static/chunks/1187-2ab576059b0b712d.js","https://sportbet.ru/_next/static/chunks/1187-2ab576059b0b712d.js"],["/_next/static/chunks/8751-34fdac800752e0ea.js","https://sportbet.ru/_next/static/chunks/8751-34fdac800752e0ea.js"],["/_next/static/chunks/4455-4afd7ea0761e336d.js","https://sportbet.ru/_next/static/chunks/4455-4afd7ea0761e336d.js"],["/_next/static/chunks/4407-67271dfa8b548779.js","https://sportbet.ru/_next/static/chunks/4407-67271dfa8b548779.js"],["/_next/static/chunks/899-123584d5871470a7.js","https://sportbet.ru/_next/static/chunks/899-123584d5871470a7.js"],["/_next/static/chunks/3022-a1b417bbb459f6b0.js","https://sportbet.ru/_next/static/chunks/3022-a1b417bbb459f6b0.js"],["/_next/static/chunks/3596-17c875e95705a5bf.js","https://sportbet.ru/_next/static/chunks/3596-17c875e95705a5bf.js"],["/_next/static/chunks/1442-cffe72e96f9a3d70.js","https://sportbet.ru/_next/static/chunks/1442-cffe72e96f9a3d70.js"],["/_next/static/chunks/5537-3ace912e499f8100.js","https://sportbet.ru/_next/static/chunks/5537-3ace912e499f8100.js"],["/_next/static/chunks/3210-01f40e4d7228f2f3.js","https://sportbet.ru/_next/static/chunks/3210-01f40e4d7228f2f3.js"],["/_next/static/chunks/8969-e81515e990578809.js","https://sportbet.ru/_next/static/chunks/8969-e81515e990578809.js"],["/_next/static/chunks/2744-e62c5934f06e8ab8.js","https://sportbet.ru/_next/static/chunks/2744-e62c5934f06e8ab8.js"],["/_next/static/chunks/1852-fbd41d40168f514a.js","https://sportbet.ru/_next/static/chunks/1852-fbd41d40168f514a.js"],["/_next/static/chunks/3769-ab2087452591a160.js","https://sportbet.ru/_next/static/chunks/3769-ab2087452591a160.js"],["/_next/static/chunks/206-b5c0931a74f0699d.js","https://sportbet.ru/_next/static/chunks/206-b5c0931a74f0699d.js"],["/_next/static/chunks/6859-c6db59aa89a64905.js","https://sportbet.ru/_next/static/chunks/6859-c6db59aa89a64905.js"],["/_next/static/chunks/9357-8c0e7116b08634c5.js","https://sportbet.ru/_next/static/chunks/9357-8c0e7116b08634c5.js"],["/_next/static/chunks/2863-e2ef047d97a14efb.js","https://sportbet.ru/_next/static/chunks/2863-e2ef047d97a14efb.js"],["/_next/static/chunks/app/%5Blocale%5D/layout-3e654059fbedefbe.js","https://sportbet.ru/_next/static/chunks/app/%5Blocale%5D/layout-3e654059fbedefbe.js"],["/_next/static/chunks/4050-53bef97f4b22dc4e.js","https://sportbet.ru/_next/static/chunks/4050-53bef97f4b22dc4e.js"],["/_next/static/chunks/2335-cc4650accc398dd4.js","https://sportbet.ru/_next/static/chunks/2335-cc4650accc398dd4.js"],["/_next/static/chunks/app/%5Blocale%5D/error-f9cde5b430914a13.js","https://sportbet.ru/_next/static/chunks/app/%5Blocale%5D/error-f9cde5b430914a13.js"],["/_next/static/chunks/app/%5Blocale%5D/not-found-32851caaa22be93b.js","https://sportbet.ru/_next/static/chunks/app/%5Blocale%5D/not-found-32851caaa22be93b.js"],["/_next/static/chunks/8012-6b5d1eb31c6313fb.js","https://sportbet.ru/_next/static/chunks/8012-6b5d1eb31c6313fb.js"],["/_next/static/chunks/1808-a0a582e2a00a53b8.js","https://sportbet.ru/_next/static/chunks/1808-a0a582e2a00a53b8.js"],["/_next/static/chunks/6657-56fd7bb131c7b225.js","https://sportbet.ru/_next/static/chunks/6657-56fd7bb131c7b225.js"],["/_next/static/chunks/8166-20c7e105b4c1e54e.js","https://sportbet.ru/_next/static/chunks/8166-20c7e105b4c1e54e.js"],["/_next/static/chunks/app/%5Blocale%5D/page-03f1b8a18381da45.js","https://sportbet.ru/_next/static/chunks/app/%5Blocale%5D/page-03f1b8a18381da45.js"]])
-          with ThreadPoolExecutor(max_workers=8) as pool:list(pool.map(read,targets))
+            if label in ("206","5537"):
+             d["excerpts"]=[text[max(0,m.start()-400):m.end()+1000] for m in list(re.finditer(r'["\x27\x60]events|["\x27\x60]sports|sportIds|sport_id|sportId|statuses|leagues',text))[:35]]
+            elif label=="public-baltbet":d["leagues"]=len(json.loads(text).get("leagues",[]))
+            else:
+             obj=json.loads(text);obj.pop("uuid",None)
+             d["body"]=obj if label=="sports-live" else {"keys":list(obj.keys()),"dataKeys":list(obj.get("data",{}).keys()) if isinstance(obj.get("data"),dict) else None,"sample":str(obj.get("data"))[:15000]}
+            print("SPORTBET_CONTRACT:",json.dumps(d,ensure_ascii=False),flush=True)
+           except Exception as e:print("SPORTBET_CONTRACT:",json.dumps({"provider":label,"error":str(e)[:100]}),flush=True)
+          with ThreadPoolExecutor(max_workers=5) as pool:list(pool.map(read,targets))
           
           PY
