@@ -414,7 +414,7 @@ async def run(args):
         await overlay.close()
         await page.uncheck("#vetoLive")
         player_veto = await page.get_attribute("#playerVeto", "href")
-        assert player_veto.startswith("/veto.html#new&a=6yuBoJlbl&b=HYPERSPIRIT&f=BO"), player_veto
+        assert player_veto.startswith("https://oneshot-veto.pages.dev/#new&a=6yuBoJlbl&b=HYPERSPIRIT&f=BO"), player_veto
         # Captains' veto block: links for the selected match, the admin's apart.
         await page.select_option("#cvTimer", "3")
         await page.select_option("#cvLang", "ru")
@@ -423,7 +423,9 @@ async def run(args):
         msg_a = await page.input_value("#cvMsgA")
         assert "Капитан **6yuBoJlbl**" in msg_a and "На всё вето 3 минуты." in msg_a, msg_a
         admin_link = await page.input_value("#cvMsgO")
-        assert admin_link.startswith(base + "/veto.html#v=") and admin_link not in msg_a
+        # The links lead to the veto's own site, never to the panel's address.
+        assert admin_link.startswith("https://oneshot-veto.pages.dev/#v=") and admin_link not in msg_a, admin_link
+        assert base not in msg_a and base not in await page.input_value("#cvMsgS")
         assert await page.get_attribute("#cvOpen", "href") == admin_link
         assert "&m=3" in await page.get_attribute("#playerVeto", "href")
         await page.select_option("#cvLang", "en")
@@ -431,6 +433,13 @@ async def run(args):
         await page.reload()
         await expect(page.locator("#cvMsgO")).to_have_value(admin_link)
         await expect(page.locator("#cvLang")).to_have_value("en")
+        await page.fill("#cvSite", "https://veto.example.org/x?y=1#z")
+        await page.locator("#cvSite").dispatch_event("change")
+        await page.click("#cvCreate")
+        await expect(page.locator("#cvMsgO")).to_have_value(re.compile(r"^https://veto\.example\.org/x#v="))
+        assert (await page.get_attribute("#playerVeto", "href")).startswith("https://veto.example.org/x#new&")
+        await page.fill("#cvSite", "")
+        await page.locator("#cvSite").dispatch_event("change")
         passed("live veto: real receiver acknowledgement, animated move and replay after reload; captains' veto links in the panel")
 
         # Codex's animated overlay takes the panel's veto from the link and
@@ -506,7 +515,7 @@ async def run(args):
         await lobby.click('[data-pause="1-live"][data-side="1"]')
         await expect(lobby.locator(".pause-on")).to_contain_text("Тех. пауза · PCIFIC")
         await lobby.clock.run_for(3000)
-        await expect(lobby.locator(".pause-on time")).to_have_text("0:03")
+        await expect(lobby.locator(".pause-on time")).to_have_text(re.compile(r"^0:0[34]$"))
         await lobby.click('[data-resume="1-live"]')
         # The installed clock still runs with real time: a slow machine adds a second.
         await expect(lobby.locator("#lobbyLog")).to_contain_text(re.compile(r"Пауза PCIFIC закончилась через 0:0[34]"))

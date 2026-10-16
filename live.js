@@ -625,7 +625,7 @@ function onChange() {
 // The captains' veto site (veto.html) opens with this match's teams and format.
 function playerVetoLink(s) {
   const params = new URLSearchParams({ a: s.a?.name || '', b: s.b?.name || '', f: $('cvFormat').value, m: $('cvTimer').value });
-  $('playerVeto').href = '/veto.html#new&' + params;
+  $('playerVeto').href = vetoSite() + '#new&' + params;
 }
 
 // ---------- captains' veto ----------
@@ -633,15 +633,27 @@ function playerVetoLink(s) {
 // veto until changed in this block; the timer and the language of the
 // captains' messages are remembered. The admin's link (HLTV text) stays ours.
 const CV_STORE = 'oneshot-captain-veto', CV_KEEP = 6 * 3600000;
+// The veto lives on a site of its own (the oneshot-veto repo): captains and
+// viewers never see the panel's address.
+const VETO_SITE = 'https://oneshot-veto.pages.dev/';
+function vetoSite() {
+  try {
+    const url = new URL($('cvSite').value.trim() || VETO_SITE);
+    if (url.protocol !== 'https:' && url.hostname !== '127.0.0.1' && url.hostname !== 'localhost') throw new Error('https');
+    url.hash = ''; url.search = '';
+    return url.href;
+  } catch { return VETO_SITE; }
+}
 const cv = { touched: false, made: null };
 {
   const saved = read(CV_STORE) || {};
+  $('cvSite').value = typeof saved.site === 'string' ? saved.site : '';
   if (['0', '3', '5', '7', '10', '15'].includes(String(saved.timer))) $('cvTimer').value = String(saved.timer);
   if (['en', 'ru'].includes(saved.lang)) $('cvLang').value = saved.lang;
 }
 const cvMatch = s => s.a?.name && s.b?.name ? JSON.stringify([s.a.name, s.b.name]) : '';
 function cvSave(last = read(CV_STORE)?.last) {
-  write(CV_STORE, { timer: $('cvTimer').value, lang: $('cvLang').value, last });
+  write(CV_STORE, { timer: $('cvTimer').value, lang: $('cvLang').value, site: $('cvSite').value.trim(), last });
 }
 function cvShow(made) {
   cv.made = made;
@@ -675,13 +687,13 @@ function captainVeto(s) {
 $('cvFormat').addEventListener('change', () => { cv.touched = true; playerVetoLink(panel.snapshot()); });
 $('cvTimer').addEventListener('change', () => { cvSave(); playerVetoLink(panel.snapshot()); });
 $('cvLang').addEventListener('change', () => { cvSave(); if (cv.made) cvShow(cv.made); });
+$('cvSite').addEventListener('change', () => { cvSave(); playerVetoLink(panel.snapshot()); });
 $('cvCreate').addEventListener('click', async () => {
   const s = panel.snapshot();
   try {
     if (!cvMatch(s)) throw new Error('Выбери матч с двумя командами.');
     $('cvCreate').disabled = true;
-    const base = new URL('/veto.html', location.href).href;
-    const made = await createRoom(base, [s.a.name, s.b.name], $('cvFormat').value, Number($('cvTimer').value));
+    const made = await createRoom(vetoSite(), [s.a.name, s.b.name], $('cvFormat').value, Number($('cvTimer').value));
     const last = { match: cvMatch(s), at: Date.now(), room: made.room, links: made.links };
     cvSave(last);
     cvShow(last);

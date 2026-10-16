@@ -265,7 +265,7 @@ async function setupCreate() {
     event.preventDefault();
     showError('');
     try {
-      const base = new URL('/veto.html', location.href).href;
+      const base = new URL(location.pathname, location.href).href; // this page, here or on the veto site
       const made = await createRoom(base, [$('vtTeamA').value, $('vtTeamB').value], $('vtFormat').value, Number($('vtTimer').value));
       made.at = Date.now();
       store(LAST_KEY, made);

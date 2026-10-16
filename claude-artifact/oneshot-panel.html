@@ -298,6 +298,9 @@ dialog textarea { margin:0; width:100%; }
 .cv-settings { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)) auto; gap:12px; align-items:end; padding:0 16px 12px; }
 .cv-settings label { display:grid; gap:6px; min-width:0; color:var(--muted); font-size:11px; font-weight:600; }
 .cv-settings select { min-width:0; min-height:40px; padding:8px 10px; border:1px solid var(--field-line); border-radius:6px; background:var(--field); color:var(--ink); font-size:12px; }
+.cv-site { grid-column:1/-1; }
+.cv-site small { font-weight:400; }
+.cv-settings input { min-width:0; min-height:40px; padding:8px 10px; border:1px solid var(--field-line); border-radius:6px; background:var(--field); color:var(--ink); font-size:12px; }
 .cv-status { margin:0 16px 12px; color:var(--muted); font-size:12px; line-height:1.6; }
 .cv-status:empty { display:none; }
 .cv-status[data-kind=bad] { color:var(--red); }

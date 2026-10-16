@@ -8,3 +8,4 @@ public/
 claude-artifact/data/
 work/
 .claude/settings.local.json
+dist-veto/

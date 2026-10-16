@@ -112,11 +112,21 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   `oneshot-player-veto` (последние ссылки админа),
   `oneshot-veto-log:<код>`, `oneshot-veto-keys:<код>`, `oneshot-veto-coin:<код>`. Логика покрыта `test/veto-room.test.js`,
   страница — `scripts/qa_veto_site.py` (три отдельных браузера).
+- Сайт вето — отдельный репозиторий `ssolutionn/oneshot-veto` (Cloudflare
+  Pages, без сборки): его содержимое генерирует `node scripts/build-veto-site.mjs`
+  (в `dist-veto/`, не коммитится): страницы вето (`index.html` = `veto.html`),
+  `veto*.js`, `vdo.js`, `core.js` без таблицы составов (id/gid пустые) и без
+  адреса панели, нужные ассеты и `_headers`. Скрипт падает, если в копию
+  попал ID таблицы или адрес панели (`test/veto-site.test.js`). Игроки видят
+  только адрес сайта вето. После правок вето: пересобрать и запушить копию
+  в `oneshot-veto` (main).
 - Блок панели «Вето для капитанов» (`live.js`, только сайт, `captainVeto`):
   формат (как у вето панели, пока не изменён здесь), таймер, язык сообщений
   капитанам (English по умолчанию) → четыре ссылки для текущего матча
-  (`createRoom` из `veto-room.js`); админская — отдельно, «Открыть вето ↗».
-  localStorage `oneshot-captain-veto` (таймер, язык, последние ссылки на 6 ч).
+  (`createRoom` из `veto-room.js`) на сайт вето (`VETO_SITE`,
+  https://oneshot-veto.pages.dev/, поле `cvSite` меняет); админская — отдельно,
+  «Открыть вето ↗». localStorage `oneshot-captain-veto` (таймер, язык, адрес
+  сайта, последние ссылки на 6 ч).
 - `bookmakers.js` — без DOM: публичные линии лицензированных БК, где
   есть открытый JSON/HTML без входа и капчи: Фонбет, PARI, Bettery и 24bet
   (одна платформа, `showEvents`, skId 29086, свои хосты и scopeMarket), Леон
@@ -339,7 +349,7 @@ Netlify проверяет локальные фото, докачивает н�
   newObsCode obsRemotePort obsRemotePassword sendObsConfig obsRemoteResult
   obsBridgeStatus obsCodeInput applyObsCode shareDockUrl obsDockMessage
   obsRemoteBox obsMore playerVeto captainVeto cvFormat cvTimer cvLang cvCreate
-  cvStatus cvLinks cvNameA cvNameB cvMsgA cvMsgB cvMsgS cvMsgO cvOpen bookies bookiesCheck bookiesTable
+  cvStatus cvSite cvLinks cvNameA cvNameB cvMsgA cvMsgB cvMsgS cvMsgO cvOpen bookies bookiesCheck bookiesTable
   bookiesStatus bookiesCopy bookiesCsv
   obsDirectFields obsUrl obsPassword obsTestResult testObs
   saveObs notifyBtn soundBtn lobbyForm faceitUrl faceitKey lobbyStart
