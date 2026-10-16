@@ -103,6 +103,19 @@ export function privateKey(room) {
     CURVE, false, ['sign']);
 }
 
+// Does the captain's private key belong to their public key? Some browsers
+// (WebKit) import a damaged key without complaint; its moves would then be
+// refused by everyone, so the page checks it once on load.
+export async function keyMatches(room, key) {
+  const team = seat(room);
+  if (team === null || !key) return false;
+  const probe = enc.encode('oneshot-veto-key:' + room.r);
+  try {
+    const signature = await crypto.subtle.sign(SIGN, key, probe);
+    return await crypto.subtle.verify(SIGN, await publicKey(room, team), signature, probe);
+  } catch { return false; }
+}
+
 // Entry: { k: 'order' | 'ban' | 'pick' | 'side', v, at, s }. The signature
 // covers the room, the place in the log and the previous signature.
 function signed(room, index, prev, entry) {

@@ -346,7 +346,7 @@ async def run(args):
         nick = re.search(r"\*\*(.+?)\*\*", message).group(1)
         assert re.fullmatch(re.sub(r"[^A-Za-z0-9]", "", nick)[:16] + r"_[a-z2-9]{6}", new_id), message
         assert new_id != old_id
-        assert message.startswith("## ") and f"**" in message and message.count("https://") == 1
+        assert message.startswith("**") and "\n" not in message and message.count("https://") == 1, message
         await page.click("#closeCopy")
         await expect(subline).to_contain_text("Новый ID")
         await expect(subline).to_contain_text(f"view={new_id}&")
@@ -357,12 +357,19 @@ async def run(args):
         await expect(subline).to_contain_text(f"view={new_id}&")
         await page.click('[data-unregen="a"][data-slot="0"]')
         await expect(subline).to_have_text(old_view)
-        passed("player link regenerated on the right of the row, kept, reverted")
+        # «Игроку»: the player's own PUSH line, ready to send (clipboard denied
+        # again after the reload, so the exact text lands in the dialog).
         await page.evaluate(
             "Object.defineProperty(navigator, 'clipboard', {value: "
             "{writeText: async () => {throw Error('denied')}}}); "
             "document.execCommand = () => false;"
         )
+        await page.click('[data-give="a"][data-slot="0"]')
+        await expect(page.locator("#copyDialog")).to_be_visible()
+        give = await page.input_value("#manualCopy")
+        assert re.fullmatch(r"\*\*[^*]+\*\* https://vdo\.ninja/\?room=[^ ]+&broadcast&do&push=" + re.escape(old_id), give), give
+        await page.click("#closeCopy")
+        passed("player link regenerated on the right of the row, kept, reverted; «Игроку» copies the PUSH line")
 
         before_swap = await page.input_value("#vetoOutput")
         await page.click("#swapBtn")

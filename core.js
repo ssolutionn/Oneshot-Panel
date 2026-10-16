@@ -284,11 +284,13 @@ export function observerText(a, b, pa, pb) {
 function markdown(value) {
   return line(value).replace(/[\\[\]*_~`<>#!()]/g, '\\$&');
 }
+// One player's line, the same as in the team text: for a direct message.
+export function playerLine(p) {
+  return `**${markdown(p.nick)}** ${pushUrl(p)}`;
+}
 export function playerText(team, players) {
   return `## ${markdown(team.name)}\nOpen your link and turn on your camera.\n\n` +
-    players.filter(Boolean).map(p =>
-      `**${markdown(p.nick)}** ${pushUrl(p)}`
-    ).join('\n');
+    players.filter(Boolean).map(playerLine).join('\n');
 }
 
 export function validateMetadata(time, stage) {

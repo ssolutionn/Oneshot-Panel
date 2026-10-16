@@ -6,7 +6,7 @@
 import { MAP_POOL, teamLogo } from './core.js';
 import { seal, unseal } from './vdo.js';
 import {
-  decodeLink, createRoom, roomSecrets, privateKey, seat, verifyLog, replay, nextTurn,
+  decodeLink, createRoom, roomSecrets, privateKey, keyMatches, seat, verifyLog, replay, nextTurn,
   signMove, mergeLog, clock, formatClock, mapBoard, resultText, captainMessage
 } from './veto-room.js';
 
@@ -209,7 +209,10 @@ async function enterRoom(room) {
 
   const secrets = await roomSecrets(room);
   if (me !== null) {
-    try { key = await privateKey(room); } catch {
+    try {
+      key = await privateKey(room);
+      if (!await keyMatches(room, key)) throw new Error('key');
+    } catch {
       $('vtRoom').hidden = true;
       return showError('Ссылка капитана повреждена (ключ не подходит). Скопируй её из Discord целиком или попроси админа прислать новую.');
     }

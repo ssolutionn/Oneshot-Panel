@@ -145,3 +145,10 @@ test('captain message: names the team and warns about the link', async () => {
   assert.match(text, /никому не пересылай/);
   assert.ok(text.includes(links.b));
 });
+
+test('keyMatches: a captain key that does not fit its public key is caught', async () => {
+  const { keyMatches } = await import('../veto-room.js');
+  const { a, b, ka } = await seats();
+  assert.equal(await keyMatches(a, ka), true);
+  assert.equal(await keyMatches(b, ka), false, 'A’s key in B’s link');
+});

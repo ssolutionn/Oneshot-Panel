@@ -200,6 +200,9 @@ h2 { font-size:17px; line-height:1.4; letter-spacing:-.3px; margin-bottom:0; }
 .copy-icon { display:grid; place-items:center; flex-shrink:0; width:30px; height:32px; border:0; border-radius:5px; background:transparent; color:var(--muted); font-size:20px; }
 .copy-icon:hover { background:var(--soft); color:var(--ink); }
 .regen-icon { font-size:17px; }
+.give-button { flex-shrink:0; min-height:30px; padding:0 9px; border:1px solid var(--btn-line); border-radius:5px; background:var(--surface); color:var(--ink); font-size:11px; font-weight:700; white-space:nowrap; }
+.give-button:hover:not(:disabled) { background:var(--soft); }
+.give-button:disabled { opacity:.4; }
 .regen-icon.asking { width:auto; padding:0 7px; background:var(--red); color:var(--on-accent); font-size:12px; font-weight:800; }
 .regen-icon.asking:hover { background:var(--red-hover); color:var(--on-accent); }
 .new-id { color:var(--red); font-weight:800; }
@@ -358,21 +361,21 @@ body.dock { background:var(--bg); font-size:12px; }
 .templates textarea { width:100%; margin:0; min-height:90px; }
 .templates .copy-foot { padding:0; margin-top:0; }
 .bookies-wrap { overflow-x:auto; padding:0 16px 12px; }
-.bookies-table { width:100%; border-collapse:collapse; font-size:12px; min-width:560px; }
+.bookies-table { width:100%; border-collapse:collapse; font-size:12px; min-width:520px; }
 .bookies-table th,.bookies-table td { padding:8px 10px; border-top:1px solid var(--divider); text-align:left; vertical-align:top; }
-.bookies-table thead th { border-top:0; color:var(--muted); font-size:11px; font-weight:700; white-space:nowrap; }
-.bookies-table thead a { color:var(--ink); text-decoration:none; }
-.bookies-table small { display:block; margin-top:2px; color:var(--muted); font-size:10px; font-weight:400; }
+.bookies-table thead th { border-top:0; color:var(--muted); font-size:11px; font-weight:400; }
+.bookies-table thead th b { display:block; color:var(--ink); font-weight:700; white-space:nowrap; }
+.bookies-table tbody th { font-weight:700; color:var(--ink); white-space:nowrap; }
+.bookies-table small { display:block; margin-top:2px; color:var(--muted); font-size:10px; font-weight:400; white-space:normal; }
 .bookies-table small.good { color:var(--success-ink); } .bookies-table small.bad { color:var(--red); }
-.bookies-table tbody th { font-weight:400; }
 .bookies-table td.none { color:var(--muted); }
-.bookies-table td.listed a,.bookies-table td.live a { color:var(--ink); font-weight:700; font-variant-numeric:tabular-nums; }
+.bookies-table tr.manual th,.bookies-table tr.manual td { color:var(--muted); }
+.bookies-table tr.manual th span { font-weight:400; }
+.bk-odds { font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums; white-space:nowrap; }
 .bookies-table td.live { background:var(--success-bg); }
 .bk-live { display:inline-block; margin-left:6px; padding:1px 5px; border-radius:4px; background:var(--success); color:var(--on-accent); font-size:9px; font-weight:800; }
-.bookies-manual { padding:0 16px 12px; font-size:11px; color:var(--muted); }
-.bookies-manual summary { cursor:pointer; padding:8px 0; }
-.bookies-manual ul { display:flex; flex-wrap:wrap; gap:6px 14px; margin:0; padding:0; list-style:none; }
-.bookies-manual a { color:var(--ink); }
+.bk-open { margin-left:6px; color:var(--muted); text-decoration:none; font-weight:400; }
+.bk-open:hover { color:var(--ink); }
 .lobby-log { list-style:none; margin:0; padding:0 16px 14px; display:grid; gap:6px; max-height:320px; overflow:auto; font-size:12px; line-height:1.5; }
 .lobby-log li { color:var(--sub); overflow-wrap:anywhere; }
 .lobby-log time { color:var(--muted); font-variant-numeric:tabular-nums; margin-right:6px; }
@@ -921,11 +924,13 @@ function observerText(a, b, pa, pb) {
 function markdown(value) {
   return line(value).replace(/[\\[\]*_~`<>#!()]/g, '\\$&');
 }
+// One player's line, the same as in the team text: for a direct message.
+function playerLine(p) {
+  return `**${markdown(p.nick)}** ${pushUrl(p)}`;
+}
 function playerText(team, players) {
   return `## ${markdown(team.name)}\nOpen your link and turn on your camera.\n\n` +
-    players.filter(Boolean).map(p =>
-      `**${markdown(p.nick)}** ${pushUrl(p)}`
-    ).join('\n');
+    players.filter(Boolean).map(playerLine).join('\n');
 }
 
 function validateMetadata(time, stage) {
@@ -1388,7 +1393,7 @@ function regenerate(side, slot) {
   applyIds();
   render();
   const fresh = chosen(side)[slot];
-  copy(playerText(getTeam(side), [fresh])).then(() => toast(
+  copy(playerLine(fresh)).then(() => toast(
     `Новая ссылка для ${fresh.nick} скопирована — отправь игроку. Старая больше не его. ` +
     'В OBS камеру обновит «Отправить в OBS» (или новый JSON).'));
   document.dispatchEvent(new CustomEvent('oneshot:stream-id', { detail: { team: team.name, nick: fresh.nick } }));
@@ -1736,6 +1741,9 @@ function render() {
             title="${state.regenAsk === `${side}${i}` ? 'Нажми ещё раз — сделать новую ссылку' :
               'Новая ссылка игроку (если старая утекла)'}" ${!player ? 'disabled' : ''}
             >${state.regenAsk === `${side}${i}` ? '✓?' : '↻'}</button>
+          <button class="give-button" type="button" data-give="${side}" data-slot="${i}"
+            aria-label="Скопировать ссылку игроку ${player ? escapeHtml(player.nick) : ''}"
+            title="Скопировать PUSH-ссылку, чтобы отдать игроку" ${!player ? 'disabled' : ''}>Игроку</button>
           <button class="copy-icon" data-view="${side}" data-slot="${i}"
             aria-label="Скопировать VIEW ${player ? escapeHtml(player.nick) : ''}"
             title="Копировать VIEW" ${!player ? 'disabled' : ''}>⧉</button>
@@ -1789,6 +1797,12 @@ function render() {
       }
       state.regenAsk = '';
       regenerate(el.dataset.regen, Number(el.dataset.slot));
+    }));
+  // «Игроку»: this player's own line with the PUSH link, ready for a DM.
+  $('teamGrid').querySelectorAll('[data-give]').forEach(el =>
+    el.addEventListener('click', () => {
+      const player = chosen(el.dataset.give)[Number(el.dataset.slot)];
+      if (player) copy(playerLine(player)).then(() => toast(`Ссылка для ${player.nick} скопирована — отправь игроку.`));
     }));
   $('teamGrid').querySelectorAll('[data-unregen]').forEach(el =>
     el.addEventListener('click', () => unregenerate(el.dataset.unregen, Number(el.dataset.slot))));

@@ -104,8 +104,10 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   зеркала по очереди, линия и лайв отдельно; отдаёт только CyberClash.
   Обёртки: `functions/api/bookmakers.js` (Cloudflare), `server.js`.
 - `bookies.js` — только сайт: блок «Наш турнир у букмекеров» во вкладке
-  «Лобби» (`bookies`, `bookiesCheck`, `bookiesTable`, `bookiesStatus`,
-  `bookiesManual`): раз в 5 минут, матчи расписания × БК, кэфы и ссылки;
+  «Лобби» (`bookies`, `bookiesCheck`, `bookiesTable`, `bookiesStatus`):
+  раз в 5 минут; строки — все 16 лицензированных БК (автоматические и
+  `MANUAL` со ссылкой), столбцы — матчи ближайшего дня; кэфы текстом, ссылка
+  отдельной ↗ (блокировщики рекламы прячут ссылки на БК вместе с текстом);
   новая линия — запись в журнал лобби (`oneshot:lobby-note`).
   localStorage: `oneshot-bookies` (когда впервые увидели линию).
 - `faceit.js` — без DOM: разбор ссылки турнира, сводка матча, события
@@ -205,7 +207,7 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
 
 ```sh
 npm run check        # синтаксис
-npm test             # 74 теста (node:test)
+npm test             # 75 тестов (node:test)
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
@@ -285,7 +287,7 @@ Netlify проверяет локальные фото, докачивает н�
   newObsCode obsRemotePort obsRemotePassword sendObsConfig obsRemoteResult
   obsBridgeStatus obsCodeInput applyObsCode shareDockUrl obsDockMessage
   obsRemoteBox obsMore playerVeto bookies bookiesCheck bookiesTable
-  bookiesStatus bookiesManual
+  bookiesStatus
   obsDirectFields obsUrl obsPassword obsTestResult testObs
   saveObs notifyBtn soundBtn lobbyForm faceitUrl faceitKey lobbyStart
   lobbyStatus lobbyError lobbyAlert lobbyAlertText lobbyAck lobbyMatches

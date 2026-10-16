@@ -2,7 +2,7 @@ import {
   DEFAULT_SOURCE, decodeGviz, parseTeams, parseSchedule, scheduleDay,
   defaultLineup, lineupCandidates, roleSuffix, selectedPlayers,
   validatePlayers, validateMatch, viewUrl, directorUrl,
-  newStreamId, applyStreamIds,
+  newStreamId, applyStreamIds, playerLine,
   observerText, playerText, buildObs, safeFilename, validateMetadata,
   MAP_POOL, VETO_RULES, validateVeto, appendVeto, vetoText
 } from './core.js';
@@ -113,7 +113,7 @@ function regenerate(side, slot) {
   applyIds();
   render();
   const fresh = chosen(side)[slot];
-  copy(playerText(getTeam(side), [fresh])).then(() => toast(
+  copy(playerLine(fresh)).then(() => toast(
     `Новая ссылка для ${fresh.nick} скопирована — отправь игроку. Старая больше не его. ` +
     'В OBS камеру обновит «Отправить в OBS» (или новый JSON).'));
   document.dispatchEvent(new CustomEvent('oneshot:stream-id', { detail: { team: team.name, nick: fresh.nick } }));
@@ -418,6 +418,9 @@ function render() {
             title="${state.regenAsk === `${side}${i}` ? 'Нажми ещё раз — сделать новую ссылку' :
               'Новая ссылка игроку (если старая утекла)'}" ${!player ? 'disabled' : ''}
             >${state.regenAsk === `${side}${i}` ? '✓?' : '↻'}</button>
+          <button class="give-button" type="button" data-give="${side}" data-slot="${i}"
+            aria-label="Скопировать ссылку игроку ${player ? escapeHtml(player.nick) : ''}"
+            title="Скопировать PUSH-ссылку, чтобы отдать игроку" ${!player ? 'disabled' : ''}>Игроку</button>
           <button class="copy-icon" data-view="${side}" data-slot="${i}"
             aria-label="Скопировать VIEW ${player ? escapeHtml(player.nick) : ''}"
             title="Копировать VIEW" ${!player ? 'disabled' : ''}>⧉</button>
@@ -471,6 +474,12 @@ function render() {
       }
       state.regenAsk = '';
       regenerate(el.dataset.regen, Number(el.dataset.slot));
+    }));
+  // «Игроку»: this player's own line with the PUSH link, ready for a DM.
+  $('teamGrid').querySelectorAll('[data-give]').forEach(el =>
+    el.addEventListener('click', () => {
+      const player = chosen(el.dataset.give)[Number(el.dataset.slot)];
+      if (player) copy(playerLine(player)).then(() => toast(`Ссылка для ${player.nick} скопирована — отправь игроку.`));
     }));
   $('teamGrid').querySelectorAll('[data-unregen]').forEach(el =>
     el.addEventListener('click', () => unregenerate(el.dataset.unregen, Number(el.dataset.slot))));

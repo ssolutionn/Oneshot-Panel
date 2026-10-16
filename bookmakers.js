@@ -36,19 +36,21 @@ export const BOOKMAKERS = [
     eventUrl: e => `https://www.marathonbet.ru/su/betting/${e.path}`
   }
 ];
-// No public feed found (websocket, signed headers or foreign IPs dropped):
-// the lobby links their CS2 pages for a look by hand.
+// Licensed bookmakers without an automated check yet (websocket, signed
+// headers, foreign IPs dropped): the lobby lists them with a link to look.
 export const MANUAL = [
-  { name: 'Winline', url: 'https://winline.ru/stavki/sport/kibersport/counter-strike' },
-  { name: 'Леон', url: 'https://leon.ru/bets/esports/cs2' },
-  { name: 'Зенит', url: 'https://zenit.win/line/556' },
-  { name: 'BetBoom', url: 'https://betboom.ru/esport/counter-strike-2' },
-  { name: 'Лига Ставок', url: 'https://www.ligastavok.ru/bets/cybersport' },
-  { name: 'Бетсити', url: 'https://betcity.ru/ru/line/cybersport' },
-  { name: 'Балтбет', url: 'https://baltbet.ru/' },
-  { name: 'Мелбет', url: 'https://melbet.ru/' },
-  { name: 'Bettery', url: 'https://bettery.ru/sports/esports/category/cs' },
-  { name: 'Тенниси', url: 'https://tennisi.bet/' }
+  { id: 'winline', name: 'Winline', url: 'https://winline.ru/stavki/sport/kibersport/counter-strike' },
+  { id: 'ligastavok', name: 'Лига Ставок', url: 'https://www.ligastavok.ru/bets/cybersport' },
+  { id: 'betcity', name: 'Бетсити', url: 'https://betcity.ru/ru/line/cybersport' },
+  { id: 'betboom', name: 'BetBoom', url: 'https://betboom.ru/esport/counter-strike-2' },
+  { id: 'melbet', name: 'Мелбет', url: 'https://melbet.ru/' },
+  { id: 'baltbet', name: 'Балтбет', url: 'https://baltbet.ru/' },
+  { id: 'zenit', name: 'Зенит', url: 'https://zenit.win/line/556' },
+  { id: 'bettery', name: 'Bettery', url: 'https://bettery.ru/sports/esports/category/cs' },
+  { id: 'leon', name: 'Леон', url: 'https://leon.ru/bets/esports/cs2' },
+  { id: 'betm', name: 'БЕТ-М', url: 'https://betm.ru/' },
+  { id: 'sportbet', name: 'Спортбет', url: 'https://sportbet.ru/' },
+  { id: 'bet24', name: '24bet', url: 'https://24bet.ru/' }
 ];
 
 export const isCyberClash = name => /cyber\s*clash|кибер\s*клэш/i.test(String(name || ''));

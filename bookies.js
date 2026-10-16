@@ -72,52 +72,60 @@ async function checkAll() {
   render();
 }
 
-// Rows: the schedule's matches for today and tomorrow, then CyberClash
+// Columns: the schedule's matches of the nearest match day, then CyberClash
 // events the schedule doesn't know (another stage, a renamed team).
-function rows() {
+function matches() {
   const schedule = window.oneshotPanel?.snapshot?.().schedule || [];
-  const list = schedule.slice(0, 12).map(m => ({
-    team1: m.team1, team2: m.team2, label: `${m.team1} – ${m.team2}`,
-    sub: [m.date, m.time].filter(Boolean).join(' · ')
+  const day = schedule[0]?.date;
+  const list = schedule.filter(m => m.date === day).slice(0, 8).map(m => ({
+    team1: m.team1, team2: m.team2, sub: m.time || ''
   }));
   for (const b of BOOKMAKERS) {
     for (const e of results.get(b.id)?.events || []) {
       if (list.some(r => findMatch([e], r.team1, r.team2))) continue;
-      list.push({ team1: e.team1, team2: e.team2, label: `${e.team1} – ${e.team2}`, sub: msk(e.start) });
+      list.push({ team1: e.team1, team2: e.team2, sub: msk(e.start) });
     }
   }
   return list;
 }
+// Text never sits inside a link to a bookmaker: ad blockers hide such links
+// (and the odds in them). The link is a separate ↗.
+const open = href => el('a', { href, target: '_blank', rel: 'noreferrer', className: 'bk-open', title: 'Открыть', textContent: '↗' });
 function render() {
   const table = $('bookiesTable');
-  const head = el('tr', {}, el('th', { scope: 'col', textContent: 'Матч' }),
-    ...BOOKMAKERS.map(b => {
-      const r = results.get(b.id);
-      const broken = r && (r.failed || r.ok === false);
-      const state = !r ? 'ждём' : r.failed ? 'нет связи' : r.events.length ? `${r.events.length} матч.` :
-        r.ok === false ? 'ошибка линии' : 'нет турнира';
-      return el('th', { scope: 'col', title: r?.failed || (r?.errors || []).join('; ') },
-        el('a', { href: b.page, target: '_blank', rel: 'noreferrer', textContent: b.name }),
-        el('small', { textContent: state, className: broken && !r.events.length ? 'bad' : r?.events.length ? 'good' : '' }));
-    }));
-  const body = rows().map(row => el('tr', {},
-    el('th', { scope: 'row' }, el('b', { textContent: row.label }), el('small', { textContent: row.sub })),
-    ...BOOKMAKERS.map(b => {
-      const found = findMatch(results.get(b.id)?.events || [], row.team1, row.team2);
+  const cols = matches();
+  const head = el('tr', {}, el('th', { scope: 'col', textContent: 'Контора' }),
+    ...cols.map(m => el('th', { scope: 'col' }, el('b', { textContent: `${m.team1} – ${m.team2}` }), el('small', { textContent: m.sub }))));
+  const auto = BOOKMAKERS.map(b => {
+    const r = results.get(b.id);
+    const broken = r && (r.failed || r.ok === false);
+    const state = !r ? 'проверяем…' : r.failed ? `нет связи: ${r.failed}` : r.events.length ? `в линии: ${r.events.length}` :
+      r.ok === false ? 'ошибка линии' : 'турнира нет';
+    const cells = cols.map(m => {
+      const found = findMatch(r?.events || [], m.team1, m.team2);
       if (!found) return el('td', { className: 'none', textContent: '—' });
       return el('td', { className: found.live ? 'live' : 'listed' },
-        el('a', { href: found.url, target: '_blank', rel: 'noreferrer', textContent: odds(found) }),
-        found.live ? el('span', { className: 'bk-live', textContent: 'LIVE' }) : null);
-    })));
-  table.replaceChildren(el('thead', {}, head), el('tbody', {}, ...(body.length ? body :
-    [el('tr', {}, el('td', { colSpan: BOOKMAKERS.length + 1, className: 'none', textContent: 'Матчей CyberClash в линиях пока нет.' }))])));
+        el('span', { className: 'bk-odds', textContent: odds(found) }),
+        found.live ? el('span', { className: 'bk-live', textContent: 'LIVE' }) : null, open(found.url));
+    });
+    const row = el('tr', { className: r?.events?.length ? 'has' : '' },
+      el('th', { scope: 'row', title: (r?.errors || []).join('; ') }, el('span', { textContent: b.name }), open(b.page),
+        el('small', { textContent: state, className: broken && !r.events.length ? 'bad' : r?.events?.length ? 'good' : '' })),
+      ...cells);
+    return { row, order: r?.events?.length ? 0 : 1 };
+  });
+  const manual = MANUAL.map(m => ({ order: 2, row: el('tr', { className: 'manual' },
+    el('th', { scope: 'row' }, el('span', { textContent: m.name }), open(m.url),
+      el('small', { textContent: 'авто-проверки нет — смотреть вручную' })),
+    ...cols.map(() => el('td', { className: 'none', textContent: '?' }))) }));
+  const rows = [...auto, ...manual].sort((x, y) => x.order - y.order).map(x => x.row);
+  table.replaceChildren(el('thead', {}, head), el('tbody', {}, ...rows));
   const listed = BOOKMAKERS.filter(b => results.get(b.id)?.events?.length).map(b => b.name);
   $('bookiesStatus').textContent = !lastCheck ? 'Проверяем линии…' :
-    `Проверено в ${msk(lastCheck)} МСК. ${listed.length ? `Турнир в линии: ${listed.join(', ')}.` : 'Ни у одной из проверяемых БК турнира сейчас нет.'} Следующая проверка через 5 минут.`;
+    `Проверено в ${msk(lastCheck)} МСК. ${listed.length ? `Турнир в линии: ${listed.join(', ')}.` : 'Ни у одной из проверяемых БК турнира сейчас нет.'} ` +
+    `Автоматически: ${BOOKMAKERS.length} из ${BOOKMAKERS.length + MANUAL.length} контор, следующая проверка через 5 минут.`;
 }
 
-$('bookiesManual').replaceChildren(...MANUAL.map(m =>
-  el('li', {}, el('a', { href: m.url, target: '_blank', rel: 'noreferrer', textContent: m.name }))));
 $('bookiesCheck').addEventListener('click', checkAll);
 document.addEventListener('oneshot:change', () => { if (lastCheck) render(); });
 render();

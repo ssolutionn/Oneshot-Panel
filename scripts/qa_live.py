@@ -492,20 +492,30 @@ async def run(args):
             re.compile(f"^Next xx:{time.localtime(finished_at + 900).tm_min:02d}\n"))
         await expect(lobby.locator("#lobbyLog")).to_contain_text("Матч закончился: Rune Eaters 2:0 PCIFIC")
         # Bookmakers: our matches against each bookmaker, a new line goes to the journal.
+        # Bookmakers are rows (all 16, the listed ones first), matches columns.
         table = lobby.locator("#bookiesTable")
-        await expect(table.locator("tbody tr")).to_have_count(2)
-        rune = table.locator("tbody tr", has_text="Rune Eaters")
-        await expect(rune.locator("td").nth(0)).to_contain_text("1.50 · 2.40")
-        await expect(rune.locator("td").nth(0)).to_contain_text("LIVE")
-        await expect(rune.locator("td").nth(3)).to_contain_text("1.48 · 2.50")
-        await expect(rune.locator("td").nth(2)).to_have_text("—")
+        await expect(table.locator("tbody tr")).to_have_count(16)
+        await expect(table.locator("thead th")).to_have_count(3)
+        heads = await table.locator("thead th b").all_inner_texts()
+        rune_col = next(i for i, h in enumerate(heads) if "Rune Eaters" in h)
+        fonbet = table.locator("tbody tr", has=lobby.locator("th span", has_text="Фонбет"))
+        marathon = table.locator("tbody tr", has=lobby.locator("th span", has_text="Марафон"))
+        await expect(fonbet.locator("td").nth(rune_col)).to_contain_text("1.50 · 2.40")
+        await expect(fonbet.locator("td").nth(rune_col)).to_contain_text("LIVE")
+        await expect(fonbet.locator(".bk-odds").first).not_to_be_empty()
+        assert await fonbet.locator("td a .bk-odds, th a span").count() == 0, "text stays outside bookmaker links"
+        await expect(marathon.locator("td").nth(rune_col)).to_contain_text("1.48 · 2.50")
+        olimp = table.locator("tbody tr", has=lobby.locator("th span", has_text="OLIMPBET"))
+        await expect(olimp.locator("td").nth(rune_col)).to_have_text("—")
+        first_rows = await table.locator("tbody tr th span").all_inner_texts()
+        assert first_rows[:2] == ["Фонбет", "Марафон"], first_rows
+        await expect(table.locator("tbody tr.manual")).to_have_count(12)
         await expect(lobby.locator("#bookiesStatus")).to_contain_text("Турнир в линии: Фонбет, Марафон")
         bookie_lines["olimp"] = [{"id": "5", "team1": "Honved Esport", "team2": "Lavked", "odds": [2.2, 1.62],
                                   "start": 1792177200000, "live": False, "url": "https://www.olimp.bet/line/x"}]
         await lobby.click("#bookiesCheck")
-        await expect(table.locator("tbody tr")).to_have_count(3)
+        await expect(table.locator("thead th")).to_have_count(4)
         await expect(lobby.locator("#lobbyLog")).to_contain_text("OLIMPBET: открыта линия Honved Esport – Lavked")
-        await expect(lobby.locator("#bookiesManual li")).to_have_count(10)
         await lobby.screenshot(path=str(output / "lobby.png"), full_page=True)
         await lobby.set_viewport_size({"width": 375, "height": 800})
         assert not await lobby.evaluate("document.documentElement.scrollWidth > innerWidth")
