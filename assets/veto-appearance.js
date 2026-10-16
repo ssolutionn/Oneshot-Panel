@@ -47,21 +47,24 @@ void main(){
 
 // OBS can run its browser with WebGL disabled. Keep the same cloud artwork
 // moving on a small Canvas2D surface instead of silently freezing the backdrop.
+// The artwork is scaled once; each frame only shifts it (cheap on any CPU).
 function canvasSmoke(image) {
   if (!image) return null;
   const surface=document.createElement('canvas');
   surface.width=768;surface.height=432;
   const ctx=surface.getContext('2d');
   if (!ctx) return null;
+  const w=surface.width,h=surface.height;
+  const scale=Math.max(w/image.width,h/image.height)*1.10;
+  const base=document.createElement('canvas');
+  base.width=Math.ceil(image.width*scale);base.height=Math.ceil(image.height*scale);
+  base.getContext('2d')?.drawImage(image,0,0,base.width,base.height);
   return {
     kind:'canvas',
     draw(seconds) {
-      const w=surface.width,h=surface.height;
-      const scale=Math.max(w/image.width,h/image.height)*1.10;
-      const dw=image.width*scale,dh=image.height*scale;
-      const x=(w-dw)/2+Math.sin(seconds*.16)*w*.025;
-      const y=(h-dh)/2+Math.cos(seconds*.12)*h*.025;
-      ctx.drawImage(image,x,y,dw,dh);
+      const x=(w-base.width)/2+Math.sin(seconds*.16)*w*.025;
+      const y=(h-base.height)/2+Math.cos(seconds*.12)*h*.025;
+      ctx.drawImage(base,x,y);
       const glow=ctx.createRadialGradient(
         w*(.55+Math.sin(seconds*.13)*.12),h*.35,0,w*.55,h*.45,w*.65);
       glow.addColorStop(0,'#00cfe820');glow.addColorStop(1,'#00121c38');
@@ -77,6 +80,12 @@ function makeSmoke(image) {
   surface.width = 768; surface.height = 432;
   const gl = surface.getContext('webgl', { alpha:false, antialias:false, depth:false, powerPreference:'low-power' });
   if (!gl || !image) return canvasSmoke(image);
+  // Without a real GPU (no hardware acceleration, VMs, CI) the shader runs on
+  // the CPU and slows the whole veto page down: the cheap moving artwork then.
+  const info = gl.getExtension('WEBGL_debug_renderer_info');
+  if (/swiftshader|llvmpipe|softpipe|software|basic render/i.test(info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : '')) {
+    return canvasSmoke(image);
+  }
   const shader = (type, source) => {
     const item = gl.createShader(type);
     gl.shaderSource(item, source); gl.compileShader(item);
@@ -161,7 +170,7 @@ function smokeBackdrop(){
   frame=0;
   if(document.hidden||reduced.matches)return;
   if(last)time+=Math.min((now-last)/1000,.1);last=now;
-  if(now-previousDraw>=33){
+  if(now-previousDraw>=(renderer?.kind==='canvas'?66:33)){
    try{const surface=renderer?.draw(time);if(surface&&mount.firstChild!==surface)mount.replaceChildren(surface)}catch{return}
    previousDraw=now;
   }
@@ -169,7 +178,7 @@ function smokeBackdrop(){
  }
  function resume(){last=0;if(!document.hidden&&!reduced.matches&&renderer&&!frame)frame=requestAnimationFrame(draw)}
  const image=new Image();image.onload=()=>{
-  try{renderer=makeSmoke(image);const surface=renderer?.draw(0);if(surface)mount.replaceChildren(surface);resume()}catch{/* visual fallback only */}
+  try{renderer=makeSmoke(image);if(renderer)mount.dataset.renderer=renderer.kind;const surface=renderer?.draw(0);if(surface)mount.replaceChildren(surface);resume()}catch{/* visual fallback only */}
  };image.src='/assets/card/background.jpg';
  document.addEventListener('visibilitychange',resume);
  reduced.addEventListener?.('change',resume);

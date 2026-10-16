@@ -51,7 +51,8 @@ test('history endpoint reads one fixed GitHub path and rejects all website write
   const url='https://panel/api/bookmakers?history='+day;
   const r=await bookmakersResponse(new Request(url),fake);
   assert.equal(r.status,200);assert.equal((await r.json()).archive.books.fonbet.events.length,1);
-  assert.deepEqual(asked,['https://raw.githubusercontent.com/ssolutionn/Oneshot-Panel/bookmaker-history/days/2026-10-16.json']);
+  assert.equal(asked[0].split('?')[0],'https://raw.githubusercontent.com/ssolutionn/Oneshot-Panel/bookmaker-history/days/2026-10-16.json');
+  assert.match(asked[0],/\\?v=\\d+$/);
   for(const method of ['POST','PUT','PATCH','DELETE'])assert.equal((await bookmakersResponse(new Request(url,{method}),fake)).status,405);
   assert.equal((await bookmakersResponse(new Request('https://panel/api/bookmakers?history=../etc'),fake)).status,400);
   assert.equal(asked.length,1);

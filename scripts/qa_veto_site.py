@@ -58,6 +58,7 @@ async def run(args):
     output = Path(args.artifacts)
     output.mkdir(parents=True, exist_ok=True)
     frames, senders, errors, checks = {}, [], [], []
+    vdo_errors = []  # exceptions inside VDO.Ninja's own iframe code: theirs, not ours
     wait = 30000 if args.real_vdo else 8000
     # A page that watched a stream before it existed (the other captain came
     # later) gets it from the real VDO.Ninja only on a retry: a minute or more.
@@ -152,7 +153,8 @@ async def run(args):
         async def open_page(url=None, width=1280, height=900, context=None, clock=False, english=False):
             context = context or await open_context(width, height, english)
             page = await context.new_page()
-            page.on("pageerror", lambda error: errors.append(f"{page.url[:60]}: {error}"))
+            page.on("pageerror", lambda error: (vdo_errors if "vdo.ninja" in (error.stack or "") else errors)
+                    .append(f"{page.url[:60]}: {error}"))
             page.on("dialog", lambda dialog: errors.append(f"dialog {dialog.message}"))
             if clock:  # time flows; the scenario jumps it forward
                 await page.clock.install()
@@ -292,6 +294,14 @@ async def run(args):
         await expect(spectator.locator(".vt-progress-step")).to_have_count(7)
         assert await spectator.locator(".vt-progress-label").all_text_contents() == ["BAN", "BAN", "PICK", "PICK", "BAN", "BAN", "DECIDER"]
         await expect(spectator.locator('.vt-progress-step[data-state=done]')).to_have_count(7)
+        # The moving backdrop: WebGL only on a real GPU; a software renderer
+        # (CI, no hardware acceleration) gets the cheap moving artwork.
+        software = await spectator.evaluate("""() => { const gl = document.createElement('canvas').getContext('webgl');
+            const info = gl && gl.getExtension('WEBGL_debug_renderer_info');
+            return !gl || /swiftshader|llvmpipe|softpipe|software/i.test(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : ''); }""")
+        await expect(spectator.locator(".vt-smoke-background canvas")).to_have_count(1)
+        await expect(spectator.locator(".vt-smoke-background")).to_have_attribute(
+            "data-renderer", "canvas" if software else re.compile("^(webgl|canvas)$"))
         passed("whole BO3 by turns; spectators only listen; HLTV text copies")
 
         # 3. Reloads and late viewers; the public spectator link has no HLTV text.
@@ -624,6 +634,8 @@ async def run(args):
         await browser.close()
     if injected:
         print(f"note: {len(injected)} style-src reports from Playwright's own WebKit helpers ignored", flush=True)
+    if vdo_errors:
+        print(f"note: {len(vdo_errors)} exceptions inside VDO.Ninja's iframe ignored, e.g. {vdo_errors[0]}", flush=True)
     print(f"veto site: {len(checks)} scenarios passed", flush=True)
 
 

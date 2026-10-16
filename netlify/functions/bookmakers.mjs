@@ -96,7 +96,7 @@ const HISTORY_ROOT = 'https://raw.githubusercontent.com/ssolutionn/Oneshot-Panel
 async function historyResponse(day, fetchImpl, headers) {
   if (!validDay(day)) return Response.json({error:'date',message:'Неверная дата истории.'},{status:400,headers});
   try {
-    const text = await readPublicText(HISTORY_ROOT + day + '.json', fetchImpl, {timeoutMs:8000,maxBytes:2*1024*1024});
+    const text = await readPublicText(HISTORY_ROOT + day + '.json?v=' + Math.floor(Date.now()/60000), fetchImpl, {timeoutMs:8000,maxBytes:2*1024*1024});
     return Response.json({ok:true,archive:normalizeDay(JSON.parse(text),day)},{headers});
   } catch(error) {
     if (error.message === 'HTTP 404') return Response.json({ok:true,archive:emptyDay(day),missing:true},{headers});
