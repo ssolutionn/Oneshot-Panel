@@ -7,172 +7,43 @@ permissions:
 jobs:
   read:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 3
     steps:
-      - name: Install browser reader
-        run: |
-          python3 -m pip install playwright
-          python3 -m playwright install --with-deps chromium
-      - name: Verify fixed public feeds and native packet layout
+      - name: Read precise anonymous line contracts
         run: |
           python3 - <<'PY'
-          import asyncio, base64, gzip, json, re, struct
-          from urllib.request import Request,urlopen
+          import json,re
           from concurrent.futures import ThreadPoolExecutor
-          from playwright.async_api import async_playwright
-          ZENIT="https://zenit.win/ajax/line/printer/react?all=0&onlyview=0&timeline=0&tournaments_mode=1&sport=7&tournament=61004&tournament_region=3432&tournament_info=&league=&games=&ross=0&lang_id=1&timezone=3&offset=0&show_from_main=0&client_v=&length=50&sort_mode=2&b_id=&popular=1"
+          from urllib.request import Request,urlopen
           def read(pair):
            label,url=pair
            try:
-            with urlopen(Request(url,headers={"User-Agent":"Mozilla/5.0","Accept":"application/json,text/html,*/*"}),timeout=20) as r:
-             text=r.read(14000000).decode("utf8","replace");status=r.status
-            d={"provider":label,"status":status,"size":len(text)}
-            if label=="betboom-chunk":d["source"]=text
-            elif label.startswith("betboom-") or label in ("baltbet-modules","baltbet-spa"):
-             d["excerpts"]=[text[max(0,m.start()-300):m.end()+1000] for m in list(re.finditer(r"sporthub/tree/|get_feed|prepareHeaders|baseQuery|API_URL|/prematch/|prematchServiceUrl",text))[:35]]
-            elif label=="winline-main":
-             d["excerpts"]=[text[max(0,m.start()-450):m.end()+1800] for m in list(re.finditer(r"case 1180:|case 34:|readDate|ReadDate|108e5|10800000|1e3.{0,15}-|Date.{0,30}36e5",text))[-60:]]
-            elif label=="zenit-exact":d["publicLine"]=text[:30000]
-            else:
-             d["scripts"]=re.findall(r'<script[^>]+src=["\x27]([^"\x27]+)',text)[:30]
-             d["excerpts"]=[text[max(0,m.start()-100):m.end()+500] for m in list(re.finditer(r"events\.baltbet|/api/|Cyber.?Clash",text,re.I))[:10]]
-            print("FIXED_PUBLIC:",json.dumps(d,ensure_ascii=False),flush=True)
-           except Exception as e:print("FIXED_PUBLIC:",json.dumps({"provider":label,"error":str(e)[:100]}),flush=True)
-          targets=[
-           ("zenit-exact",ZENIT),
-           ("betboom-app","https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/App-Dkow5Vv7.js"),
-           ("betboom-core","https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/BetShareModal-D1mFtPEC.js"),
-           ("betboom-view","https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/ViewManager-CcW7L5ud.js"),
-           ("ligastavok-page","https://www.ligastavok.ru/bets/cybersport"),
-           ("melbet-page","https://melbet.ru/"),
-           ("betm-page","https://bet-m.ru/"),
-           ("betboom-widget","https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/widget.js"),
-           ("baltbet-modules","https://baltbet.ru/bundles/scripts/modules.js"),
-           ("baltbet-spa","https://baltbet.ru/bundles/scripts/spa.js"),
-           ("winline-main","https://winline.ru/main.2485c5709989c6dc.js"),
-           ("baltbet-page","https://baltbet.ru/home/cybersport"),
-           ("baltbet-feed","https://events.baltbet.ru/api/prematch"),
-           ("sportbet-page","https://sportbet.ru/")
-          ]
-          with ThreadPoolExecutor(max_workers=7) as pool:list(pool.map(read,targets))
-          class Reader:
-           def __init__(self,b,pos=0):self.b=b;self.p=pos
-           def num(self,fmt):
-            n=struct.calcsize(fmt)
-            if self.p+n>len(self.b):raise ValueError("truncated")
-            v=struct.unpack_from(fmt,self.b,self.p)[0];self.p+=n;return v
-           def u8(self):return self.num("<B")
-           def u16(self):return self.num("<H")
-           def u32(self):return self.num("<I")
-           def s(self):
-            n=self.u16();v=self.b[self.p:self.p+n]
-            if len(v)!=n:raise ValueError("string truncated")
-            self.p+=n;return v.decode("utf8","replace")
-          def dictionary(raw):
-           r=Reader(raw,2);sports={};markets={}
-           for i in range(r.u32()):
-            sid=r.u32();sort=r.u32();title=r.s()
-            for j in range(9):r.s()
-            sports[sid]=title
-           for i in range(r.u32()):
-            mid=r.u32();support=r.s();selected=r.u32();count=r.u32();kind=r.u32();title=r.s();outcomes=[r.s() for j in range(30)]
-            markets[mid]={"id":mid,"type":kind,"title":title,"outcomes":outcomes,"sports":support}
-           print("WINLINE_DICTIONARY:",json.dumps({"sports":sports,"markets":list(markets.values())[:12],"size":len(raw),"offset":r.p},ensure_ascii=False),flush=True)
-           return markets
-          def snapshot(raw,markets):
-           r=Reader(raw,18);champs={};events=[];champ=None;ev=None;counts={};selected=[]
+            with urlopen(Request(url,headers={"User-Agent":"Mozilla/5.0"}),timeout=18) as r:text=r.read(12000000).decode("utf8","replace");status=r.status
+            data={"provider":label,"status":status,"size":len(text)}
+            if label=="winline-time":
+             data["excerpts"]=[text[max(0,m.start()-220):m.end()+500] for m in list(re.finditer("TZ_OFFSET_MS",text))[:15]]
+            elif label=="baltbet-line":
+             data["cyberclash"]=[text[max(0,m.start()-350):m.end()+2200] for m in list(re.finditer("cyber.?clash",text,re.I))[:10]]
+             data["sample"]=text[text.find('data-event-id'):text.find('data-event-id')+5000]
+             data["dataAttrs"]=list(dict.fromkeys(re.findall(r"data-([a-z-]+)=",text)))[:80]
+             data["scripts"]=re.findall(r'<script[^>]+src=["\x27]([^"\x27]+)',text)[:15]
+            print("FINAL_PUBLIC:",json.dumps(data,ensure_ascii=False),flush=True)
+           except Exception as e:print("FINAL_PUBLIC:",json.dumps({"provider":label,"error":str(e)[:100]}),flush=True)
+          with ThreadPoolExecutor(max_workers=3) as pool:list(pool.map(read,[
+           ("winline-time","https://winline.ru/main.2485c5709989c6dc.js"),
+           ("baltbet-line","https://baltbet.ru/prematch/cybersport")
+          ]))
+          base="https://siteapi.betboom.ru/api/site_api/v1/"
+          for path,body in [
+           ("sporthub/search/get_tournaments",{"query":"CyberClash","page":1,"limit":20}),
+           ("sporthub/search/get",{"query":"CyberClash","page":1,"limit":20})
+          ]:
            try:
-            while r.p<len(raw):
-             offset=r.p;tag=r.u8();counts[tag]=counts.get(tag,0)+1
-             if tag==1:
-              r.u32();r.u32();r.s();r.u32();r.u8();r.u16();r.u16();r.u8()
-             elif tag in (2,21):
-              cid=r.u32();sport=r.u32();country=r.u32();name=r.s()
-              r.u32();r.u32();r.u32();r.u8();r.u32();r.u32()
-              champ={"id":cid,"sport":sport,"name":name};champs[cid]=champ
-             elif tag==3:
-              eid=r.u32();r.u32();r.u32();r.u8();r.u8();live=r.u8();r.u8();r.u16();r.s()
-              start=r.u32();n=r.u8();r.u8();t1=r.s();t2=r.s()
-              ev={"id":eid,"champ":champ,"start":start,"team1":t1,"team2":t2,"n":n,"liveOffered":live,"lines":[]}
-              events.append(ev)
-             elif tag==4:
-              lid=r.u32();mid=r.u16();r.u16();r.u16()
-              m=markets[mid];kind=m["type"];favorite=None;param=None
-              if kind in (3,6):favorite=r.u8();param=r.u16()
-              elif kind in (4,7,61,71):param=r.u16()
-              odds=[r.u16(),r.u16()]
-              if kind in (2,5,51):odds.append(r.u16())
-              elif kind==9:odds.extend([r.u16(),r.u16()])
-              if ev and re.search("cyber.?clash",ev["champ"]["name"],re.I):ev["lines"].append({"id":lid,"market":m,"param":param,"favorite":favorite,"prices":odds})
-             else:raise ValueError("unknown tag "+str(tag))
-             if champ and re.search("cyber.?clash",champ["name"],re.I) and tag in (2,21,3,4):selected.append(raw[offset:r.p])
-            found=[x for x in events if x["champ"] and re.search("cyber.?clash",x["champ"]["name"],re.I)]
-            print("WINLINE_FIXTURE:",json.dumps({"packet":base64.b64encode(gzip.compress(raw[:18]+b"".join(selected))).decode()}),flush=True)
-            print("WINLINE_SNAPSHOT:",json.dumps({"bytes":len(raw),"offset":r.p,"counts":counts,"total":len(events),"events":found},ensure_ascii=False),flush=True)
-           except Exception as e:
-            print("WINLINE_DECODE_ERROR:",json.dumps({"error":str(e),"offset":r.p,"block":offset,"hex":raw[max(0,offset-10):offset+180].hex(),"counts":counts,"event":ev,"champ":champ},ensure_ascii=False),flush=True)
-          async def run():
-           async with async_playwright() as p:
-            browser=await p.chromium.launch(headless=True);page=await browser.new_page();raws={};decoded=False
-            await page.goto("https://codex-bookmaker-auto-refresh.oneshot-panel.pages.dev/build.txt",wait_until="domcontentloaded")
-            print("RUNTIME_BUILD:",await page.locator("body").inner_text(),flush=True)
-            checks=await page.evaluate("""async()=>Promise.all(['fonbet','pari','bettery','bet24','olimp','marathon','betcity','leon','winline'].map(async id=>{
-             try {const r=await fetch('/api/bookmakers?id='+id);return {id,status:r.status,body:await r.json()};}
-             catch(e){return {id,error:e.name};}
-            }))""")
-            for c in checks:print("RUNTIME_API:",json.dumps(c,ensure_ascii=False),flush=True)
-            def frame(data):
-             nonlocal decoded
-             if not isinstance(data,bytes) or not data.startswith(b"\x1f\x8b"):return
-             try:
-              raw=gzip.decompress(data);kind=struct.unpack_from("<H",raw)[0]
-              if kind==1180:print("WINLINE_CLOCK:",json.dumps({"bytes":len(raw),"u32":[struct.unpack_from("<I",raw,i)[0] for i in range(2,len(raw)-3,4)],"now":int(__import__("time").time())}),flush=True)
-              if kind in (3,16) and kind not in raws:raws[kind]=raw
-              if 3 in raws and 16 in raws and not decoded:
-               decoded=True;print("WINLINE_DICTIONARY_FIXTURE:",json.dumps({"packet":base64.b64encode(gzip.compress(raws[16])).decode()}),flush=True);snapshot(raws[3],dictionary(raws[16]))
-             except Exception as e:print("WINLINE_ERROR:",str(e),flush=True)
-            def opened(ws):ws.on("framereceived",frame)
-            page.on("websocket",opened)
-            await page.goto("https://winline.ru/stavki/sport/kibersport/counter-strike",wait_until="domcontentloaded",timeout=30000)
-            await page.wait_for_timeout(10000)
-
-            from urllib.parse import urlsplit,urlunsplit,parse_qsl,urlencode
-            def safe_url(url):
-             p=urlsplit(url)
-             return urlunsplit((p.scheme,p.netloc,p.path,urlencode([(k,v) for k,v in parse_qsl(p.query) if not re.search("token|session|uuid|finger|secret|sign|auth|hash|key",k,re.I)]),""))
-            for label,url in [("baltbet","https://baltbet.ru/home/cybersport"),("sportbet","https://sportbet.ru/sport"),("betboom","https://betboom.ru/sport/esport/3/39428")]:
-             context=await browser.new_context(locale="ru-RU")
-             await context.route("**/*",lambda route:route.continue_() if route.request.method in ("GET","HEAD") or re.match(r"^https://siteapi\.betboom\.ru/api/site_api/v1/sporthub/tree/get_",route.request.url) else route.abort())
-             pg=await context.new_page();tasks=[]
-             async def reply(r):
-              content=r.headers.get("content-type","")
-              parsed=urlsplit(r.url)
-              if parsed.hostname not in ("events.baltbet.ru","baltbet.ru","sportbet.ru","betboom.ru","siteapi.betboom.ru"):return
-              if "json" not in content and "/api/" not in parsed.path:return
-              if any(x in parsed.path.lower() for x in ("account","balance","wallet","login","history","bets","user","profile","minio","auth")):return
-              try:
-               text=await r.text()
-               print("NATIVE_PUBLIC_GET:",json.dumps({"provider":label,"url":safe_url(r.url),"status":r.status,"size":len(text),"keys":list(json.loads(text).keys())[:25] if text.lstrip().startswith("{") else [],
-                "cyberclash":[text[max(0,m.start()-200):m.end()+1500] for m in list(re.finditer("cyber.?clash",text,re.I))[:8]]},ensure_ascii=False),flush=True)
-              except Exception:pass
-             pg.on("response",lambda r:tasks.append(asyncio.create_task(reply(r))))
-             pg.on("request",lambda req:print("NATIVE_READ_METHOD:",json.dumps({"provider":label,"method":req.method,"url":safe_url(req.url)}),flush=True) if req.method=="POST" and any(x in req.url for x in ("sportbet.ru/api/","events.baltbet.ru/","siteapi.betboom.ru/")) else None)
-             try:
-              response=await pg.goto(url,wait_until="domcontentloaded",timeout=30000);await pg.wait_for_timeout(10000)
-              text=await pg.locator("body").inner_text()
-              print("NATIVE_PAGE:",json.dumps({"provider":label,"status":response.status if response else 0,"text":text[:1200],
-               "cyber":[text[max(0,m.start()-200):m.end()+1000] for m in list(re.finditer("cyber.?clash",text,re.I))[:5]]},ensure_ascii=False),flush=True)
-              print("NATIVE_LINKS:",json.dumps({"provider":label,"links":await pg.locator("a[href]").evaluate_all("(els)=>els.map(x=>({text:x.innerText.slice(0,70),href:x.href})).filter(x=>/линия|ставки|counter|кибер|cyber|cs2|sport/i.test(x.text+' '+x.href)).slice(0,40)")},ensure_ascii=False),flush=True)
-              if label=="baltbet":
-               anchors=pg.get_by_role("link",name="ЛИНИЯ",exact=True)
-               if await anchors.count():
-                await anchors.first.click();await pg.wait_for_timeout(8000)
-                print("BALT_LINE:",json.dumps({"url":pg.url,"text":(await pg.locator("body").inner_text())[:1600]},ensure_ascii=False),flush=True)
-              if tasks:await asyncio.gather(*tasks,return_exceptions=True)
-             except Exception as e:print("NATIVE_PAGE:",json.dumps({"provider":label,"error":type(e).__name__}),flush=True)
-             await context.close()
-
-            await browser.close()
-          asyncio.run(run())
+            request=Request(base+path,data=json.dumps(body).encode(),headers={"Content-Type":"application/json","Accept":"application/json"},method="POST")
+            with urlopen(request,timeout=15) as r:
+             data=json.load(r);status=r.status
+            data={k:v for k,v in data.items() if not k.startswith("_") and not re.search("token|secret|session|auth|user|account",k,re.I)}
+            print("BETBOOM_PUBLIC_QUERY:",json.dumps({"path":path,"status":status,"response":data},ensure_ascii=False)[:40000],flush=True)
+           except Exception as e:print("BETBOOM_PUBLIC_QUERY:",json.dumps({"path":path,"error":str(e)[:100]}),flush=True)
           
           PY
