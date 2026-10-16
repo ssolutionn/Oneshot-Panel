@@ -238,13 +238,16 @@ async def run(args):
             await expect(guide).to_contain_text(words)
         await page.locator("#obsView .obs-manual-step > summary", has_text="Каждый матч: отправь камеры").click()
         await expect(guide).to_contain_text("Поменял игрока, ID или порядок")
+        # Tabs: Подготовка · Вето · Лобби · OBS · Букмекеры.
+        tabs = await page.locator(".view-tabs [role=tab]").evaluate_all("els => els.map(el => el.id)")
+        assert tabs == ["viewPrep", "vetoNavBtn", "viewLobby", "obsNavBtn", "bookiesNavBtn"], tabs
         await page.focus("#obsNavBtn")
-        await page.keyboard.press("ArrowLeft")
-        await expect(page.locator("#bookiesView #bookies")).to_be_visible()
         await page.keyboard.press("ArrowLeft")
         await expect(page.locator("#lobbyView")).to_be_visible()
         assert await page.locator("#lobbyView #bookies").count() == 0, "bookmakers have a tab of their own"
         await page.keyboard.press("End")
+        await expect(page.locator("#bookiesView #bookies")).to_be_visible()
+        await page.keyboard.press("ArrowLeft")
         await expect(page.locator("#obsView")).to_be_visible()
         passed("tabs, keyboard switching, OBS tab with a step-by-step guide, webcam status 8/10")
 
@@ -588,6 +591,12 @@ async def run(args):
         await expect(marathon.locator("td").nth(rune_col)).to_contain_text("лайв заявлен")
         olimp = table.locator("tbody tr", has=lobby.locator("th span", has_text="OLIMPBET"))
         await expect(olimp.locator("td").nth(rune_col)).to_have_text("—")
+        # Read fine but nothing of ours on sale: «на связи», not broken (PARI is the broken one).
+        bettery = table.locator("tbody tr", has=lobby.locator("th span", has_text="Bettery"))
+        await expect(bettery.locator("th small")).to_contain_text("на связи · CyberClash в линии нет")
+        await expect(bettery.locator("td").nth(rune_col)).to_have_attribute("title", "Контора на связи, этого матча в её линии нет")
+        auto = await lobby.evaluate("import('/bookmakers.js').then(m => m.BOOKMAKERS.length)")
+        await expect(lobby.locator("#bookiesStatus")).to_contain_text(f"на связи {auto - 1} из {auto}")
         first_rows = await table.locator("tbody tr th span").all_inner_texts()
         assert first_rows[:2] == ["Фонбет", "Марафон"], first_rows
         manual = await lobby.evaluate("import('/bookmakers.js').then(m => m.MANUAL.length)")

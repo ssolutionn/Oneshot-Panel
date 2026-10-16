@@ -201,12 +201,15 @@ function render() {
       liveText(false, events.some(e => lines[eventKey(b.id, e)]?.liveSeen), events.some(e => e.liveOffered));
     const state = !r ? 'проверяем…' : broken ?
       'нет связи' + (r.checkedAt ? '; данные на ' + msk(r.checkedAt) : ': ' + (r.failed || 'нет сети')) :
-      (events.length ? ['в линии: ' + events.length, biggest && 'до ' + sizeText(biggest), live].filter(Boolean).join(' · ') : 'матчи не найдены') +
+      // Read fine, just no CyberClash on sale there: not a broken source.
+      (events.length ? ['в линии: ' + events.length, biggest && 'до ' + sizeText(biggest), live].filter(Boolean).join(' · ') :
+        'на связи · CyberClash в линии нет') +
       (partial ? ' · неполные данные' : '') + (r.coverage === 'prematch' ? ' · только прематч' : '') + (r.checkedAt ? ' · ' + msk(r.checkedAt) : '');
     const cells = cols.map(m => {
       const candidates = events.filter(e => !m.date || !e.start || eventDate(e) === m.date);
       const found = findMatch(candidates, m.team1, m.team2);
-      return found ? cell(b, found, broken) : el('td', {className:'none', textContent: !r ? '…' : broken || partial ? '?' : '—'});
+      return found ? cell(b, found, broken) : el('td', {className:'none', textContent: !r ? '…' : broken || partial ? '?' : '—',
+        title: !r ? 'Проверяем' : broken ? 'Нет связи с конторой' : partial ? 'Ответ неполный' : 'Контора на связи, этого матча в её линии нет'});
     });
     const names = tournaments(events);
     const row = el('tr', { className: events.length ? 'has' : '', id: 'bookie-' + b.id },
@@ -229,6 +232,7 @@ function render() {
   const listed = BOOKMAKERS.filter(b => results.get(b.id)?.events?.length && !unavailable(b)).map(b => b.name);
   const inLive = BOOKMAKERS.filter(b => results.get(b.id)?.events?.some(e => e.live) && !unavailable(b)).map(b => b.name);
   const stale = BOOKMAKERS.filter(unavailable).length;
+  const reached = BOOKMAKERS.filter(b => results.has(b.id) && !unavailable(b) && results.get(b.id).ok !== false).length;
   const progress = navigator.onLine === false ? 'Нет сети. Обновим после подключения.' :
     document.hidden ? 'Автообновление продолжится при возвращении на вкладку.' :
     checking ? 'Обновляем линии…' : 'Автообновление каждую минуту.' +
@@ -238,7 +242,8 @@ function render() {
     (inLive.length ? ' Сейчас в лайве: ' + inLive.join(', ') + '.' : '') +
     (stale ? ' Недоступно источников: ' + stale + '; прежние коэффициенты отмечены как устаревшие.' : '') +
     (lastCheck && !checking ? ' Проверка: ' + msk(lastCheck) + ' МСК.' : '') +
-    ' Автоматически: ' + BOOKMAKERS.length + ' из ' + (BOOKMAKERS.length + MANUAL.length) + ' контор.';
+    ' Автоматически: ' + BOOKMAKERS.length + ' из ' + (BOOKMAKERS.length + MANUAL.length) + ' контор' +
+    (results.size ? `, на связи ${reached} из ${BOOKMAKERS.length}` : '') + '. «—» — контора на связи, но этого матча у неё нет.';
 
 }
 

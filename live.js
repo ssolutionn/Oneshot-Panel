@@ -23,7 +23,7 @@ const cardBase = () => /^https?:$/.test(location.protocol) ? location.origin : D
 
 // ---------- tabs ----------
 const views = [['prep', 'viewPrep', 'prepView'], ['veto', 'vetoNavBtn', 'vetoView'], ['lobby', 'viewLobby', 'lobbyView'],
-  ['bookies', 'bookiesNavBtn', 'bookiesView'], ['obs', 'obsNavBtn', 'obsView']];
+  ['obs', 'obsNavBtn', 'obsView'], ['bookies', 'bookiesNavBtn', 'bookiesView']];
 // On the site the panel's veto has a tab of its own, under the captains' room
 // (the Claude artifact keeps it on the one page).
 $('cvLive').after($('veto'));
