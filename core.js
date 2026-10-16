@@ -27,6 +27,13 @@ export function decodeGviz(text) {
   return labels.some(Boolean) ? [labels, ...rows] : rows;
 }
 
+// VDO.Ninja keeps only letters, digits and _ in a stream ID: everything
+// else becomes "_" ("Q-Q" publishes as "Q_Q"). Links and the webcam status
+// use the ID VDO.Ninja will really have.
+export function vdoId(value) {
+  return line(value).replace(/[\W]+/g, '_').slice(0, 64);
+}
+
 // A bad row (no room, a repeated ID) is skipped and reported in
 // teams.skipped: one pasted stand-in must not take every roster down.
 export function parseTeams(rows) {
@@ -36,7 +43,7 @@ export function parseTeams(rows) {
     if (!v[0] || !v[1] || !v[3] ||
         !['Основной', 'Запасной', 'Тренер'].includes(v[8])) return;
     // L: the team's VDO.Ninja room password (sheet «Комнаты», column «Пароль»).
-    const name = v[1], nick = v[3], id = v[4] || nick, room = v[5], password = v[11] || '';
+    const name = v[1], nick = v[3], id = vdoId(v[4] || nick), room = v[5], password = v[11] || '';
     if (!room) { skipped.push(`строка ${index + 1}: у ${nick} (${name}) не указана комната`); return; }
     if (ids.has(v[0])) { skipped.push(`строка ${index + 1}: повтор ID ${v[0]}`); return; }
     ids.add(v[0]);
@@ -215,7 +222,8 @@ export function newStreamId(nick, random = n => crypto.getRandomValues(new Uint8
   return `${base}_${tail}`;
 }
 // New IDs live in the browser until someone writes them into the sheet
-// (column E). saved: { [player.key]: { id, was } }. An entry counts only
+// (column E). saved: { [player.key]: { id, was, manual? } } — manual: the ID
+// the player really joined with, typed by hand. An entry counts only
 // while the sheet still has the ID it replaced; once the sheet holds the
 // new ID, or anything else, the sheet wins and the entry is dropped.
 export function applyStreamIds(teams, saved) {
@@ -225,10 +233,10 @@ export function applyStreamIds(teams, saved) {
     ...team,
     players: team.players.map(p => {
       const entry = Object.hasOwn(entries, p.key) ? entries[p.key] : null;
-      if (!entry || typeof entry.id !== 'string' || !/^[A-Za-z0-9_]{3,40}$/.test(entry.id) ||
-          entry.was !== p.id) return p;
-      kept[p.key] = { id: entry.id, was: entry.was };
-      return { ...p, id: entry.id, sheetId: p.id };
+      if (!entry || typeof entry.id !== 'string' || !/^\w{1,64}$/.test(entry.id) ||
+          entry.was !== p.id || entry.id === p.id) return p;
+      kept[p.key] = { id: entry.id, was: entry.was, ...(entry.manual ? { manual: true } : {}) };
+      return { ...p, id: entry.id, sheetId: p.id, ...(entry.manual ? { manualId: true } : {}) };
     })
   }));
   return { teams: result, saved: kept };
