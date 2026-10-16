@@ -254,3 +254,35 @@ test('Baltbet complete public cyber list: CyberClash, winner and first-map price
   assert.throws(()=>parseFeed(book('baltbet'),'{"error":"maintenance"}',false),/формат линии/);
   assert.deepEqual(parseFeed(book('baltbet'),{sportId:25,superMarkets:raw.superMarkets,leagues:[]},false),[]);
 });
+
+test('Sportbet native full CS2 tables verify absence in prematch and live', async () => {
+  assert.deepEqual(parseFeed(book('sportbet'),await fixture('sportbet-cs2-line.json'),false),[]);
+  assert.deepEqual(parseFeed(book('sportbet'),await fixture('sportbet-cs2-live.json'),true),[]);
+  assert.deepEqual(parseFeed(book('sportbet'),await fixture('sportbet-native-schema.json'),false),[],'Dota is not CS2');
+  assert.throws(()=>parseFeed(book('sportbet'),'{"status":"error","data":{"sports":[]},"statusCode":500}',false),/формат линии/);
+  const asked=[];
+  const {body}=await checkBookmaker('sportbet',async url=>{
+    asked.push(url);
+    return new Response(await fixture(url.includes('status=live')?'sportbet-cs2-live.json':'sportbet-cs2-line.json'));
+  });
+  assert.equal(body.ok,true);
+  assert.equal(body.coverage,'line-and-live');
+  assert.equal(asked.length,2);
+  assert.ok(asked.every(u=>u.startsWith('https://bthm-server.sportbet.ru/events.table?')&&u.endsWith('sport=esport-counter-strike')));
+});
+test('Sportbet parser routes a synthetic CS2 tournament using the verified native event schema', async () => {
+  // Representative real Dota payload; only sport/tournament labels below are synthetic.
+  // No production CyberClash prices are claimed by this test.
+  const raw=JSON.parse(await fixture('sportbet-native-schema.json'));
+  const sport=raw.data.sports[0], tournament=sport.tournaments[0];
+  sport.slug='esport-counter-strike';tournament.name='CyberClash';
+  const events=parseFeed(book('sportbet'),raw,false);
+  assert.equal(events.length,2);
+  assert.deepEqual(events[0].odds,[1.08,7.4]);
+  assert.equal(events[0].team1,'Team Lynx');
+  assert.equal(events[0].start,1792159200000);
+  tournament.events[0].markets[0].outcomes[0].active=false;
+  assert.equal(parseFeed(book('sportbet'),raw,false)[0].odds[0],null,'inactive prices are never presented as available');
+  tournament.events[0].status='finished';
+  assert.equal(parseFeed(book('sportbet'),raw,true).length,1,'finished games do not stay in the live table');
+});

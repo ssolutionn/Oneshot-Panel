@@ -56,6 +56,13 @@ export const BOOKMAKERS = [
     eventUrl: e => `https://betcity.ru/ru/${e.live ? 'live' : 'line'}/cybersport/${e.group}/${e.id}`
   },
   {
+    id: 'sportbet', name: 'Спортбет', kind: 'sportbet', page: 'https://sportbet.ru/',
+    feeds:[false,true].map(live => ({live, urls:[
+      'https://bthm-server.sportbet.ru/events.table?lang=ru&status=' + (live ? 'live' : 'prematch') + '&sport=esport-counter-strike'
+    ]})),
+    eventUrl: () => 'https://sportbet.ru/'
+  },
+  {
     id: 'baltbet', name: 'Балтбет', kind: 'baltbet', page: 'https://baltbet.ru/prematch/cybersport',
     feeds: [{live:false, urls:['https://events.baltbet.ru/api/prematch/sport/25/events?offset=all'],
       headers:{bb_appSource:'UniRu'}}],
@@ -82,8 +89,7 @@ export const MANUAL = [
   { id: 'betboom', name: 'BetBoom', url: 'https://betboom.ru/sport/esport/3/39428', reason: 'Турнир найден; получение матчей и коэффициентов ещё не подключено' },
   { id: 'melbet', name: 'Мелбет', url: 'https://melbet.ru/', reason: 'Публичный серверный запрос отклонён; линия не проверена' },
   { id: 'zenit', name: 'Зенит', url: 'https://zenit.win/line/556', reason: 'Линия видна в браузере; серверное чтение ещё не подтверждено' },
-  { id: 'betm', name: 'БЕТ-М', url: 'https://bet-m.ru/', reason: 'Публичный серверный запрос отклонён; линия не проверена' },
-  { id: 'sportbet', name: 'Спортбет', url: 'https://sportbet.ru/', reason: 'Публичная лента матчей ещё не подключена' }
+  { id: 'betm', name: 'БЕТ-М', url: 'https://bet-m.ru/', reason: 'Публичный серверный запрос отклонён; линия не проверена' }
 ];
 
 export const isCyberClash = name => /cyber\s*clash|кибер\s*клэш/i.test(String(name || ''));
@@ -240,6 +246,23 @@ export function mskTime(text, now = Date.now()) {
   return Date.UTC(today.getUTCFullYear(), month, day, Number(m[3]) - 3, Number(m[4]));
 }
 
+// Sportbet's complete table endpoint, filtered by the official CS2 slug.
+// An empty sports[] is a verified empty table; homepage/top/upcoming are not.
+function parseSportbet(data, live) {
+  return data.data.sports.filter(s => s.slug === 'esport-counter-strike')
+    .flatMap(s => (s.tournaments || []).filter(t => isCyberClash(t.name))
+      .flatMap(t => (t.events || []).filter(e => ['not_started','live'].includes(e.status)).map(e => {
+        const winner = (e.markets || []).find(m => m.status === 'active' && /^(Победитель|Исход|Победа в матче)$/i.test(m.name));
+        const quote = name => price(winner?.outcomes?.find(o => o.name === name && o.active !== false)?.odd);
+        return {
+          id:String(e.id), group:String(t.id), tournament:t.name,
+          team1:e.teams?.team1?.name || '', team2:e.teams?.team2?.name || '',
+          start:Number(e.scheduled) || null, odds:[quote('Поб 1'),quote('Поб 2')],
+          live:live || e.status === 'live', score:e.score || '', markets:[], size:null
+        };
+      })));
+}
+
 // Baltbet: complete cyber sport prematch list, not the homepage's hot picks.
 // Result2 and ExtResult2 coefficient IDs are described by superMarkets.
 function parseBaltbet(data, live) {
@@ -265,7 +288,7 @@ function parseBaltbet(data, live) {
     }));
 }
 
-const PARSERS = { baltbet: parseBaltbet, fonbet: parseFonbet, olimp: parseOlimp, marathon: parseMarathon, betcity: parseBetcity, leon: parseLeon };
+const PARSERS = { sportbet: parseSportbet, baltbet: parseBaltbet, fonbet: parseFonbet, olimp: parseOlimp, marathon: parseMarathon, betcity: parseBetcity, leon: parseLeon };
 export function parseFeed(bookmaker, body, live, now = Date.now()) {
   const parse = PARSERS[bookmaker.kind];
   if (!parse) throw new Error('Неизвестный формат линии.');
@@ -273,6 +296,7 @@ export function parseFeed(bookmaker, body, live, now = Date.now()) {
   // schema. Treat that as unavailable, never as proof that the tournament vanished.
   const data = bookmaker.kind === 'marathon' ? body : typeof body === 'string' ? JSON.parse(body) : body;
   const valid = ['fonbet', 'leon'].includes(bookmaker.kind) ? Array.isArray(data?.events) :
+    bookmaker.kind === 'sportbet' ? data?.status === 'ok' && Number(data?.statusCode) === 200 && Array.isArray(data?.data?.sports) :
     bookmaker.kind === 'baltbet' ? Number(data?.sportId) === 25 && Array.isArray(data?.superMarkets) && Array.isArray(data?.leagues) :
     bookmaker.kind === 'olimp' ? (Array.isArray(data) ? data : [data])
       .some(item => Array.isArray(item?.payload?.competitionsWithEvents)) :

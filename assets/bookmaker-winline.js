@@ -60,7 +60,7 @@ export function winlineSnapshot(bytes, markets) {
         id: String(id), group: String(championship.id), tournament: championship.name,
         // The official client sets TZ_OFFSET_MS=10800000 and rounds to a minute.
         team1, team2, start: start ? Math.floor((start * 1000 + 29999 - 10800000) / 60000) * 60000 : null, odds: [null, null],
-        live: false, liveOffered, markets: [], size: count ? {count, unit:'рынков'} : null
+        live: false, liveOffered, markets: [], size: count ? {count, unit:'доп. рынков'} : null
       } : null;
       if (event) events.push(event);
     } else if (tag === 4) {

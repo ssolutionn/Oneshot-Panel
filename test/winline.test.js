@@ -24,7 +24,7 @@ test('Winline real public binary packets: winner, total, handicap and match scop
     {kind:'total',name:'Тотал карт',line:'2.5',odds:[1.87,1.83]},
     {kind:'handicap',name:'Фора карт',line:'-1.5',odds:[2.9,1.27]}
   ]);
-  assert.deepEqual(e.size, {count:30,unit:'рынков'});
+  assert.deepEqual(e.size, {count:30,unit:'доп. рынков'});
   const raw = gunzipSync(line);
   assert.throws(() => winlineSnapshot(raw.subarray(0,raw.length-1), markets), /Неполный/);
   const changed = Buffer.from(raw); changed[18]=255;
