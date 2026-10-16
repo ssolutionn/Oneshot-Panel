@@ -24,7 +24,9 @@ BO1/2/3/5 с текстом для HLTV и оверлеем. «Лобби»: т�
   localStorage (`webcam-desk-source`, `oneshot-webcam-match-v1`,
   `oneshot-stream-ids` — новые ID потоков от кнопки ↻ справа от игрока:
   два нажатия, новый ID `ник_xxxxxx` (`newStreamId`), сообщение игроку
-  копируется сразу; действует, пока в таблице прежний ID, —
+  копируется сразу; ✎ (`data-setid`) — ID, под которым игрок реально
+  зашёл (старая ссылка), вручную, сообщение не копируется (`manual`);
+  действует, пока в таблице прежний ID, —
   `applyStreamIds`; «вернуть» в строке отменяет), вето,
   копирование, скачивание JSON. Отдаёт `window.oneshotPanel.snapshot()`
   и событие `oneshot:change` для `live.js` и `lobby.js`; сам их не знает
@@ -305,7 +307,7 @@ Netlify проверяет локальные фото, докачивает н�
   nextDelay copyThanks msgThanks nextMatch copyNext msgNext tplThanks
   tplNext resetTemplates copyJournal lobbyLog; док: dockPanel dockPanelDot
   dockObs dockObsDot dockForm dockCode dockUrl dockPassword dockLog
-- data-атрибуты (их ставит `app.js`): data-regen data-unregen (id
+- data-атрибуты (их ставит `app.js`): data-regen data-unregen data-setid (id
   regen-a-0…regen-b-4) data-copy-team data-map data-player
   data-reset data-slot data-team data-view; `live.js`: data-cam (live, off,
   wait, none) на `.player-row`; `lobby.js`: data-match data-pause data-side
@@ -321,6 +323,8 @@ Netlify проверяет локальные фото, докачивает н�
 - Составы: https://docs.google.com/spreadsheets/d/1e__ijBjufD19SWBkSJL177vmmfMh2tdykYQHAS06S8I/edit,
   лист игроков GID 1315978454 (A ID, B команда, C слот, D ник, E ID потока,
   F room, I роль, L пароль комнаты). Таблица должна быть открыта на просмотр по ссылке.
+  ID потока проходит `vdoId`: всё, кроме букв, цифр и `_`, становится `_`, как
+  делает сам VDO.Ninja («Q-Q» публикуется как «Q_Q»).
   Пароль комнаты (лист «Комнаты», колонка «Пароль») панель добавляет как
   `&password=` во все ссылки команды: игрокам, OBS, директору, статусу
   вебок. Без пароля ссылки прежние (`pushUrl`/`viewUrl`/`directorUrl`).

@@ -2,7 +2,7 @@ import {
   DEFAULT_SOURCE, decodeGviz, parseTeams, parseSchedule, scheduleDay,
   defaultLineup, lineupCandidates, roleSuffix, selectedPlayers,
   validatePlayers, validateMatch, viewUrl, directorUrl,
-  newStreamId, applyStreamIds, playerLine,
+  newStreamId, applyStreamIds, playerLine, vdoId,
   observerText, playerText, buildObs, safeFilename, validateMetadata,
   MAP_POOL, VETO_RULES, validateVeto, appendVeto, vetoText
 } from './core.js';
@@ -117,6 +117,25 @@ function regenerate(side, slot) {
     `Новая ссылка для ${fresh.nick} скопирована — отправь игроку. Старая больше не его. ` +
     'В OBS камеру обновит «Отправить в OBS» (или новый JSON).'));
   document.dispatchEvent(new CustomEvent('oneshot:stream-id', { detail: { team: team.name, nick: fresh.nick } }));
+}
+// ✎ next to a player: the ID the player really joined with (an old link, a
+// typo), so OBS and the webcam status follow their camera. The player keeps
+// their link; «вернуть» goes back to the sheet's ID.
+function setStreamId(side, slot) {
+  const team = getTeam(side), player = chosen(side)[slot];
+  if (!team || !player) return;
+  const typed = window.prompt(`${player.nick}: ID потока, под которым игрок зашёл в VDO.Ninja ` +
+    '(то, что после push= в его ссылке):', player.id);
+  if (typed === null) return;
+  const id = vdoId(typed.replace(/^.*[?&]push=/, '').replace(/&.*$/, ''));
+  if (!id) return toast('Пустой ID — ничего не поменяли.');
+  const was = player.sheetId ?? player.id;
+  if (id === was) delete state.streamIds[player.key];
+  else state.streamIds[player.key] = { id, was, manual: true };
+  applyIds();
+  render();
+  toast(`Вебка ${player.nick}: ID ${id}. В OBS камеру обновит «Отправить в OBS» (или новый JSON).`);
+  document.dispatchEvent(new CustomEvent('oneshot:stream-id', { detail: { team: team.name, nick: player.nick } }));
 }
 function unregenerate(side, slot) {
   const player = chosen(side)[slot];
@@ -404,7 +423,7 @@ function render() {
               >${escapeHtml(p.nick + roleSuffix(p))}</option>`).join('')}
             </select>
             <span class="player-subline">${player ?
-              (player.sheetId ? `<b class="new-id">Новый ID</b> <button type="button" class="link-button"
+              (player.sheetId ? `<b class="new-id">${player.manualId ? 'Свой ID' : 'Новый ID'}</b> <button type="button" class="link-button"
                 data-unregen="${side}" data-slot="${i}"
                 title="Вернуть ID из таблицы (${escapeHtml(player.sheetId)})">вернуть</button> · ` : '') +
               escapeHtml(viewUrl(player)) :
@@ -418,6 +437,9 @@ function render() {
             title="${state.regenAsk === `${side}${i}` ? 'Нажми ещё раз — сделать новую ссылку' :
               'Новая ссылка игроку (если старая утекла)'}" ${!player ? 'disabled' : ''}
             >${state.regenAsk === `${side}${i}` ? '✓?' : '↻'}</button>
+          <button class="copy-icon setid-icon" type="button" data-setid="${side}" data-slot="${i}"
+            aria-label="Указать ID потока вручную ${player ? escapeHtml(player.nick) : ''}"
+            title="Указать ID вручную (игрок зашёл по другой ссылке)" ${!player ? 'disabled' : ''}>✎</button>
           <button class="give-button" type="button" data-give="${side}" data-slot="${i}"
             aria-label="Скопировать ссылку игроку ${player ? escapeHtml(player.nick) : ''}"
             title="Скопировать PUSH-ссылку, чтобы отдать игроку" ${!player ? 'disabled' : ''}>Игроку</button>
@@ -481,6 +503,8 @@ function render() {
       const player = chosen(el.dataset.give)[Number(el.dataset.slot)];
       if (player) copy(playerLine(player)).then(() => toast(`Ссылка для ${player.nick} скопирована — отправь игроку.`));
     }));
+  $('teamGrid').querySelectorAll('[data-setid]').forEach(el =>
+    el.addEventListener('click', () => setStreamId(el.dataset.setid, Number(el.dataset.slot))));
   $('teamGrid').querySelectorAll('[data-unregen]').forEach(el =>
     el.addEventListener('click', () => unregenerate(el.dataset.unregen, Number(el.dataset.slot))));
   $('teamGrid').querySelectorAll('[data-view]').forEach(el =>

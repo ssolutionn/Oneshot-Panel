@@ -133,11 +133,12 @@ test('Schedule day comes from the sheet title, not from match rows', () => {
   assert.equal(scheduleDay([['Расписание: 1 матч в день']]), '');
 });
 
+// Stream IDs in these rows have a dash: VDO.Ninja publishes them with "_" (vdoId).
 test('Player output has bold nickname and separate PUSH URL', () => {
   const [a, , ka] = fixture();
   const text = playerText(a, selectedPlayers(a, ka));
   assert.ok(text.startsWith('## HYPERSPIRIT\n'));
-  assert.ok(text.includes('**Ciocardau** https://vdo.ninja/?room=hyperspirit&broadcast&do&push=stream0-0'));
+  assert.ok(text.includes('**Ciocardau** https://vdo.ninja/?room=hyperspirit&broadcast&do&push=stream0_0'));
   assert.equal((text.match(/https:\/\/vdo\.ninja\//g) || []).length, 5);
   assert.ok(!text.includes('[**'));
   assert.ok(!text.includes('director='));
@@ -148,13 +149,13 @@ test('Room password from column L goes into every link of that team only', () =>
   const [a, b] = parseTeams(rows);
   assert.equal(a.password, 'k3y 7&x');
   const [p] = selectedPlayers(a, defaultLineup(a));
-  assert.equal(pushUrl(p), 'https://vdo.ninja/?room=hyperspirit&password=k3y%207%26x&broadcast&do&push=stream0-0');
-  assert.equal(viewUrl(p), 'https://vdo.ninja/?view=stream0-0&solo=1&room=hyperspirit&password=k3y%207%26x&codec=h264&cleanoutput&transparent');
+  assert.equal(pushUrl(p), 'https://vdo.ninja/?room=hyperspirit&password=k3y%207%26x&broadcast&do&push=stream0_0');
+  assert.equal(viewUrl(p), 'https://vdo.ninja/?view=stream0_0&solo=1&room=hyperspirit&password=k3y%207%26x&codec=h264&cleanoutput&transparent');
   assert.equal(directorUrl(a), 'https://vdo.ninja/?director=hyperspirit&password=k3y%207%26x');
-  assert.ok(playerText(a, selectedPlayers(a, defaultLineup(a))).includes('**Ciocardau** https://vdo.ninja/?room=hyperspirit&password=k3y%207%26x&broadcast&do&push=stream0-0'));
+  assert.ok(playerText(a, selectedPlayers(a, defaultLineup(a))).includes('**Ciocardau** https://vdo.ninja/?room=hyperspirit&password=k3y%207%26x&broadcast&do&push=stream0_0'));
   // A team without a password keeps the old links.
   const [q] = selectedPlayers(b, defaultLineup(b));
-  assert.equal(pushUrl(q), 'https://vdo.ninja/?room=team-b&broadcast&do&push=stream1-0');
+  assert.equal(pushUrl(q), 'https://vdo.ninja/?room=team-b&broadcast&do&push=stream1_0');
   assert.equal(directorUrl(b), 'https://vdo.ninja/?director=team-b');
 });
 
@@ -457,6 +458,25 @@ test('newStreamId: nick letters plus a random tail VDO.Ninja keeps as is', async
   assert.equal(newStreamId('', fixed), 'cam_bbbbbb');
   assert.match(newStreamId('synyx'), /^synyx_[a-z2-9]{6}$/);
   assert.notEqual(newStreamId('synyx'), newStreamId('synyx'));
+});
+
+test('vdoId: the stream ID as VDO.Ninja keeps it, links and status use it', async () => {
+  const { vdoId, parseTeams, pushUrl, viewUrl, applyStreamIds } = await import('../core.js');
+  assert.equal(vdoId('Q-Q'), 'Q_Q');
+  assert.equal(vdoId(' d1maje '), 'd1maje');
+  assert.equal(vdoId('a.b  c--d'), 'a_b_c_d');
+  assert.equal(vdoId('x'.repeat(80)).length, 64);
+  const teams = parseTeams([['1', 'HYPERSPIRIT', '2', 'Q-Q', 'Q-Q', 'hyperspirit', '', '', 'Основной']]);
+  const [player] = teams[0].players;
+  assert.equal(player.id, 'Q_Q');
+  assert.match(pushUrl(player), /&push=Q_Q$/);
+  assert.match(viewUrl(player), /\?view=Q_Q&/);
+  // ✎: the player joined with an old link (q_q): OBS and the status follow it.
+  const manual = applyStreamIds(teams, { [player.key]: { id: 'q_q', was: 'Q_Q', manual: true } });
+  assert.equal(manual.teams[0].players[0].id, 'q_q');
+  assert.equal(manual.teams[0].players[0].manualId, true);
+  assert.equal(manual.teams[0].players[0].sheetId, 'Q_Q');
+  assert.deepEqual(manual.saved, { [player.key]: { id: 'q_q', was: 'Q_Q', manual: true } });
 });
 
 test('applyStreamIds: a new ID holds until the sheet changes, then the sheet wins', async () => {

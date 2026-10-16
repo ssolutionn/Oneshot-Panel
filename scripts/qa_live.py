@@ -32,7 +32,7 @@ FAKE_VDO = """<!doctype html><script>
 const q = new URLSearchParams(location.search);
 const room = q.get('room') || '', label = q.get('label') || '';
 const view = (q.get('view') || '').split(',').filter(Boolean);
-const live = Object.fromEntries(view.filter(id => !/-4$/.test(id)).map(id => [id, id]));
+const live = Object.fromEntries(view.filter(id => !/[-_]4$/.test(id)).map(id => [id, id]));
 // The dock and the panels share the derived password; team viewers a room.
 const bus = new BroadcastChannel('fake-vdo:' + (q.get('password') || room));
 const me = label + ':' + Math.random().toString(36).slice(2);

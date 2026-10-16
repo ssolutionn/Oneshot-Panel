@@ -357,6 +357,15 @@ async def run(args):
         await expect(subline).to_contain_text(f"view={new_id}&")
         await page.click('[data-unregen="a"][data-slot="0"]')
         await expect(subline).to_have_text(old_view)
+        # ✎: the player joined with another ID (an old link): typed by hand,
+        # a whole link works too; OBS and the status follow it, «вернуть» undoes.
+        page.once("dialog", lambda dialog: asyncio.ensure_future(
+            dialog.accept("https://vdo.ninja/?room=x&broadcast&do&push=old-cam&webcam")))
+        await page.click('[data-setid="a"][data-slot="0"]')
+        await expect(subline).to_contain_text("Свой ID")
+        await expect(subline).to_contain_text("view=old_cam&")
+        await page.click('[data-unregen="a"][data-slot="0"]')
+        await expect(subline).to_have_text(old_view)
         # «Игроку»: the player's own PUSH line, ready to send (clipboard denied
         # again after the reload, so the exact text lands in the dialog).
         await page.evaluate(
