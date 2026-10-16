@@ -1,0 +1,38 @@
+name: Bookmaker daily archive
+on:
+  schedule:
+    - cron: "7,17,27,37,47,57 * * * *"
+  workflow_dispatch:
+  push:
+    branches: ["claude/gracious-sagan-apztcc"]
+    paths:
+      - ".github/workflows/bookmaker-history.yml"
+      - "scripts/collect_bookmaker_history.mjs"
+      - "scripts/read_bookmaker_observations.py"
+      - "assets/bookmaker-history.js"
+      - "bookmakers.js"
+concurrency:
+  group: bookmaker-daily-archive
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Read fixed public feeds from the actual Cloudflare API
+        run: python3 scripts/read_bookmaker_observations.py
+      - name: Save only public match data to the archive branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/collect_bookmaker_history.mjs

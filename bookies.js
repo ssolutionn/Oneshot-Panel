@@ -7,6 +7,7 @@
 // the tournament is shown as it is (they misspell it; there is no "right"
 // one to compare with). Parsing lives in bookmakers.js.
 import { BOOKMAKERS, MANUAL, findMatch, eventKey, marketText } from './bookmakers.js';
+import { moscowDay, validDay, normalizeDay } from './assets/bookmaker-history.js';
 
 const $ = id => document.getElementById(id);
 const STORE = 'oneshot-bookies';
@@ -14,6 +15,8 @@ const EVERY = 60000, RESUME_AFTER = 15000;
 const active = () => !document.hidden && navigator.onLine !== false;
 const KEEP = 7 * 24 * 3600000;
 const results = new Map();
+let archive = null, archiveError = '', archiveLoading = false, archiveRequest = 0;
+let historyDay = moscowDay(), followToday = true;
 let lines = {}, checked = {}, checking = false, lastCheck = 0, startedAt = 0, nextCheck = 0, timer;
 
 try {
@@ -84,7 +87,7 @@ function collect(bookmaker, events) {
     const line = lines[key];
     const fresh = !line;
     lines[key] = {
-      b: bookmaker.id, team1: e.team1, team2: e.team2, start: e.start, url: e.url,
+      b: bookmaker.id, id: e.id, team1: e.team1, team2: e.team2, start: e.start, url: e.url,
       tournament: String(e.tournament || line?.tournament || ''),
       first: line?.first || now, open: line?.open?.some(Boolean) ? line.open : e.odds,
       odds: e.odds, markets: e.markets || [], size: e.size || line?.size || null,
@@ -116,7 +119,7 @@ async function checkAll() {
   $('bookiesCheck').disabled = true;
   render();
   try {
-    await Promise.allSettled(BOOKMAKERS.map(check));
+    await Promise.allSettled([...BOOKMAKERS.map(check), loadArchive()]);
     lastCheck = Date.now();
   } finally {
     checking = false;
@@ -225,11 +228,16 @@ function render() {
     ...cols.map(() => el('td', { className: 'none', textContent: '?' }))) }));
   const rows = [...auto, ...manual].sort((x, y) => x.order - y.order).map(x => x.row);
   table.replaceChildren(el('thead', {}, head), el('tbody', {}, ...rows));
+  renderHistory();
   const unavailable = b => {
     const r = results.get(b.id);
     return r && (r.failed || navigator.onLine === false);
   };
   const listed = BOOKMAKERS.filter(b => results.get(b.id)?.events?.length && !unavailable(b)).map(b => b.name);
+  const empty = $('bookiesEmpty');
+  empty.hidden = !!listed.length || !results.size;
+  if (!empty.hidden) empty.textContent = checking ? 'Обновляем источники. Матчи, которые уже видели за день, доступны ниже в истории.' :
+    'Сейчас подтверждённых матчей CyberClash в линии нет. Завершённые или снятые с линии матчи могут исчезать у букмекеров — сохранённые наблюдения за день доступны ниже. Недоступные источники отмечены отдельно.';
   const inLive = BOOKMAKERS.filter(b => results.get(b.id)?.events?.some(e => e.live) && !unavailable(b)).map(b => b.name);
   const stale = BOOKMAKERS.filter(unavailable).length;
   const reached = BOOKMAKERS.filter(b => results.has(b.id) && !unavailable(b) && results.get(b.id).ok !== false).length;
@@ -306,6 +314,100 @@ function download() {
   link.remove();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
+
+
+async function loadArchive() {
+  if (followToday) historyDay = moscowDay();
+  $('bookiesDay').value = historyDay;
+  const day = historyDay, request = ++archiveRequest;
+  archiveLoading = true; archiveError = ''; renderHistory();
+  try {
+    const response = await fetch('/api/bookmakers?history=' + day, {cache:'no-store',signal:AbortSignal.timeout(12000)});
+    const body = await response.json();
+    if (!response.ok || body.ok !== true) throw Error('unavailable');
+    const value = normalizeDay(body.archive,day);
+    if (request === archiveRequest) archive = value;
+  } catch {
+    if (request === archiveRequest) archiveError = 'Общий архив временно недоступен. Показываем сохранённое в этом браузере.';
+  } finally {
+    if (request === archiveRequest) { archiveLoading = false; renderHistory(); }
+  }
+}
+function dayEvents(book) {
+  const byId = new Map((archive?.day === historyDay ? archive.books[book.id]?.events || [] : []).map(e => [e.id,e]));
+  for (const [key,line] of Object.entries(lines)) {
+    if (line.b !== book.id || !Number.isFinite(line.at) ||
+        moscowDay(line.start || line.at) !== historyDay) continue;
+    const id = line.id || key.slice(book.id.length + 1), old = byId.get(id);
+    if (old && old.last > line.at) continue;
+    byId.set(id,{...line,id,first:Math.min(line.first || line.at,old?.first || Infinity),last:line.at,
+      names:[...new Set([...(old?.names || []),line.tournament].filter(Boolean))]});
+  }
+  return [...byId.values()].sort((a,b) => (a.start || 0)-(b.start || 0) || a.team1.localeCompare(b.team1));
+}
+function renderHistory() {
+  const table = $('bookiesHistoryTable');
+  const rows = [...BOOKMAKERS.map(book => {
+    const events = dayEvents(book);
+    const record = archive?.day === historyDay ? archive.books[book.id] : null;
+    const state = events.length ? 'Сохранено матчей: ' + events.length : !record?.checkedAt ? 'Наблюдений пока нет' :
+      record.status === 'error' ? 'Проверить не удалось' : record.status === 'partial' ? 'Ответ был неполным; отсутствие не подтверждено' :
+      'В сохранённых проверках матчи не встречались';
+    return el('tr',{id:'history-' + book.id},
+      el('th',{scope:'row'},el('span',{textContent:book.name}),open(book.page),
+        el('small',{textContent:state})),
+      el('td',{},...(events.length ? events.map(e => el('div',{className:'bk-history-match'},
+        el('b',{textContent:e.team1 + ' – ' + e.team2}),open(e.url),
+        el('small',{textContent:(e.start ? matchTime(e.start) + ' МСК · ' : 'время матча не указано · ') +
+          'последние замеченные кэфы: ' + (pair(e.odds) || 'не опубликованы')}),
+        el('small',{textContent:'Видели: ' + msk(e.first,true) + ' — ' + msk(e.last,true) + ' МСК' +
+          (e.liveSeen ? ' · был в лайве' : '')}),
+        (e.names?.length || e.tournament) ? el('em',{className:'bk-tournament',
+          textContent:quoted(e.names?.length ? e.names : [e.tournament])}) : null
+      )) : [el('span',{className:'none',textContent:!record?.checkedAt ? 'Нет сохранённых наблюдений; это не означает отсутствие линии.' :
+        record.status !== 'ok' ? 'Наличие матчей неизвестно.' : 'Не зафиксированы. Между проверками могли появляться другие матчи.'})])));
+  }), ...MANUAL.map(book => el('tr',{id:'history-' + book.id,className:'manual'},
+    el('th',{scope:'row'},el('span',{textContent:book.name}),open(book.url)),
+    el('td',{textContent:'Автоматическое чтение пока недоступно. История матчей не подтверждена.'})))];
+  table.replaceChildren(el('thead',{},el('tr',{},el('th',{scope:'col',textContent:'Контора'}),
+    el('th',{scope:'col',textContent:'Матчи за выбранный день (МСК)'}))),el('tbody',{},...rows));
+  const total = BOOKMAKERS.reduce((n,b) => n + dayEvents(b).length,0);
+  $('bookiesHistoryStatus').textContent =
+    (archiveLoading ? 'Загружаем общий архив… ' : archiveError ? archiveError + ' ' : '') +
+    'Сохранено наблюдений матчей: ' + total + '. ' +
+    (archive?.day === historyDay && archive.updatedAt ? 'Общий архив обновлён ' + msk(archive.updatedAt,true) + ' МСК. ' :
+      'Общий архив за этот день пока не заполнен. ') +
+    'Время матчей — МСК. История означает «видели в линии», а не результат матча. ' +
+    'Фоновый сбор — примерно раз в 10 минут, даже при закрытой панели; возможны задержки планировщика.';
+}
+function historyCsv() {
+  const rows = [['Дата матча (МСК)','Контора','Турнир у конторы','Команда 1','Команда 2','Начало (МСК)',
+    'Впервые видели (МСК)','Последний раз видели (МСК)','П1 последние','П2 последние','Был в лайве','Ссылка']];
+  for (const book of BOOKMAKERS) for (const e of dayEvents(book)) rows.push([
+    historyDay,book.name,(e.names?.length ? e.names : [e.tournament || '']).join(' | '),e.team1,e.team2,
+    matchTime(e.start),msk(e.first,true),msk(e.last,true),e.odds?.[0] || '',e.odds?.[1] || '',
+    e.liveSeen ? 'да' : '',e.url
+  ]);
+  const quote = value => {
+    let text = String(value ?? '');
+    if (/^[\s\u0000-\u001f]*[=+@-]/u.test(text)) text = "'" + text;
+    return '"' + text.replace(/"/g,'""') + '"';
+  };
+  const url = URL.createObjectURL(new Blob(['\uFEFF' + rows.map(r => r.map(quote).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'}));
+  const link = el('a',{href:url,download:'cyberclash-history-' + historyDay + '.csv'});
+  document.body.append(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url),1000);
+}
+$('bookiesDay').value = historyDay;
+$('bookiesDay').addEventListener('change',() => {
+  const day = $('bookiesDay').value;
+  if (!validDay(day)) { $('bookiesDay').value = historyDay; return; }
+  historyDay = day; followToday = day === moscowDay(); archive = null; loadArchive();
+});
+$('bookiesToday').addEventListener('click',() => {
+  followToday = true; historyDay = moscowDay(); archive = null; loadArchive();
+});
+$('bookiesHistoryCsv').addEventListener('click',historyCsv);
 
 $('bookiesCheck').addEventListener('click', checkAll);
 $('bookiesCopy').addEventListener('click', () => window.oneshotPanel?.copy?.(summary()));

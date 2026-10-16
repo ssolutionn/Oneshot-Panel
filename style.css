@@ -449,3 +449,16 @@ body.dock { background:var(--bg); font-size:12px; }
 .map-card.ban img { filter:grayscale(1) brightness(.65); }
 .map-card.pick .map-name,.map-card.ban .map-name { padding-bottom:3px; }
 .map-card.pending { border-color:var(--map-pick); }
+
+/* Current lines and observed match-day history have different meanings. */
+.bookies-empty { margin:0 16px 14px; padding:14px 16px; border:1px solid var(--divider); border-radius:8px; color:var(--sub); background:var(--surface); font-size:13px; line-height:1.6; }
+.bookies-history { border-top:1px solid var(--divider); }
+.bookies-history h3 { margin:0; font-size:17px; }
+.bookies-history label { display:flex; gap:8px; align-items:center; color:var(--sub); font-size:12px; }
+.bookies-history input { max-width:160px; min-height:34px; }
+.bk-history-match { padding:8px 0; overflow-wrap:anywhere; }
+.bk-history-match + .bk-history-match { border-top:1px solid var(--divider); }
+#bookiesHistoryTable { min-width:0; table-layout:fixed; }
+#bookiesHistoryTable th:first-child { width:28%; white-space:normal; overflow-wrap:anywhere; }
+#bookiesHistoryTable td { overflow-wrap:anywhere; }
+#bookiesHistoryStatus { line-height:1.6; }

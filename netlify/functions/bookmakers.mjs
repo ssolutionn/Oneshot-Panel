@@ -7,6 +7,7 @@
 import { BOOKMAKERS, parseFeed } from '../../bookmakers.js';
 import { readWinline } from '../../assets/bookmaker-winline.js';
 import { readPublicText } from '../../assets/bookmaker-transport.js';
+import { validDay, emptyDay, normalizeDay } from '../../assets/bookmaker-history.js';
 
 const safeError = error => {
   const message = String(error?.message || '');
@@ -90,6 +91,19 @@ async function currentBookmaker(id, fetchImpl) {
   return value;
 }
 
+
+const HISTORY_ROOT = 'https://raw.githubusercontent.com/ssolutionn/Oneshot-Panel/bookmaker-history/days/';
+async function historyResponse(day, fetchImpl, headers) {
+  if (!validDay(day)) return Response.json({error:'date',message:'Неверная дата истории.'},{status:400,headers});
+  try {
+    const text = await readPublicText(HISTORY_ROOT + day + '.json', fetchImpl, {timeoutMs:8000,maxBytes:2*1024*1024});
+    return Response.json({ok:true,archive:normalizeDay(JSON.parse(text),day)},{headers});
+  } catch(error) {
+    if (error.message === 'HTTP 404') return Response.json({ok:true,archive:emptyDay(day),missing:true},{headers});
+    return Response.json({ok:false,message:'Не удалось загрузить общий архив. Наблюдения этого браузера сохранены.'},{status:502,headers});
+  }
+}
+
 export async function bookmakersResponse(request, fetchImpl = publicFetch) {
   const headers = {
     'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
@@ -100,7 +114,9 @@ export async function bookmakersResponse(request, fetchImpl = publicFetch) {
     return Response.json({error: 'not-allowed', message: 'Доступно только чтение.'},
       {status:405, headers:{...headers, allow:'GET'}});
   }
-  const id = new URL(request.url).searchParams.get('id') || '';
+  const params = new URL(request.url).searchParams;
+  if (params.has('history')) return historyResponse(params.get('history'),fetchImpl,headers);
+  const id = params.get('id') || '';
   if (!BOOKMAKERS.some(b => b.id === id)) {
     return Response.json({error: 'unknown', message: 'Неизвестная букмекерская контора.'},
       {status:400, headers});
