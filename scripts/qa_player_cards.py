@@ -4,7 +4,7 @@ import asyncio
 import json
 from pathlib import Path
 from urllib.parse import urlencode, urlsplit
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from playwright.async_api import async_playwright, expect
 
@@ -13,7 +13,9 @@ async def run(args):
     root = Path(__file__).resolve().parent.parent
     catalog_url = getattr(args, "catalog_url", None)
     if catalog_url:
-        with urlopen(catalog_url, timeout=20) as response:
+        # Cloudflare refuses Python's default User-Agent (403).
+        request = Request(catalog_url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) oneshot-ci"})
+        with urlopen(request, timeout=20) as response:
             catalog = json.load(response)["players"]
     else:
         catalog = json.loads((root / "assets/players/players.json").read_text())["players"]

@@ -63,6 +63,19 @@ async def run(args):
         checks.append(name)
         print("PASS:", name, flush=True)
 
+    # WebKit has no isolated world for Playwright's own helpers: the styles
+    # it injects (screenshots, actionability) trip the page's style-src. Those
+    # come from no file of ours; a style or script from our files still fails.
+    injected = []
+
+    def csp_violation(source, directive, blocked, file):
+        if source["frame"] != source["page"].main_frame:
+            return
+        if args.browser == "webkit" and directive.startswith("style-src") and not file.startswith(base):
+            injected.append(directive)
+            return
+        errors.append(f"CSP {directive} {blocked} {file}")
+
     async def hello(source, password, me, role, stream):
         frames[me] = (password, source["frame"], role, stream, source["page"])
 
@@ -105,11 +118,10 @@ async def run(args):
                                     lambda route: route.fulfill(content_type="text/html", body=FAKE_VDO))
                 await context.expose_binding("vdoHello", hello)
                 await context.expose_binding("vdoRelay", relay)
-            await context.expose_binding("reportCsp", lambda source, text: errors.append(f"CSP {text}")
-                                         if source["frame"] == source["page"].main_frame else None)
+            await context.expose_binding("reportCsp", csp_violation)
             await context.add_init_script("""
                 addEventListener('securitypolicyviolation', event =>
-                  window.reportCsp?.(`${event.violatedDirective} ${event.blockedURI}`));""")
+                  window.reportCsp?.(event.violatedDirective, event.blockedURI, event.sourceFile || ''));""")
             if args.browser == "chromium":
                 await context.grant_permissions(["clipboard-read", "clipboard-write"], origin=base)
             return context
@@ -319,6 +331,10 @@ async def run(args):
         # Keep the coin (3 moves) and the order, sign another ban.
         await first.evaluate(SIGN_IN_PAGE, ["ban", other_map, 4, 0])
         await first.reload()
+        # The real VDO.Ninja may take a while to take the reloaded stream back.
+        back = 90000 if args.real_vdo else wait
+        first_team = "0" if first is a else "1"
+        await expect(second.locator(f"#vtTeam{first_team}")).to_have_attribute("data-online", "yes", timeout=back)
         await expect(second.locator("#vtError")).to_contain_text("подписал два разных хода", timeout=wait)
         await expect(second.locator(f'.vt-map[data-map="{banned}"]')).to_have_attribute("data-status", "ban")
         await expect(second.locator(f'.vt-map[data-map="{other_map}"]')).to_have_attribute("data-status", "open")
@@ -391,6 +407,8 @@ async def run(args):
         await asyncio.sleep(0.5)
         assert not errors, errors
         await browser.close()
+    if injected:
+        print(f"note: {len(injected)} style-src reports from Playwright's own WebKit helpers ignored", flush=True)
     print(f"veto site: {len(checks)} scenarios passed", flush=True)
 
 
