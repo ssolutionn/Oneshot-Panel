@@ -4,7 +4,7 @@ const MAX_COMPRESSED = 2 * 1024 * 1024, MAX_PLAIN = 12 * 1024 * 1024;
 class Reader {
   constructor(bytes, offset = 0) {
     this.bytes = bytes; this.view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-    this.offset = offset; this.decoder = new TextDecoder('utf-8', {fatal:true});
+    this.offset = offset; this.decoder = new TextDecoder('utf-8');
   }
   take(n) {
     if (!Number.isInteger(n) || n < 0 || this.offset + n > this.bytes.length) throw new Error('Неполный пакет Winline.');

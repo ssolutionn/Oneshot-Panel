@@ -25,7 +25,7 @@ async function fetchFeed(urls, fetchImpl) {
     const remaining = deadline - Date.now();
     if (remaining <= 0) break;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), Math.min(ATTEMPT_TIMEOUT,
+    const timeout = setTimeout(() => controller.abort(), Math.min(urls.length === 1 ? 18000 : ATTEMPT_TIMEOUT,
       Math.max(1000, Math.floor(FEED_BUDGET / urls.length)), remaining));
     try {
       const response = await fetchImpl(url, {
