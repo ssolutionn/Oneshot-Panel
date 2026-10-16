@@ -955,6 +955,7 @@ $('cvWatchGo').addEventListener('click', () => {
   watchSave({ pasted: { link: found.adminLink, at: Date.now() } });
   // A captain's link must not stay on screen: only the admin's view is kept.
   $('cvWatchLink').value = '';
+  $('cvWatchMore').open = false;
   followRoom();
   panel.toast(`Следим за комнатой ${found.room.t[0]} vs ${found.room.t[1]}`);
 });

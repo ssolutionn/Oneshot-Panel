@@ -69,13 +69,13 @@ async def run(args):
     # come from no file of ours; a style or script from our files still fails.
     injected = []
 
-    def csp_violation(source, directive, blocked, file):
+    def csp_violation(source, directive, blocked, file, detail=""):
         if source["frame"] != source["page"].main_frame:
             return
         if args.browser == "webkit" and directive.startswith("style-src") and not file.startswith(base):
             injected.append(directive)
             return
-        errors.append(f"CSP {directive} {blocked} {file}")
+        errors.append(f"CSP {directive} {blocked} {file} {detail}".rstrip())
 
     async def hello(source, password, me, role, stream):
         frames[me] = (password, source["frame"], role, stream, source["page"])
@@ -123,9 +123,23 @@ async def run(args):
                 await context.expose_binding("vdoHello", hello)
                 await context.expose_binding("vdoRelay", relay)
             await context.expose_binding("reportCsp", csp_violation)
-            await context.add_init_script("""
+            # Where a violation comes from: line and column, and for inline
+            # styles the last style attributes written (by the page or a helper).
+            await context.add_init_script("""{
+                const styleWrites = [];
+                new MutationObserver(records => {
+                  for (const r of records) {
+                    const el = r.target;
+                    styleWrites.push(`${el.tagName?.toLowerCase()}${el.id ? '#' + el.id : ''}` +
+                      `${el.classList?.length ? '.' + [...el.classList].join('.') : ''}=${el.getAttribute?.('style')}`);
+                    if (styleWrites.length > 20) styleWrites.shift();
+                  }
+                }).observe(document, { attributes: true, attributeFilter: ['style'], subtree: true });
                 addEventListener('securitypolicyviolation', event =>
-                  window.reportCsp?.(event.violatedDirective, event.blockedURI, event.sourceFile || ''));""")
+                  window.reportCsp?.(event.violatedDirective, event.blockedURI,
+                    `${event.sourceFile || ''}:${event.lineNumber}:${event.columnNumber}`,
+                    event.violatedDirective === 'style-src-attr' ? styleWrites.slice(-3).join(' ; ') : ''));
+            }""")
             if args.browser == "chromium":
                 await context.grant_permissions(["clipboard-read", "clipboard-write"], origin=base)
             return context
@@ -359,7 +373,9 @@ async def run(args):
         back = 90000 if args.real_vdo else wait
         first_team = "0" if first is a else "1"
         await expect(second.locator(f"#vtTeam{first_team}")).to_have_attribute("data-online", "yes", timeout=back)
-        await expect(second.locator("#vtError")).to_contain_text("подписал два разных хода", timeout=wait)
+        # Presence may still be the old page's (8 s): the real VDO.Ninja can
+        # take a minute and more to take the reloaded stream back.
+        await expect(second.locator("#vtError")).to_contain_text("подписал два разных хода", timeout=back)
         await expect(second.locator(f'.vt-map[data-map="{banned}"]')).to_have_attribute("data-status", "ban")
         await expect(second.locator(f'.vt-map[data-map="{other_map}"]')).to_have_attribute("data-status", "open")
         passed("a re-signed move is not taken back: the opponent keeps the first and sees a warning")
@@ -548,10 +564,14 @@ async def run(args):
         await panel.reload()
         await expect(panel.locator("#cvMoves li")).to_have_count(10)
         await expect(panel.locator("#vetoOutput")).to_have_value(result)
-        # Any link of a room can be pasted; a captain's secret is dropped.
+        # Rooms made here need no pasting; a room made elsewhere: any of its
+        # links can be pasted (folded away), a captain's secret is dropped.
+        assert not await panel.locator("#cvWatchMore").evaluate("el => el.open")
+        await panel.click("#cvWatchMore > summary")
         await panel.fill("#cvWatchLink", link_a)
         await panel.click("#cvWatchGo")
         await expect(panel.locator("#cvWatchLink")).to_have_value("")
+        assert not await panel.locator("#cvWatchMore").evaluate("el => el.open")
         await expect(panel.locator("#cvWatchStop")).to_be_visible()
         await expect(panel.locator("#cvAdminOpen")).to_have_attribute("href", own_admin)
         assert link_a.split("#v=")[1] not in await panel.evaluate("localStorage.getItem('oneshot-veto-watch')")

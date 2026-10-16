@@ -141,7 +141,8 @@ Discord, журнал пауз, букмекеры. «OBS»: подключен�
   сайта, последние ссылки на 6 ч).
 - Живая комната во вкладке «Вето» (`live.js` + `veto-watch.js`, только
   сайт): панель смотрит комнату последних ссылок (6 ч, при смене матча
-  не отключается) или вставленную ссылку любой комнаты (`cvWatchLink`;
+  не отключается — вставлять ничего не надо) или вставленную ссылку любой
+  комнаты, сделанной не в панели (`cvWatchLink` в свёрнутом `cvWatchMore`;
   секрет капитана отбрасывается, хранится только админская ссылка) как
   админская ссылка: два скрытых view-iframe VDO.Ninja на потоки капитанов,
   только слушает. Кто online (по потоку, не по from), монетка, ходы со
@@ -376,7 +377,7 @@ Netlify проверяет локальные фото, докачивает н�
 - id сайта (`live.js`, `lobby.js`, `obs-bridge.js`): viewPrep viewLobby
   vetoNavBtn vetoBadge vetoView vetoHltv cvLive cvLiveState cvAlert cvAlertText
   cvAlertOk cvLiveEmpty cvRoom cvTeam0 cvTeam1 cvClock cvStage cvMoves
-  cvCopyResult cvSync cvSyncNote cvWatchLink cvWatchGo cvWatchStop cvAdminOpen
+  cvCopyResult cvSync cvSyncNote cvWatchMore cvWatchLink cvWatchGo cvWatchStop cvAdminOpen
   lobbyBadge prepView lobbyView obsView obsTabDot camSummary watchCams camTotal sendObsBtn
   copyJsonBtn obsNavBtn obsSetupBtn obsDot obsState vetoLive vetoLiveStatus vetoLayout copyOverlay
   obsDialog obsForm closeObs vetoBroadcast overlaySizeHint obsBridgeFields obsDockUrl copyDockUrl obsCode

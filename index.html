@@ -170,7 +170,7 @@
           <b id="cvAlertText"></b>
           <button id="cvAlertOk" class="button small primary" type="button">Понял, иду</button>
         </div>
-        <p id="cvLiveEmpty" class="cv-intro">Создай ссылки в блоке «Вето для капитанов» ниже или вставь ссылку комнаты с сайта вето. Здесь видно, кто из капитанов зашёл, монетку, каждый ход и вызов админа, а ходы сами попадают в вето панели и в оверлей OBS.</p>
+        <p id="cvLiveEmpty" class="cv-intro">Нажми «Создать ссылки» в блоке «Вето для капитанов» ниже — панель сама подключится к этой комнате, вставлять ничего не надо. Здесь будет видно, кто из капитанов зашёл, монетка, каждый ход и вызов админа, а ходы сами попадут в вето панели и в оверлей OBS.</p>
         <div id="cvRoom" class="cv-room" hidden>
           <div class="cv-teams">
             <div id="cvTeam0" class="cv-team" data-online="no"><i aria-hidden="true"></i><b></b><span></span><a class="cv-hltv" target="_blank" rel="noreferrer" hidden>HLTV ↗</a></div>
@@ -180,16 +180,21 @@
           </div>
           <p id="cvStage" class="cv-stage" role="status" aria-live="polite"></p>
           <ol id="cvMoves" class="cv-moves" aria-label="Ходы капитанов"></ol>
-          <button id="cvCopyResult" class="button small primary" type="button" hidden>⧉ Текст HLTV из комнаты</button>
           <label class="check cv-sync"><input id="cvSync" type="checkbox" checked autocomplete="off"> Переносить ходы капитанов в вето панели и в оверлей OBS</label>
           <p id="cvSyncNote" class="cv-status"></p>
+          <div class="cv-room-actions">
+            <button id="cvCopyResult" class="button small primary" type="button" hidden>⧉ Текст HLTV из комнаты</button>
+            <a id="cvAdminOpen" class="button small" target="_blank" rel="noopener" hidden>Админская ссылка ↗</a>
+            <button id="cvWatchStop" class="button small" type="button" hidden>← К комнате из панели</button>
+          </div>
         </div>
-        <div class="cv-watch">
-          <label>Комната с сайта вето<input id="cvWatchLink" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="любая ссылка комнаты …#v=…"></label>
-          <button id="cvWatchGo" class="button small" type="button">Следить</button>
-          <button id="cvWatchStop" class="button small" type="button" hidden>Не следить</button>
-          <a id="cvAdminOpen" class="button small" target="_blank" rel="noopener" hidden>Админская ссылка ↗</a>
-        </div>
+        <details id="cvWatchMore" class="cv-watch-more">
+          <summary>Ссылки делали на сайте вето, а не в панели? Вставь ссылку той комнаты</summary>
+          <div class="cv-watch">
+            <label>Любая ссылка комнаты (капитана, зрителей или админа)<input id="cvWatchLink" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://…#v=…"></label>
+            <button id="cvWatchGo" class="button small" type="button">Следить</button>
+          </div>
+        </details>
       </section>
       <section id="captainVeto" class="veto-panel captain-veto" aria-labelledby="captainVetoHeading">
         <div class="panel-heading">
