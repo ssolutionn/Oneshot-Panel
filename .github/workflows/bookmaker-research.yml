@@ -7,28 +7,45 @@ permissions:
 jobs:
   read:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 3
     steps:
-      - name: Verify complete Sportbet tables for CS2 and capture representative event schema
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Observe official anonymous feed protocol
         run: |
           python3 - <<'PY'
-          import json
+          import json,re
           from urllib.request import Request,urlopen
           from concurrent.futures import ThreadPoolExecutor
-          targets=[
-           ("cs2-line","https://bthm-server.sportbet.ru/events.table?lang=ru&status=prematch&sport=esport-counter-strike"),
-           ("cs2-live","https://bthm-server.sportbet.ru/events.table?lang=ru&status=live&sport=esport-counter-strike"),
-           ("dota-line","https://bthm-server.sportbet.ru/events.table?lang=ru&status=prematch&sport=esport-dota"),
-           ("dota-live","https://bthm-server.sportbet.ru/events.table?lang=ru&status=live&sport=esport-dota")
-          ]
+          base="https://sportbook.sporthub.bet/widgets/sportbook/v1/modern/"
           def read(pair):
-           label,url=pair
+           label,path=pair
            try:
-            with urlopen(Request(url,headers={"User-Agent":"Mozilla/5.0","Accept":"application/json"}),timeout=16) as r:obj=json.load(r);status=r.status
-            obj.pop("uuid",None)
-            text=json.dumps(obj,ensure_ascii=False)
-            print("SPORTBET_TABLE:",json.dumps({"provider":label,"url":url,"status":status,"size":len(text),"body":obj},ensure_ascii=False)[:110000],flush=True)
-           except Exception as e:print("SPORTBET_TABLE:",json.dumps({"provider":label,"error":str(e)[:100]}),flush=True)
-          with ThreadPoolExecutor(max_workers=4) as pool:list(pool.map(read,targets))
+            with urlopen(Request(base+path,headers={"User-Agent":"Mozilla/5.0"}),timeout=15) as r:text=r.read(14000000).decode("utf8","replace")
+            d={"provider":label,"size":len(text),"imports":list(dict.fromkeys(re.findall(r'(?:from|import\()["\x27\x60](\./[^"\x27\x60]+)',text)))[:30]}
+            patterns=r"fullTournaments|tournamentsSubscribe|matchesSubscribe|FEED_WS_PROTOCOL|FEED_WS_URL_TEMPLATE|makeMessageType|request_id|response_id|SportbookWSClient"
+            d["excerpts"]=[text[max(0,m.start()-250):m.end()+1300] for m in list(re.finditer(patterns,text))[:50]]
+            print("PUBLIC_BB_PROTOCOL:",json.dumps(d,ensure_ascii=False),flush=True)
+           except Exception as e:print("PUBLIC_BB_PROTOCOL:",json.dumps({"provider":label,"error":str(e)[:100]}),flush=True)
+          with ThreadPoolExecutor(max_workers=3) as pool:list(pool.map(read,[
+           ("vendor","vendor-core-BV73xSB5.js"),("query","queryUnsubscribeCtx-BRpCu17Q.js"),("app","App-Dkow5Vv7.js")
+          ]))
           
           PY
+          node --input-type=module <<'JS'
+          const socket = new WebSocket('wss://ru-ws2.sporthub.bet:443/api/tree_ws/v1?uuid='+crypto.randomUUID());
+          socket.binaryType='arraybuffer';
+          const timer=setTimeout(()=>{console.log('PUBLIC_BB_SOCKET: timeout');socket.close();},8000);
+          socket.addEventListener('open',()=>console.log('PUBLIC_BB_SOCKET: public upgrade accepted'));
+          socket.addEventListener('error',()=>console.log('PUBLIC_BB_SOCKET: connection error'));
+          socket.addEventListener('message',e=>{
+           if(typeof e.data==='string'){
+            try {const o=JSON.parse(e.data);console.log('PUBLIC_BB_SOCKET: '+JSON.stringify({type:'json',keys:Object.keys(o).filter(k=>!/token|key|secret|uuid|user|account|session/i.test(k))}));}
+            catch {console.log('PUBLIC_BB_SOCKET: '+JSON.stringify({type:'text',size:e.data.length}));}
+           } else console.log('PUBLIC_BB_SOCKET: '+JSON.stringify({type:'binary',size:e.data.byteLength}));
+          });
+          await new Promise(resolve=>socket.addEventListener('close',resolve));
+          clearTimeout(timer);
+          
+          JS
