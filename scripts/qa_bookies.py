@@ -31,13 +31,14 @@ async def run(args):
             page.on("pageerror", lambda error: errors.append(str(error)))
             await page.clock.install(time=datetime(2026, 10, 16, 9, 0, tzinfo=timezone.utc))
             await page.add_init_script("window.oneshotPanel={snapshot:()=>({schedule:" +
-                                       json.dumps(SCHEDULE) + "})};window.__bookieNotes=[];" +
+                                       json.dumps(SCHEDULE) + "}),copy:t=>window.__copiedBookies=t};window.__bookieNotes=[];" +
                                        "addEventListener('oneshot:lobby-note',e=>window.__bookieNotes.push(e.detail));")
             await page.route(base + "/__qa-bookies",
                              lambda route: route.fulfill(content_type="text/html", body=html))
 
             async def api(route):
                 nonlocal phase
+                assert route.request.method == "GET"
                 bookmaker = parse_qs(urlsplit(route.request.url).query)["id"][0]
                 generation = phase
                 calls.append((bookmaker, generation))
@@ -60,6 +61,15 @@ async def run(args):
                             "start": NOW + 7 * 3600000, "odds": [1.8, 2.1],
                             "live": False, "url": "https://fon.bet/sports/esports/147516/new",
                         })
+                if bookmaker == "fonbet" and generation >= 6:
+                    events.extend([
+                        {"id":"tomorrow","team1":"Rune Eaters","team2":"HyperSpirit",
+                         "start":NOW+28*3600000,"odds":[9.1,9.2],"live":False,
+                         "url":"https://fon.bet/sports/esports/future"},
+                        {"id":"untrusted","team1":"=HYPERLINK(1)","team2":"<img src=x onerror=alert(1)>",
+                         "start":NOW+8*3600000,"odds":[1.9,1.9],"live":False,
+                         "url":"javascript:alert(1)"},
+                    ])
                 await route.fulfill(content_type="application/json", body=json.dumps({
                     "id": bookmaker, "ok": True, "errors": [], "events": events,
                     "checkedAt": NOW + generation * 60000,
@@ -143,6 +153,21 @@ async def run(args):
             await expect(page.locator("#bookiesCheck")).to_be_enabled()
             assert len(calls) == before + count
             assert await page.evaluate("window.__bookieNotes.length") == 1
+            phase = 6
+            await page.locator("#bookiesCheck").click()
+            await expect(page.locator("#bookiesCheck")).to_be_enabled()
+            await page.locator("#bookiesCopy").click()
+            copied = await page.evaluate("window.__copiedBookies")
+            today, tomorrow = copied.split("Rune Eaters – HyperSpirit")
+            assert "2.70 · 1.40" in today and "9.10 · 9.20" not in today
+            assert "9.10 · 9.20" in tomorrow
+            assert await page.locator("#bookiesTable img").count() == 0
+            assert await page.locator('#bookiesTable a[href^="javascript:"]').count() == 0
+            async with page.expect_download() as download_info:
+                await page.locator("#bookiesCsv").click()
+            download = await download_info.value
+            text = Path(await download.path()).read_text(encoding="utf-8-sig")
+            assert "'=HYPERLINK(1)" in text, "CSV must neutralize external formula cells"
             output = Path(args.artifacts) / "bookies"
             output.mkdir(parents=True, exist_ok=True)
             await page.screenshot(path=str(output / (engine + ".png")), full_page=True)

@@ -7,6 +7,30 @@
 import { BOOKMAKERS, parseFeed } from '../../bookmakers.js';
 import { readWinline } from '../../assets/bookmaker-winline.js';
 
+const MAX_FEED_BYTES = 16 * 1024 * 1024;
+async function feedText(response) {
+  if (Number(response.headers.get('content-length')) > MAX_FEED_BYTES) throw new Error('слишком большой ответ источника');
+  const reader = response.body?.getReader();
+  if (!reader) return '';
+  const decoder = new TextDecoder(); let text = '', total = 0;
+  try {
+    while (true) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      total += value.length;
+      if (total > MAX_FEED_BYTES) throw new Error('слишком большой ответ источника');
+      text += decoder.decode(value, {stream:true});
+    }
+    return text + decoder.decode();
+  } finally { await reader.cancel().catch(() => {}); }
+}
+const safeError = error => {
+  const message = String(error?.message || '');
+  if (/^HTTP \d{3}$/.test(message) || /^(?:нет связи|долго не отвечает|нет ответа|слишком большой ответ источника|ошибка вызова сетевого клиента)$/.test(message)) return message;
+  if (message.startsWith('Winline:') || /^(?:формат линии изменился|Неизвестный|Неполный|Некорректный|Слишком большой|Формат снимка)/.test(message)) return message;
+  return 'не удалось прочитать формат линии';
+};
+
 const FEED_BUDGET = 24000, ATTEMPT_TIMEOUT = 6000;
 const cacheByFetcher = new WeakMap();
 // Workers expose fetch on their global object; retain its receiver.
@@ -32,10 +56,11 @@ async function fetchFeed(urls, fetchImpl) {
         headers: HEADERS, signal: controller.signal, redirect: 'manual'
       });
       if (!response.ok) { lastError = `HTTP ${response.status}`; continue; }
-      return await response.text();
+      return await feedText(response);
     } catch (error) {
       lastError = controller.signal.aborted || error?.name === 'TimeoutError' ? 'долго не отвечает' :
-        /illegal invocation/i.test(error?.message || '') ? 'ошибка вызова сетевого клиента' : 'нет связи';
+        /illegal invocation/i.test(error?.message || '') ? 'ошибка вызова сетевого клиента' :
+        error?.message === 'слишком большой ответ источника' ? error.message : 'нет связи';
     } finally { clearTimeout(timeout); }
   }
   throw new Error(lastError);
@@ -51,7 +76,7 @@ export async function checkBookmaker(id, fetchImpl = publicFetch, now = Date.now
   const events = [], errors = [];
   for (const [i, result] of results.entries()) {
     if (result.status === 'fulfilled') events.push(...result.value);
-    else errors.push(`${bookmaker.feeds[i].live ? 'лайв' : 'линия'}: ${result.reason?.message || 'ошибка'}`);
+    else errors.push(`${bookmaker.feeds[i].live ? 'лайв' : 'линия'}: ${safeError(result.reason)}`);
   }
   // The same match can sit in both line and live for a moment: live wins.
   const unique = new Map();

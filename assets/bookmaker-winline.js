@@ -125,7 +125,7 @@ export async function readWinline(fetchImpl, timeoutMs = 18000) {
     socket.accept();
     clearTimeout(timer);
     return await new Promise((resolve, reject) => {
-      const packets = new Map(); let chain = Promise.resolve(), finished = false, received = 0;
+      const packets = new Map(); let chain = Promise.resolve(), finished = false, received = 0, receivedBytes = 0;
       const finish = (error, value) => {
         if (finished) return; finished = true; clearTimeout(timer);
         socket.removeEventListener('message', message);
@@ -138,6 +138,8 @@ export async function readWinline(fetchImpl, timeoutMs = 18000) {
       const closed = () => finish(new Error('Winline: поток закрыт до получения линии.'));
       const message = event => {
         if (finished) return;
+        receivedBytes += event.data?.byteLength || event.data?.size || (typeof event.data === 'string' ? event.data.length : 0);
+        if (receivedBytes > 8 * 1024 * 1024) return finish(new Error('Слишком большой поток Winline.'));
         if (++received > 80) return finish(new Error('Winline: снимок линии не получен.'));
         chain = chain.then(async () => {
           if (finished || typeof event.data === 'string') return;

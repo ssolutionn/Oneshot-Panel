@@ -39,9 +39,11 @@ const el = (tag, props = {}, ...children) => {
 };
 
 async function check(bookmaker) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 55000);
   try {
     const response = await fetch('/api/bookmakers?id=' + bookmaker.id, {
-      cache: 'no-store', signal: AbortSignal.timeout(55000)
+      cache: 'no-store', signal: controller.signal
     });
     if (!/json/.test(response.headers.get('content-type') || '')) {
       throw new Error('у сайта нет функции /api/bookmakers');
@@ -61,6 +63,7 @@ async function check(bookmaker) {
         ['TimeoutError', 'AbortError'].includes(error.name) ? 'долго не отвечает' : error.message
     });
   }
+  clearTimeout(timeout);
   // A slow feed never holds back the other bookmakers or newly found matches.
   render();
 }

@@ -211,3 +211,16 @@ test('default server reader keeps the global fetch receiver for Workers', async 
   try { assert.equal((await checkBookmaker('fonbet')).body.ok, true); }
   finally { globalThis.fetch = original; }
 });
+
+test('public line errors do not reflect raw upstream JSON into the panel', async () => {
+  const {body}=await checkBookmaker('fonbet',async()=>new Response('<html>private-upstream-detail</html>'));
+  assert.equal(body.ok,false);
+  assert.ok(body.errors.every(e=>!e.includes('private-upstream-detail')));
+});
+test('declared oversized line responses are rejected without reading the body', async () => {
+  const {body}=await checkBookmaker('leon',async()=>new Response('not read',{
+    headers:{'content-length':String(17*1024*1024)}
+  }));
+  assert.equal(body.ok,false);
+  assert.match(body.errors.join(),/слишком большой/);
+});
