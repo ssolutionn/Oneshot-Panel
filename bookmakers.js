@@ -77,7 +77,7 @@ export const MANUAL = [
   { id: 'baltbet', name: 'Балтбет', url: 'https://baltbet.ru/', reason: 'Полная лента матчей ещё не подключена' },
   { id: 'zenit', name: 'Зенит', url: 'https://zenit.win/line/556', reason: 'Линия видна в браузере; серверное чтение ещё не подтверждено' },
   { id: 'betm', name: 'БЕТ-М', url: 'https://bet-m.ru/', reason: 'Публичный серверный запрос отклонён; линия не проверена' },
-  { id: 'sportbet', name: 'Спортбет', url: 'https://sportbet.ru/' }
+  { id: 'sportbet', name: 'Спортбет', url: 'https://sportbet.ru/', reason: 'Публичная лента матчей ещё не подключена' }
 ];
 
 export const isCyberClash = name => /cyber\s*clash|кибер\s*клэш/i.test(String(name || ''));
