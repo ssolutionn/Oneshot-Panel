@@ -137,37 +137,31 @@ jobs:
                   assert time.monotonic() < deadline, "No successful Cloudflare preview for this commit."
                   time.sleep(5)
 
-          def published_commit():
-              request = Request(preview + "/build.txt", headers={"Cache-Control": "no-cache"})
-              with urlopen(request, timeout=20) as response:
-                  return response.read().decode().strip()
-
-          # The host and Actions start together: wait for the deploy of this commit,
-          # not for an older one that is still live.
-          deadline = time.monotonic() + 360
-          while True:
-              try:
-                  live = published_commit()
-              except HTTPError as error:
-                  if (error.code == 401 and preview != production and
-                          (urlsplit(preview).hostname or "").endswith(".netlify.app")):
-                      # Deploy previews may require a Netlify login. OBS must use the public site.
-                      with urlopen(production + "/card.html", timeout=20) as public:
-                          assert public.status == 200
-                      print("::notice::Netlify preview requires authentication; production is publicly accessible. Full browser QA passed on the prepared site.")
+          # Check the published site as its real browser clients do. Some hosts
+          # reject a bare HTTP client even when the page is publicly accessible.
+          from playwright.sync_api import sync_playwright
+          with sync_playwright() as browser_api:
+              browser = browser_api.chromium.launch(headless=True)
+              page = browser.new_page(extra_http_headers={"Cache-Control":"no-cache"})
+              deadline = time.monotonic() + 360
+              while True:
+                  response = page.goto(preview + "/build.txt", wait_until="domcontentloaded", timeout=30000)
+                  status = response.status if response else 0
+                  if status == 401 and ".netlify.app" in preview and preview != production:
+                      public = page.goto(production + "/card.html", wait_until="domcontentloaded")
+                      assert public and public.status == 200
+                      print("::notice::Netlify preview requires authentication; prepared-site browser QA passed.")
                       raise SystemExit(0)
-                  if error.code != 404:
-                      raise
-                  live = "(no build.txt yet)"
-              except URLError as error:
-                  live = f"(unreachable: {error.reason})"
-              print("PUBLISHED_COMMIT:", live, flush=True)
-              if live == expected:
-                  break
-              assert time.monotonic() < deadline, f"{preview} has not published {expected} within 6 minutes."
-              time.sleep(10)
-          with urlopen(preview + "/card.html", timeout=20) as response:
-              assert "img-src 'self'" in response.headers.get("Content-Security-Policy", "")
+                  live = response.text().strip() if response and status == 200 else "(HTTP " + str(status) + ")"
+                  print("PUBLISHED_COMMIT:", live[:120], flush=True)
+                  if live == expected:
+                      break
+                  assert time.monotonic() < deadline, "The host has not published this commit."
+                  page.wait_for_timeout(5000)
+              card = page.goto(preview + "/card.html", wait_until="domcontentloaded", timeout=30000)
+              assert card and card.status == 200
+              assert "img-src 'self'" in card.headers.get("content-security-policy", "")
+              browser.close()
           args = argparse.Namespace(
               url=preview, chromium=None, roster=None, schedule=None,
               artifacts="artifacts/published",
@@ -184,7 +178,7 @@ jobs:
               bookies = runpy.run_path("scripts/qa_bookies.py", run_name="published_bookies")
               asyncio.run(bookies["run"](args))
               api = runpy.run_path("scripts/qa_bookies_api.py", run_name="published_bookies_api")
-              api["run"](args)
+              asyncio.run(api["run"](args))
           finally:
               asyncio.run(cards["run"](args))
           PY

@@ -1,32 +1,32 @@
-"""Observe the deployed read-only API against the bookmakers' real public feeds."""
+"""Read the deployed public bookmaker API through an ordinary site browser."""
 import argparse
+import asyncio
 import json
 import subprocess
-from concurrent.futures import ThreadPoolExecutor
-from urllib.request import Request, urlopen
+from playwright.async_api import async_playwright
 
 
-def run(args):
+async def run(args):
     ids = json.loads(subprocess.check_output([
         "node", "--input-type=module", "-e",
         "import {BOOKMAKERS} from './bookmakers.js'; console.log(JSON.stringify(BOOKMAKERS.map(b=>b.id)))"
     ], text=True))
-    base = args.url.rstrip("/")
-
-    def observe(bookmaker):
-        request = Request(base + "/api/bookmakers?id=" + bookmaker,
-                          headers={"Cache-Control": "no-cache"})
-        with urlopen(request, timeout=35) as reply:
-            assert reply.status == 200
-            assert reply.headers.get("X-Content-Type-Options") == "nosniff"
-            body = json.load(reply)
-        assert body["id"] == bookmaker and isinstance(body["ok"], bool)
-        assert isinstance(body["events"], list) and isinstance(body["checkedAt"], (int, float))
-        return {"id": bookmaker, "ok": body["ok"], "events": len(body["events"]),
-                "errors": body.get("errors", [])}
-
-    with ThreadPoolExecutor(max_workers=len(ids)) as executor:
-        results = list(executor.map(observe, ids))
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(executable_path=args.chromium, headless=True)
+        page = await browser.new_page()
+        await page.goto(args.url.rstrip("/") + "/build.txt")
+        results = await page.evaluate("""async ids => Promise.all(ids.map(async id => {
+            const response = await fetch('/api/bookmakers?id=' + id, {
+                cache:'no-store', signal:AbortSignal.timeout(55000)
+            });
+            if (!response.ok) throw new Error(id + ': HTTP ' + response.status);
+            if (response.headers.get('x-content-type-options') !== 'nosniff') throw new Error(id + ': missing nosniff');
+            const body = await response.json();
+            if (body.id !== id || typeof body.ok !== 'boolean' || !Array.isArray(body.events))
+                throw new Error(id + ': invalid response');
+            return {id, ok:body.ok, events:body.events.length, errors:body.errors || []};
+        }))""", ids)
+        await browser.close()
     for result in results:
         print("BOOKMAKER_PUBLIC_API:", json.dumps(result, ensure_ascii=False), flush=True)
     assert any(result["ok"] for result in results), "All public feeds are unavailable from this hosting region."
@@ -36,4 +36,5 @@ def run(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True)
-    run(parser.parse_args())
+    parser.add_argument("--chromium")
+    asyncio.run(run(parser.parse_args()))

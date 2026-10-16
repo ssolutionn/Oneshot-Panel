@@ -273,7 +273,11 @@
       <section id="bookies" class="lobby-panel" aria-labelledby="bookiesHeading">
         <div class="panel-heading">
           <div><span class="eyebrow">BOOKMAKERS</span><h2 id="bookiesHeading">Наш турнир у букмекеров</h2></div>
-          <button id="bookiesCheck" class="button small" type="button">Проверить сейчас</button>
+          <div class="bookies-actions">
+            <button id="bookiesCopy" class="button small" type="button" title="Кто дал линию, кэфы, размер линии и лайв — текстом">Сводка</button>
+            <button id="bookiesCsv" class="button small" type="button" title="Все линии за неделю: открытие, текущие кэфы, рынки, лайв">CSV</button>
+            <button id="bookiesCheck" class="button small" type="button">Проверить сейчас</button>
+          </div>
         </div>
         <div class="bookies-wrap"><table id="bookiesTable" class="bookies-table"></table></div>
         <p id="bookiesStatus" class="lobby-status" role="status">Матчи и коэффициенты обновляются автоматически каждую минуту.</p>

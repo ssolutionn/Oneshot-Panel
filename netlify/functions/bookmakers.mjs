@@ -23,7 +23,7 @@ async function fetchFeed(urls, fetchImpl) {
     if (remaining <= 0) break;
     try {
       const response = await fetchImpl(url, {
-        headers: HEADERS, signal: AbortSignal.timeout(Math.min(ATTEMPT_TIMEOUT, remaining)), redirect: 'error'
+        headers: HEADERS, signal: AbortSignal.timeout(Math.min(ATTEMPT_TIMEOUT, Math.max(1000, Math.floor(FEED_BUDGET / urls.length)), remaining)), redirect: 'error'
       });
       if (!response.ok) { lastError = `HTTP ${response.status}`; continue; }
       return await response.text();
