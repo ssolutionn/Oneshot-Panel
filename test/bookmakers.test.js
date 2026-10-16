@@ -134,3 +134,17 @@ test('Bookmaker endpoint coalesces concurrent reads, caches public data and reje
   }
   assert.equal(calls, 2);
 });
+
+
+test('Maintenance pages and changed schemas are unavailable, never an empty tournament', async () => {
+  for (const id of ['fonbet','pari','olimp','betcity']) {
+    assert.throws(() => parseFeed(book(id), '{"status":"maintenance"}', false), /формат линии/);
+  }
+  assert.throws(() => parseFeed(book('marathon'), '<html>Maintenance</html>', false), /формат линии/);
+  assert.deepEqual(parseFeed(book('fonbet'), '{"events":[]}', false), []);
+  const fake = async () => new Response('{"status":"maintenance"}', {status:200});
+  const {body} = await checkBookmaker('fonbet', fake, NOW);
+  assert.equal(body.ok, false);
+  assert.deepEqual(body.events, []);
+  assert.equal(body.errors.length, 2);
+});

@@ -146,7 +146,7 @@ async def run(args):
 
     async def sheets(route):
         is_schedule = parse_qs(urlsplit(route.request.url).query).get("gid") == ["815739139"]
-        body = gviz([["Group B", "October 16", "16:00", "6yuBoJlbl", "HYPERSPIRIT"]],
+        body = gviz([["Group B", "October 15", "16:00", "6yuBoJlbl", "HYPERSPIRIT"]],
                     ["Stage", "Date", "MSK", "Team 1", "Team 2"]) if is_schedule else sample_roster()
         await route.fulfill(content_type="application/javascript", body=body)
 

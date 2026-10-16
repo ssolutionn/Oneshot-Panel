@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  checks: read
 
 jobs:
   panel:
@@ -65,25 +66,28 @@ jobs:
           asyncio.run(qa["run"](args))
           cards = runpy.run_path("scripts/qa_player_cards.py", run_name="player_card_qa")
           asyncio.run(cards["run"](args))
+          bookies = runpy.run_path("scripts/qa_bookies.py", run_name="bookies_qa")
+          asyncio.run(bookies["run"](args))
           live = runpy.run_path("scripts/qa_live.py", run_name="live_qa")
           asyncio.run(live["run"](args))
           qr = runpy.run_path("scripts/qa_obs_qr.py", run_name="qr_qa")
           asyncio.run(qr["run"](args))
           veto = runpy.run_path("scripts/qa_veto_site.py", run_name="veto_site_qa")
           asyncio.run(veto["run"](args))
-          bookies = runpy.run_path("scripts/qa_bookies.py", run_name="bookies_qa")
-          asyncio.run(bookies["run"](args))
           PY
       - name: Verify the published site
         # Production follows only this branch; same-repo pull requests get a preview.
         if: (github.event_name == 'push' && github.ref == 'refs/heads/claude/gracious-sagan-apztcc') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         env:
           # Production: repository variable PUBLISHED_URL (e.g. the Cloudflare Pages
-          # address), else Netlify. Pull requests are checked on Netlify deploy previews.
+          # address). Pull requests resolve the matching hosting provider preview.
           SITE_URL: ${{ vars.PUBLISHED_URL || 'https://oneshot-panel.pages.dev' }}
           PREVIEW_URL: ${{ github.event_name == 'pull_request' && format('https://deploy-preview-{0}--onepanel.netlify.app', github.event.pull_request.number) || vars.PUBLISHED_URL || 'https://oneshot-panel.pages.dev' }}
           # scripts/build-site.sh writes the pushed or PR head commit to build.txt.
           EXPECTED_COMMIT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          IS_PULL_REQUEST: ${{ github.event_name == 'pull_request' }}
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_READ_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
           import argparse
@@ -91,12 +95,47 @@ jobs:
           import os
           import runpy
           import time
+          import json
+          import re
+          from urllib.parse import urlsplit
           from urllib.error import HTTPError, URLError
           from urllib.request import Request, urlopen
 
           preview = os.environ["PREVIEW_URL"]
           expected = os.environ["EXPECTED_COMMIT"]
           production = os.environ["SITE_URL"]
+
+          # Cloudflare Pages advertises the immutable preview on the head
+          # commit's check run. Trust only the hosting app and our own project.
+          host = urlsplit(production).hostname or ""
+          if os.environ["IS_PULL_REQUEST"] == "true" and host.endswith(".pages.dev"):
+              deadline = time.monotonic() + 360
+              while True:
+                  api = ("https://api.github.com/repos/" + os.environ["GH_REPOSITORY"] +
+                         "/commits/" + expected + "/check-runs")
+                  request = Request(api, headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": "Bearer " + os.environ["GH_READ_TOKEN"],
+                  })
+                  with urlopen(request, timeout=20) as response:
+                      runs = json.load(response)["check_runs"]
+                  found = None
+                  for check in runs:
+                      if (check.get("app", {}).get("slug") != "cloudflare-workers-and-pages" or
+                              check.get("head_sha") != expected or check.get("conclusion") != "success"):
+                          continue
+                      summary = check.get("output", {}).get("summary") or ""
+                      for value in re.findall(r"https://[a-zA-Z0-9.-]+\.pages\.dev", summary):
+                          target = urlsplit(value)
+                          if target.hostname and target.hostname.endswith("." + host):
+                              found = value
+                              break
+                  if found:
+                      preview = found
+                      print("CLOUDFLARE_PREVIEW:", preview, flush=True)
+                      break
+                  assert time.monotonic() < deadline, "No successful Cloudflare preview for this commit."
+                  time.sleep(5)
 
           def published_commit():
               request = Request(preview + "/build.txt", headers={"Cache-Control": "no-cache"})
@@ -110,7 +149,8 @@ jobs:
               try:
                   live = published_commit()
               except HTTPError as error:
-                  if error.code == 401 and preview != production:
+                  if (error.code == 401 and preview != production and
+                          (urlsplit(preview).hostname or "").endswith(".netlify.app")):
                       # Deploy previews may require a Netlify login. OBS must use the public site.
                       with urlopen(production + "/card.html", timeout=20) as public:
                           assert public.status == 200
@@ -143,6 +183,8 @@ jobs:
               asyncio.run(veto["run"](args))
               bookies = runpy.run_path("scripts/qa_bookies.py", run_name="published_bookies")
               asyncio.run(bookies["run"](args))
+              api = runpy.run_path("scripts/qa_bookies_api.py", run_name="published_bookies_api")
+              api["run"](args)
           finally:
               asyncio.run(cards["run"](args))
           PY

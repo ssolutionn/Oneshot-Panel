@@ -167,7 +167,17 @@ const PARSERS = { fonbet: parseFonbet, olimp: parseOlimp, marathon: parseMaratho
 export function parseFeed(bookmaker, body, live, now = Date.now()) {
   const parse = PARSERS[bookmaker.kind];
   if (!parse) throw new Error('Неизвестный формат линии.');
-  return parse(body, live, now).map(e => ({ ...e, url: bookmaker.eventUrl(e) }));
+  // A successful HTTP response can still be a maintenance page or a changed
+  // schema. Treat that as unavailable, never as proof that the tournament vanished.
+  const data = bookmaker.kind === 'marathon' ? body : typeof body === 'string' ? JSON.parse(body) : body;
+  const valid = bookmaker.kind === 'fonbet' ? Array.isArray(data?.events) :
+    bookmaker.kind === 'olimp' ? (Array.isArray(data) ? data : [data])
+      .some(item => Array.isArray(item?.payload?.competitionsWithEvents)) :
+    bookmaker.kind === 'betcity' ? data?.ok !== false && data?.reply?.sports &&
+      typeof data.reply.sports === 'object' :
+    /class="[^"]*category-container/.test(String(data));
+  if (!valid) throw new Error('формат линии изменился или источник вернул страницу ошибки');
+  return parse(data, live, now).map(e => ({ ...e, url: bookmaker.eventUrl(e) }));
 }
 
 // Team names differ per bookmaker ("Rune Eaters Esports", "Honved Esport",
