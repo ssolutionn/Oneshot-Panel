@@ -76,6 +76,7 @@ test('scheduled writer uses a data-only branch, preserves other days and never f
     return{};
   };
   await persistObservations([read([],{checkedAt:at+100})],api,at+100);
+  assert.ok(calls.find(c=>c.path==='git/commits' && c.method==='POST').body.message.startsWith('[skip ci]'));
   const tree=calls.find(c=>c.path==='git/trees').body;
   assert.equal(tree.base_tree,'old-tree');
   assert.deepEqual(tree.tree.map(e=>e.path),['days/2026-10-16.json']);

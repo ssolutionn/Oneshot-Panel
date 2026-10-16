@@ -23,7 +23,7 @@ export async function persistObservations(observations, api, now = Date.now()) {
   }
   if (!tree.length) return;
   const nextTree = await api('POST','git/trees',{...(commit ? {base_tree:commit.tree.sha} : {}),tree});
-  const next = await api('POST','git/commits',{message:'Record public CyberClash lines ' + new Date(now).toISOString(),tree:nextTree.sha,parents:parent ? [parent] : []});
+  const next = await api('POST','git/commits',{message:'[skip ci] Record public CyberClash lines ' + new Date(now).toISOString(),tree:nextTree.sha,parents:parent ? [parent] : []});
   // One scheduled writer (workflow concurrency). Never force over a newer writer.
   if (parent) await api('PATCH','git/refs/heads/' + branch,{sha:next.sha,force:false});
   else await api('POST','git/refs',{ref:'refs/heads/' + branch,sha:next.sha});
