@@ -7,7 +7,7 @@ permissions:
 jobs:
   read:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 8
     steps:
       - name: Read fixed public pages and scripts
         run: |
@@ -19,6 +19,7 @@ jobs:
           from urllib.parse import urljoin, urlsplit
           targets = [
             ("zenit", "https://zenit.win/line/556"),
+            ("winline-page", "https://winline.ru/stavki/sport/kibersport/counter-strike"),
             ("winline", "https://winline.ru/api/v2/webscript.js"),
             ("betboom", "https://betboom.ru/sport/esport/3/39428"),
             ("betboom-event", "https://betboom.ru/sport/esport/3/39428/6209058"),
@@ -29,12 +30,15 @@ jobs:
               try:
                   request=Request(url,headers={"User-Agent":"Mozilla/5.0","Accept":"text/html,application/javascript,application/json"})
                   with urlopen(request,timeout=25) as reply:
-                      text=reply.read(2500000).decode("utf-8","replace")
+                      text=reply.read(15000000).decode("utf-8","replace")
                       status=reply.status
                       ctype=reply.headers.get("Content-Type","")
                   scripts = [urljoin(url,s) for s in re.findall(r'<script[^>]+src=["\x27]([^"\x27]+)',text)]
                   print("PUBLIC_META:",json.dumps({"provider":label,"status":status,"type":ctype,"size":len(text),"scripts":scripts[:30]},ensure_ascii=False),flush=True)
-                  if label in ("winline","betboom-runtime"):
+                  if label == "betboom-runtime":
+                      pairs = dict(re.findall(r'"([A-Z_]+)"\s*:\s*"([^"]*)"',text))
+                      print("PUBLIC_RUNTIME:",json.dumps({k:v for k,v in pairs.items() if ("URL" in k or "HOST" in k) and not any(s in k for s in ("TOKEN","SECRET","AUTH","BET_HISTORY"))}),flush=True)
+                  elif label == "winline":
                       print("PUBLIC_JS_JSON:",json.dumps({"provider":label,"source":text},ensure_ascii=False),flush=True)
                   elif label.startswith("betboom"):
                       pattern=r"Cyber.?Clash|6209058|39428|__NEXT_DATA__|sporthub|siteapi|startDate|Rune Eaters|HyperSpirit"
@@ -53,17 +57,90 @@ jobs:
               pages=list(executor.map(read,targets))
           assets=[]
           for provider,scripts in pages:
-              if provider=="zenit":
-                  assets.extend(("zenit-script",s) for s in scripts[:8] if (urlsplit(s).hostname or "").endswith("zenit.win"))
+              if provider in ("zenit","winline-page"):
+                  assets.extend((provider+"-script",s) for s in scripts[:10] if any((urlsplit(s).hostname or "").endswith(host) for host in ("zenit.win","winline.ru")))
           def asset(item):
               label,url=item
               try:
                   with urlopen(Request(url,headers={"User-Agent":"Mozilla/5.0"}),timeout=20) as reply:
-                      text=reply.read(2500000).decode("utf-8","replace")
+                      text=reply.read(15000000).decode("utf-8","replace")
                   print("PUBLIC_ZENIT_ASSET:",json.dumps({"url":url,"size":len(text),
-                    "excerpts":[text[max(0,m.start()-150):m.end()+350] for m in list(re.finditer(r'https?://[^ "\x27]+|wss?://[^ "\x27]+|setRequestHeader|[xX]-[a-zA-Z-]+|/api/',text))[:50]]},ensure_ascii=False),flush=True)
+                    "paths": list(dict.fromkeys(re.findall(r'["\x27](/(?:ajax|wss|api|nws)/[^"\x27\\\\]+)', text)))[:100],
+                    "excerpts":[text[max(0,m.start()-500):m.end()+900] for m in list(re.finditer(r'lineMenu:|imprintHash|WebSocket|data_ng|/wss/xhr/|line/get|live/get|/ajax/line',text))[:35]]},ensure_ascii=False),flush=True)
               except Exception as error:
                   print("PUBLIC_ZENIT_ASSET:",json.dumps({"url":url,"error":type(error).__name__}),flush=True)
           with ThreadPoolExecutor(max_workers=5) as executor:
               list(executor.map(asset,assets))
+          PY
+      - name: Install browser reader
+        run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Observe ordinary public readers without login
+        run: |
+          python3 - <<'PY'
+          import asyncio,base64,gzip,json,re,struct
+          from urllib.parse import urlsplit,urlunsplit
+          from playwright.async_api import async_playwright
+          def clean(url):
+              p=urlsplit(url)
+              return urlunsplit((p.scheme,p.netloc,p.path,"",""))
+          async def run():
+              async with async_playwright() as p:
+                  browser=await p.chromium.launch(headless=True)
+                  for label,url in [
+                      ("winline","https://winline.ru/stavki/sport/kibersport/counter-strike"),
+                      ("zenit","https://zenit.win/line/556"),
+                      ("betboom","https://betboom.ru/sport/esport/3/39428"),
+                      ("panel-preview","https://8cb787e8.oneshot-panel.pages.dev/build.txt"),
+                      ("panel-production","https://oneshot-panel.pages.dev/build.txt")
+                  ]:
+                      context=await browser.new_context(locale="ru-RU")
+                      await context.route("**/*",lambda route: route.continue_() if route.request.method in ("GET","HEAD") else route.abort())
+                      page=await context.new_page()
+                      tasks=[]
+                      async def response(reply):
+                          parsed=urlsplit(reply.url)
+                          if not any((parsed.hostname or "").endswith(host) for host in ("winline.ru","zenit.win","betboom.ru","sporthub.bet")): return
+                          content=reply.headers.get("content-type","")
+                          if ("json" not in content and "/wss/xhr" not in reply.url): return
+                          try:
+                              text=await reply.text()
+                              print("BROWSER_READ:",json.dumps({"provider":label,"url":clean(reply.url),"status":reply.status,"type":content,"size":len(text),
+                                "cyberclash":[text[max(0,m.start()-100):m.end()+900] for m in list(re.finditer("cyber.?clash",text,re.I))[:8]]},ensure_ascii=False),flush=True)
+                          except Exception: pass
+                      def websocket(ws):
+                          print("BROWSER_WS:",json.dumps({"provider":label,"url":clean(ws.url)}),flush=True)
+                          n=0
+                          def frame(data):
+                              nonlocal n
+                              n+=1
+                              if n>12:return
+                              if isinstance(data,bytes):
+                                  kind=None
+                                  if data.startswith(b"\x1f\x8b"):
+                                      try:
+                                          plain=gzip.decompress(data)
+                                          kind=struct.unpack_from("<H",plain)[0] if len(plain)>2 else None
+                                      except Exception:pass
+                                  print("BROWSER_WS_FRAME:",json.dumps({"provider":label,"size":len(data),"type":kind,"prefix":data[:8].hex(),
+                                    "publicMarketPacket":base64.b64encode(data).decode() if kind in (3,16) and len(data)<300000 else None}),flush=True)
+                              else:
+                                  print("BROWSER_WS_FRAME:",json.dumps({"provider":label,"size":len(data),"binary":False}),flush=True)
+                          ws.on("framereceived",frame)
+                      page.on("response",lambda reply: tasks.append(asyncio.create_task(response(reply))))
+                      page.on("websocket",websocket)
+                      try:
+                          main=await page.goto(url,wait_until="domcontentloaded",timeout=25000)
+                          await page.wait_for_timeout(12000 if "panel-" not in label else 1000)
+                          text=await page.locator("body").inner_text()
+                          public_text = text[:6000] if label in ("winline","zenit","betboom") else text[:200]
+                          print("BROWSER_PAGE:",json.dumps({"provider":label,"status":main.status if main else None,"title":await page.title(),"text":public_text,
+                            "network":[{k:v for k,v in (main.headers if main else {}).items() if k in ("server","cf-mitigated","content-type","www-authenticate")}]},ensure_ascii=False),flush=True)
+                          if tasks:await asyncio.gather(*tasks,return_exceptions=True)
+                      except Exception as error:
+                          print("BROWSER_PAGE:",json.dumps({"provider":label,"error":type(error).__name__}),flush=True)
+                      await context.close()
+                  await browser.close()
+          asyncio.run(run())
           PY
