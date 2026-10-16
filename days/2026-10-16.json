@@ -1,0 +1,473 @@
+{
+  "version": 1,
+  "day": "2026-10-16",
+  "startedAt": 0,
+  "updatedAt": 1792178482152,
+  "books": {
+    "fonbet": {
+      "checkedAt": 0,
+      "status": "partial",
+      "coverage": "prematch",
+      "events": [
+        {
+          "id": "69002206",
+          "team1": "Rune Eaters Esports",
+          "team2": "HyperSpirit",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792155600000,
+          "odds": [
+            1.45,
+            2.55
+          ],
+          "url": "https://fon.bet/sports/esports",
+          "live": false,
+          "liveOffered": false,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.45,
+            2.55
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        },
+        {
+          "id": "69002208",
+          "team1": "PRIVATE",
+          "team2": "UPGRADE",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792166400000,
+          "odds": [
+            1.72,
+            2
+          ],
+          "url": "https://fon.bet/sports/esports",
+          "live": false,
+          "liveOffered": false,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.72,
+            2
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        }
+      ]
+    },
+    "bettery": {
+      "checkedAt": 0,
+      "status": "partial",
+      "coverage": "prematch",
+      "events": [
+        {
+          "id": "69002206",
+          "team1": "Rune Eaters Esports",
+          "team2": "HyperSpirit",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792155600000,
+          "odds": [
+            1.45,
+            2.55
+          ],
+          "url": "https://bettery.ru/sports/esports/category/cs",
+          "live": false,
+          "liveOffered": false,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.45,
+            2.55
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        },
+        {
+          "id": "69002208",
+          "team1": "PRIVATE",
+          "team2": "UPGRADE",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792166400000,
+          "odds": [
+            1.72,
+            2
+          ],
+          "url": "https://bettery.ru/sports/esports/category/cs",
+          "live": false,
+          "liveOffered": false,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.72,
+            2
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        }
+      ]
+    },
+    "bet24": {
+      "checkedAt": 0,
+      "status": "partial",
+      "coverage": "prematch",
+      "events": [
+        {
+          "id": "69002206",
+          "team1": "Rune Eaters Esports",
+          "team2": "HyperSpirit",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792155600000,
+          "odds": [
+            1.45,
+            2.55
+          ],
+          "url": "https://24bet.ru/sports/esports",
+          "live": false,
+          "liveOffered": false,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.45,
+            2.55
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        },
+        {
+          "id": "69002208",
+          "team1": "PRIVATE",
+          "team2": "UPGRADE",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792166400000,
+          "odds": [
+            1.67,
+            2.07
+          ],
+          "url": "https://24bet.ru/sports/esports",
+          "live": false,
+          "liveOffered": false,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.67,
+            2.07
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        }
+      ]
+    },
+    "olimp": {
+      "checkedAt": 0,
+      "status": "partial",
+      "coverage": "prematch",
+      "events": [
+        {
+          "id": "86083372",
+          "team1": "Rune Eaters",
+          "team2": "HyperSpirit",
+          "tournament": "CS2. CyberClash",
+          "start": 1792155600000,
+          "odds": [
+            1.44,
+            2.67
+          ],
+          "url": "https://www.olimp.bet/cybersport/cs2",
+          "live": false,
+          "liveOffered": false,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.44,
+            2.67
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS2. CyberClash"
+          ]
+        },
+        {
+          "id": "86083373",
+          "team1": "Private",
+          "team2": "UPGRADE",
+          "tournament": "CS2. CyberClash",
+          "start": 1792166400000,
+          "odds": [
+            1.87,
+            1.87
+          ],
+          "url": "https://www.olimp.bet/cybersport/cs2",
+          "live": false,
+          "liveOffered": false,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.87,
+            1.87
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS2. CyberClash"
+          ]
+        },
+        {
+          "id": "86083374",
+          "team1": "Honved Esport",
+          "team2": "Lavked",
+          "tournament": "CS2. CyberClash",
+          "start": 1792177200000,
+          "odds": [
+            2.2,
+            1.62
+          ],
+          "url": "https://www.olimp.bet/cybersport/cs2",
+          "live": false,
+          "liveOffered": false,
+          "first": 0,
+          "last": 0,
+          "open": [
+            2.2,
+            1.62
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS2. CyberClash"
+          ]
+        }
+      ]
+    },
+    "marathon": {
+      "checkedAt": 0,
+      "status": "partial",
+      "coverage": "prematch",
+      "events": [
+        {
+          "id": "29735748",
+          "team1": "Rune Eaters",
+          "team2": "HyperSpirit",
+          "tournament": "CS 2. CyberClash. Закрытая квалификация. Матч из 3-х карт",
+          "start": 1792155600000,
+          "odds": [
+            1.46,
+            2.54
+          ],
+          "url": "https://www.marathonbet.ru/su/betting/e-Sports/Counter-Strike+2+-+16339652",
+          "live": false,
+          "liveOffered": false,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.46,
+            2.54
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS 2. CyberClash. Закрытая квалификация. Матч из 3-х карт"
+          ]
+        },
+        {
+          "id": "29735749",
+          "team1": "Private",
+          "team2": "UPGRADE",
+          "tournament": "CS 2. CyberClash. Закрытая квалификация. Матч из 3-х карт",
+          "start": 1792166400000,
+          "odds": [
+            1.77,
+            1.94
+          ],
+          "url": "https://www.marathonbet.ru/su/betting/e-Sports/Counter-Strike+2+-+16339652",
+          "live": false,
+          "liveOffered": false,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.77,
+            1.94
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS 2. CyberClash. Закрытая квалификация. Матч из 3-х карт"
+          ]
+        }
+      ]
+    },
+    "betcity": {
+      "checkedAt": 0,
+      "status": "partial",
+      "coverage": "prematch",
+      "events": [
+        {
+          "id": "24617848",
+          "team1": "Rune Eaters Esports",
+          "team2": "HyperSpirit",
+          "tournament": "CS2. CIS Esports League CyberClash (best of 3)",
+          "start": 1792155300000,
+          "odds": [
+            1.45,
+            2.55
+          ],
+          "url": "https://betcity.ru/ru/line/cybersport",
+          "live": false,
+          "liveOffered": true,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.45,
+            2.55
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS2. CIS Esports League CyberClash (best of 3)"
+          ]
+        },
+        {
+          "id": "24617849",
+          "team1": "PRIVATE",
+          "team2": "UPGRADE",
+          "tournament": "CS2. CIS Esports League CyberClash (best of 3)",
+          "start": 1792166100000,
+          "odds": [
+            1.85,
+            1.85
+          ],
+          "url": "https://betcity.ru/ru/line/cybersport",
+          "live": false,
+          "liveOffered": true,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.85,
+            1.85
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS2. CIS Esports League CyberClash (best of 3)"
+          ]
+        }
+      ]
+    },
+    "leon": {
+      "checkedAt": 0,
+      "status": "partial",
+      "coverage": "prematch",
+      "events": [
+        {
+          "id": "1970324853915092",
+          "team1": "Rune Eaters",
+          "team2": "HyperSpirit",
+          "tournament": "CyberClash Closed Qualifier",
+          "start": 1792155600000,
+          "odds": [
+            1.44,
+            2.6
+          ],
+          "url": "https://leon.ru/bets/esports/cs2",
+          "live": false,
+          "liveOffered": false,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.44,
+            2.6
+          ],
+          "liveSeen": false,
+          "names": [
+            "CyberClash Closed Qualifier"
+          ]
+        },
+        {
+          "id": "1970324853915091",
+          "team1": "PRIVATE",
+          "team2": "UPGRADE",
+          "tournament": "CyberClash Closed Qualifier",
+          "start": 1792166400000,
+          "odds": [
+            1.7,
+            2.05
+          ],
+          "url": "https://leon.ru/bets/esports/cs2",
+          "live": false,
+          "liveOffered": false,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.7,
+            2.05
+          ],
+          "liveSeen": false,
+          "names": [
+            "CyberClash Closed Qualifier"
+          ]
+        },
+        {
+          "id": "1970324853915089",
+          "team1": "Honved",
+          "team2": "Lavked",
+          "tournament": "CyberClash Closed Qualifier",
+          "start": 1792177200000,
+          "odds": [
+            2.15,
+            1.62
+          ],
+          "url": "https://leon.ru/bets/esports/cs2",
+          "live": false,
+          "liveOffered": false,
+          "first": 0,
+          "last": 0,
+          "open": [
+            2.15,
+            1.62
+          ],
+          "liveSeen": false,
+          "names": [
+            "CyberClash Closed Qualifier"
+          ]
+        }
+      ]
+    },
+    "baltbet": {
+      "checkedAt": 0,
+      "status": "partial",
+      "coverage": "prematch",
+      "events": [
+        {
+          "id": "31699523",
+          "team1": "Private",
+          "team2": "UPGRADE",
+          "tournament": "Counter-Strike. Восточная Европа. Cyberclash. Квалификация",
+          "start": 1792166400000,
+          "odds": [
+            1.51,
+            2.23
+          ],
+          "url": "https://baltbet.ru/prematch/cybersport",
+          "live": false,
+          "liveOffered": false,
+          "first": 0,
+          "last": 0,
+          "open": [
+            1.51,
+            2.23
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. Восточная Европа. Cyberclash. Квалификация"
+          ]
+        }
+      ]
+    }
+  },
+  "note": "Начальные записи за 16 октября восстановлены из сохранённых реальных ответов БК. Точное время этих наблюдений неизвестно; это отдельные снимки, а не полный архив дня."
+}
