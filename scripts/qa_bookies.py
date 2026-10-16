@@ -109,6 +109,7 @@ async def run(args):
             await page.clock.fast_forward(120000)
             assert len(calls) == before
             await expect(page.locator("#bookiesStatus")).to_contain_text("Нет сети")
+            await expect(row).to_contain_text("данные устарели")
             phase = 4
             await page.evaluate("""() => {
                 Object.defineProperty(navigator, 'onLine', {configurable:true,get:()=>true});

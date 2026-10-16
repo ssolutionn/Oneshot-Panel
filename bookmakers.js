@@ -175,7 +175,7 @@ export function parseFeed(bookmaker, body, live, now = Date.now()) {
       .some(item => Array.isArray(item?.payload?.competitionsWithEvents)) :
     bookmaker.kind === 'betcity' ? data?.ok !== false && data?.reply?.sports &&
       typeof data.reply.sports === 'object' :
-    /class="[^"]*category-container/.test(String(data));
+    bookmaker.kind === 'marathon' ? /class="[^"]*category-container/.test(String(data)) : true;
   if (!valid) throw new Error('формат линии изменился или источник вернул страницу ошибки');
   return parse(data, live, now).map(e => ({ ...e, url: bookmaker.eventUrl(e) }));
 }

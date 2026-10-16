@@ -144,25 +144,26 @@ function render() {
       el('b', { textContent: m.team1 + ' – ' + m.team2 }), el('small', { textContent: m.sub }))));
   const auto = BOOKMAKERS.map(b => {
     const r = results.get(b.id), partial = !!r?.errors?.length;
-    const state = !r ? 'проверяем…' : r.failed ?
+    const stale = !!r && (!!r.failed || navigator.onLine === false);
+    const state = !r ? 'проверяем…' : stale ?
       'нет связи' + (r.checkedAt ? '; данные на ' + msk(r.checkedAt) : ': ' + r.failed) :
       (r.events.length ? 'в линии: ' + r.events.length : 'матчи не найдены') +
         (partial ? ' · неполные данные' : '') + ' · ' + msk(r.checkedAt);
     const cells = cols.map(m => {
       const candidates = (r?.events || []).filter(e => !m.date || !e.start || eventDate(e) === m.date);
       const found = findMatch(candidates, m.team1, m.team2);
-      if (!found) return el('td', { className: 'none', textContent: r?.failed || partial ? '?' : '—' });
-      return el('td', { className: r.failed ? 'stale' : found.live ? 'live' : 'listed',
-        title: r.failed ? 'Последние доступные данные: ' + msk(r.checkedAt) + ' МСК' : '' },
+      if (!found) return el('td', { className: 'none', textContent: stale || partial ? '?' : '—' });
+      return el('td', { className: stale ? 'stale' : found.live ? 'live' : 'listed',
+        title: stale ? 'Последние доступные данные: ' + msk(r.checkedAt) + ' МСК' : '' },
         el('span', { className: 'bk-odds', textContent: odds(found) }),
-        r.failed ? el('small', { className: 'bad', textContent: 'данные устарели' }) :
+        stale ? el('small', { className: 'bad', textContent: 'данные устарели' }) :
           found.live ? el('span', { className: 'bk-live', textContent: 'LIVE' }) : null,
         open(found.url));
     });
     return { order: r?.events?.length ? 0 : 1, row: el('tr', { className: r?.events?.length ? 'has' : '', id: 'bookie-' + b.id },
       el('th', { scope: 'row', title: r?.failed || (r?.errors || []).join('; ') },
         el('span', { textContent: b.name }), open(b.page),
-        el('small', { textContent: state, className: r?.failed || partial ? 'bad' : r?.events?.length ? 'good' : '' })),
+        el('small', { textContent: state, className: stale || partial ? 'bad' : r?.events?.length ? 'good' : '' })),
       ...cells) };
   });
   const manual = MANUAL.map(m => ({ order: 2, row: el('tr', { className: 'manual' },
@@ -171,8 +172,11 @@ function render() {
     ...cols.map(() => el('td', { className: 'none', textContent: '?' }))) }));
   $('bookiesTable').replaceChildren(el('thead', {}, head),
     el('tbody', {}, ...[...auto, ...manual].sort((x, y) => x.order - y.order).map(x => x.row)));
-  const stale = BOOKMAKERS.filter(b => results.get(b.id)?.failed).length;
-  const listed = BOOKMAKERS.filter(b => results.get(b.id)?.events?.length && !results.get(b.id)?.failed).map(b => b.name);
+  const stale = BOOKMAKERS.filter(b => {
+    const r = results.get(b.id);
+    return r && (r.failed || navigator.onLine === false);
+  }).length;
+  const listed = BOOKMAKERS.filter(b => results.get(b.id)?.events?.length && !results.get(b.id)?.failed && navigator.onLine !== false).map(b => b.name);
   const summary = listed.length ? 'В линии: ' + listed.join(', ') + '.' :
     'Подтверждённых матчей в доступных источниках пока нет.';
   const progress = navigator.onLine === false ? 'Нет сети. Обновим после подключения.' :
