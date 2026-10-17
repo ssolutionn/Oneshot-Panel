@@ -649,7 +649,7 @@ function onChange() {
 // The captains' veto site (veto.html) opens with this match's teams and format.
 function playerVetoLink(s) {
   const params = new URLSearchParams({ a: s.a?.name || '', b: s.b?.name || '', f: $('cvFormat').value, m: $('cvTimer').value });
-  if ($('cvTransport').value === 'server') params.set('via', 'server');
+  params.set('via', $('cvTransport').value === 'server' ? 'server' : 'vdo');
   $('playerVeto').href = vetoSite() + '#new&' + params;
 }
 

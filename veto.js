@@ -296,6 +296,11 @@ async function setupCreate() {
       } finally { submit.disabled = false; }
       made.at = Date.now();
       store(LAST_KEY, made);
+      const prefill = new URLSearchParams(location.hash.slice(1));
+      if (prefill.has('new')) {
+        for (const [name,value] of Object.entries({a:made.room.t[0],b:made.room.t[1],f:made.room.f,m:made.room.m,via:relay?'server':'vdo'})) prefill.set(name,String(value));
+        history.replaceState(null,'',location.pathname+location.search+'#'+prefill);
+      }
       showLinks(made);
       toast(t('linksReady'));
     } catch (error) { showError(errorText(error.message)); }
@@ -308,7 +313,7 @@ async function setupCreate() {
   });
   const params = new URLSearchParams(location.hash.slice(1));
   const asked = params.has('new') ? [params.get('a') || '', params.get('b') || '', params.get('f')] : null;
-  if (params.get('via') === 'server') $('vtTransport').value = 'server';
+  if (['server','vdo'].includes(params.get('via'))) $('vtTransport').value = params.get('via');
   if (asked) {
     $('vtTeamA').value = asked[0];
     $('vtTeamB').value = asked[1];
@@ -322,7 +327,7 @@ async function setupCreate() {
     const room = last?.room;
     const fresh = Date.now() - (Number(last?.at) || 0) < RESTORE_FOR;
     if (fresh && room && Array.isArray(room.t) && last.links?.a && last.links?.b && last.links?.s && last.links?.o &&
-        (!asked || (asked[0] === room.t[0] && asked[1] === room.t[1] && asked[2] === room.f && Boolean(room.relay) === (params.get('via') === 'server')))) {
+        (!asked || (asked[0] === room.t[0] && asked[1] === room.t[1] && asked[2] === room.f && (!params.has('via') || Boolean(room.relay) === (params.get('via') === 'server'))))) {
       $('vtTeamA').value = room.t[0];
       $('vtTeamB').value = room.t[1];
       $('vtFormat').value = room.f;
