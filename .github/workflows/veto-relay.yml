@@ -1,9 +1,7 @@
 name: Veto server transport
 on:
-  push:
-    branches: ["codex/veto-server-transport"]
   pull_request:
-    paths: ["veto*", "live.js", "assets/veto-relay*", "server/**", "functions/api/veto-relay.js", "scripts/qa_veto_site.py", ".github/workflows/veto-relay.yml"]
+    paths: ["veto*", "index.html", "live.js", "server.js", "_headers", "netlify.toml", "assets/veto-relay*", "server/**", "functions/api/veto-relay.js", "test/veto-relay.test.js", "scripts/qa_veto_site.py", "scripts/qa_veto_relay*.py", ".github/workflows/veto-relay.yml"]
   workflow_dispatch:
 permissions:
   contents: read

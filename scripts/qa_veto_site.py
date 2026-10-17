@@ -343,6 +343,8 @@ async def run(args):
         await broken.goto(base + "/veto.html#v=" + bad_key)
         await expect(broken.locator("#vtError")).to_contain_text("повреждена", timeout=wait)
         passed("375 px without horizontal scroll; broken link and broken key explain themselves")
+        for page in (cap_a, cap_b, spectator, late, viewer, broken):
+            await page.close()
 
         # 5. BO1 by keyboard, BO5 by mouse.
         for fmt, keyboard, maps in (("BO1", True, 7), ("BO5", False, 7)):
@@ -496,6 +498,8 @@ async def run(args):
         await expect(room_page.locator("#vtPrompt")).to_have_text("Waiting for the captains")
         await expect(room_page.locator("#vtFoot")).to_contain_text("Admin view")
         passed("English by default, the RU flag switches and is remembered; timer «No timer» in the message")
+        await room_page.close()
+        await english.close()
 
         # 12. «Call admin»: the admin's page rings, the public link does not.
         await admin.goto(base + "/veto.html")
