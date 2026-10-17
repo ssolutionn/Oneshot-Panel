@@ -352,7 +352,7 @@ class Link {
     this.streams = new Map();
     this.views = new Map();
     this.closed = false;
-    if (push) this.make('push', push);
+    if (push) this.claimPush(push);
     for (const stream of views) this.make('view', stream);
     this.listener = event => {
       const frame = this.frames.find(item => item.contentWindow === event.source);
@@ -380,6 +380,23 @@ class Link {
       this.channel.onmessage = event => this.open(event.data, 'tab');
     } catch { this.channel = null; }
   }
+  claimPush(stream) {
+    if (!navigator.locks?.request) {
+      this.make('push', stream);
+      return;
+    }
+    // Two tabs publishing the same VDO stream can evict each other. Keep one
+    // publisher per browser; a waiting tab takes over as soon as it closes.
+    this.pushTask = navigator.locks.request('oneshot-veto-push:' + stream, async () => {
+      if (this.closed) return;
+      const frame = this.make('push', stream);
+      await new Promise(resolve => { this.releasePush = resolve; });
+      this.releasePush = null;
+      if (frame) this.removeFrame(frame);
+    }).catch(() => {
+      if (!this.closed) this.make('push', stream);
+    });
+  }
   make(side, stream, retry = 15000) {
     const url = new URL(VDO);
     url.search = new URLSearchParams({ [side]: stream, password: this.secrets.password, label: 'oneshot-veto' }) +
@@ -394,6 +411,7 @@ class Link {
       this.streams.set(iframe, stream);
       this.views.set(stream, { frame: iframe, last: Date.now(), retry });
     }
+    return iframe;
   }
   removeFrame(frame) {
     this.frames = this.frames.filter(item => item !== frame);
@@ -430,6 +448,8 @@ class Link {
     clearInterval(this.watchdog);
     removeEventListener('message', this.listener);
     this.channel?.close();
+    this.releasePush?.();
+    this.releasePush = null;
     for (const frame of [...this.frames]) this.removeFrame(frame);
     this.views.clear();
   }
