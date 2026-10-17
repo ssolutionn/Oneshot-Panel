@@ -162,8 +162,16 @@ async def run(args):
         async def open_page(url=None, width=1280, height=900, context=None, clock=False, english=False):
             context = context or await open_context(width, height, english)
             page = await context.new_page()
-            page.on("pageerror", lambda error: (vdo_errors if "vdo.ninja" in (error.stack or "") else errors)
-                    .append(f"{page.url[:60]}: {error}"))
+            def page_error(error):
+                message = f"{page.url[:60]}: {error}"
+                # WebKit reports an aborted same-origin long-poll as CORS when
+                # its page closes. Every live relay path is asserted above.
+                if (args.server and args.browser == "webkit" and
+                        "/api/veto-relay" in message and "access control checks" in message):
+                    print("RELAY_PAGE_CLOSED", message, flush=True)
+                    return
+                (vdo_errors if "vdo.ninja" in (error.stack or "") else errors).append(message)
+            page.on("pageerror", page_error)
             if args.server:
                 page.on("request", lambda req: errors.append("Server room contacted VDO: " + req.url)
                         if "/veto.html" in page.url and req.url.startswith("https://vdo.ninja/") else None)
