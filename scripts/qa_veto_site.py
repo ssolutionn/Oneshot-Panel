@@ -194,7 +194,7 @@ async def run(args):
 
         async def coin_shown(*pages):
             for page in pages:
-                await expect(page.locator("#vtKicker")).to_contain_text("Монетка:", timeout=wait)
+                await expect(page.locator("#vtKicker")).to_contain_text("Монетка:", timeout=join)
 
         async def winner_of(cap_a, cap_b):
             await coin_shown(cap_a, cap_b)
