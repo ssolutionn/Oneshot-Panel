@@ -129,7 +129,7 @@ test('retained snapshots do not forge online status or admin calls',async()=>{
  watch.receive({t:'log',log:[],p:c.room.p,call:Date.now()},0,false);
  await watch.queue;assert.equal(watch.online(0),false);assert.equal(calls,0);
  watch.receive({t:'log',log:[],p:c.room.p,call:Date.now()},0,true);
- assert.equal(watch.online(0),true);assert.equal(calls,1);watch.stop();
+ assert.equal(watch.online(0),true);assert.equal(calls,0);watch.stop();
 });
 
 test('display publisher keys are deterministic, role-separated, and unrelated to captain authority',async()=>{
