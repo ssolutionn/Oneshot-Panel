@@ -212,6 +212,39 @@ function publicKey(room, team) {
   return keyCache.get(id);
 }
 
+// A heartbeat/log envelope can also arrive through the captain's own push
+// iframe when their dedicated viewer iframe is stuck. Sign the whole envelope
+// so that route proves which captain sent it; spectators know the room's
+// encryption key, but never a captain's signing key.
+function roomMessageBytes(room, message) {
+  return enc.encode(JSON.stringify([
+    'oneshot-veto-message-v1', room.r, message.from, message.at,
+    Number.isSafeInteger(message.call) ? message.call : null,
+    message.log, message.p
+  ]));
+}
+export async function signRoomMessage(room, key, message, at = Date.now()) {
+  const from = room.me;
+  if (!key || !['a', 'b'].includes(from) || !Array.isArray(message?.log) || !Array.isArray(message?.p)) {
+    throw new Error('Нельзя подписать сообщение комнаты.');
+  }
+  const signed = { ...message, from, at: Math.round(at) };
+  signed.proof = b64url(await crypto.subtle.sign(SIGN, key, roomMessageBytes(room, signed)));
+  return signed;
+}
+export async function verifyRoomMessage(room, message, now = Date.now()) {
+  const team = message?.from === 'a' ? 0 : message?.from === 'b' ? 1 : null;
+  if (team === null || !Number.isSafeInteger(message.at) || Math.abs(now - message.at) > 10 * 60000 ||
+      typeof message.proof !== 'string' || !b64(64).test(message.proof) ||
+      !Array.isArray(message.log) || !Array.isArray(message.p)) return false;
+  try {
+    return await crypto.subtle.verify(SIGN, await publicKey(room, team),
+      unb64url(message.proof), roomMessageBytes(room, message));
+  } catch {
+    return false;
+  }
+}
+
 // ---- The coin: A commits to a hidden nonce, B adds a seed, A reveals ----
 export const coinNonce = () => b64url(random(16));
 export async function coinCommit(room, nonce) {
