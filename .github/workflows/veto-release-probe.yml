@@ -1,0 +1,91 @@
+name: Veto transport release check
+on:
+  push:
+    branches: ["codex/veto-relay-release-check"]
+permissions:
+  contents: read
+jobs:
+  public-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Browser tools
+        run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Published panel, veto and durable relay
+        env:
+          EXPECTED_PANEL_COMMIT: "53ef1d9e7b7d774d0d242b50cd7fa3aa4d3bcfef"
+        run: |
+          python3 - <<'PY'
+          import asyncio,json,os,time
+          from playwright.async_api import async_playwright
+          async def main():
+              panel="https://oneshot-panel.pages.dev"
+              veto="https://oneshot-veto.pages.dev"
+              worker="https://oneshot-veto.cyberclash.workers.dev"
+              async with async_playwright() as p:
+                  browser=await p.chromium.launch()
+                  page=await browser.new_page()
+                  async def health(base):
+                      try:
+                          r=await page.goto(base+"/api/veto-relay?health=1",wait_until="domcontentloaded",timeout=15000)
+                          b=json.loads(await r.text())
+                          return bool(r.ok and b.get("protocol")==1 and b.get("ready") is True)
+                      except Exception:
+                          return False
+                  deadline=time.monotonic()+300
+                  while True:
+                      result={}
+                      try:
+                          r=await page.goto(panel+"/build.txt",wait_until="domcontentloaded",timeout=15000)
+                          result["panel_commit"]=(await r.text()).strip()==os.environ["EXPECTED_PANEL_COMMIT"]
+                      except Exception:
+                          result["panel_commit"]=False
+                      try:
+                          r=await page.goto(veto+"/",wait_until="domcontentloaded",timeout=15000)
+                          result["veto_transport_ui"]='id="vtTransport"' in await r.text()
+                      except Exception:
+                          result["veto_transport_ui"]=False
+                      result["worker_relay"]=await health(worker)
+                      result["veto_relay"]=await health(veto)
+                      result["panel_proxy"]=await health(panel)
+                      print("PUBLIC_STATUS",json.dumps(result),flush=True)
+                      if all(result.values()) or time.monotonic()>deadline:
+                          break
+                      await asyncio.sleep(5)
+                  if not all(result.values()):
+                      raise AssertionError("Public relay is not activated. Deploy the generated Veto Worker wrangler migration and the Veto Pages repository.")
+                  await page.goto(veto+"/",wait_until="domcontentloaded")
+                  ok=await page.evaluate("""async()=>{
+                    const m=await import('/veto-room.js'),v=await import('/vdo.js');
+                    const r=await import('/assets/veto-relay-protocol.js');
+                    const endpoint=location.origin+'/api/veto-relay';
+                    const made=await m.createRoom(location.origin+'/', ['Relay QA A','Relay QA B'],'BO3',5,endpoint);
+                    const room=m.decodeLink(new URL(made.links.a).hash),key=await m.captainKey(room),secrets=await m.roomSecrets(room);
+                    const packet=await r.signRelayPacket(key,room.p[0],await v.seal(secrets.key,{t:'log',log:[],p:room.p}));
+                    const sent=await fetch(endpoint,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(packet)});
+                    if(!sent.ok)return false;
+                    const received=await(await fetch(endpoint+'?topics='+packet.topic,{cache:'no-store'})).json();
+                    const record=received.records?.[0];
+                    if(!record||!await r.verifyRelayPacket(record.packet))return false;
+                    const clear=await v.unseal(secrets.key,record.packet.box);
+                    return clear?.t==='log'&&clear.log.length===0;
+                  }""")
+                  assert ok,"Public signed encrypted relay roundtrip failed"
+                  await page.goto(panel+"/build.txt")
+                  cors=await page.evaluate("""async url=>{
+                    const r=await fetch(url+'/api/veto-relay?health=1',{credentials:'omit',cache:'no-store'});
+                    const b=await r.json();return r.ok&&b.ready===true;
+                  }""",veto)
+                  assert cors,"Panel CSP/CORS cannot reach the Veto relay"
+                  print("PASS: public production assets, durable encrypted publisher roundtrip, cross-origin panel CSP/CORS",flush=True)
+                  await browser.close()
+          asyncio.run(main())
+          PY
