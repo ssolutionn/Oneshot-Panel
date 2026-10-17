@@ -529,7 +529,8 @@ const VETO_CHANNEL_STORE = 'oneshot-veto-channel';
 const savedVetoCode = normalizeCode(read(VETO_CHANNEL_STORE));
 const vetoCode = savedVetoCode || newBridgeCode();
 write(VETO_CHANNEL_STORE, vetoCode);
-let vetoLink = null, vetoOpening = null, vetoTimer, lastVeto = '', vetoId = '', vetoAck = '', vetoSeen = 0, vetoSending = false;
+let vetoLink = null, vetoOpening = null, vetoTimer, lastVeto = '', vetoId = '', vetoAck = '', vetoSeen = 0,
+  vetoOpenedAt = 0, vetoSending = false;
 function setVetoStatus(text, kind = '') {
   $('vetoLiveStatus').textContent = text;
   $('vetoLiveStatus').dataset.kind = kind;
@@ -549,7 +550,7 @@ function displayEndpoint() {
 function ensureVetoLink() {
   const endpoint = displayEndpoint();
   if (vetoEndpoint !== endpoint) {
-    vetoLink?.close(); vetoLink = null; vetoAck = ''; vetoSeen = 0; lastVeto = '';
+    vetoLink?.close(); vetoLink = null; vetoAck = ''; vetoSeen = 0; vetoOpenedAt = 0; lastVeto = '';
     vetoEndpoint = endpoint;
   }
   if (vetoLink) return Promise.resolve(vetoLink);
@@ -566,7 +567,7 @@ function ensureVetoLink() {
     return endpoint ? ServerDisplayLink.create(vetoCode, 'dock', endpoint, receive).then(link => {
       if (!$('vetoLive').checked || endpoint !== displayEndpoint()) { link.close(); return null; }
       vetoLink = link; return link;
-    }) : (vetoLink = new VdoLink(secrets, 'dock', receive));
+    }) : (vetoOpenedAt = Date.now(), vetoLink = new VdoLink(secrets, 'dock', receive));
   }).finally(() => { vetoOpening = null; });
   return vetoOpening;
 }
@@ -594,6 +595,7 @@ $('vetoLive').addEventListener('change', () => {
     vetoLink?.close();
     vetoLink = null;
     vetoSeen = 0;
+    vetoOpenedAt = 0;
   }
   sendVeto();
 });
@@ -602,6 +604,14 @@ async function flushVeto() {
   vetoSending = true;
   let sentKey = null;
   try {
+    // VDO can leave an iframe present but its data channel dead. The overlay
+    // acknowledges every snapshot, so a missing ACK is an objective reason to
+    // rebuild only this display channel.
+    if (!vetoEndpoint && vetoLink && Date.now() - Math.max(vetoSeen, vetoOpenedAt) >= 15000) {
+      vetoLink.close();
+      vetoLink = null;
+      vetoOpenedAt = 0;
+    }
     const link = await ensureVetoLink();
     if (!link || !$('vetoLive').checked) return;
     // Capture after connection setup so an older queued move cannot acquire
