@@ -505,9 +505,16 @@ async def run(args):
         await expect(b.locator("#vtError")).to_be_hidden()
         texts = [await page.locator("#vtLog").inner_text() for page in (a1, a2, b)]
         assert len(set(texts)) == 1, texts
-        passed("two tabs of one captain confirm together: one move counts, no conflict")
+        if not args.server:
+            first_tab, standby = (a1, a2) if await a1.locator(
+                'iframe.vdo-frame[src*="push="]').count() else (a2, a1)
+            await first_tab.close()
+            await expect(standby.locator(
+                'iframe.vdo-frame[src*="push="]')).to_have_count(1, timeout=wait)
+        passed("two tabs of one captain confirm together: one move counts, no conflict; standby takes over")
         for page in (a1, a2, b):
-            await page.close()
+            if not page.is_closed():
+                await page.close()
 
         # 9. The 5-minute clock runs out (both clocks jump 5 min 10 s after the order).
         link_a, link_b, _ = await make_links(admin, "Walczaki", "Johnny Speeds", "BO1")
