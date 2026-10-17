@@ -47,7 +47,7 @@ export class RelayClient {
         if(this.stopped)return;
         this.seen.set(p.topic,p.s);
         const age=result.now-record.receivedAt;
-        this.onPacket(p.box,p.topic,Number.isFinite(age)&&age>=-1000&&age<8000,p.at);
+        await this.onPacket(p.box,p.topic,Number.isFinite(age)&&age>=-1000&&age<8000,p.at);
       }
       this.failures=0;this.onStatus('online');
     }catch{if(!this.stopped){this.failures++;this.onStatus('retry');}}

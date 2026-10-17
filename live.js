@@ -730,6 +730,7 @@ $('cvCreate').addEventListener('click', async () => {
     const relay = $('cvTransport').value === 'server' ? relayEndpoint('/api/veto-relay', vetoSite()) : '';
     if (relay) { cvStatus('Проверяем сервер вето…'); await checkRelay(relay); }
     const made = await createRoom(vetoSite(), [s.a.name, s.b.name], $('cvFormat').value, Number($('cvTimer').value), relay);
+    if (cvMatch(panel.snapshot()) !== cvMatch(s)) throw new Error('За время подключения матч изменился. Создай ссылки для выбранного матча ещё раз.');
     const last = { match: cvMatch(s), at: Date.now(), room: made.room, links: made.links };
     cvSave(last);
     cvShow(last);

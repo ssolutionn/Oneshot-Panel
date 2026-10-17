@@ -9,7 +9,7 @@ export class ServerRoomLink {
     this.client=new RelayClient(room.relay,room.fp,(box,topic,fresh)=>this.open(box,fresh?secrets.streams[room.fp.indexOf(topic)]:''),
       {publisher:me===null?null:{key,point:room.p[me]},onStatus});
   }
-  async open(box,via){const msg=await unseal(this.secrets.key,box);if(msg&&!this.stopped)this.onMessage(msg,via);}
+  async open(box,via){const msg=await unseal(this.secrets.key,box);if(msg&&!this.stopped)return this.onMessage(msg,via);}
   async send(message){if(!this.stopped)return this.client.send(await seal(this.secrets.key,message));}
   close(){this.stopped=true;this.client.close();}
 }
@@ -30,7 +30,7 @@ export class ServerDisplayLink {
       // A retained snapshot can redraw a late source; a stale ACK cannot turn
       // the panel green. The source replies to a retained state with a fresh ACK.
       if(msg&&!this.stopped&&(msg.type!=='veto-received'||fresh)&&
-        (msg.type!=='veto-state'||at>=notBefore))onMessage(msg);
+        (msg.type!=='veto-state'||at>=notBefore))return onMessage(msg);
     },{publisher,onStatus});
   }
   async send(message){if(!this.stopped)return this.client.send(await seal(this.secrets.key,message));}
