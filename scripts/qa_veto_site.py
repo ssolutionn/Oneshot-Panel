@@ -598,8 +598,15 @@ async def run(args):
         link_a = re.search(r"https?://\S+", await panel.input_value("#cvMsgA")).group(0)
         link_b = re.search(r"https?://\S+", await panel.input_value("#cvMsgB")).group(0)
         assert link_a.startswith(base + "/veto.html#v="), link_a
+        if not args.real_vdo and not args.server:
+            asymmetric_view_pages.append(panel)
         cap_a = await open_page(link_a)
-        await expect(panel.locator("#cvTeam0")).to_have_attribute("data-online", "yes", timeout=join)
+        if not args.real_vdo and not args.server:
+            await expect(panel.locator("#cvTeam0")).to_have_attribute("data-online", "no")
+            asymmetric_view_pages.remove(panel)
+            await expect(panel.locator("#cvTeam0")).to_have_attribute("data-online", "yes", timeout=22000)
+        else:
+            await expect(panel.locator("#cvTeam0")).to_have_attribute("data-online", "yes", timeout=join)
         await expect(panel.locator("#cvTeam1")).to_have_attribute("data-online", "no")
         await expect(panel.locator("#cvLiveState")).to_have_text("здесь UPGRADE")
         cap_b = await open_page(link_b)
