@@ -216,6 +216,16 @@ function publicKey(room, team) {
 // iframe when their dedicated viewer iframe is stuck. Sign the whole envelope
 // so that route proves which captain sent it; spectators know the room's
 // encryption key, but never a captain's signing key.
+function roomMessageShape(message) {
+  const point = value => value === null || (Array.isArray(value) && value.length === 2 &&
+    value.every(part => typeof part === 'string' && b64(32).test(part)));
+  const entry = value => value && typeof value === 'object' &&
+    ['commit', 'seed', 'reveal', 'order', 'ban', 'pick', 'side'].includes(value.k) &&
+    typeof value.v === 'string' && value.v.length <= 64 && Number.isSafeInteger(value.at) &&
+    typeof value.s === 'string' && b64(64).test(value.s);
+  return message?.t === 'log' && Array.isArray(message.log) && message.log.length <= 32 &&
+    message.log.every(entry) && Array.isArray(message.p) && message.p.length === 2 && message.p.every(point);
+}
 function roomMessageBytes(room, message) {
   return enc.encode(JSON.stringify([
     'oneshot-veto-message-v1', room.r, message.from, message.at,
@@ -225,7 +235,7 @@ function roomMessageBytes(room, message) {
 }
 export async function signRoomMessage(room, key, message, at = Date.now()) {
   const from = room.me;
-  if (!key || !['a', 'b'].includes(from) || !Array.isArray(message?.log) || !Array.isArray(message?.p)) {
+  if (!key || !['a', 'b'].includes(from) || !roomMessageShape(message)) {
     throw new Error('Нельзя подписать сообщение комнаты.');
   }
   const signed = { ...message, from, at: Math.round(at) };
@@ -234,9 +244,9 @@ export async function signRoomMessage(room, key, message, at = Date.now()) {
 }
 export async function verifyRoomMessage(room, message, now = Date.now()) {
   const team = message?.from === 'a' ? 0 : message?.from === 'b' ? 1 : null;
-  if (team === null || !Number.isSafeInteger(message.at) || Math.abs(now - message.at) > 10 * 60000 ||
-      typeof message.proof !== 'string' || !b64(64).test(message.proof) ||
-      !Array.isArray(message.log) || !Array.isArray(message.p)) return false;
+  if (team === null || !roomMessageShape(message) || !Number.isSafeInteger(message.at) ||
+      Math.abs(now - message.at) > 10 * 60000 ||
+      typeof message.proof !== 'string' || !b64(64).test(message.proof)) return false;
   try {
     return await crypto.subtle.verify(SIGN, await publicKey(room, team),
       unb64url(message.proof), roomMessageBytes(room, message));
