@@ -582,7 +582,7 @@ async function enterRoom(room) {
     // The dedicated viewer iframe proves its stream owner. If that iframe is
     // stuck, the same signed envelope can arrive through our push iframe.
     let from = via === secrets.streams[0] ? 'a' : via === secrets.streams[1] ? 'b' : '';
-    if (!from && ['a', 'b'].includes(message.from) && message.at > proofSeen[message.from] &&
+    if (!from && !room.relay && ['a', 'b'].includes(message.from) && message.at > proofSeen[message.from] &&
         await verifyRoomMessage(room, message) && message.at > proofSeen[message.from]) {
       from = message.from;
       proofSeen[from] = message.at;
