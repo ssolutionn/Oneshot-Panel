@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   createRoom, decodeLink, encodeLink, roomSecrets, captainKey, acceptKey, fingerprint, publicPoint,
   signMove, verifyLog, replay, nextTurn, mergeLog, clock, formatClock, mapBoard, resultText,
-  captainMessage, spectatorMessage, coinCommit, coinNonce
+  captainMessage, spectatorMessage, signRoomMessage, verifyRoomMessage, coinCommit, coinNonce
 } from '../veto-room.js';
 
 const BASE = 'https://oneshot-panel.pages.dev/veto.html';
@@ -59,6 +59,21 @@ test('links: short; each captain gets their own secret, spectators none', async 
   assert.equal(o.k, undefined);
   assert.equal(await captainKey(o), null);
   assert.equal(new Set(Object.values(links)).size, 4);
+});
+
+test('room envelopes prove captain identity on a reverse data channel', async () => {
+  const { a, s, ka } = await seats('BO1');
+  const now = Date.now();
+  const body = { t: 'log', log: [], p: a.p.map(point => point ? [...point] : point), call: now - 1000 };
+  const message = await signRoomMessage(a, ka, body, now);
+  assert.equal(message.from, 'a');
+  assert.equal(await verifyRoomMessage(s, message, now + 1000), true);
+
+  assert.equal(await verifyRoomMessage(s, { ...message, from: 'b' }, now), false);
+  assert.equal(await verifyRoomMessage(s, { ...message, call: now }, now), false);
+  assert.equal(await verifyRoomMessage(s, { ...message, log: [{ k: 'ban' }] }, now), false);
+  assert.equal(await verifyRoomMessage(s, { ...message, at: now - 11 * 60000 }, now), false);
+  assert.equal(await verifyRoomMessage(s, { ...message, proof: 'broken' }, now), false);
 });
 
 test('timer: in the link, 5 minutes by default, 0 for none', async () => {
