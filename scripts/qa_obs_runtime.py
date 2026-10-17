@@ -17,6 +17,7 @@ from qa_browser import gviz, sample_roster
 
 OUT = Path("artifacts/obs-runtime")
 BASE = "http://127.0.0.1:3000"
+TRANSPORT = os.environ.get("QA_VETO_TRANSPORT", "vdo")
 
 
 async def run():
@@ -73,6 +74,8 @@ async def run():
                        "device_scale_factor":2} if mobile else {"viewport":{"width":1440,"height":1000}}
             context = await browser.new_context(**options)
             print("ADMIN ENGINE", engine, "mobile" if mobile else "desktop", flush=True)
+            if TRANSPORT == "server":
+                await context.route("https://vdo.ninja/**", lambda r:r.fulfill(content_type="text/html",body="<!doctype html>"))
             await context.add_init_script("localStorage.setItem('oneshot-watch-cams', 'false')")
             async def sheets(route):
                 schedule = parse_qs(urlsplit(route.request.url).query).get("gid") == ["815739139"]
@@ -99,27 +102,35 @@ async def run():
             await panel.locator("#obsDialog").screenshot(path=str(OUT / "obs-menu.png"))
             # Real dock connection from an independent admin browser, paired
             # by the URL encoded in its QR, before publishing veto from phone.
-            dock_context = await browser.new_context()
-            dock = await dock_context.new_page()
-            await dock.goto(BASE + "/obs-bridge.html")
-            await dock.locator("#dockQr > details > summary").click()
-            await dock.locator("#dockQr .obs-qr-manual > summary").click()
-            await dock.fill("#dockQr .obs-qr-manual input", "obsws://192.168.1.9:4455")
-            await dock.locator("#dockQr .obs-qr-manual button").click()
-            await expect(dock.locator("#dockUrl")).to_have_value("ws://127.0.0.1:4455")
-            await dock.click("#dockForm button[type=submit]")
-            await expect(dock.locator("#dockObs")).to_contain_text("OBS: подключён")
-            await dock.locator("#dockPair > summary").click()
-            await expect(dock.locator("#dockPairCanvas")).to_be_visible()
-            pair_url = await dock.input_value("#dockPairUrl")
-            await panel.goto(pair_url)
-            await expect(panel.locator("#obsForm")).to_be_visible()
-            await expect(panel.locator("#obsState")).to_have_text("Док OBS на связи", timeout=60000)
-            await activate("#testObs")
-            await expect(panel.locator("#obsTestResult")).to_contain_text("OBS: подключён", timeout=20000)
-            assert "#" not in panel.url
-            print("PASS: QR pairing link connects independent admin browser to real OBS over real VDO", flush=True)
+            if TRANSPORT == "vdo":
+                dock_context = await browser.new_context()
+                dock = await dock_context.new_page()
+                await dock.goto(BASE + "/obs-bridge.html")
+                await dock.locator("#dockQr > details > summary").click()
+                await dock.locator("#dockQr .obs-qr-manual > summary").click()
+                await dock.fill("#dockQr .obs-qr-manual input", "obsws://192.168.1.9:4455")
+                await dock.locator("#dockQr .obs-qr-manual button").click()
+                await expect(dock.locator("#dockUrl")).to_have_value("ws://127.0.0.1:4455")
+                await dock.click("#dockForm button[type=submit]")
+                await expect(dock.locator("#dockObs")).to_contain_text("OBS: подключён")
+                await dock.locator("#dockPair > summary").click()
+                await expect(dock.locator("#dockPairCanvas")).to_be_visible()
+                pair_url = await dock.input_value("#dockPairUrl")
+                await panel.goto(pair_url)
+                await expect(panel.locator("#obsForm")).to_be_visible()
+                await expect(panel.locator("#obsState")).to_have_text("Док OBS на связи", timeout=60000)
+                await activate("#testObs")
+                await expect(panel.locator("#obsTestResult")).to_contain_text("OBS: подключён", timeout=20000)
+                assert "#" not in panel.url
+                print("PASS: QR pairing link connects independent admin browser to real OBS over real VDO", flush=True)
             await activate("#closeObs")
+            await activate("#vetoNavBtn")
+            if TRANSPORT == "server":
+                await panel.fill("#cvSite",BASE+"/veto.html")
+                await panel.locator("#cvSite").dispatch_event("change")
+                await panel.select_option("#cvTransport","server")
+                await activate("#cvCreate")
+                await expect(panel.locator("#cvRoom")).to_be_visible()
             await activate("#copyOverlay")
             url = await panel.evaluate("window.copied")
             assert "&r=" in url
@@ -170,7 +181,9 @@ async def run():
             await until("document.getElementById('scene')?.dataset.ready === 'true'")
             print("OBS INITIAL", await evaluate("({state:vetoOverlay.getState(),scene:{...document.getElementById('scene').dataset}})"), flush=True)
             await expect(panel.locator("#vetoLiveStatus")).to_contain_text("Оверлей получает вето", timeout=60000)
-            print("PASS: actual OBS CEF acknowledged the live VDO stream; no OBS password in panel", flush=True)
+            if TRANSPORT == "server":
+                assert await evaluate("document.querySelectorAll('iframe.vdo-frame').length") == 0
+            print("PASS: actual OBS CEF acknowledged " + TRANSPORT + " transport; no OBS password in panel", flush=True)
             sample = """(() => {
               const d=document.getElementById('scene').getContext('2d').getImageData(700,45,400,100).data;
               let h=2166136261;for(let i=0;i<d.length;i+=4)h=Math.imul(h^d[i]^d[i+1]^d[i+2],16777619);
