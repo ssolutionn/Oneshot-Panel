@@ -12,6 +12,7 @@ nobody else. With --real-vdo the real VDO.Ninja is used instead.
 """
 import argparse
 import asyncio
+import json
 import re
 import sys
 from datetime import datetime, timedelta, timezone
@@ -200,9 +201,46 @@ async def run(args):
             return (re.search(r"https?://\S+", message_a).group(0),
                     re.search(r"https?://\S+", message_b).group(0), link_s)
 
+        async def connection_diagnostics():
+            # Never record link fragments, stream passwords, captain secrets,
+            # nonce values or message bodies in the failure metadata.
+            states = []
+            for context in contexts:
+                for page in context.pages:
+                    if page.is_closed():
+                        continue
+                    try:
+                        state = await page.evaluate("""async () => {
+                          const m=await import('/veto-room.js'), room=m.decodeLink(location.hash);
+                          if(!room)return null;
+                          const saved=JSON.parse(localStorage.getItem('oneshot-veto-log:'+room.r)||'[]');
+                          const locks=await navigator.locks?.query();
+                          return {seat:room.me,transport:room.relay?'server':'vdo',
+                            phase:document.querySelector('#vtStage')?.dataset.phase,
+                            kicker:document.querySelector('#vtKicker')?.textContent,
+                            error:document.querySelector('#vtError')?.textContent,
+                            displayedMoves:document.querySelectorAll('#vtLog li').length,
+                            savedMoves:saved.length,visibility:document.visibilityState,
+                            online:[0,1].map(i=>document.querySelector('#vtTeam'+i)?.dataset.online),
+                            locks:locks&&Object.fromEntries(['held','pending'].map(k=>[k,
+                              locks[k].map(l=>({kind:l.name.startsWith('oneshot-veto-push:')?'publisher':'other',mode:l.mode}))])),
+                            frames:[...document.querySelectorAll('iframe.vdo-frame')].map(f=>{
+                              const u=new URL(f.src);return {host:u.hostname,role:u.searchParams.has('push')?'push':'view'};
+                            })};
+                        }""")
+                        if state:
+                            states.append(state)
+                    except Exception as error:
+                        states.append({"diagnosticError": type(error).__name__})
+            (output / "connection-timeout.json").write_text(json.dumps(states, ensure_ascii=False, indent=2))
+
         async def coin_shown(*pages):
-            for page in pages:
-                await expect(page.locator("#vtKicker")).to_contain_text("Монетка:", timeout=join)
+            try:
+                for page in pages:
+                    await expect(page.locator("#vtKicker")).to_contain_text("Монетка:", timeout=join)
+            except Exception:
+                await connection_diagnostics()
+                raise
 
         async def winner_of(cap_a, cap_b):
             await coin_shown(cap_a, cap_b)
@@ -494,7 +532,11 @@ async def run(args):
         for page in (a1, a2, b):
             await expect(page.locator("#vtStage")).to_have_attribute(
                 "data-phase", re.compile("mine|wait"), timeout=wait)
-            await expect(page.locator("#vtLog li")).to_have_count(1, timeout=wait)
+            try:
+                await expect(page.locator("#vtLog li")).to_have_count(1, timeout=wait)
+            except Exception:
+                await connection_diagnostics()
+                raise
         await expect(a1.locator("#vtStage")).to_have_attribute("data-phase", "mine")
         await expect(a2.locator("#vtStage")).to_have_attribute("data-phase", "mine")
         enabled = a1.locator(".vt-map:not([disabled])")

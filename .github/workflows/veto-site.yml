@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   push:
     branches: ["claude/gracious-sagan-apztcc"]
-    paths: ["veto.html", "veto.js", "veto.css", "veto-room.js", "vdo.js", "_headers", "netlify.toml", "server.js", "scripts/build-veto-site.mjs", "scripts/qa_veto_site.py", ".github/workflows/veto-site.yml"]
+    paths: ["veto.html", "veto.js", "veto.css", "veto-room.js", "vdo.js", "_headers", "netlify.toml", "server.js", "scripts/build-veto-site.mjs", "scripts/qa_veto_site.py", "scripts/qa_veto_resilience.py", ".github/workflows/veto-site.yml"]
 
 permissions:
   contents: read
@@ -42,6 +42,9 @@ jobs:
           sleep 1
           python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --browser ${{ matrix.browser }} \
             ${{ matrix.vdo == 'real' && '--real-vdo' || '' }} --artifacts artifacts/veto-${{ matrix.browser }}-${{ matrix.vdo }}
+      - name: Slow signalling and stalled HTTP recovery
+        if: matrix.vdo == 'fake'
+        run: python3 scripts/qa_veto_resilience.py --url http://127.0.0.1:3000 --browser ${{ matrix.browser }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

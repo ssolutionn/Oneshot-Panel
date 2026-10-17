@@ -1,7 +1,7 @@
 name: Veto server transport
 on:
   pull_request:
-    paths: ["veto*", "index.html", "live.js", "server.js", "_headers", "netlify.toml", "assets/veto-relay*", "server/**", "functions/api/veto-relay.js", "test/veto-relay.test.js", "scripts/qa_veto_site.py", "scripts/qa_veto_relay*.py", ".github/workflows/veto-relay.yml"]
+    paths: ["veto*", "index.html", "live.js", "server.js", "_headers", "netlify.toml", "assets/veto-relay*", "server/**", "functions/api/veto-relay.js", "test/veto-relay.test.js", "scripts/qa_veto_site.py", "scripts/qa_veto_resilience.py", "scripts/qa_veto_relay*.py", ".github/workflows/veto-relay.yml"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -39,6 +39,8 @@ jobs:
           python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --server --browser chromium --artifacts artifacts/server-chromium
           python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --server --browser webkit --artifacts artifacts/server-webkit
           python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --browser chromium --artifacts artifacts/vdo
+          python3 scripts/qa_veto_resilience.py --url http://127.0.0.1:3000 --browser chromium
+          python3 scripts/qa_veto_resilience.py --url http://127.0.0.1:3000 --browser webkit
       - uses: actions/upload-artifact@v4
         if: always()
         with:

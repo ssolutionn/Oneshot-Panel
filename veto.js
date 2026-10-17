@@ -6,7 +6,7 @@
 // also talk over a BroadcastChannel. Rules live in veto-room.js. English by
 // default, Russian with the flag (localStorage oneshot-veto-lang).
 import { MAP_POOL, teamLogo, teamHltv, DEFAULT_SOURCE, decodeGviz, parseSchedule } from './core.js';
-import { seal, unseal } from './vdo.js';
+import { seal, unseal, VDO_CONNECT_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
 import { ServerRoomLink } from './assets/veto-relay-links.js';
 import { checkRelay } from './assets/veto-relay-client.js';
 import { relayEndpoint } from './assets/veto-relay-protocol.js';
@@ -352,6 +352,7 @@ class Link {
     this.streams = new Map();
     this.views = new Map();
     this.closed = false;
+    this.pushStream = push;
     if (push) this.claimPush(push);
     for (const stream of views) this.make('view', stream);
     this.listener = event => {
@@ -361,7 +362,7 @@ class Link {
       const stream = this.streams.get(frame) || '';
       if (box && stream) {
         const view = this.views.get(stream);
-        if (view) { view.last = Date.now(); view.retry = 15000; }
+        if (view) { view.last = Date.now(); view.retry = VDO_IDLE_TIMEOUT; }
       }
       // Through a view frame the sender is that stream's owner; through our
       // own push frame identity is proved by the signed room envelope.
@@ -397,7 +398,7 @@ class Link {
       if (!this.closed) this.make('push', stream);
     });
   }
-  make(side, stream, retry = 15000) {
+  make(side, stream, retry = VDO_CONNECT_TIMEOUT) {
     const url = new URL(VDO);
     url.search = new URLSearchParams({ [side]: stream, password: this.secrets.password, label: 'oneshot-veto' }) +
       '&dataonly&cleanoutput';
@@ -407,6 +408,7 @@ class Link {
     iframe.setAttribute('aria-hidden', 'true');
     document.body.append(iframe);
     this.frames.push(iframe);
+    if (side === 'push') this.pushFrame = iframe;
     if (side === 'view') {
       this.streams.set(iframe, stream);
       this.views.set(stream, { frame: iframe, last: Date.now(), retry });
@@ -414,6 +416,7 @@ class Link {
     return iframe;
   }
   removeFrame(frame) {
+    if (frame === this.pushFrame) this.pushFrame = null;
     this.frames = this.frames.filter(item => item !== frame);
     this.streams.delete(frame);
     frame.remove();
@@ -421,17 +424,23 @@ class Link {
   replaceView(stream, manual = false) {
     const view = this.views.get(stream);
     if (!view || this.closed) return;
-    const retry = 15000;
+    const retry = VDO_CONNECT_TIMEOUT;
     this.views.delete(stream);
     this.removeFrame(view.frame);
     this.make('view', stream, retry);
   }
   reconnect() {
     for (const stream of [...this.views.keys()]) this.replaceView(stream, true);
+    // Retain the Web Lock while restarting only this tab's publisher.
+    // A standby tab must never create a competing push iframe.
+    if (this.pushFrame) {
+      this.removeFrame(this.pushFrame);
+      this.make('push', this.pushStream);
+    }
   }
   reconnectStream(stream) {
     const view = this.views.get(stream);
-    if (view && Date.now() - view.last >= ONLINE_FOR) this.replaceView(stream, true);
+    if (view && Date.now() - view.last >= view.retry) this.replaceView(stream, true);
   }
   async open(box, via) {
     const message = await unseal(this.secrets.key, box);
@@ -467,6 +476,9 @@ async function enterRoom(room) {
   const conflicts = new Map();
   let log = [], key = null, selected = '', busy = false, coin = 'hidden', autoTried = '';
   let queue = Promise.resolve(), pending = null, orderSeen = null, callAt = 0;
+  // A quota/privacy failure must not discard a nonce while this page is
+  // still completing its commit/reveal. Persistence is only for reloads.
+  let rememberedCoin = null;
   // The admin's page: calls seen (team:at) and the ones answered.
   const callsKey = 'oneshot-veto-calls:' + room.r;
   const answered = new Set(Array.isArray(store(callsKey)) ? store(callsKey) : []);
@@ -568,13 +580,20 @@ async function enterRoom(room) {
   const online = team => team === me || Date.now() - seen[team ? 'b' : 'a'] < ONLINE_FOR;
   // Spectators and the admin only listen: they add no load on the captains' phones.
   // Serialize envelopes so their signed timestamps cannot overtake each other.
-  let sending = Promise.resolve();
+  let sending = null, pendingMessage = null;
   const send = () => {
-    if (me === null) return sending;
+    if (me === null) return Promise.resolve();
     const call = callAt && Date.now() - callAt < CALL_FOR ? callAt : undefined;
-    const message = { t: 'log', log: log.map(entry => ({ ...entry })),
+    pendingMessage = { t: 'log', log: log.map(entry => ({ ...entry })),
       p: room.p.map(point => point ? [...point] : point), call };
-    sending = sending.then(async () => link.send(await signRoomMessage(room, key, message))).catch(() => {});
+    if (sending) return sending;
+    sending = (async () => {
+      while (pendingMessage) {
+        const message = pendingMessage;
+        pendingMessage = null;
+        try { await link.send(await signRoomMessage(room, key, message)); } catch { /* next heartbeat retries */ }
+      }
+    })().finally(() => { sending = null; });
     return sending;
   };
 
@@ -676,14 +695,16 @@ async function enterRoom(room) {
     autoTried = attempt;
     if (turn.kind === 'commit') {
       move('commit', async () => {
-        let nonce = store(coinKey);
-        if (typeof nonce !== 'string') { nonce = coinNonce(); store(coinKey, nonce); }
+        let nonce = store(coinKey) || rememberedCoin;
+        if (typeof nonce !== 'string') nonce = coinNonce();
+        rememberedCoin = nonce;
+        store(coinKey, nonce);
         return coinCommit(room, nonce);
       }, true);
     } else if (turn.kind === 'seed') {
       move('seed', coinNonce(), true);
     } else {
-      const nonce = store(coinKey);
+      const nonce = store(coinKey) || rememberedCoin;
       if (typeof nonce !== 'string') return showError(t('coinLost'), ['coinLost']);
       move('reveal', async () => {
         if (await coinCommit(room, nonce) !== state.commit) {

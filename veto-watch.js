@@ -3,7 +3,7 @@
 // site, takes only signed moves that continue the log (veto-room.js) and
 // tells the panel about moves, presence and «Call admin». It never sends:
 // the captains' pages do not know it is there.
-import { unseal } from './vdo.js';
+import { unseal, VDO_CONNECT_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
 import { connectServerWatch } from './assets/veto-relay-links.js';
 import {
   decodeLink, encodeLink, roomSecrets, acceptKey, verifyRoomMessage, verifyLog, mergeLog, replay, nextTurn, COIN_MOVES
@@ -71,7 +71,7 @@ function connectVdo(secrets, deliver) {
     iframe.allow = 'autoplay';
     iframe.setAttribute('aria-hidden', 'true');
     document.body.append(iframe);
-    views[team] = { frame: iframe, last: Date.now() };
+    views[team] = { frame: iframe, last: Date.now(), received: false };
   };
   const replace = team => {
     if (stopped) return;
@@ -84,6 +84,7 @@ function connectVdo(secrets, deliver) {
     const box = event.data?.dataReceived?.oneshotVeto;
     if (team >= 0 && box) {
       views[team].last = Date.now();
+      views[team].received = true;
       deliver(box, team);
     }
   };
@@ -93,7 +94,9 @@ function connectVdo(secrets, deliver) {
   const watchdog = setInterval(() => {
     if (document.hidden || stopped) return;
     const now = Date.now();
-    for (const [team, view] of views.entries()) if (now - view.last >= 15000) replace(team);
+    for (const [team, view] of views.entries()) {
+      if (now - view.last >= (view.received ? VDO_IDLE_TIMEOUT : VDO_CONNECT_TIMEOUT)) replace(team);
+    }
   }, 5000);
   return {
     stop() {

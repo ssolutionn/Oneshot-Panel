@@ -4,7 +4,7 @@
 // without this file (the Claude artifact has none of it).
 import { buildObs, DEFAULT_CARD_BASE } from './core.js';
 import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto } from './obs.js';
-import { VdoLink, CamWatch, bridgeSecrets, newBridgeCode, normalizeCode } from './vdo.js';
+import { VdoLink, CamWatch, bridgeSecrets, newBridgeCode, normalizeCode, VDO_CONNECT_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
 import { mountQrReader, parseObsQr, parsePairingQr } from './assets/obs-qr.js';
 import { createRoom, captainMessage, spectatorMessage, nextTurn, clock, formatClock, resultText } from './veto-room.js';
 import { RoomWatch, adminRoom, roomToPanel, roomMoves } from './veto-watch.js';
@@ -607,7 +607,8 @@ async function flushVeto() {
     // VDO can leave an iframe present but its data channel dead. The overlay
     // acknowledges every snapshot, so a missing ACK is an objective reason to
     // rebuild only this display channel.
-    if (!vetoEndpoint && vetoLink && Date.now() - Math.max(vetoSeen, vetoOpenedAt) >= 15000) {
+    if (!vetoEndpoint && vetoLink && Date.now() - Math.max(vetoSeen, vetoOpenedAt) >=
+        (vetoSeen ? VDO_IDLE_TIMEOUT : VDO_CONNECT_TIMEOUT)) {
       vetoLink.close();
       vetoLink = null;
       vetoOpenedAt = 0;
