@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   push:
     branches: ["claude/gracious-sagan-apztcc"]
-    paths: ["veto.html", "veto.js", "veto.css", "veto-room.js", "vdo.js", "scripts/qa_veto_site.py", ".github/workflows/veto-site.yml"]
+    paths: ["veto.html", "veto.js", "veto.css", "veto-room.js", "vdo.js", "_headers", "netlify.toml", "server.js", "scripts/build-veto-site.mjs", "scripts/qa_veto_site.py", ".github/workflows/veto-site.yml"]
 
 permissions:
   contents: read

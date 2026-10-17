@@ -27,7 +27,7 @@ test('veto site build: veto pages and assets only, no roster sheet, no panel add
     assert.doesNotMatch(core, /oneshot-panel\.pages\.dev/);
     const headers = await readFile(path.join(out, '_headers'), 'utf8');
     assert.match(headers, /connect-src 'self' https:\/\/docs\.google\.com https:\/\/oneshot-veto\.cyberclash\.workers\.dev;/);
-    assert.match(headers, /frame-src https:\/\/vdo\.ninja;/);
+    assert.match(headers, /frame-src https:\/\/vdo\.ninja https:\/\/cdn-backup\.vdo\.ninja;/);
     assert.deepEqual((await readdir(path.join(out, 'assets'))).sort(), ['card', 'favicon-night.png', 'flags', 'fonts', 'maps', 'teams', 'veto-appearance.js', 'veto-backdrop.jpg', 'veto-relay-client.js', 'veto-relay-links.js', 'veto-relay-protocol.js']);
   } finally {
     await rm(out, { recursive: true, force: true });

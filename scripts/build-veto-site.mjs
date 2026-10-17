@@ -63,7 +63,7 @@ await cp(from('server/veto-relay-worker-entry.js'), to('worker.js'));
 // Cloudflare Pages headers: the veto needs Google Sheets (the schedule) and
 // VDO.Ninja frames only.
 await writeFile(to('_headers'), `/*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://oneshot-veto.cyberclash.workers.dev; frame-src https://vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://oneshot-veto.cyberclash.workers.dev; frame-src https://vdo.ninja https://cdn-backup.vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
 `);
