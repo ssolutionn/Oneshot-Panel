@@ -6,7 +6,7 @@
 import { unseal } from './vdo.js';
 import { connectServerWatch } from './assets/veto-relay-links.js';
 import {
-  decodeLink, encodeLink, roomSecrets, acceptKey, verifyLog, mergeLog, replay, nextTurn, COIN_MOVES
+  decodeLink, encodeLink, roomSecrets, acceptKey, verifyRoomMessage, verifyLog, mergeLog, replay, nextTurn, COIN_MOVES
 } from './veto-room.js';
 
 const VDO = 'https://vdo.ninja/';
@@ -130,15 +130,25 @@ export class RoomWatch {
   }
   async open(box, team, online = true) {
     const message = await unseal(this.secrets.key, box);
-    if (message && !this.stopped) this.receive(message, team, online);
+    if (!message || this.stopped) return;
+    let call = false;
+    if (Number.isSafeInteger(message.call) && message.from === (team ? 'b' : 'a')) {
+      if (Array.isArray(message.p)) {
+        for (const index of [0, 1]) {
+          if (!this.room.p[index] && message.p[index]) await acceptKey(this.room, index, message.p[index]);
+        }
+      }
+      call = await verifyRoomMessage(this.room, message);
+    }
+    if (!this.stopped) this.receive(message, team, online, call);
   }
   // team: whose stream the message came through (the message's own from is
   // not trusted).
-  receive(message, team, online = true) {
+  receive(message, team, online = true, authenticatedCall = false) {
     if (!message || message.t !== 'log' || !Array.isArray(message.log) || ![0, 1].includes(team)) return;
     const back = online && !this.online(team);
     if (online) this.seen[team] = Date.now();
-    if (online && Number.isSafeInteger(message.call)) this.onCall(team, message.call);
+    if (online && authenticatedCall) this.onCall(team, message.call);
     const unkeyed = Array.isArray(message.p) && [0, 1].some(i => !this.room.p[i] && message.p[i]);
     if (back) this.onChange(this);
     if (message.log.length < this.log.length && !unkeyed) return;
