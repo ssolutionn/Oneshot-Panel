@@ -146,7 +146,7 @@ async function init() {
         } catch { /* A malformed update must not replace the on-air state. */ }
       };
       const endpoint=new URLSearchParams(location.hash.slice(1)).get('relay');
-      displayLink=endpoint ? await ServerDisplayLink.create(code,'veto',relayEndpoint(endpoint),receive) : new VdoLink(secrets,'veto',receive);
+      displayLink=endpoint ? await ServerDisplayLink.create(code,'veto',relayEndpoint(endpoint),receive,undefined,Number(new URLSearchParams(location.hash.slice(1)).get('at'))||0) : new VdoLink(secrets,'veto',receive);
     }
   }
   update();document.body.dataset.ready='true';

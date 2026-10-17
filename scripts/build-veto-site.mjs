@@ -72,8 +72,9 @@ await writeFile(to('_headers'), `/*
 // repository): the files at the root are the site; .assetsignore keeps the
 // config and the README out of it. Pages works too (output directory /).
 await cp(from('server/veto-relay-wrangler.jsonc'), to('wrangler.jsonc'));
-await writeFile(to('.assetsignore'), '.git\n.assetsignore\nwrangler.jsonc\nREADME.md\nworker.js\nserver/\nfunctions/\n');
+await writeFile(to('.assetsignore'), '.git\n.assetsignore\nwrangler.jsonc\nREADME.md\nworker.js\nserver/\nfunctions/\npackage.json\nRELAY.md\n');
 await cp(from('server/RELAY.md'), to('RELAY.md'));
+await writeFile(to('package.json'), JSON.stringify({private:true,type:'module',engines:{node:'>=22'},scripts:{relay:'node server/veto-relay-node.mjs'}},null,2)+'\n');
 
 await writeFile(to('README.md'), `# Oneshot · captains' veto
 

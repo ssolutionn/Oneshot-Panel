@@ -37,6 +37,7 @@ jobs:
       - name: Server rooms in Chromium and mobile WebKit, old VDO regression
         run: |
           node server.js > /tmp/relay-server.log 2>&1 &
+          python3 scripts/qa_veto_relay_overlay.py
           python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --server --browser chromium --artifacts artifacts/server-chromium
           python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --server --browser webkit --artifacts artifacts/server-webkit
           python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --browser chromium --artifacts artifacts/vdo

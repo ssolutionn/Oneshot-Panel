@@ -137,3 +137,23 @@ test('display publisher keys are deterministic, role-separated, and unrelated to
  assert.equal(a.topic,a2.topic);assert.notEqual(a.topic,b.topic);
  const c=await captain();assert.notEqual(a.topic,c.room.fp[0]);
 });
+
+test('an outage coalesces writes to the latest snapshot and recovers without VDO',async()=>{
+ const c=await captain(),store=new MemoryRelayStore();let offline=true,posts=[];
+ const transport=async(url,init={})=>{
+  if(offline)throw Error('offline');
+  const request=new Request(url,init);
+  if(request.method==='POST')posts.push(JSON.parse(init.body));
+  return handleRelay(request,store);
+ };
+ const client=new RelayClient(endpoint,[c.room.fp[1]],()=>{},{interval:30,
+  publisher:{key:c.key,point:c.point},fetchImpl:transport});
+ try{
+  assert.equal(await client.send(await seal(c.secrets.key,{revision:1})),false);
+  assert.equal(await client.send(await seal(c.secrets.key,{revision:2})),false);
+  offline=false;
+  assert.equal(await client.send(await seal(c.secrets.key,{revision:3})),true);
+  assert.equal(posts.length,1);
+  assert.deepEqual(await unseal(c.secrets.key,posts[0].box),{revision:3});
+ }finally{client.close();}
+});

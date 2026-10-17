@@ -576,7 +576,7 @@ function enableLiveVeto() {
 }
 $('copyOverlay').addEventListener('click', () => {
   // This display-only code cannot operate OBS. Never reuse its control code.
-  panel.copy(`${cardBase()}/assets/veto-overlay/overlay.html?layout=${$('vetoLayout').value}${$('vetoLayout').value === 'strip' ? '&crop=1' : ''}#s=${encodeState(vetoState())}&r=${vetoCode}${displayEndpoint() ? '&relay=' + encodeURIComponent(displayEndpoint()) : ''}`);
+  panel.copy(`${cardBase()}/assets/veto-overlay/overlay.html?layout=${$('vetoLayout').value}${$('vetoLayout').value === 'strip' ? '&crop=1' : ''}#s=${encodeState(vetoState())}&r=${vetoCode}&at=${Date.now()}${displayEndpoint() ? '&relay=' + encodeURIComponent(displayEndpoint()) : ''}`);
   enableLiveVeto();
 });
 function overlaySizeHint() {

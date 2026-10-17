@@ -18,18 +18,19 @@ export function connectServerWatch(room,secrets,deliver,onStatus=()=>{}) {
   return {stop:()=>client.close()};
 }
 export class ServerDisplayLink {
-  static async create(code,role,endpoint,onMessage,onStatus=()=>{}) {
+  static async create(code,role,endpoint,onMessage,onStatus=()=>{},notBefore=0) {
     const [secrets,publisher,other]=await Promise.all([bridgeSecrets(code),displayRelayIdentity(code,role),
       displayRelayIdentity(code,role==='dock'?'veto':'dock')]);
-    return new ServerDisplayLink(secrets,publisher,other.topic,endpoint,onMessage,onStatus);
+    return new ServerDisplayLink(secrets,publisher,other.topic,endpoint,onMessage,onStatus,notBefore);
   }
-  constructor(secrets,publisher,topic,endpoint,onMessage,onStatus){
+  constructor(secrets,publisher,topic,endpoint,onMessage,onStatus,notBefore){
     this.secrets=secrets;this.stopped=false;
-    this.client=new RelayClient(endpoint,[topic],async(box,_topic,fresh)=>{
+    this.client=new RelayClient(endpoint,[topic],async(box,_topic,fresh,at)=>{
       const msg=await unseal(secrets.key,box);
       // A retained snapshot can redraw a late source; a stale ACK cannot turn
       // the panel green. The source replies to a retained state with a fresh ACK.
-      if(msg&&!this.stopped&&(msg.type!=='veto-received'||fresh))onMessage(msg);
+      if(msg&&!this.stopped&&(msg.type!=='veto-received'||fresh)&&
+        (msg.type!=='veto-state'||at>=notBefore))onMessage(msg);
     },{publisher,onStatus});
   }
   async send(message){if(!this.stopped)return this.client.send(await seal(this.secrets.key,message));}

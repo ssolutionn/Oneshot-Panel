@@ -13,7 +13,7 @@ test('veto site build: veto pages and assets only, no roster sheet, no panel add
   try {
     await promisify(execFile)(process.execPath, [new URL('../scripts/build-veto-site.mjs', import.meta.url).pathname, out]);
     const top = (await readdir(out)).sort();
-    assert.deepEqual(top, ['.assetsignore', 'README.md', 'RELAY.md', '_headers', 'assets', 'core.js', 'functions', 'index.html', 'server', 'vdo.js',
+    assert.deepEqual(top, ['.assetsignore', 'README.md', 'RELAY.md', '_headers', 'assets', 'core.js', 'functions', 'index.html', 'package.json', 'server', 'vdo.js',
       'veto-room.js', 'veto.css', 'veto.html', 'veto.js', 'worker.js', 'wrangler.jsonc']);
     const worker = JSON.parse(await readFile(path.join(out, 'wrangler.jsonc'), 'utf8'));
     assert.deepEqual(worker.assets, { directory: '.', binding:'ASSETS', run_worker_first:['/api/veto-relay'] });
