@@ -1,0 +1,38 @@
+name: Veto external verification
+on:
+  workflow_dispatch:
+  push:
+    branches: ["codex/veto-resilience-review"]
+    paths: [".github/workflows/veto-external.yml", "scripts/ci_veto_external.py"]
+concurrency:
+  group: veto-external-verification
+  cancel-in-progress: false
+jobs:
+  external:
+    if: github.repository == 'ssolutionn/Oneshot-Panel'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: External probes and results over Git
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci_veto_external.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: veto-external-verification
+          path: |
+            artifacts/
+            ${{ runner.temp }}/oneshot-external/*.log
+            ${{ runner.temp }}/oneshot-external/result.json
+          if-no-files-found: warn
