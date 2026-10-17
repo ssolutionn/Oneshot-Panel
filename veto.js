@@ -13,7 +13,7 @@ import { relayEndpoint } from './assets/veto-relay-protocol.js';
 import {
   decodeLink, createRoom, roomSecrets, captainKey, acceptKey, seat, verifyLog, replay, nextTurn,
   signMove, mergeLog, clock, formatClock, mapBoard, resultText, captainMessage, spectatorMessage,
-  coinCommit, coinNonce, COIN_MOVES
+  signRoomMessage, verifyRoomMessage, coinCommit, coinNonce, COIN_MOVES
 } from './veto-room.js';
 
 const $ = id => document.getElementById(id);
@@ -38,6 +38,7 @@ const WORDS = {
     transport:'Connection',ourServer:'Our server',
     serverOnline:'Server connection active',serverRetry:'Server unavailable. Reconnecting; the last verified moves are kept.',
     serverWait:'Connecting to our server…',vdoConnection:'Connection: VDO.Ninja',
+    reconnect:'Reconnect',reconnecting:'Reconnecting…',
     title: 'Map veto', createHeading: "New captains' veto",
     createNote: 'The site makes short links: one per captain (DM on Discord), one for spectators and one for the admin. The captains toss the coin themselves in the room — nobody knows it in advance, not even you.',
     settings: 'Veto settings', match: 'Match from the schedule', loadingSchedule: 'Loading the schedule…',
@@ -93,6 +94,7 @@ const WORDS = {
     transport:'Связь',ourServer:'Наш сервер',
     serverOnline:'Связь с сервером установлена',serverRetry:'Сервер недоступен. Восстанавливаем связь; проверенные ходы сохранены.',
     serverWait:'Подключаемся к нашему серверу…',vdoConnection:'Связь: VDO.Ninja',
+    reconnect:'Переподключить связь',reconnecting:'Переподключаем…',
     title: 'Вето карт', createHeading: 'Новое вето для капитанов',
     createNote: 'Сайт сделает короткие ссылки: по одной каждому капитану (в личку в Discord), одну для зрителей и одну для админа. Монетку капитаны бросят сами прямо в комнате — заранее её не знает никто, даже ты.',
     settings: 'Настройки вето', match: 'Матч из расписания', loadingSchedule: 'Загружаем расписание…',
@@ -348,32 +350,70 @@ class Link {
     Object.assign(this, { secrets, onMessage });
     this.frames = [];
     this.streams = new Map();
-    const make = (side, stream) => {
-      const url = new URL(VDO);
-      url.search = new URLSearchParams({ [side]: stream, password: secrets.password, label: 'oneshot-veto' }) +
-        '&dataonly&cleanoutput';
-      const iframe = document.createElement('iframe');
-      Object.assign(iframe, { src: url.href, title: 'Veto link', className: 'vdo-frame', tabIndex: -1 });
-      iframe.allow = 'autoplay';
-      iframe.setAttribute('aria-hidden', 'true');
-      document.body.append(iframe);
-      this.frames.push(iframe);
-      if (side === 'view') this.streams.set(iframe, stream);
-    };
-    if (push) make('push', push);
-    for (const stream of views) make('view', stream);
-    addEventListener('message', event => {
-      const frame = this.frames.find(f => f.contentWindow === event.source);
+    this.views = new Map();
+    this.closed = false;
+    if (push) this.make('push', push);
+    for (const stream of views) this.make('view', stream);
+    this.listener = event => {
+      const frame = this.frames.find(item => item.contentWindow === event.source);
       if (!frame) return;
       const box = event.data?.dataReceived?.oneshotVeto;
+      const stream = this.streams.get(frame) || '';
+      if (box && stream) {
+        const view = this.views.get(stream);
+        if (view) { view.last = Date.now(); view.retry = 15000; }
+      }
       // Through a view frame the sender is that stream's owner; through our
-      // own push frame it is anyone viewing us (not proof of who it is).
-      if (box) this.open(box, this.streams.get(frame) || '');
-    });
+      // own push frame identity is proved by the signed room envelope.
+      if (box) this.open(box, stream);
+    };
+    addEventListener('message', this.listener);
+    this.watchdog = setInterval(() => {
+      if (document.hidden || this.closed) return;
+      const now = Date.now();
+      for (const [stream, view] of this.views) {
+        if (now - view.last >= view.retry) this.replaceView(stream);
+      }
+    }, 5000);
     try {
       this.channel = new BroadcastChannel('oneshot-veto:' + secrets.streams.join(':'));
       this.channel.onmessage = event => this.open(event.data, 'tab');
     } catch { this.channel = null; }
+  }
+  make(side, stream, retry = 15000) {
+    const url = new URL(VDO);
+    url.search = new URLSearchParams({ [side]: stream, password: this.secrets.password, label: 'oneshot-veto' }) +
+      '&dataonly&cleanoutput';
+    const iframe = document.createElement('iframe');
+    Object.assign(iframe, { src: url.href, title: 'Veto link', className: 'vdo-frame', tabIndex: -1 });
+    iframe.allow = 'autoplay';
+    iframe.setAttribute('aria-hidden', 'true');
+    document.body.append(iframe);
+    this.frames.push(iframe);
+    if (side === 'view') {
+      this.streams.set(iframe, stream);
+      this.views.set(stream, { frame: iframe, last: Date.now(), retry });
+    }
+  }
+  removeFrame(frame) {
+    this.frames = this.frames.filter(item => item !== frame);
+    this.streams.delete(frame);
+    frame.remove();
+  }
+  replaceView(stream, manual = false) {
+    const view = this.views.get(stream);
+    if (!view || this.closed) return;
+    const retry = manual ? 15000 : Math.min(view.retry * 2, 60000);
+    this.views.delete(stream);
+    this.removeFrame(view.frame);
+    this.make('view', stream, retry);
+  }
+  reconnect() {
+    for (const stream of [...this.views.keys()]) this.replaceView(stream, true);
+  }
+  reconnectStream(stream) {
+    const view = this.views.get(stream);
+    if (view && Date.now() - view.last >= ONLINE_FOR) this.replaceView(stream, true);
   }
   async open(box, via) {
     const message = await unseal(this.secrets.key, box);
@@ -383,6 +423,15 @@ class Link {
     const box = await seal(this.secrets.key, message);
     for (const iframe of this.frames) iframe.contentWindow?.postMessage({ sendData: { oneshotVeto: box } }, '*');
     this.channel?.postMessage(box);
+  }
+  close() {
+    if (this.closed) return;
+    this.closed = true;
+    clearInterval(this.watchdog);
+    removeEventListener('message', this.listener);
+    this.channel?.close();
+    for (const frame of [...this.frames]) this.removeFrame(frame);
+    this.views.clear();
   }
 }
 
@@ -394,7 +443,7 @@ async function enterRoom(room) {
   const logKey = 'oneshot-veto-log:' + room.r, keysKey = 'oneshot-veto-keys:' + room.r;
   const coinKey = 'oneshot-veto-coin:' + room.r;
   const checked = new Set();
-  const seen = { a: 0, b: 0 };
+  const seen = { a: 0, b: 0 }, proofSeen = { a: 0, b: 0 };
   const conflicts = new Map();
   let log = [], key = null, selected = '', busy = false, coin = 'hidden', autoTried = '';
   let queue = Promise.resolve(), pending = null, orderSeen = null, callAt = 0;
@@ -473,26 +522,40 @@ async function enterRoom(room) {
   }) : new Link(secrets, me === null ? '' : secrets.streams[me],
     me === null ? secrets.streams : [secrets.streams[1 - me]], receive);
   paintTransport();
+  $('vtReconnect').hidden = Boolean(room.relay);
+  $('vtReconnect').addEventListener('click', () => {
+    link.reconnect?.();
+    toast(t('reconnecting'));
+  });
+  let localLog = null;
   if (room.relay) {
     // A background Safari tab may throttle network requests. Other tabs of
     // this room can still adopt the signed local journal; this never proves
     // presence or creates a captain signature.
-    const localLog = event => {
+    localLog = event => {
       if (event.storageArea === localStorage && [logKey, keysKey].includes(event.key))
         adopt(store(logKey) || [], store(keysKey));
     };
     addEventListener('storage', localLog);
-    addEventListener('pagehide', event => {
-      if (!event.persisted) { link.close(); removeEventListener('storage', localLog); }
-    });
   }
+  addEventListener('pagehide', event => {
+    if (!event.persisted) {
+      link.close?.();
+      if (localLog) removeEventListener('storage', localLog);
+    }
+  });
 
   const online = team => team === me || Date.now() - seen[team ? 'b' : 'a'] < ONLINE_FOR;
   // Spectators and the admin only listen: they add no load on the captains' phones.
+  // Serialize envelopes so their signed timestamps cannot overtake each other.
+  let sending = Promise.resolve();
   const send = () => {
-    if (me === null) return;
+    if (me === null) return sending;
     const call = callAt && Date.now() - callAt < CALL_FOR ? callAt : undefined;
-    link.send({ t: 'log', from: room.me, log, p: room.p, call });
+    const message = { t: 'log', log: log.map(entry => ({ ...entry })),
+      p: room.p.map(point => point ? [...point] : point), call };
+    sending = sending.then(async () => link.send(await signRoomMessage(room, key, message))).catch(() => {});
+    return sending;
   };
 
   function adopt(incoming, keys) {
@@ -513,14 +576,21 @@ async function enterRoom(room) {
   }
   // Only the newest log from each source waits for verification, so a flood
   // of junk cannot hold real moves back.
-  function receive(message, via) {
+  async function receive(message, via) {
     if (!message || message.t !== 'log' || !Array.isArray(message.log)) return;
-    // Presence: the opponent's own stream (or another tab of this browser).
-    const from = via === 'tab' ? message.from :
-      via === secrets.streams[0] ? 'a' : via === secrets.streams[1] ? 'b' : '';
-    if (from === 'a' || from === 'b') seen[from] = Date.now();
-    // A call counts only from the captain's own stream, and only on the admin's page.
-    if (admin && (from === 'a' || from === 'b') && Number.isSafeInteger(message.call)) ring(from === 'a' ? 0 : 1, message.call);
+    await learnKeys(message.p);
+    // The dedicated viewer iframe proves its stream owner. If that iframe is
+    // stuck, the same signed envelope can arrive through our push iframe.
+    let from = via === secrets.streams[0] ? 'a' : via === secrets.streams[1] ? 'b' : '';
+    if (!from && ['a', 'b'].includes(message.from) && message.at > proofSeen[message.from] &&
+        await verifyRoomMessage(room, message) && message.at > proofSeen[message.from]) {
+      from = message.from;
+      proofSeen[from] = message.at;
+      if (!room.relay) link.reconnectStream?.(secrets.streams[from === 'a' ? 0 : 1]);
+    }
+    if (from) seen[from] = Date.now();
+    // A call counts only from an authenticated captain, and only on the admin's page.
+    if (admin && from && Number.isSafeInteger(message.call)) ring(from === 'a' ? 0 : 1, message.call);
     const unkeyed = Array.isArray(message.p) && [0, 1].some(team => !room.p[team] && message.p[team]);
     if (message.log.length < log.length && !unkeyed) return;
     const idle = !pending;
