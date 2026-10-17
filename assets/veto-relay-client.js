@@ -22,6 +22,8 @@ export class RelayClient {
     this.wake=()=>{clearTimeout(this.timer);this.poll();};
     globalThis.addEventListener?.('online',this.wake);
     globalThis.addEventListener?.('pageshow',this.wake);
+    this.visible=()=>{if(globalThis.document?.visibilityState==='visible')this.wake();};
+    globalThis.document?.addEventListener('visibilitychange',this.visible);
     this.poll();
   }
   async request(url,init={}) {
@@ -84,6 +86,7 @@ export class RelayClient {
     this.stopped=true;this.pending=null;clearTimeout(this.timer);
     globalThis.removeEventListener?.('online',this.wake);
     globalThis.removeEventListener?.('pageshow',this.wake);
+    globalThis.document?.removeEventListener('visibilitychange',this.visible);
     for(const c of this.controllers)c.abort();this.controllers.clear();
   }
 }

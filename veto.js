@@ -473,7 +473,19 @@ async function enterRoom(room) {
   }) : new Link(secrets, me === null ? '' : secrets.streams[me],
     me === null ? secrets.streams : [secrets.streams[1 - me]], receive);
   paintTransport();
-  if (room.relay) addEventListener('pagehide', event => { if (!event.persisted) link.close(); });
+  if (room.relay) {
+    // A background Safari tab may throttle network requests. Other tabs of
+    // this room can still adopt the signed local journal; this never proves
+    // presence or creates a captain signature.
+    const localLog = event => {
+      if (event.storageArea === localStorage && [logKey, keysKey].includes(event.key))
+        adopt(store(logKey) || [], store(keysKey));
+    };
+    addEventListener('storage', localLog);
+    addEventListener('pagehide', event => {
+      if (!event.persisted) { link.close(); removeEventListener('storage', localLog); }
+    });
+  }
 
   const online = team => team === me || Date.now() - seen[team ? 'b' : 'a'] < ONLINE_FOR;
   // Spectators and the admin only listen: they add no load on the captains' phones.
