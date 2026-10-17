@@ -52,7 +52,7 @@ export async function handleRelay(request,store,now=Date.now()) {
   const result=await store.update(packet.topic,old=>{
    if(old&&old.expiresAt>now){
     if(old.packet.s===packet.s)return old; // Replays never refresh presence or retention.
-    if(old.packet.at>packet.at)throw Error('stale');
+    if(old.packet.at>=packet.at)throw Error('stale'); // Equal timestamps cannot refresh a replay with a malleated signature.
     if(now-old.windowAt<10000&&old.writes>=24)throw Error('rate');
    }
    const windowAt=old&&now-old.windowAt<10000?old.windowAt:now;

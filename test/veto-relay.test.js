@@ -157,3 +157,22 @@ test('an outage coalesces writes to the latest snapshot and recovers without VDO
   assert.deepEqual(await unseal(c.secrets.key,posts[0].box),{revision:3});
  }finally{client.close();}
 });
+
+test('ECDSA signature malleability cannot turn a replay into a fresh presence heartbeat',async()=>{
+ const c=await captain(),store=new MemoryRelayStore(),now=Date.now();
+ const packet=await signRelayPacket(c.key,c.point,await seal(c.secrets.key,{t:'log',log:[]}),now);
+ await handleRelay(post(packet),store,now);
+ const raw=Buffer.from(packet.s,'base64url');
+ const scalar=BigInt('0x'+raw.subarray(32).toString('hex'));
+ const order=0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551n;
+ const alternate=Buffer.concat([raw.subarray(0,32),Buffer.from((order-scalar).toString(16).padStart(64,'0'),'hex')]);
+ const replay={...packet,s:alternate.toString('base64url')};
+ assert.equal(await verifyRelayPacket(replay),true,'ECDSA accepts the algebraically equivalent signature');
+ assert.equal((await handleRelay(post(replay),store,now+7000)).status,409);
+ const row=(await(await handleRelay(get(packet.topic),store,now+7000)).json()).records[0];
+ assert.equal(row.receivedAt,now);
+ const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+ const last=alphabet.indexOf(packet.s.at(-1));
+ const noncanonical={...packet,s:packet.s.slice(0,-1)+alphabet[last+1]};
+ assert.equal(await verifyRelayPacket(noncanonical),false);
+});

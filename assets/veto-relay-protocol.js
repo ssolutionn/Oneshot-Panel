@@ -33,7 +33,7 @@ export function packetShape(p) {
     exact(p.box,['v','iv','data'])&&p.box.v===1&&typeof p.box.iv==='string'&&/^[A-Za-z0-9+/]{16}$/.test(p.box.iv)&&
     typeof p.box.data==='string'&&p.box.data.length>=24&&p.box.data.length<=18000&&
     p.box.data.length%4===0&&/^[A-Za-z0-9+/]*={0,2}$/.test(p.box.data)&&
-    typeof p.s==='string'&&/^[A-Za-z0-9_-]{86}$/.test(p.s);
+    typeof p.s==='string'&&/^[A-Za-z0-9_-]{85}[AQgw]$/.test(p.s);
 }
 export async function signRelayPacket(key, point, box, now=Date.now()) {
   const packet={v:1,topic:await relayTopic(point),at:now,
