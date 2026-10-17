@@ -59,6 +59,7 @@ async def run(args):
     output = Path(args.artifacts)
     output.mkdir(parents=True, exist_ok=True)
     frames, senders, errors, checks = {}, [], [], []
+    asymmetric_view_pages = []
     vdo_errors = []  # exceptions inside VDO.Ninja's own iframe code: theirs, not ours
     wait = 30000 if args.real_vdo else 15000 if args.server else 8000
     if args.server:
@@ -98,8 +99,13 @@ async def run(args):
             return
         _, _, role, stream, page = frames[me]
         senders.append(page)
-        for other, (pw, frame, other_role, other_stream, _) in list(frames.items()):
+        for other, (pw, frame, other_role, other_stream, target_page) in list(frames.items()):
             if other != me and pw == password and other_stream == stream and other_role != role:
+                # Reproduce the real incident: this captain's dedicated viewer
+                # receives nothing, while their push iframe's reverse channel
+                # and the other captain's viewer remain healthy.
+                if target_page in asymmetric_view_pages and other_role == "view":
+                    continue
                 try:
                     await frame.evaluate("d => window.__deliver(d)", {"dataReceived": data, "UUID": me})
                 except Exception:
@@ -368,7 +374,35 @@ async def run(args):
                 await page.close()
         passed("BO1 by keyboard only (select with Enter, focus lands on confirm) and BO5 with four sides")
 
-        # 6. A spectator forges a move and fakes the absent captain's presence.
+        # 6. One captain's VDO viewer can fail while the reverse data path
+        # remains healthy. Signed envelopes must still prove presence and carry
+        # the veto; the broken viewer is retried independently.
+        if not args.real_vdo and not args.server:
+            link_a, link_b, _ = await make_links(admin, "Asymmetric A", "Asymmetric B", "BO1")
+            a = await open_page()
+            asymmetric_view_pages.append(a)
+            await a.goto(link_a)
+            b = await open_page(link_b)
+            await expect(a.locator("#vtTeam1")).to_have_attribute("data-online", "yes", timeout=wait)
+            await expect(b.locator("#vtTeam0")).to_have_attribute("data-online", "yes", timeout=wait)
+            await coin_shown(a, b)
+            first, _ = await winner_of(a, b)
+            await first.get_by_role("button", name="Баним первыми").click()
+            await expect(a.locator("#vtLog li")).to_have_count(1, timeout=wait)
+            await expect(b.locator("#vtLog li")).to_have_count(1, timeout=wait)
+            actor = a if await a.locator("#vtStage[data-phase=mine]").count() else b
+            await actor.locator(".vt-map:not([disabled])").first.click()
+            await actor.locator("#vtActions .vt-primary").click()
+            await expect(a.locator("#vtLog li")).to_have_count(2, timeout=wait)
+            await expect(b.locator("#vtLog li")).to_have_count(2, timeout=wait)
+            await expect(a.locator("#vtReconnect")).to_be_visible()
+            asymmetric_view_pages.remove(a)
+            await a.locator("#vtReconnect").click()
+            for page in (a, b):
+                await page.close()
+            passed("one dead VDO viewer recovers through signed reverse presence and manual reconnect")
+
+        # 7. A spectator forges a move and fakes the absent captain's presence.
         link_a, link_b, link_s = await make_links(admin, "Omega", "Fire Flux", "BO1")
         a = await open_page(link_a)
         s = await open_page(link_s)
