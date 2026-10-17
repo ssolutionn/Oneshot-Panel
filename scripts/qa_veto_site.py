@@ -60,7 +60,9 @@ async def run(args):
     output.mkdir(parents=True, exist_ok=True)
     frames, senders, errors, checks = {}, [], [], []
     vdo_errors = []  # exceptions inside VDO.Ninja's own iframe code: theirs, not ours
-    wait = 30000 if args.real_vdo else 8000
+    wait = 30000 if args.real_vdo else 15000 if args.server else 8000
+    if args.server:
+        expect.set_options(timeout=15000)  # health has an 8 s network deadline before key generation
     # A page that watched a stream before it existed (the other captain came
     # later) gets it from the real VDO.Ninja only on a retry: a minute or more.
     join = 90000 if args.real_vdo else wait
@@ -159,6 +161,9 @@ async def run(args):
             if args.server:
                 page.on("request", lambda req: errors.append("Server room contacted VDO: " + req.url)
                         if "/veto.html" in page.url and req.url.startswith("https://vdo.ninja/") else None)
+            if args.server:
+                page.on("requestfailed", lambda req: print("RELAY_REQUEST_FAILED", urlsplit(req.url).path, req.failure, flush=True)
+                        if "/api/veto-relay" in req.url else None)
             page.on("dialog", lambda dialog: errors.append(f"dialog {dialog.message}"))
             if clock:  # time flows; the scenario jumps it forward
                 await page.clock.install()
