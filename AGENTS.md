@@ -450,3 +450,29 @@ Netlify проверяет локальные фото, докачивает н�
   PAUSED ловится, если FACEIT его ставит); ручной таймер — в лобби.
 - Снимки таблицы не коммитить: `claude-artifact/data/` и
   `claude-artifact/dist/` в `.gitignore`.
+
+## Серверный транспорт вето
+
+- При создании комнаты cvTransport / vtTransport выбирает VDO.Ninja или сервер.
+  Старые ссылки без via/relay остаются VDO. Новые сохраняют endpoint в #v=…
+  &via=server&relay=…; не менять байты версии 2 и секреты капитанов.
+- assets/veto-relay-protocol.js / client.js / links.js: подпись издателя,
+  строгий зашифрованный конверт, HTTP-повтор раз в секунду, восстановление
+  снимка; сохранённый старый пакет не означает, что капитан онлайн.
+- server/veto-relay-api.js: один контракт для Cloudflare и Node.
+  Cloudflare — SQLite Durable Objects (server/veto-relay-cloudflare.js);
+  Pages-прокси functions/api/veto-relay.js имеет фиксированный upstream,
+  без URL назначения от пользователя. Node — закрытый каталог, атомарная
+  запись, один процесс (veto-relay-node.mjs / veto-relay-file.js).
+- Это ограниченная запись подписанного шифротекста только на
+  /api/veto-relay. Остальной сайт не получает произвольного API записи.
+  OBS-пароли и приватные ключи на relay не отправлять.
+- Живая графика OBS может идти через этот сервер, но использует отдельный
+  display-код. Нельзя давать ему права капитана или управления OBS.
+  VDO камер и удалённый мост управления OBS этим переключателем не меняются.
+- Подробная публикация и перенос: server/RELAY.md. Генератор отдельного
+  сайта переносит серверные адаптеры и wrangler migration вместе с UI.
+  Статический Pages без Worker/Durable Object не является backend.
+- Проверки: test/veto-relay.test.js, qa_veto_site.py --server (Chromium /
+  WebKit), qa_veto_relay_overlay.py, qa_veto_relay_cloudflare.py (настоящий
+  локальный workerd). Старый режим VDO тоже должен проходить.

@@ -51,10 +51,10 @@ async def main():
         await source.wait_for_selector("body[data-ready='true']")
         await expect(panel.locator("#vetoLiveStatus")).to_contain_text("Оверлей получает вето",timeout=20000)
         await panel.click('[data-map="Ancient"]')
-        await source.wait_for_function("window.vetoOverlay.getState()?.actions.length===1",timeout=15000)
-        await source.wait_for_function("document.querySelector('#scene').dataset.animating===''",timeout=15000)
+        await source.wait_for_function("() => window.vetoOverlay.getState()?.actions.length===1",timeout=15000)
+        await source.wait_for_function("() => document.querySelector('#scene').dataset.animating===''",timeout=15000)
         await source.reload()
-        await source.wait_for_function("window.vetoOverlay?.getState()?.actions.length===1",timeout=15000)
+        await source.wait_for_function("() => window.vetoOverlay?.getState()?.actions.length===1",timeout=15000)
         assert await source.locator("iframe.vdo-frame").count()==0
         # A lost network must not blank the source. Reconnect to the newest full state.
         await source_ctx.set_offline(True)
@@ -62,8 +62,8 @@ async def main():
         await source.wait_for_timeout(1500)
         assert len((await source.evaluate("window.vetoOverlay.getState()"))["actions"])==1
         await source_ctx.set_offline(False)
-        await source.wait_for_function("window.vetoOverlay.getState()?.actions.length===2",timeout=20000)
-        await source.wait_for_function("document.querySelector('#scene').dataset.animating===''",timeout=15000)
+        await source.wait_for_function("() => window.vetoOverlay.getState()?.actions.length===2",timeout=20000)
+        await source.wait_for_function("() => document.querySelector('#scene').dataset.animating===''",timeout=15000)
         Path("artifacts/relay").mkdir(parents=True,exist_ok=True)
         await source.screenshot(path="artifacts/relay/server-overlay-strip.png")
         await panel.uncheck("#vetoLive")

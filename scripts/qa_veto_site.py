@@ -372,6 +372,15 @@ async def run(args):
               const room = m.decodeLink(location.hash), secrets = await m.roomSecrets(room);
               const forged = [{ k: 'order', v: '0', at: Date.now(), s: 'A'.repeat(86) }];
               const box = await v.seal(secrets.key, { t: 'log', from: 'b', log: forged });
+              if(room.relay) {
+                const protocol=await import('/assets/veto-relay-protocol.js');
+                const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
+                const point=await crypto.subtle.exportKey('jwk',pair.publicKey);
+                const packet=await protocol.signRelayPacket(pair.privateKey,[point.x,point.y],box);
+                packet.topic=room.fp[1];
+                const response=await fetch(room.relay,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(packet)});
+                if(response.status!==403)throw Error('Spectator write was not rejected');
+              }
               for (const frame of document.querySelectorAll('iframe.vdo-frame')) {
                 frame.contentWindow.postMessage({ sendData: { oneshotVeto: box } }, '*');
               }
@@ -477,6 +486,8 @@ async def run(args):
         await expect(english.locator("#vtCreateHeading")).to_have_text("Новое вето для капитанов")
         await english.click('[data-lang="en"]')
         await english.select_option("#vtTimer", "0")
+        if args.server:
+            await english.select_option("#vtTransport", "server")
         await english.fill("#vtTeamA", "Alpha")
         await english.fill("#vtTeamB", "Bravo")
         await english.click("#vtForm button[type=submit]")
