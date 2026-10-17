@@ -7,6 +7,7 @@
 // and are taken only when they match. The coin is tossed in the room by both
 // captains (commit, seed, reveal), so nobody — admin included — knows it first.
 import { VETO_RULES, MAP_POOL, appendVeto, validateVeto, vetoText } from './core.js';
+import { relayEndpoint } from './assets/veto-relay-protocol.js';
 
 export const VETO_MINUTES = 5;
 const enc = new TextEncoder(), dec = new TextDecoder('utf-8', { fatal: true });
@@ -109,7 +110,7 @@ export function encodeLink(base, room) {
   let at = 0;
   for (const part of parts) { bytes.set(part, at); at += part.length; }
   const url = new URL(base);
-  url.hash = 'v=' + b64url(bytes);
+  url.hash = 'v=' + b64url(bytes) + (room.relay ? '&via=server&relay=' + encodeURIComponent(relayEndpoint(room.relay, base)) : '');
   return url.href;
 }
 export function decodeLink(hash) {
@@ -130,19 +131,26 @@ export function decodeLink(hash) {
     const first = take(1)[0];
     const t = [dec.decode(take(first)), dec.decode(bytes.slice(at))].map(name => name.trim());
     if (!t[0] || !t[1] || t[0] === t[1] || t.some(name => enc.encode(name).length > NAME_BYTES)) return null;
-    return { v: VERSION, r, t, f, m, me, fp, k, p: [null, null] };
+    const params = new URLSearchParams(String(hash).replace(/^#/, ''));
+    const via = params.get('via'), endpoint = params.get('relay');
+    if (params.getAll('via').length > 1 || params.getAll('relay').length > 1 ||
+        (via && via !== 'server') || Boolean(via) !== Boolean(endpoint)) return null;
+    const room = { v: VERSION, r, t, f, m, me, fp, k, p: [null, null] };
+    if (via === 'server') room.relay = relayEndpoint(endpoint);
+    return room;
   } catch { return null; }
 }
 export const seat = room => room.me === 'a' ? 0 : room.me === 'b' ? 1 : null;
 
 // A new room: four links (captain of teams[0], of teams[1], spectators, admin).
-export async function createRoom(base, teams, format, minutes = VETO_MINUTES) {
+export async function createRoom(base, teams, format, minutes = VETO_MINUTES, relay = '') {
   const names = teams.map(t => String(t || '').trim());
   if (!names[0] || !names[1] || names[0] === names[1]) throw new Error('Нужны две разные команды.');
   if (names.some(name => enc.encode(name).length > NAME_BYTES)) throw new Error('Слишком длинное название команды.');
   if (!FORMATS.includes(format)) throw new Error('Неизвестный формат вето.');
   if (!TIMERS.includes(Number(minutes))) throw new Error('Неизвестный таймер.');
   const room = { v: VERSION, r: b64url(random(ROOM_BYTES)), t: names, f: format, m: Number(minutes), fp: [], p: [] };
+  if (relay) room.relay = relayEndpoint(relay, base);
   const secrets = [b64url(random(SEED_BYTES)), b64url(random(SEED_BYTES))];
   for (const team of [0, 1]) {
     const key = await keyFromSecret(room, team, secrets[team]);
@@ -389,4 +397,16 @@ export function captainMessage(room, team, link, lang = 'ru') {
 }
 export function spectatorMessage(room, link, lang = 'ru') {
   return `${(MESSAGES[lang] || MESSAGES.ru).watch(room)}\n${link}`;
+}
+
+// Display-only relay signing identities. Domain separated from every captain
+// and from the OBS control bridge; knowing a display code never grants a move.
+export async function displayRelayIdentity(code, role) {
+  if (!['dock', 'veto'].includes(role)) throw new Error('Invalid display role');
+  const secret = b64url(await sha256('oneshot-display-relay-v1|' + code));
+  const key = await keyFromSecret({r:'display-relay-v1'}, role, secret);
+  return {
+    point:[key.x,key.y], topic:await fingerprint([key.x,key.y]),
+    key:await crypto.subtle.importKey('jwk',{kty:'EC',crv:'P-256',...key,ext:true},CURVE,false,['sign'])
+  };
 }

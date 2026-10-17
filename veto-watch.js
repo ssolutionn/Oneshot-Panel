@@ -4,6 +4,7 @@
 // tells the panel about moves, presence and «Call admin». It never sends:
 // the captains' pages do not know it is there.
 import { unseal } from './vdo.js';
+import { connectServerWatch } from './assets/veto-relay-links.js';
 import {
   decodeLink, encodeLink, roomSecrets, acceptKey, verifyLog, mergeLog, replay, nextTurn, COIN_MOVES
 } from './veto-room.js';
@@ -87,7 +88,7 @@ function connectVdo(secrets, deliver) {
 export class RoomWatch {
   // room: decoded (or from createRoom) with me 'o'; saved: { r, log, p } from
   // an earlier visit; connect: the transport (tests pass their own).
-  constructor(room, { onChange = () => {}, onCall = () => {}, saved = null, connect = connectVdo } = {}) {
+  constructor(room, { onChange = () => {}, onCall = () => {}, saved = null, connect = null } = {}) {
     Object.assign(this, { room, onChange, onCall });
     this.room.p = Array.isArray(room.p) ? room.p : [null, null];
     this.log = [];
@@ -101,20 +102,23 @@ export class RoomWatch {
     this.ready = (async () => {
       this.secrets = await roomSecrets(room);
       if (saved?.r === room.r) await this.adopt(saved.log, saved.p);
-      if (!this.stopped) this.link = connect(this.secrets, (box, team) => this.open(box, team));
+      if (!this.stopped) {
+        const deliver = (box, team, online = true) => this.open(box, team, online);
+        this.link = connect ? connect(this.secrets, deliver) : room.relay ? connectServerWatch(room, this.secrets, deliver) : connectVdo(this.secrets, deliver);
+      }
     })();
   }
-  async open(box, team) {
+  async open(box, team, online = true) {
     const message = await unseal(this.secrets.key, box);
-    if (message && !this.stopped) this.receive(message, team);
+    if (message && !this.stopped) this.receive(message, team, online);
   }
   // team: whose stream the message came through (the message's own from is
   // not trusted).
-  receive(message, team) {
+  receive(message, team, online = true) {
     if (!message || message.t !== 'log' || !Array.isArray(message.log) || ![0, 1].includes(team)) return;
-    const back = !this.online(team);
-    this.seen[team] = Date.now();
-    if (Number.isSafeInteger(message.call)) this.onCall(team, message.call);
+    const back = online && !this.online(team);
+    if (online) this.seen[team] = Date.now();
+    if (online && Number.isSafeInteger(message.call)) this.onCall(team, message.call);
     const unkeyed = Array.isArray(message.p) && [0, 1].some(i => !this.room.p[i] && message.p[i]);
     if (back) this.onChange(this);
     if (message.log.length < this.log.length && !unkeyed) return;

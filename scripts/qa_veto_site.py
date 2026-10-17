@@ -53,6 +53,7 @@ async def run(args):
     # check.yml passes the panel QA's arguments: fill in this script's own.
     args.browser = getattr(args, "browser", "chromium")
     args.real_vdo = getattr(args, "real_vdo", False)
+    args.server = getattr(args, "server", False)
     args.chromium = getattr(args, "chromium", None)
     base = args.url.rstrip("/")
     output = Path(args.artifacts)
@@ -155,6 +156,9 @@ async def run(args):
             page = await context.new_page()
             page.on("pageerror", lambda error: (vdo_errors if "vdo.ninja" in (error.stack or "") else errors)
                     .append(f"{page.url[:60]}: {error}"))
+            if args.server:
+                page.on("request", lambda req: errors.append("Server room contacted VDO: " + req.url)
+                        if "/veto.html" in page.url and req.url.startswith("https://vdo.ninja/") else None)
             page.on("dialog", lambda dialog: errors.append(f"dialog {dialog.message}"))
             if clock:  # time flows; the scenario jumps it forward
                 await page.clock.install()
@@ -167,6 +171,8 @@ async def run(args):
             await admin.fill("#vtTeamA", a)
             await admin.fill("#vtTeamB", b)
             await admin.select_option("#vtFormat", fmt)
+            if args.server:
+                await admin.select_option("#vtTransport", "server")
             await admin.click("#vtForm button[type=submit]")
             await expect(admin.locator("#vtMsgA")).to_have_value(re.compile(re.escape(f"vs {b} ({fmt})")))
             message_a = await admin.locator("#vtMsgA").input_value()
@@ -230,6 +236,8 @@ async def run(args):
         admin = await open_page(base + "/veto.html#new&a=UPGRADE&b=Lavked&f=BO3")
         await expect(admin.locator("#vtTeamA")).to_have_value("UPGRADE")
         await expect(admin.locator("#vtFormat")).to_have_value("BO3")
+        if args.server:
+            await admin.select_option("#vtTransport", "server")
         await admin.click("#vtForm button[type=submit]")
         await expect(admin.locator("#vtLinks")).to_be_visible()
         message_a = await admin.locator("#vtMsgA").input_value()
@@ -242,7 +250,9 @@ async def run(args):
         assert "Капитан **UPGRADE**" in message_a and "Капитан **Lavked**" in message_b
         assert "Монетку бросите на сайте" in message_a
         assert len({link_a, link_b, link_s, public}) == 4
-        assert max(len(link_a), len(link_b), len(link_s)) < 150, (len(link_a), len(link_s))
+        assert max(len(link_a), len(link_b), len(link_s)) < (400 if args.server else 150), (len(link_a), len(link_s))
+        if args.server:
+            assert "&via=server&relay=" in link_a and "&via=server&relay=" in public
         await admin.screenshot(path=str(output / "veto-site-admin.png"), full_page=True)
         await admin.reload()
         await expect(admin.locator("#vtMsgA")).to_have_value(message_a)
@@ -322,7 +332,7 @@ async def run(args):
         await spectator.screenshot(path=str(output / "veto-site-done.png"), full_page=True)
         broken = await open_page(base + "/veto.html#v=broken")
         await expect(broken.locator("#vtError")).to_contain_text("повреждена")
-        payload = link_a.split("#v=")[1]
+        payload = link_a.split("#v=")[1].split("&")[0]
         # Flip one byte of the captain's secret (after version, flags, room
         # and two fingerprints): the key no longer fits the link.
         bad_key = await broken.evaluate("""p => {
@@ -524,6 +534,8 @@ async def run(args):
         await panel.fill("#cvSite", base + "/veto.html")
         await panel.locator("#cvSite").dispatch_event("change")
         await panel.select_option("#cvLang", "ru")
+        if args.server:
+            await panel.select_option("#cvTransport", "server")
         await panel.click("#cvCreate")
         await expect(panel.locator("#cvRoom")).to_be_visible()
         await expect(panel.locator("#cvLiveState")).to_have_text("капитанов нет")
@@ -644,6 +656,7 @@ if __name__ == "__main__":
     parser.add_argument("--url", default="http://127.0.0.1:3000")
     parser.add_argument("--chromium", default=None)
     parser.add_argument("--browser", default="chromium", choices=["chromium", "webkit"])
+    parser.add_argument("--server", action="store_true", help="use the actual local server relay; no VDO for rooms")
     parser.add_argument("--real-vdo", action="store_true", help="use the real VDO.Ninja (needs internet)")
     parser.add_argument("--artifacts", default="artifacts")
     asyncio.run(run(parser.parse_args()))

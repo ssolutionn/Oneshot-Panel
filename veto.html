@@ -55,6 +55,9 @@
               <option value="0" data-i18n="noTimer">No timer</option>
             </select>
           </label>
+          <label class="vt-wide"><span data-i18n="transport">Connection</span>
+            <select id="vtTransport"><option value="vdo">VDO.Ninja</option><option value="server" data-i18n="ourServer">Our server</option></select>
+          </label>
         </fieldset>
         <datalist id="vtTeamList"></datalist>
         <button class="vt-button vt-primary" type="submit" data-i18n="create">Create links</button>
@@ -133,6 +136,7 @@
         <button class="vt-button" id="vtCallAdmin" type="button" data-i18n="callAdmin">🔔 Call admin</button>
         <span id="vtCallState" class="vt-call-state" role="status"></span>
       </div>
+      <p class="vt-foot" id="vtTransportStatus" role="status"></p>
       <p class="vt-foot" id="vtFoot"></p>
     </section>
   </main>

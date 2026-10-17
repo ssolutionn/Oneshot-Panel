@@ -8,6 +8,9 @@ import { VdoLink, CamWatch, bridgeSecrets, newBridgeCode, normalizeCode } from '
 import { mountQrReader, parseObsQr, parsePairingQr } from './assets/obs-qr.js';
 import { createRoom, captainMessage, spectatorMessage, nextTurn, clock, formatClock, resultText } from './veto-room.js';
 import { RoomWatch, adminRoom, roomToPanel, roomMoves } from './veto-watch.js';
+import { ServerDisplayLink } from './assets/veto-relay-links.js';
+import { checkRelay } from './assets/veto-relay-client.js';
+import { relayEndpoint } from './assets/veto-relay-protocol.js';
 
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
@@ -538,18 +541,31 @@ function paintVetoStatus() {
   }
   setVetoStatus('Ждём оверлей. В OBS добавь Источники → + → Браузер, вставь ссылку на оверлей и задай 1920 × 1080.', 'wait');
 }
+let vetoEndpoint = '';
+function displayEndpoint() {
+  const room = watchTarget()?.room;
+  return room?.relay && sameMatch(room, panel.snapshot()) ? room.relay : '';
+}
 function ensureVetoLink() {
+  const endpoint = displayEndpoint();
+  if (vetoEndpoint !== endpoint) {
+    vetoLink?.close(); vetoLink = null; vetoAck = ''; vetoSeen = 0; lastVeto = '';
+    vetoEndpoint = endpoint;
+  }
   if (vetoLink) return Promise.resolve(vetoLink);
   if (vetoOpening) return vetoOpening;
   vetoOpening = bridgeSecrets(vetoCode).then(secrets => {
     if (!$('vetoLive').checked) return null;
-    vetoLink = new VdoLink(secrets, 'dock', message => {
+    const receive = message => {
       if (message.type !== 'veto-received' || message.id !== vetoId) return;
       vetoAck = message.id;
       vetoSeen = Date.now();
       paintVetoStatus();
-    });
-    return vetoLink;
+    };
+    return endpoint ? ServerDisplayLink.create(vetoCode, 'dock', endpoint, receive).then(link => {
+      if (!$('vetoLive').checked || endpoint !== displayEndpoint()) { link.close(); return null; }
+      vetoLink = link; return link;
+    }) : (vetoLink = new VdoLink(secrets, 'dock', receive));
   }).finally(() => { vetoOpening = null; });
   return vetoOpening;
 }
@@ -560,7 +576,7 @@ function enableLiveVeto() {
 }
 $('copyOverlay').addEventListener('click', () => {
   // This display-only code cannot operate OBS. Never reuse its control code.
-  panel.copy(`${cardBase()}/assets/veto-overlay/overlay.html?layout=${$('vetoLayout').value}${$('vetoLayout').value === 'strip' ? '&crop=1' : ''}#s=${encodeState(vetoState())}&r=${vetoCode}`);
+  panel.copy(`${cardBase()}/assets/veto-overlay/overlay.html?layout=${$('vetoLayout').value}${$('vetoLayout').value === 'strip' ? '&crop=1' : ''}#s=${encodeState(vetoState())}&r=${vetoCode}${displayEndpoint() ? '&relay=' + encodeURIComponent(displayEndpoint()) : ''}`);
   enableLiveVeto();
 });
 function overlaySizeHint() {
@@ -632,6 +648,7 @@ function onChange() {
 // The captains' veto site (veto.html) opens with this match's teams and format.
 function playerVetoLink(s) {
   const params = new URLSearchParams({ a: s.a?.name || '', b: s.b?.name || '', f: $('cvFormat').value, m: $('cvTimer').value });
+  if ($('cvTransport').value === 'server') params.set('via', 'server');
   $('playerVeto').href = vetoSite() + '#new&' + params;
 }
 
@@ -664,10 +681,11 @@ const cv = { touched: false, made: null };
   $('cvSite').value = typeof saved.site === 'string' ? saved.site : '';
   if (['0', '3', '5', '7', '10', '15'].includes(String(saved.timer))) $('cvTimer').value = String(saved.timer);
   if (['en', 'ru'].includes(saved.lang)) $('cvLang').value = saved.lang;
+  $('cvTransport').value = saved.transport === 'server' ? 'server' : 'vdo';
 }
 const cvMatch = s => s.a?.name && s.b?.name ? JSON.stringify([s.a.name, s.b.name]) : '';
 function cvSave(last = read(CV_STORE)?.last) {
-  write(CV_STORE, { timer: $('cvTimer').value, lang: $('cvLang').value, site: $('cvSite').value.trim(), last });
+  write(CV_STORE, { timer: $('cvTimer').value, lang: $('cvLang').value, site: $('cvSite').value.trim(), transport: $('cvTransport').value, last });
 }
 function cvShow(made) {
   cv.made = made;
@@ -683,7 +701,7 @@ function cvShow(made) {
   $('cvLinks').hidden = false;
   const time = new Date(made.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   cvStatus(`Ссылки для ${room.t[0]} vs ${room.t[1]} (${room.f}${room.m ? `, ${room.m} мин` : ', без таймера'}) созданы в ${time}. ` +
-    'Новые ссылки — снова «Создать ссылки»: старые продолжат работать, но это будет другая комната.');
+    `Связь: ${room.relay ? 'наш сервер' : 'VDO.Ninja'}. Новые ссылки — снова «Создать ссылки»: старые продолжат работать, но это будет другая комната.`);
 }
 function cvStatus(text, kind = '') {
   $('cvStatus').textContent = text;
@@ -701,6 +719,7 @@ function captainVeto(s) {
 }
 $('cvFormat').addEventListener('change', () => { cv.touched = true; playerVetoLink(panel.snapshot()); });
 $('cvTimer').addEventListener('change', () => { cvSave(); playerVetoLink(panel.snapshot()); });
+$('cvTransport').addEventListener('change', () => { cvSave(); playerVetoLink(panel.snapshot()); });
 $('cvLang').addEventListener('change', () => { cvSave(); if (cv.made) cvShow(cv.made); });
 $('cvSite').addEventListener('change', () => { cvSave(); playerVetoLink(panel.snapshot()); });
 $('cvCreate').addEventListener('click', async () => {
@@ -708,7 +727,9 @@ $('cvCreate').addEventListener('click', async () => {
   try {
     if (!cvMatch(s)) throw new Error('Выбери матч с двумя командами.');
     $('cvCreate').disabled = true;
-    const made = await createRoom(vetoSite(), [s.a.name, s.b.name], $('cvFormat').value, Number($('cvTimer').value));
+    const relay = $('cvTransport').value === 'server' ? relayEndpoint('/api/veto-relay', vetoSite()) : '';
+    if (relay) { cvStatus('Проверяем сервер вето…'); await checkRelay(relay); }
+    const made = await createRoom(vetoSite(), [s.a.name, s.b.name], $('cvFormat').value, Number($('cvTimer').value), relay);
     const last = { match: cvMatch(s), at: Date.now(), room: made.room, links: made.links };
     cvSave(last);
     cvShow(last);
@@ -951,7 +972,8 @@ $('cvRestart').addEventListener('click', async () => {
   $('cvRestart').disabled = true;
   try {
     const site = new URL(watch.adminLink);
-    const made = await createRoom(site.origin + site.pathname, room.t, room.f, room.m ?? 5);
+    if (room.relay) await checkRelay(room.relay);
+    const made = await createRoom(site.origin + site.pathname, room.t, room.f, room.m ?? 5, room.relay || '');
     const s = panel.snapshot();
     cvSave({ match: JSON.stringify(room.t), at: Date.now(), room: made.room, links: made.links });
     watchSave({ pasted: null, syncOff: null });

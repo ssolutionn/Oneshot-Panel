@@ -1,3 +1,5 @@
+import { ServerDisplayLink } from '../veto-relay-links.js';
+import { relayEndpoint } from '../veto-relay-protocol.js';
 import { snapshot, demoState, nextDemoMap } from './model.js';
 import { appendVeto } from '../../core.js';
 import { artwork, VetoScene } from './scene.js';
@@ -136,13 +138,15 @@ async function init() {
     const code=normalizeCode(new URLSearchParams(location.hash.slice(1)).get('r'));
     if(code) {
       const secrets=await bridgeSecrets(code);
-      displayLink=new VdoLink(secrets,'veto',async message=>{
+      const receive=async message=>{
         if(message.type!=='veto-state'||typeof message.id!=='string')return;
         try {
           // Confirm only what is actually on screen.
           if(await apply(message.state))await displayLink?.send({type:'veto-received',id:message.id});
         } catch { /* A malformed update must not replace the on-air state. */ }
-      });
+      };
+      const endpoint=new URLSearchParams(location.hash.slice(1)).get('relay');
+      displayLink=endpoint ? await ServerDisplayLink.create(code,'veto',relayEndpoint(endpoint),receive) : new VdoLink(secrets,'veto',receive);
     }
   }
   update();document.body.dataset.ready='true';

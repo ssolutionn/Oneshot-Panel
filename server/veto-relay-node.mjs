@@ -5,8 +5,7 @@ import {pathToFileURL} from 'node:url';
 import {handleRelay,reply} from './veto-relay-api.js';
 import {FileRelayStore} from './veto-relay-file.js';
 export async function nodeRelay(request,response,store) {
- const pathname=new URL(request.url,'http://localhost').pathname;
- if(pathname!=='/api/veto-relay')return false;
+ if(request.url!=='/api/veto-relay'&&!request.url.startsWith('/api/veto-relay?'))return false;
  try{
   const controller=new AbortController();
   request.on('aborted',()=>controller.abort());
