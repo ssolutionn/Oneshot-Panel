@@ -582,15 +582,24 @@ async function enterRoom(room) {
     // The dedicated viewer iframe proves its stream owner. If that iframe is
     // stuck, the same signed envelope can arrive through our push iframe.
     let from = via === secrets.streams[0] ? 'a' : via === secrets.streams[1] ? 'b' : '';
-    if (!from && !room.relay && ['a', 'b'].includes(message.from) && message.at > proofSeen[message.from] &&
-        await verifyRoomMessage(room, message) && message.at > proofSeen[message.from]) {
-      from = message.from;
-      proofSeen[from] = message.at;
-      if (!room.relay) link.reconnectStream?.(secrets.streams[from === 'a' ? 0 : 1]);
+    let proofFrom = '';
+    const candidate = ['a', 'b'].includes(message.from) ? message.from : '';
+    const needProof = !from || (admin && Number.isSafeInteger(message.call));
+    if (needProof && candidate && message.at > proofSeen[candidate] &&
+        await verifyRoomMessage(room, message) && message.at > proofSeen[candidate]) {
+      proofFrom = candidate;
+      proofSeen[candidate] = message.at;
+    }
+    if (!from && !room.relay && proofFrom) {
+      from = proofFrom;
+      link.reconnectStream?.(secrets.streams[from === 'a' ? 0 : 1]);
     }
     if (from) seen[from] = Date.now();
-    // A call counts only from an authenticated captain, and only on the admin's page.
-    if (admin && from && Number.isSafeInteger(message.call)) ring(from === 'a' ? 0 : 1, message.call);
+    // Calls additionally require the captain's signature: knowing a public
+    // spectator link and a VDO stream ID is not enough to ring the admin.
+    if (admin && from && proofFrom === from && Number.isSafeInteger(message.call)) {
+      ring(from === 'a' ? 0 : 1, message.call);
+    }
     const unkeyed = Array.isArray(message.p) && [0, 1].some(team => !room.p[team] && message.p[team]);
     if (message.log.length < log.length && !unkeyed) return;
     const idle = !pending;
