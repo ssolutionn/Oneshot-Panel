@@ -74,6 +74,8 @@ test('room envelopes prove captain identity on a reverse data channel', async ()
   assert.equal(await verifyRoomMessage(s, { ...message, log: [{ k: 'ban' }] }, now), false);
   assert.equal(await verifyRoomMessage(s, { ...message, at: now - 11 * 60000 }, now), false);
   assert.equal(await verifyRoomMessage(s, { ...message, proof: 'broken' }, now), false);
+  assert.equal(await verifyRoomMessage(s, { ...message, p: [...message.p, null] }, now), false);
+  assert.equal(await verifyRoomMessage(s, { ...message, log: Array(33).fill(message) }, now), false);
 });
 
 test('timer: in the link, 5 minutes by default, 0 for none', async () => {
