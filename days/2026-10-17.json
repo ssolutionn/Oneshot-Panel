@@ -2,10 +2,10 @@
   "version": 1,
   "day": "2026-10-17",
   "startedAt": 1792188716432,
-  "updatedAt": 1792253003092,
+  "updatedAt": 1792261481926,
   "books": {
     "fonbet": {
-      "checkedAt": 1792253003078,
+      "checkedAt": 1792261481921,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -40,14 +40,14 @@
           "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
           "start": 1792263600000,
           "odds": [
-            2.05,
-            1.68
+            1.94,
+            1.76
           ],
           "url": "https://fon.bet/sports/esports/147516/69041577",
           "live": false,
           "liveOffered": false,
           "first": 1792212926192,
-          "last": 1792253003078,
+          "last": 1792261481921,
           "open": [
             2.03,
             1.7
@@ -60,7 +60,7 @@
       ]
     },
     "pari": {
-      "checkedAt": 1792253003065,
+      "checkedAt": 1792261481926,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -95,14 +95,14 @@
           "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
           "start": 1792263600000,
           "odds": [
-            2.05,
-            1.68
+            1.94,
+            1.76
           ],
           "url": "https://pari.ru/sports/esports/147516/69041577",
           "live": false,
           "liveOffered": false,
           "first": 1792212926204,
-          "last": 1792253003065,
+          "last": 1792261481926,
           "open": [
             2.03,
             1.7
@@ -115,7 +115,7 @@
       ]
     },
     "bettery": {
-      "checkedAt": 1792253003075,
+      "checkedAt": 1792261481922,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -150,14 +150,14 @@
           "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
           "start": 1792263600000,
           "odds": [
-            2.05,
-            1.68
+            1.94,
+            1.76
           ],
           "url": "https://bettery.ru/sports/esports/147516/69041577",
           "live": false,
           "liveOffered": false,
           "first": 1792212926201,
-          "last": 1792253003075,
+          "last": 1792261481922,
           "open": [
             2.03,
             1.7
@@ -170,7 +170,7 @@
       ]
     },
     "bet24": {
-      "checkedAt": 1792253003092,
+      "checkedAt": 1792261481923,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -205,14 +205,14 @@
           "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
           "start": 1792263600000,
           "odds": [
-            2.05,
-            1.68
+            1.94,
+            1.76
           ],
           "url": "https://24bet.ru/sports/esports/147516/69041577",
           "live": false,
           "liveOffered": false,
           "first": 1792212926199,
-          "last": 1792253003092,
+          "last": 1792261481923,
           "open": [
             2.03,
             1.7
@@ -225,7 +225,7 @@
       ]
     },
     "olimp": {
-      "checkedAt": 1792253003071,
+      "checkedAt": 1792261481918,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -267,7 +267,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792212926209,
-          "last": 1792253003071,
+          "last": 1792261481918,
           "open": [
             2.06,
             1.71
@@ -280,7 +280,7 @@
       ]
     },
     "marathon": {
-      "checkedAt": 1792253003073,
+      "checkedAt": 1792261481917,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -291,14 +291,14 @@
           "tournament": "CS 2. CyberClash. Закрытая квалификация. Матч из 3-х карт",
           "start": 1792263600000,
           "odds": [
-            2.06,
-            1.68
+            2.02,
+            1.71
           ],
           "url": "https://www.marathonbet.ru/su/betting/e-Sports/Counter-Strike+2/CyberClash/Closed+Qualification/Best+of+3+maps/WRAITH+PCIFIC+vs+6yuBoJlbl+-+32643135",
           "live": false,
           "liveOffered": false,
           "first": 1792241685243,
-          "last": 1792253003073,
+          "last": 1792261481917,
           "open": [
             2.02,
             1.71
@@ -311,7 +311,7 @@
       ]
     },
     "betcity": {
-      "checkedAt": 1792253003072,
+      "checkedAt": 1792261481911,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -353,7 +353,7 @@
           "live": false,
           "liveOffered": true,
           "first": 1792212926197,
-          "last": 1792253003072,
+          "last": 1792261481911,
           "open": [
             2.03,
             1.7
@@ -366,13 +366,13 @@
       ]
     },
     "sportbet": {
-      "checkedAt": 1792253003077,
+      "checkedAt": 1792261481919,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "baltbet": {
-      "checkedAt": 1792253003073,
+      "checkedAt": 1792261481926,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -383,14 +383,14 @@
           "tournament": "Counter-Strike. Восточная Европа. Cyberclash. Квалификация",
           "start": 1792263600000,
           "odds": [
-            1.67,
-            1.95
+            1.73,
+            1.88
           ],
           "url": "https://baltbet.ru/cybersport/counter-strike/east-europe/cyberclash/qualifier/6yubojlbl-wraith-pcific-id-31710239",
           "live": false,
           "liveOffered": false,
           "first": 1792212926205,
-          "last": 1792253003073,
+          "last": 1792261481926,
           "open": [
             1.67,
             1.95
@@ -403,7 +403,7 @@
       ]
     },
     "winline": {
-      "checkedAt": 1792253003069,
+      "checkedAt": 1792261481914,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -438,17 +438,41 @@
           "tournament": "CyberClash",
           "start": 1792263600000,
           "odds": [
-            1.65,
-            2.1
+            1.7,
+            2.02
           ],
           "url": "https://winline.ru/stavki/sport/kibersport/counter-strike",
           "live": false,
           "liveOffered": false,
           "first": 1792241685245,
-          "last": 1792253003069,
+          "last": 1792261481914,
           "open": [
             1.7,
             2.02
+          ],
+          "liveSeen": false,
+          "names": [
+            "CyberClash"
+          ]
+        },
+        {
+          "id": "16953842",
+          "team1": "WRAITH PCIFIC",
+          "team2": "6YUBOJLBL",
+          "tournament": "CyberClash",
+          "start": 1792263600000,
+          "odds": [
+            2.15,
+            1.63
+          ],
+          "url": "https://winline.ru/stavki/sport/kibersport/counter-strike",
+          "live": false,
+          "liveOffered": true,
+          "first": 1792261481914,
+          "last": 1792261481914,
+          "open": [
+            2.15,
+            1.63
           ],
           "liveSeen": false,
           "names": [
@@ -458,7 +482,7 @@
       ]
     },
     "leon": {
-      "checkedAt": 1792253003080,
+      "checkedAt": 1792261481920,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -500,7 +524,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792212926200,
-          "last": 1792253003080,
+          "last": 1792261481920,
           "open": [
             2.05,
             1.7
