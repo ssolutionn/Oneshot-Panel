@@ -53,13 +53,16 @@ async def run(args):
     # check.yml passes the panel QA's arguments: fill in this script's own.
     args.browser = getattr(args, "browser", "chromium")
     args.real_vdo = getattr(args, "real_vdo", False)
+    args.server = getattr(args, "server", False)
     args.chromium = getattr(args, "chromium", None)
     base = args.url.rstrip("/")
     output = Path(args.artifacts)
     output.mkdir(parents=True, exist_ok=True)
     frames, senders, errors, checks = {}, [], [], []
     vdo_errors = []  # exceptions inside VDO.Ninja's own iframe code: theirs, not ours
-    wait = 30000 if args.real_vdo else 8000
+    wait = 30000 if args.real_vdo else 15000 if args.server else 8000
+    if args.server:
+        expect.set_options(timeout=15000)  # health has an 8 s network deadline before key generation
     # A page that watched a stream before it existed (the other captain came
     # later) gets it from the real VDO.Ninja only on a retry: a minute or more.
     join = 90000 if args.real_vdo else wait
@@ -155,6 +158,12 @@ async def run(args):
             page = await context.new_page()
             page.on("pageerror", lambda error: (vdo_errors if "vdo.ninja" in (error.stack or "") else errors)
                     .append(f"{page.url[:60]}: {error}"))
+            if args.server:
+                page.on("request", lambda req: errors.append("Server room contacted VDO: " + req.url)
+                        if "/veto.html" in page.url and req.url.startswith("https://vdo.ninja/") else None)
+            if args.server:
+                page.on("requestfailed", lambda req: print("RELAY_REQUEST_FAILED", urlsplit(req.url).path, req.failure, flush=True)
+                        if "/api/veto-relay" in req.url else None)
             page.on("dialog", lambda dialog: errors.append(f"dialog {dialog.message}"))
             if clock:  # time flows; the scenario jumps it forward
                 await page.clock.install()
@@ -167,6 +176,8 @@ async def run(args):
             await admin.fill("#vtTeamA", a)
             await admin.fill("#vtTeamB", b)
             await admin.select_option("#vtFormat", fmt)
+            if args.server:
+                await admin.select_option("#vtTransport", "server")
             await admin.click("#vtForm button[type=submit]")
             await expect(admin.locator("#vtMsgA")).to_have_value(re.compile(re.escape(f"vs {b} ({fmt})")))
             message_a = await admin.locator("#vtMsgA").input_value()
@@ -230,6 +241,8 @@ async def run(args):
         admin = await open_page(base + "/veto.html#new&a=UPGRADE&b=Lavked&f=BO3")
         await expect(admin.locator("#vtTeamA")).to_have_value("UPGRADE")
         await expect(admin.locator("#vtFormat")).to_have_value("BO3")
+        if args.server:
+            await admin.select_option("#vtTransport", "server")
         await admin.click("#vtForm button[type=submit]")
         await expect(admin.locator("#vtLinks")).to_be_visible()
         message_a = await admin.locator("#vtMsgA").input_value()
@@ -242,7 +255,9 @@ async def run(args):
         assert "Капитан **UPGRADE**" in message_a and "Капитан **Lavked**" in message_b
         assert "Монетку бросите на сайте" in message_a
         assert len({link_a, link_b, link_s, public}) == 4
-        assert max(len(link_a), len(link_b), len(link_s)) < 150, (len(link_a), len(link_s))
+        assert max(len(link_a), len(link_b), len(link_s)) < (400 if args.server else 150), (len(link_a), len(link_s))
+        if args.server:
+            assert "&via=server&relay=" in link_a and "&via=server&relay=" in public
         await admin.screenshot(path=str(output / "veto-site-admin.png"), full_page=True)
         await admin.reload()
         await expect(admin.locator("#vtMsgA")).to_have_value(message_a)
@@ -322,7 +337,7 @@ async def run(args):
         await spectator.screenshot(path=str(output / "veto-site-done.png"), full_page=True)
         broken = await open_page(base + "/veto.html#v=broken")
         await expect(broken.locator("#vtError")).to_contain_text("повреждена")
-        payload = link_a.split("#v=")[1]
+        payload = link_a.split("#v=")[1].split("&")[0]
         # Flip one byte of the captain's secret (after version, flags, room
         # and two fingerprints): the key no longer fits the link.
         bad_key = await broken.evaluate("""p => {
@@ -333,6 +348,8 @@ async def run(args):
         await broken.goto(base + "/veto.html#v=" + bad_key)
         await expect(broken.locator("#vtError")).to_contain_text("повреждена", timeout=wait)
         passed("375 px without horizontal scroll; broken link and broken key explain themselves")
+        for page in (cap_a, cap_b, spectator, late, viewer, broken):
+            await page.close()
 
         # 5. BO1 by keyboard, BO5 by mouse.
         for fmt, keyboard, maps in (("BO1", True, 7), ("BO5", False, 7)):
@@ -362,6 +379,15 @@ async def run(args):
               const room = m.decodeLink(location.hash), secrets = await m.roomSecrets(room);
               const forged = [{ k: 'order', v: '0', at: Date.now(), s: 'A'.repeat(86) }];
               const box = await v.seal(secrets.key, { t: 'log', from: 'b', log: forged });
+              if(room.relay) {
+                const protocol=await import('/assets/veto-relay-protocol.js');
+                const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
+                const point=await crypto.subtle.exportKey('jwk',pair.publicKey);
+                const packet=await protocol.signRelayPacket(pair.privateKey,[point.x,point.y],box);
+                packet.topic=room.fp[1];
+                const response=await fetch(room.relay,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(packet)});
+                if(response.status!==403)throw Error('Spectator write was not rejected');
+              }
               for (const frame of document.querySelectorAll('iframe.vdo-frame')) {
                 frame.contentWindow.postMessage({ sendData: { oneshotVeto: box } }, '*');
               }
@@ -467,6 +493,8 @@ async def run(args):
         await expect(english.locator("#vtCreateHeading")).to_have_text("Новое вето для капитанов")
         await english.click('[data-lang="en"]')
         await english.select_option("#vtTimer", "0")
+        if args.server:
+            await english.select_option("#vtTransport", "server")
         await english.fill("#vtTeamA", "Alpha")
         await english.fill("#vtTeamB", "Bravo")
         await english.click("#vtForm button[type=submit]")
@@ -475,6 +503,8 @@ async def run(args):
         await expect(room_page.locator("#vtPrompt")).to_have_text("Waiting for the captains")
         await expect(room_page.locator("#vtFoot")).to_contain_text("Admin view")
         passed("English by default, the RU flag switches and is remembered; timer «No timer» in the message")
+        await room_page.close()
+        await english.close()
 
         # 12. «Call admin»: the admin's page rings, the public link does not.
         await admin.goto(base + "/veto.html")
@@ -524,6 +554,8 @@ async def run(args):
         await panel.fill("#cvSite", base + "/veto.html")
         await panel.locator("#cvSite").dispatch_event("change")
         await panel.select_option("#cvLang", "ru")
+        if args.server:
+            await panel.select_option("#cvTransport", "server")
         await panel.click("#cvCreate")
         await expect(panel.locator("#cvRoom")).to_be_visible()
         await expect(panel.locator("#cvLiveState")).to_have_text("капитанов нет")
@@ -644,6 +676,7 @@ if __name__ == "__main__":
     parser.add_argument("--url", default="http://127.0.0.1:3000")
     parser.add_argument("--chromium", default=None)
     parser.add_argument("--browser", default="chromium", choices=["chromium", "webkit"])
+    parser.add_argument("--server", action="store_true", help="use the actual local server relay; no VDO for rooms")
     parser.add_argument("--real-vdo", action="store_true", help="use the real VDO.Ninja (needs internet)")
     parser.add_argument("--artifacts", default="artifacts")
     asyncio.run(run(parser.parse_args()))

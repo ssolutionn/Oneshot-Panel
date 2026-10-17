@@ -15,6 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         browser: [chromium, webkit]
+        transport: [vdo, server]
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
@@ -38,12 +39,13 @@ jobs:
           LIBGL_ALWAYS_SOFTWARE: "1"
           QT_QPA_PLATFORM: xcb
           QA_BROWSER: ${{ matrix.browser }}
+          QA_VETO_TRANSPORT: ${{ matrix.transport }}
         run: |
           node server.js > /tmp/oneshot-server.log 2>&1 &
           xvfb-run -a -s "-screen 0 1920x1080x24" python3 scripts/qa_obs_runtime.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: obs-runtime-qa-${{ matrix.browser }}
+          name: obs-runtime-qa-${{ matrix.browser }}-${{ matrix.transport }}
           path: artifacts/obs-runtime/
           if-no-files-found: warn

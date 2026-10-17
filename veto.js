@@ -7,6 +7,9 @@
 // default, Russian with the flag (localStorage oneshot-veto-lang).
 import { MAP_POOL, teamLogo, teamHltv, DEFAULT_SOURCE, decodeGviz, parseSchedule } from './core.js';
 import { seal, unseal } from './vdo.js';
+import { ServerRoomLink } from './assets/veto-relay-links.js';
+import { checkRelay } from './assets/veto-relay-client.js';
+import { relayEndpoint } from './assets/veto-relay-protocol.js';
 import {
   decodeLink, createRoom, roomSecrets, captainKey, acceptKey, seat, verifyLog, replay, nextTurn,
   signMove, mergeLog, clock, formatClock, mapBoard, resultText, captainMessage, spectatorMessage,
@@ -32,6 +35,9 @@ function store(key, value) {
 // ---- Words ----
 const WORDS = {
   en: {
+    transport:'Connection',ourServer:'Our server',
+    serverOnline:'Server connection active',serverRetry:'Server unavailable. Reconnecting; the last verified moves are kept.',
+    serverWait:'Connecting to our server…',vdoConnection:'Connection: VDO.Ninja',
     title: 'Map veto', createHeading: "New captains' veto",
     createNote: 'The site makes short links: one per captain (DM on Discord), one for spectators and one for the admin. The captains toss the coin themselves in the room — nobody knows it in advance, not even you.',
     settings: 'Veto settings', match: 'Match from the schedule', loadingSchedule: 'Loading the schedule…',
@@ -84,6 +90,9 @@ const WORDS = {
     calling: '🔔 Admin call'
   },
   ru: {
+    transport:'Связь',ourServer:'Наш сервер',
+    serverOnline:'Связь с сервером установлена',serverRetry:'Сервер недоступен. Восстанавливаем связь; проверенные ходы сохранены.',
+    serverWait:'Подключаемся к нашему серверу…',vdoConnection:'Связь: VDO.Ninja',
     title: 'Вето карт', createHeading: 'Новое вето для капитанов',
     createNote: 'Сайт сделает короткие ссылки: по одной каждому капитану (в личку в Discord), одну для зрителей и одну для админа. Монетку капитаны бросят сами прямо в комнате — заранее её не знает никто, даже ты.',
     settings: 'Настройки вето', match: 'Матч из расписания', loadingSchedule: 'Загружаем расписание…',
@@ -277,9 +286,21 @@ async function setupCreate() {
     showError('');
     try {
       const base = new URL(location.pathname, location.href).href; // this page, here or on the veto site
-      const made = await createRoom(base, [$('vtTeamA').value, $('vtTeamB').value], $('vtFormat').value, Number($('vtTimer').value));
+      const relay = $('vtTransport').value === 'server' ? relayEndpoint('/api/veto-relay', base) : '';
+      const submit = $('vtForm').querySelector('[type="submit"]');
+      submit.disabled = true;
+      let made;
+      try {
+        if (relay) await checkRelay(relay);
+        made = await createRoom(base, [$('vtTeamA').value, $('vtTeamB').value], $('vtFormat').value, Number($('vtTimer').value), relay);
+      } finally { submit.disabled = false; }
       made.at = Date.now();
       store(LAST_KEY, made);
+      const prefill = new URLSearchParams(location.hash.slice(1));
+      if (prefill.has('new')) {
+        for (const [name,value] of Object.entries({a:made.room.t[0],b:made.room.t[1],f:made.room.f,m:made.room.m,via:relay?'server':'vdo'})) prefill.set(name,String(value));
+        history.replaceState(null,'',location.pathname+location.search+'#'+prefill);
+      }
       showLinks(made);
       toast(t('linksReady'));
     } catch (error) { showError(errorText(error.message)); }
@@ -292,6 +313,7 @@ async function setupCreate() {
   });
   const params = new URLSearchParams(location.hash.slice(1));
   const asked = params.has('new') ? [params.get('a') || '', params.get('b') || '', params.get('f')] : null;
+  if (['server','vdo'].includes(params.get('via'))) $('vtTransport').value = params.get('via');
   if (asked) {
     $('vtTeamA').value = asked[0];
     $('vtTeamB').value = asked[1];
@@ -305,11 +327,12 @@ async function setupCreate() {
     const room = last?.room;
     const fresh = Date.now() - (Number(last?.at) || 0) < RESTORE_FOR;
     if (fresh && room && Array.isArray(room.t) && last.links?.a && last.links?.b && last.links?.s && last.links?.o &&
-        (!asked || (asked[0] === room.t[0] && asked[1] === room.t[1] && asked[2] === room.f))) {
+        (!asked || (asked[0] === room.t[0] && asked[1] === room.t[1] && asked[2] === room.f && (!params.has('via') || Boolean(room.relay) === (params.get('via') === 'server'))))) {
       $('vtTeamA').value = room.t[0];
       $('vtTeamB').value = room.t[1];
       $('vtFormat').value = room.f;
       $('vtTimer').value = String(room.m ?? 5);
+      $('vtTransport').value = room.relay ? 'server' : 'vdo';
       showLinks({ ...last, restored: true });
     }
   } catch { /* odd saved data: start clean */ }
@@ -442,8 +465,27 @@ async function enterRoom(room) {
     if (learned) store(keysKey, room.p);
   }
   await learnKeys(store(keysKey));
-  const link = new Link(secrets, me === null ? '' : secrets.streams[me],
+  let transportState = room.relay ? 'serverWait' : 'vdoConnection';
+  const paintTransport = () => { $('vtTransportStatus').textContent = t(transportState); };
+  relabel.add(paintTransport);
+  const link = room.relay ? new ServerRoomLink(room, secrets, key, receive, status => {
+    transportState = status === 'online' ? 'serverOnline' : 'serverRetry'; paintTransport();
+  }) : new Link(secrets, me === null ? '' : secrets.streams[me],
     me === null ? secrets.streams : [secrets.streams[1 - me]], receive);
+  paintTransport();
+  if (room.relay) {
+    // A background Safari tab may throttle network requests. Other tabs of
+    // this room can still adopt the signed local journal; this never proves
+    // presence or creates a captain signature.
+    const localLog = event => {
+      if (event.storageArea === localStorage && [logKey, keysKey].includes(event.key))
+        adopt(store(logKey) || [], store(keysKey));
+    };
+    addEventListener('storage', localLog);
+    addEventListener('pagehide', event => {
+      if (!event.persisted) { link.close(); removeEventListener('storage', localLog); }
+    });
+  }
 
   const online = team => team === me || Date.now() - seen[team ? 'b' : 'a'] < ONLINE_FOR;
   // Spectators and the admin only listen: they add no load on the captains' phones.

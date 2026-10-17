@@ -42,6 +42,7 @@ await writeFile(to('core.js'), core);
 const assets = [
   'assets/favicon-night.png', 'assets/card/cyberclash-logo.png',
   'assets/veto-backdrop.jpg', 'assets/veto-appearance.js',
+  'assets/veto-relay-protocol.js', 'assets/veto-relay-client.js', 'assets/veto-relay-links.js',
   'assets/fonts/Oswald-Variable.ttf', 'assets/fonts/OFL-Oswald.txt',
   'assets/maps/LICENSE.txt', 'assets/maps/README.md', 'assets/flags', 'assets/teams'
 ];
@@ -51,10 +52,18 @@ for (const asset of assets) {
   await cp(from(asset), to(asset), { recursive: true });
 }
 
+// The same protocol on Workers (Durable Objects) and an optional Node host.
+for (const file of ['server/veto-relay-api.js', 'server/veto-relay-cloudflare.js',
+  'server/veto-relay-file.js', 'server/veto-relay-node.mjs', 'functions/api/veto-relay.js']) {
+  await mkdir(path.dirname(to(file)), {recursive:true});
+  await cp(from(file), to(file));
+}
+await cp(from('server/veto-relay-worker-entry.js'), to('worker.js'));
+
 // Cloudflare Pages headers: the veto needs Google Sheets (the schedule) and
 // VDO.Ninja frames only.
 await writeFile(to('_headers'), `/*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com; frame-src https://vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://oneshot-veto.cyberclash.workers.dev; frame-src https://vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
 `);
@@ -62,13 +71,10 @@ await writeFile(to('_headers'), `/*
 // Cloudflare Workers (static assets, the dashboard's default for a Git
 // repository): the files at the root are the site; .assetsignore keeps the
 // config and the README out of it. Pages works too (output directory /).
-await writeFile(to('wrangler.jsonc'), `{
-  "name": "oneshot-veto",
-  "compatibility_date": "2026-10-01",
-  "assets": { "directory": "." }
-}
-`);
-await writeFile(to('.assetsignore'), '.git\n.assetsignore\nwrangler.jsonc\nREADME.md\n');
+await cp(from('server/veto-relay-wrangler.jsonc'), to('wrangler.jsonc'));
+await writeFile(to('.assetsignore'), '.git\n.assetsignore\nwrangler.jsonc\nREADME.md\nworker.js\nserver/\nfunctions/\npackage.json\nRELAY.md\n');
+await cp(from('server/RELAY.md'), to('RELAY.md'));
+await writeFile(to('package.json'), JSON.stringify({private:true,type:'module',engines:{node:'>=22'},scripts:{relay:'node server/veto-relay-node.mjs'}},null,2)+'\n');
 
 await writeFile(to('README.md'), `# Oneshot · captains' veto
 
@@ -93,7 +99,10 @@ branch \`main\`, no build command, deploy command \`npx wrangler deploy\`
 A push that shows no new row in Deployments means the Cloudflare GitHub app
 does not see this repository: Settings → Builds → Git repository → Manage.
 
-Locally: any static server, e.g. \`python3 -m http.server 8080\`.
+VDO rooms work on any static host. Server rooms need the relay described in
+\`RELAY.md\`: deploy this Worker's Durable Objects first; Pages forwards only
+\`/api/veto-relay\` to that Worker. For a future server use Node >=22 and the
+same HTTP protocol. A static file server alone cannot synchronize clients.
 `);
 
 // Nothing of the panel may leak into the copy.

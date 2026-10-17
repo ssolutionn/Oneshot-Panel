@@ -1,0 +1,14 @@
+{
+  "name": "oneshot-veto",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/veto-relay"]
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "VETO_RELAY", "class_name": "VetoRelayTopic" }]
+  },
+  "migrations": [{ "tag": "veto-relay-v1", "new_sqlite_classes": ["VetoRelayTopic"] }]
+}

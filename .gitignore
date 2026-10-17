@@ -9,3 +9,5 @@ claude-artifact/data/
 work/
 .claude/settings.local.json
 dist-veto/
+.veto-relay-data/
+.wrangler/
