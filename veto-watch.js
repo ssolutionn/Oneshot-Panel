@@ -60,8 +60,10 @@ export function roomMoves(room, log) {
 // Two hidden view iframes, one per captain's stream: what comes through a
 // stream's frame was sent by that stream's captain.
 function connectVdo(secrets, deliver) {
-  const frames = secrets.streams.map(stream => {
-    const url = new URL(VDO);
+  const views = [];
+  let stopped = false;
+  const make = team => {
+    const stream = secrets.streams[team], url = new URL(VDO);
     url.search = new URLSearchParams({ view: stream, password: secrets.password, label: 'oneshot-veto' }) +
       '&dataonly&cleanoutput';
     const iframe = document.createElement('iframe');
@@ -69,18 +71,36 @@ function connectVdo(secrets, deliver) {
     iframe.allow = 'autoplay';
     iframe.setAttribute('aria-hidden', 'true');
     document.body.append(iframe);
-    return iframe;
-  });
+    views[team] = { frame: iframe, last: Date.now() };
+  };
+  const replace = team => {
+    if (stopped) return;
+    views[team]?.frame.remove();
+    make(team);
+  };
+  secrets.streams.forEach((_, team) => make(team));
   const listen = event => {
-    const team = frames.findIndex(frame => frame.contentWindow === event.source);
+    const team = views.findIndex(view => view?.frame.contentWindow === event.source);
     const box = event.data?.dataReceived?.oneshotVeto;
-    if (team >= 0 && box) deliver(box, team);
+    if (team >= 0 && box) {
+      views[team].last = Date.now();
+      deliver(box, team);
+    }
   };
   addEventListener('message', listen);
+  // A VDO viewer created before its publisher can stay silent indefinitely.
+  // Retry only that invisible viewer; the rest of the panel keeps running.
+  const watchdog = setInterval(() => {
+    if (document.hidden || stopped) return;
+    const now = Date.now();
+    for (const [team, view] of views.entries()) if (now - view.last >= 15000) replace(team);
+  }, 5000);
   return {
     stop() {
+      stopped = true;
+      clearInterval(watchdog);
       removeEventListener('message', listen);
-      for (const frame of frames) frame.remove();
+      for (const view of views) view?.frame.remove();
     }
   };
 }
