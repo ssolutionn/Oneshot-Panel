@@ -2,6 +2,32 @@
   "source_sha": "842656e90cf0cdcccde99594fbcca1d9730a4dc5",
   "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39080635984",
   "status": "running",
-  "steps": {},
-  "updated_at": "2026-10-17T23:52:03.129823+00:00"
+  "steps": {
+    "public_endpoints": {
+      "status": "observed",
+      "results": [
+        {
+          "url": "https://oneshot-veto.pages.dev/",
+          "error": "HTTP Error 403: Forbidden"
+        },
+        {
+          "url": "https://oneshot-veto.pages.dev/veto.js",
+          "error": "HTTP Error 403: Forbidden"
+        },
+        {
+          "url": "https://oneshot-veto.pages.dev/veto-room.js",
+          "error": "HTTP Error 403: Forbidden"
+        },
+        {
+          "url": "https://oneshot-veto.pages.dev/api/veto-relay?health=1",
+          "error": "HTTP Error 403: Forbidden"
+        },
+        {
+          "url": "https://oneshot-veto.cyberclash.workers.dev/api/veto-relay?health=1",
+          "error": "HTTP Error 403: Forbidden"
+        }
+      ]
+    }
+  },
+  "updated_at": "2026-10-17T23:52:04.574273+00:00"
 }
