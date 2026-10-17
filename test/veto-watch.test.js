@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRoom, decodeLink, captainKey, signMove, coinCommit, roomSecrets } from '../veto-room.js';
+import { createRoom, decodeLink, captainKey, signMove, signRoomMessage, coinCommit, roomSecrets } from '../veto-room.js';
 import { seal } from '../vdo.js';
 import { RoomWatch, adminRoom, roomToPanel, roomMoves } from '../veto-watch.js';
 
@@ -83,9 +83,13 @@ test('watch: signed moves, presence by stream, calls; junk and forgeries change 
   assert.equal(watch.online(0), true, 'presence is the stream the message came through, not from');
   assert.equal(watch.online(1), false);
   assert.equal(watch.log.length, 2);
-  await send({ t: 'log', from: 'b', log, p: seats.made.room.p, call: 1792141200000 }, 1);
+  const called = await signRoomMessage(seats.b, seats.kb,
+    { t: 'log', log, p: seats.made.room.p, call: 1792141200000 });
+  await send(called, 1);
   assert.equal(watch.log.length, log.length);
   assert.deepEqual(calls, [[1, 1792141200000]]);
+  await send({ t: 'log', from: 'b', log, p: seats.made.room.p, call: 1792141200001 }, 1);
+  assert.deepEqual(calls, [[1, 1792141200000]], 'an unsigned stream collision cannot call the admin');
   assert.ok(changes() >= 2);
   // B's move signed with A's key (A playing for B) is not taken.
   const forged = await signMove({ ...seats.a, me: 'b' }, log, seats.ka, 'ban', 'Nuke');

@@ -6,7 +6,7 @@
 import { unseal } from './vdo.js';
 import { connectServerWatch } from './assets/veto-relay-links.js';
 import {
-  decodeLink, encodeLink, roomSecrets, acceptKey, verifyLog, mergeLog, replay, nextTurn, COIN_MOVES
+  decodeLink, encodeLink, roomSecrets, acceptKey, verifyRoomMessage, verifyLog, mergeLog, replay, nextTurn, COIN_MOVES
 } from './veto-room.js';
 
 const VDO = 'https://vdo.ninja/';
@@ -60,8 +60,10 @@ export function roomMoves(room, log) {
 // Two hidden view iframes, one per captain's stream: what comes through a
 // stream's frame was sent by that stream's captain.
 function connectVdo(secrets, deliver) {
-  const frames = secrets.streams.map(stream => {
-    const url = new URL(VDO);
+  const views = [];
+  let stopped = false;
+  const make = team => {
+    const stream = secrets.streams[team], url = new URL(VDO);
     url.search = new URLSearchParams({ view: stream, password: secrets.password, label: 'oneshot-veto' }) +
       '&dataonly&cleanoutput';
     const iframe = document.createElement('iframe');
@@ -69,18 +71,36 @@ function connectVdo(secrets, deliver) {
     iframe.allow = 'autoplay';
     iframe.setAttribute('aria-hidden', 'true');
     document.body.append(iframe);
-    return iframe;
-  });
+    views[team] = { frame: iframe, last: Date.now() };
+  };
+  const replace = team => {
+    if (stopped) return;
+    views[team]?.frame.remove();
+    make(team);
+  };
+  secrets.streams.forEach((_, team) => make(team));
   const listen = event => {
-    const team = frames.findIndex(frame => frame.contentWindow === event.source);
+    const team = views.findIndex(view => view?.frame.contentWindow === event.source);
     const box = event.data?.dataReceived?.oneshotVeto;
-    if (team >= 0 && box) deliver(box, team);
+    if (team >= 0 && box) {
+      views[team].last = Date.now();
+      deliver(box, team);
+    }
   };
   addEventListener('message', listen);
+  // A VDO viewer created before its publisher can stay silent indefinitely.
+  // Retry only that invisible viewer; the rest of the panel keeps running.
+  const watchdog = setInterval(() => {
+    if (document.hidden || stopped) return;
+    const now = Date.now();
+    for (const [team, view] of views.entries()) if (now - view.last >= 15000) replace(team);
+  }, 5000);
   return {
     stop() {
+      stopped = true;
+      clearInterval(watchdog);
       removeEventListener('message', listen);
-      for (const frame of frames) frame.remove();
+      for (const view of views) view?.frame.remove();
     }
   };
 }
@@ -110,15 +130,25 @@ export class RoomWatch {
   }
   async open(box, team, online = true) {
     const message = await unseal(this.secrets.key, box);
-    if (message && !this.stopped) this.receive(message, team, online);
+    if (!message || this.stopped) return;
+    let call = false;
+    if (Number.isSafeInteger(message.call) && message.from === (team ? 'b' : 'a')) {
+      if (Array.isArray(message.p)) {
+        for (const index of [0, 1]) {
+          if (!this.room.p[index] && message.p[index]) await acceptKey(this.room, index, message.p[index]);
+        }
+      }
+      call = await verifyRoomMessage(this.room, message);
+    }
+    if (!this.stopped) this.receive(message, team, online, call);
   }
   // team: whose stream the message came through (the message's own from is
   // not trusted).
-  receive(message, team, online = true) {
+  receive(message, team, online = true, authenticatedCall = false) {
     if (!message || message.t !== 'log' || !Array.isArray(message.log) || ![0, 1].includes(team)) return;
     const back = online && !this.online(team);
     if (online) this.seen[team] = Date.now();
-    if (online && Number.isSafeInteger(message.call)) this.onCall(team, message.call);
+    if (online && authenticatedCall) this.onCall(team, message.call);
     const unkeyed = Array.isArray(message.p) && [0, 1].some(i => !this.room.p[i] && message.p[i]);
     if (back) this.onChange(this);
     if (message.log.length < this.log.length && !unkeyed) return;
