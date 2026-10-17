@@ -195,7 +195,7 @@ async def run():
             print("PASS: real OBS smoke pixels move", flush=True)
             await activate('[data-map="Ancient"]')
             await until("vetoOverlay.getState()?.actions.length === 1")
-            assert "Ancient" in await evaluate("document.getElementById('scene').dataset.animating")
+            await until("document.getElementById('scene').dataset.animating.includes('Ancient')")
             await asyncio.sleep(1)
             await activate('[data-map="Anubis"]')
             await until("vetoOverlay.getState()?.actions.length === 2")
@@ -217,7 +217,7 @@ async def run():
             await evaluate("window.pickStamps=0")
             await activate("#chooseCT")
             await until("vetoOverlay.getState()?.actions.length === 3")
-            assert "Mirage" in await evaluate("document.getElementById('scene').dataset.animating")
+            await until("document.getElementById('scene').dataset.animating.includes('Mirage')")
             print("PASS: manual bans, pending pick, side choice and card animations reach actual OBS", flush=True)
             await asyncio.sleep(1)
             assert await evaluate("window.pickStamps === 0"), "Side selection replayed PICK"
