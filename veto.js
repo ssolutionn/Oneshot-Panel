@@ -403,7 +403,7 @@ class Link {
   replaceView(stream, manual = false) {
     const view = this.views.get(stream);
     if (!view || this.closed) return;
-    const retry = manual ? 15000 : Math.min(view.retry * 2, 60000);
+    const retry = 15000;
     this.views.delete(stream);
     this.removeFrame(view.frame);
     this.make('view', stream, retry);
@@ -638,7 +638,8 @@ async function enterRoom(room) {
   // reveals. Nobody knows the result before both parts are in.
   function autoCoin() {
     if (me === null || busy) return;
-    const turn = nextTurn(room, replay(room, log));
+    const state = replay(room, log);
+    const turn = nextTurn(room, state);
     if (turn.team !== me || !COIN_MOVES.includes(turn.kind)) return;
     if (turn.kind === 'commit' && !(online(0) && online(1))) return;
     const attempt = turn.kind + log.length;
@@ -655,7 +656,13 @@ async function enterRoom(room) {
     } else {
       const nonce = store(coinKey);
       if (typeof nonce !== 'string') return showError(t('coinLost'), ['coinLost']);
-      move('reveal', nonce, true);
+      move('reveal', async () => {
+        if (await coinCommit(room, nonce) !== state.commit) {
+          showError(t('coinLost'), ['coinLost']);
+          throw new Error('Монетка не сходится.');
+        }
+        return nonce;
+      }, true);
     }
   }
 
