@@ -2,10 +2,10 @@
   "version": 1,
   "day": "2026-10-17",
   "startedAt": 1792188716432,
-  "updatedAt": 1792261481926,
+  "updatedAt": 1792270025733,
   "books": {
     "fonbet": {
-      "checkedAt": 1792261481921,
+      "checkedAt": 1792270025712,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -60,7 +60,7 @@
       ]
     },
     "pari": {
-      "checkedAt": 1792261481926,
+      "checkedAt": 1792270025718,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -115,7 +115,7 @@
       ]
     },
     "bettery": {
-      "checkedAt": 1792261481922,
+      "checkedAt": 1792270025733,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -170,7 +170,7 @@
       ]
     },
     "bet24": {
-      "checkedAt": 1792261481923,
+      "checkedAt": 1792270025715,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -225,7 +225,7 @@
       ]
     },
     "olimp": {
-      "checkedAt": 1792261481918,
+      "checkedAt": 1792270025708,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -280,7 +280,7 @@
       ]
     },
     "marathon": {
-      "checkedAt": 1792261481917,
+      "checkedAt": 1792270025702,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -311,7 +311,7 @@
       ]
     },
     "betcity": {
-      "checkedAt": 1792261481911,
+      "checkedAt": 1792270025720,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -366,13 +366,13 @@
       ]
     },
     "sportbet": {
-      "checkedAt": 1792261481919,
+      "checkedAt": 1792270025721,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "baltbet": {
-      "checkedAt": 1792261481926,
+      "checkedAt": 1792270025724,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -403,7 +403,7 @@
       ]
     },
     "winline": {
-      "checkedAt": 1792261481914,
+      "checkedAt": 1792270025731,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -482,7 +482,7 @@
       ]
     },
     "leon": {
-      "checkedAt": 1792261481920,
+      "checkedAt": 1792270025726,
       "status": "ok",
       "coverage": "prematch",
       "events": [

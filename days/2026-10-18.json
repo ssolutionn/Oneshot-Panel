@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "day": "2026-10-18",
+  "startedAt": 1792270025702,
+  "updatedAt": 1792270025733,
+  "books": {
+    "fonbet": {
+      "checkedAt": 1792270025712,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "pari": {
+      "checkedAt": 1792270025718,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "bettery": {
+      "checkedAt": 1792270025733,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "bet24": {
+      "checkedAt": 1792270025715,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "olimp": {
+      "checkedAt": 1792270025708,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "marathon": {
+      "checkedAt": 1792270025702,
+      "status": "ok",
+      "coverage": "prematch",
+      "events": []
+    },
+    "betcity": {
+      "checkedAt": 1792270025720,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "sportbet": {
+      "checkedAt": 1792270025721,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "baltbet": {
+      "checkedAt": 1792270025724,
+      "status": "ok",
+      "coverage": "prematch",
+      "events": []
+    },
+    "winline": {
+      "checkedAt": 1792270025731,
+      "status": "ok",
+      "coverage": "prematch",
+      "events": []
+    },
+    "leon": {
+      "checkedAt": 1792270025726,
+      "status": "ok",
+      "coverage": "prematch",
+      "events": [
+        {
+          "id": "1970324853942786",
+          "team1": "Fire Flux",
+          "team2": "Bushido Wildcats",
+          "tournament": "CyberClash Closed Qualifier",
+          "start": 1792317600000,
+          "odds": [
+            1.95,
+            1.75
+          ],
+          "url": "https://leon.ru/bets/esports/cs2/cyberclash-closed-qualifier/1970324853942786-fire-flux-bushido-wildcats-csgo",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792270025726,
+          "last": 1792270025726,
+          "open": [
+            1.95,
+            1.75
+          ],
+          "liveSeen": false,
+          "names": [
+            "CyberClash Closed Qualifier"
+          ]
+        },
+        {
+          "id": "1970324853942787",
+          "team1": "UPGRADE",
+          "team2": "Lavked",
+          "tournament": "CyberClash Closed Qualifier",
+          "start": 1792332000000,
+          "odds": [
+            1.38,
+            2.8
+          ],
+          "url": "https://leon.ru/bets/esports/cs2/cyberclash-closed-qualifier/1970324853942787-upgrade-lavked",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792270025726,
+          "last": 1792270025726,
+          "open": [
+            1.38,
+            2.8
+          ],
+          "liveSeen": false,
+          "names": [
+            "CyberClash Closed Qualifier"
+          ]
+        },
+        {
+          "id": "1970324853942790",
+          "team1": "6yuBoJlbl",
+          "team2": "HyperSpirit",
+          "tournament": "CyberClash Closed Qualifier",
+          "start": 1792353600000,
+          "odds": [
+            1.44,
+            2.6
+          ],
+          "url": "https://leon.ru/bets/esports/cs2/cyberclash-closed-qualifier/1970324853942790-6yubojlbl-hyperspirit",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792270025726,
+          "last": 1792270025726,
+          "open": [
+            1.44,
+            2.6
+          ],
+          "liveSeen": false,
+          "names": [
+            "CyberClash Closed Qualifier"
+          ]
+        }
+      ]
+    }
+  }
+}
