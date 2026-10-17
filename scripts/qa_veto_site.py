@@ -467,6 +467,17 @@ async def run(args):
         a1 = await open_page(link_a, context=ctx)
         a2 = await open_page(link_a, context=ctx)
         b = await open_page(link_b)
+        if not args.server:
+            publishers = 0
+            for _ in range(100):
+                publishers = sum([
+                    await a1.locator('iframe.vdo-frame[src*="push="]').count(),
+                    await a2.locator('iframe.vdo-frame[src*="push="]').count()
+                ])
+                if publishers == 1:
+                    break
+                await a1.wait_for_timeout(100)
+            assert publishers == 1, f"captain tabs created {publishers} VDO publishers"
         await coin_shown(a1, b)
         if await b.locator("#vtActions button").count():
             await b.get_by_role("button", name=re.compile("Первыми банят")).click()
