@@ -1,6 +1,6 @@
 // Adapt the shared signed HTTP relay to the existing encrypted room messages.
 import {RelayClient} from './veto-relay-client.js';
-import {seal,unseal,bridgeSecrets} from '../vdo.js';
+import {seal,unseal,bridgeSecrets,normalizeCode} from '../vdo.js';
 import {displayRelayIdentity} from '../veto-room.js';
 export class ServerRoomLink {
   constructor(room,secrets,key,onMessage,onStatus=()=>{}) {
@@ -19,6 +19,7 @@ export function connectServerWatch(room,secrets,deliver,onStatus=()=>{}) {
 }
 export class ServerDisplayLink {
   static async create(code,role,endpoint,onMessage,onStatus=()=>{},notBefore=0) {
+    code=normalizeCode(code);if(!code)throw Error('Неверный код показа вето.');
     const [secrets,publisher,other]=await Promise.all([bridgeSecrets(code),displayRelayIdentity(code,role),
       displayRelayIdentity(code,role==='dock'?'veto':'dock')]);
     return new ServerDisplayLink(secrets,publisher,other.topic,endpoint,onMessage,onStatus,notBefore);

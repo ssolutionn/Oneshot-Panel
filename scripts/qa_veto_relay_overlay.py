@@ -69,6 +69,10 @@ async def main():
         await panel.uncheck("#vetoLive")
         # Once the source is gone, a fresh panel cannot use an old receipt as success.
         await source.close()
+        await panel.check("#vetoLive")
+        await panel.wait_for_timeout(3000)
+        await expect(panel.locator("#vetoLiveStatus")).to_contain_text("Ждём оверлей")
+        await panel.uncheck("#vetoLive")
         await panel.reload()
         await panel.click("#vetoNavBtn")
         await panel.check("#vetoLive")

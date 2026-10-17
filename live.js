@@ -554,6 +554,7 @@ function ensureVetoLink() {
   }
   if (vetoLink) return Promise.resolve(vetoLink);
   if (vetoOpening) return vetoOpening;
+  lastVeto = ''; vetoId = ''; vetoAck = ''; vetoSeen = 0;
   vetoOpening = bridgeSecrets(vetoCode).then(secrets => {
     if (!$('vetoLive').checked) return null;
     const receive = message => {

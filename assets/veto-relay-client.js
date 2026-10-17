@@ -18,9 +18,10 @@ export class RelayClient {
     if(!this.topics.length||this.topics.length>4||!this.topics.every(topicValid))throw Error('Invalid topics');
     Object.assign(this,{onPacket,publisher,onStatus,interval,fetchImpl});
     this.seen=new Map();this.stopped=false;this.timer=null;this.failures=0;this.lastPacketAt=0;
-    this.pending=null;this.sending=null;this.controllers=new Set();
+    this.pending=null;this.sending=null;this.writeFailed=false;this.controllers=new Set();
     this.wake=()=>{clearTimeout(this.timer);this.poll();};
     globalThis.addEventListener?.('online',this.wake);
+    globalThis.addEventListener?.('pageshow',this.wake);
     this.poll();
   }
   async request(url,init={}) {
@@ -49,7 +50,7 @@ export class RelayClient {
         const age=result.now-record.receivedAt;
         await this.onPacket(p.box,p.topic,Number.isFinite(age)&&age>=-1000&&age<8000,p.at);
       }
-      this.failures=0;this.onStatus('online');
+      this.failures=0;this.onStatus(this.writeFailed?'retry':'online');
     }catch{if(!this.stopped){this.failures++;this.onStatus('retry');}}
     finally{
       this.polling=false;
@@ -69,9 +70,9 @@ export class RelayClient {
           const packet=await signRelayPacket(this.publisher.key,this.publisher.point,next,now);
           const reply=await this.request(this.endpoint,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(packet)});
           if(reply.protocol!==1||reply.accepted!==true)throw Error('Relay did not accept packet');
-          this.onStatus('online');accepted=true;
+          this.writeFailed=false;this.onStatus('online');accepted=true;
         }catch{
-          if(!this.stopped){this.pending ||= next;this.onStatus('retry');}
+          if(!this.stopped){this.pending ||= next;this.writeFailed=true;this.onStatus('retry');}
           break;
         }
       }
@@ -82,6 +83,7 @@ export class RelayClient {
   close() {
     this.stopped=true;this.pending=null;clearTimeout(this.timer);
     globalThis.removeEventListener?.('online',this.wake);
+    globalThis.removeEventListener?.('pageshow',this.wake);
     for(const c of this.controllers)c.abort();this.controllers.clear();
   }
 }

@@ -322,7 +322,7 @@ async function setupCreate() {
     const room = last?.room;
     const fresh = Date.now() - (Number(last?.at) || 0) < RESTORE_FOR;
     if (fresh && room && Array.isArray(room.t) && last.links?.a && last.links?.b && last.links?.s && last.links?.o &&
-        (!asked || (asked[0] === room.t[0] && asked[1] === room.t[1] && asked[2] === room.f))) {
+        (!asked || (asked[0] === room.t[0] && asked[1] === room.t[1] && asked[2] === room.f && Boolean(room.relay) === (params.get('via') === 'server')))) {
       $('vtTeamA').value = room.t[0];
       $('vtTeamB').value = room.t[1];
       $('vtFormat').value = room.f;
@@ -468,7 +468,7 @@ async function enterRoom(room) {
   }) : new Link(secrets, me === null ? '' : secrets.streams[me],
     me === null ? secrets.streams : [secrets.streams[1 - me]], receive);
   paintTransport();
-  if (room.relay) addEventListener('pagehide', () => link.close(), {once:true});
+  if (room.relay) addEventListener('pagehide', event => { if (!event.persisted) link.close(); });
 
   const online = team => team === me || Date.now() - seen[team ? 'b' : 'a'] < ONLINE_FOR;
   // Spectators and the admin only listen: they add no load on the captains' phones.
