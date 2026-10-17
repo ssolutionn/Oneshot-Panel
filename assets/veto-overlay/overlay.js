@@ -15,7 +15,7 @@ let layout=params.get('layout')==='strip'?'strip':'full';
 let count=Number(params.get('step') ?? 2);
 if(!Number.isInteger(count)||count<0||count>6)count=2;
 let current=preview?demoState(format,count):null,scene,playing=false,timer,boot=0;
-let displayLink=null;
+let displayLink=null,displayWatchdog=null,displayOpening=false;
 let motion=params.get('motion')!=='off'&&!reduced.matches;
 document.body.dataset.preview=String(preview);
 $('previewBar').hidden=!preview;
@@ -127,7 +127,7 @@ async function init() {
     stopMotion:()=>{motion=false;$('motion').checked=false;scene.setMotion(false);},
     description:()=>scene.description()
   };
-  window.addEventListener('pagehide',()=>{stop();scene.dispose();displayLink?.close();},{once:true});
+  window.addEventListener('pagehide',()=>{stop();scene.dispose();clearInterval(displayWatchdog);displayLink?.close();},{once:true});
   // Initial snapshot and display-only live channel from the copied OBS URL.
   // Native events remain accepted for compatibility, but do not prove delivery.
   if(!preview) {
@@ -138,8 +138,10 @@ async function init() {
     const code=normalizeCode(new URLSearchParams(location.hash.slice(1)).get('r'));
     if(code) {
       const secrets=await bridgeSecrets(code);
+      let receivedAt=Date.now();
       const receive=async message=>{
         if(message.type!=='veto-state'||typeof message.id!=='string')return;
+        receivedAt=Date.now();
         try {
           // Confirm only what is actually on screen.
           if(await apply(message.state))await displayLink?.send({type:'veto-received',id:message.id});
@@ -147,6 +149,16 @@ async function init() {
       };
       const endpoint=new URLSearchParams(location.hash.slice(1)).get('relay');
       displayLink=endpoint ? await ServerDisplayLink.create(code,'veto',relayEndpoint(endpoint),receive,undefined,Number(new URLSearchParams(location.hash.slice(1)).get('at'))||0) : new VdoLink(secrets,'veto',receive);
+      if(!endpoint)displayWatchdog=setInterval(async()=>{
+        if(document.hidden||displayOpening||Date.now()-receivedAt<15000)return;
+        displayOpening=true;
+        try {
+          displayLink?.close();
+          displayLink=new VdoLink(secrets,'veto',receive);
+          receivedAt=Date.now();
+        } catch { /* the next watchdog tick retries */ }
+        finally {displayOpening=false;}
+      },5000);
     }
   }
   update();document.body.dataset.ready='true';
