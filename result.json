@@ -67,7 +67,10 @@
       "exit_code": 0,
       "seconds": 33.6,
       "tail": "PASS: 20-second VDO signalling survives; reconnect restarts the publisher without stealing its lock; standby takes over\nPASS: stalled HTTP POST retains only the newest queued signed snapshot\nPASS: a refused localStorage nonce write does not stop the active commit/reveal\n"
+    },
+    "real_vdo": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-10-17T23:58:10.930449+00:00"
+  "updated_at": "2026-10-17T23:58:12.353340+00:00"
 }
