@@ -50,7 +50,10 @@
       "exit_code": 0,
       "seconds": 1.7,
       "tail": "PASS: current real VDO accepts cover URL and live style messages for camera pan/rotation; controlled media, no player stream\n"
+    },
+    "editor_chromium": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-10-18T20:50:07.563696+00:00"
+  "updated_at": "2026-10-18T20:50:09.502597+00:00"
 }
