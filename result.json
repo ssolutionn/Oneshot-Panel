@@ -4,8 +4,8 @@
   "status": "running",
   "steps": {
     "deployment_wait": {
-      "status": "in_progress",
-      "conclusion": null,
+      "status": "completed",
+      "conclusion": "success",
       "head_sha": "b1118a58d0553a4f901e5e06797c6bb8d78864e8",
       "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39112821872",
       "job_steps": [
@@ -56,26 +56,31 @@
         },
         {
           "name": "Verify public assets and relay health",
-          "status": "in_progress",
-          "conclusion": null
+          "status": "completed",
+          "conclusion": "success"
         },
         {
           "name": "Post Run actions/setup-python@v5",
-          "status": "pending",
-          "conclusion": null
+          "status": "completed",
+          "conclusion": "success"
         },
         {
           "name": "Post Run actions/setup-node@v4",
-          "status": "pending",
-          "conclusion": null
+          "status": "completed",
+          "conclusion": "success"
         },
         {
           "name": "Post Run actions/checkout@v4",
-          "status": "pending",
-          "conclusion": null
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
         }
       ]
     }
   },
-  "updated_at": "2026-10-18T08:48:32.422913+00:00"
+  "updated_at": "2026-10-18T08:48:44.798182+00:00"
 }
