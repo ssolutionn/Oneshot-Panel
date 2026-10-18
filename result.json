@@ -1,7 +1,7 @@
 {
   "source_sha": "f44ff7334485f77c207ad8a60542e1a1ee5079f6",
   "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39083577673",
-  "status": "running",
+  "status": "passed",
   "steps": {
     "deployment_wait": {
       "status": "completed",
@@ -245,7 +245,7 @@
       ]
     }
   },
-  "updated_at": "2026-10-18T00:40:42.413507+00:00",
+  "updated_at": "2026-10-18T00:40:43.661728+00:00",
   "deployment_runs": [
     {
       "id": 39083496923,
