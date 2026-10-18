@@ -1,0 +1,21 @@
+name: Verify current organizer schedule
+on:
+  push:
+    branches: ["codex/match-schedule-check"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  schedule:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 -m pip install playwright && python3 -m playwright install --with-deps chromium
+      - run: python3 scripts/inspect_match_schedule.py
