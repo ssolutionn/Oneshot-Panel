@@ -8,7 +8,80 @@
       "conclusion": "failure",
       "head_sha": "647686982e3168927ddfad56cf10e69a4b654f76",
       "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39083707269"
+    },
+    "deployment_metadata": {
+      "status": "observed",
+      "results": [
+        {
+          "ref": "main",
+          "status": {
+            "sha": "647686982e3168927ddfad56cf10e69a4b654f76",
+            "state": "pending",
+            "statuses": []
+          },
+          "check-runs": [
+            {
+              "name": "deploy",
+              "head_sha": "647686982e3168927ddfad56cf10e69a4b654f76",
+              "status": "completed",
+              "conclusion": "failure",
+              "details_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39083707269/job/117545769482"
+            }
+          ]
+        },
+        {
+          "ref": "codex/veto-resilience-review",
+          "status": {
+            "sha": "647686982e3168927ddfad56cf10e69a4b654f76",
+            "state": "pending",
+            "statuses": []
+          },
+          "check-runs": [
+            {
+              "name": "deploy",
+              "head_sha": "647686982e3168927ddfad56cf10e69a4b654f76",
+              "status": "completed",
+              "conclusion": "failure",
+              "details_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39083707269/job/117545769482"
+            }
+          ]
+        }
+      ]
     }
   },
-  "updated_at": "2026-10-18T00:42:53.416348+00:00"
+  "updated_at": "2026-10-18T00:42:59.636876+00:00",
+  "deployment_runs": [
+    {
+      "id": 39083707269,
+      "name": "Deploy veto to Cloudflare",
+      "head_sha": "647686982e3168927ddfad56cf10e69a4b654f76",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39083707269"
+    },
+    {
+      "id": 39083496923,
+      "name": "Deploy veto to Cloudflare",
+      "head_sha": "9376ab642be503675f216cd0ac4ed9ffd5811408",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39083496923"
+    },
+    {
+      "id": 39082509816,
+      "name": "Deploy veto to Cloudflare",
+      "head_sha": "4dff498f9de47f9defa8118f10e418f3bbe761cf",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39082509816"
+    }
+  ],
+  "deployment_failure": "deploy\tDeploy Pages and API route\t﻿2026-10-18T00:42:07.1128057Z ##[group]Run npx --yes wrangler@4.151.1 pages deploy . --project-name oneshot-veto --branch main --commit-hash \"$GITHUB_SHA\" --commit-message 'Verified veto release'\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:07.1129256Z ^[[36;1mnpx --yes wrangler@4.151.1 pages deploy . --project-name oneshot-veto --branch main --commit-hash \"$GITHUB_SHA\" --commit-message 'Verified veto release'^[[0m\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:07.1182792Z shell: /usr/bin/bash -e {0}\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:07.1182939Z env:\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:07.1183240Z   CLOUDFLARE_API_TOKEN: [redacted]\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:07.1183424Z   CLOUDFLARE_ACCOUNT_ID: ***\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:07.1183566Z   WRANGLER_SEND_METRICS: false\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:07.1183712Z ##[endgroup]\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:08.0567000Z \ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:08.0568148Z  ⛅️ wrangler 4.151.1\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:08.0568443Z ────────────────────\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:09.4066756Z Uploading... (34/45)\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:09.9264398Z Uploading... (37/45)\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:09.9293626Z Uploading... (41/45)\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:10.1534165Z Uploading... (45/45)\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:10.1535313Z ✨ Success! Uploaded 11 files (34 already uploaded) (1.25 sec)\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:10.1535487Z \ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.1492841Z ✨ Uploading _headers\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2114845Z ^[[31m✘ ^[[41;31m[^[[41;97mERROR^[[41;31m]^[[0m ^[[1mBuild failed with 1 error:^[[0m\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2115192Z \ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2115412Z   ^[[31m✘ ^[[41;31m[^[[41;97mERROR^[[41;31m]^[[0m ^[[1mExpected \";\" but found \":\"^[[0m\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2115682Z   \ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2115835Z       _worker.js:2:19:\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2116115Z   ^[[37m      2 │ Content-Disposition^[[32m:^[[37m form-data; name=\"metadata\"\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2116393Z           │                    ^[[32m^^[[37m\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2116732Z           ╵                    ^[[32m;^[[0m\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2117016Z   \ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2117174Z   \ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2117280Z \ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2117287Z \ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2135954Z \ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2145005Z ^[[31m✘ ^[[41;31m[^[[41;97mERROR^[[41;31m]^[[0m ^[[1mBuild failed with 1 error:^[[0m\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2145322Z \ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2145777Z   ^[[31m✘ ^[[41;31m[^[[41;97mERROR^[[41;31m]^[[0m ^[[1mExpected \";\" but found \":\"^[[0m\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2145989Z   \ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2146115Z       _worker.js:2:19:\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2146377Z   ^[[37m      2 │ Content-Disposition^[[32m:^[[37m form-data; name=\"metadata\"\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2146636Z           │                    ^[[32m^^[[37m\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2146832Z           ╵                    ^[[32m;^[[0m\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2146975Z   \ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2147075Z   \ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2147133Z \ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2147137Z \ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2164255Z 🪵  Logs were written to \"/home/runner/.config/.wrangler/logs/wrangler-2026-10-18_00-42-07_916.log\"\ndeploy\tDeploy Pages and API route\t2026-10-18T00:42:11.2459103Z ##[error]Process completed with exit code 1.\n",
+  "site_pull_request": {
+    "number": 2,
+    "state": "closed",
+    "merged": true,
+    "merge_commit_sha": "f16cadba7ee1dc96220fc50845a75d5b15080e95",
+    "html_url": "https://github.com/ssolutionn/Oneshot-Veto/pull/2"
+  }
 }
