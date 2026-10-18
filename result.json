@@ -2,6 +2,80 @@
   "source_sha": "45287efefce2df486b3e793d6f908ddd609962db",
   "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39084543588",
   "status": "running",
-  "steps": {},
-  "updated_at": "2026-10-18T00:55:17.200981+00:00"
+  "steps": {
+    "deployment_wait": {
+      "status": "in_progress",
+      "conclusion": null,
+      "head_sha": "f1d703587b0855de1382e3e602c8b1bede935c50",
+      "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39084484953",
+      "job_steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate Worker and Pages Functions",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Check Cloudflare credentials",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Deploy Worker and Durable Object migration",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Deploy Pages and API route",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install browser for public verification",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify public assets and relay health",
+          "status": "in_progress",
+          "conclusion": null
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "status": "pending",
+          "conclusion": null
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "status": "pending",
+          "conclusion": null
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "pending",
+          "conclusion": null
+        }
+      ]
+    }
+  },
+  "updated_at": "2026-10-18T00:55:19.794908+00:00"
 }
