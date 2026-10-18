@@ -157,6 +157,33 @@ def public_browser_probe():
     publish()
 
 
+def deployment_metadata():
+    """Read existing Pages/Worker checks without changing any deployment."""
+    results = []
+    for ref in ["main", "codex%2Fveto-resilience-review"]:
+        row = {"ref": ref.replace("%2F", "/")}
+        for suffix in ["status", "check-runs"]:
+            command = subprocess.run([
+                "gh", "api", f"repos/ssolutionn/Oneshot-Veto/commits/{ref}/{suffix}"
+            ], capture_output=True, text=True, timeout=30)
+            if command.returncode:
+                row[suffix] = {"error": safe(command.stderr[-1500:])}
+                continue
+            data = json.loads(command.stdout)
+            if suffix == "status":
+                row[suffix] = {"sha": data.get("sha"), "state": data.get("state"),
+                               "statuses": [{key: status.get(key) for key in [
+                                   "context", "state", "description", "target_url"]}
+                                            for status in data.get("statuses", [])]}
+            else:
+                row[suffix] = [{key: check.get(key) for key in [
+                    "name", "head_sha", "status", "conclusion", "details_url"]}
+                               for check in data.get("check_runs", [])]
+        results.append(row)
+    REPORT["steps"]["deployment_metadata"] = {"status": "observed", "results": results}
+    publish()
+
+
 def prior_failure():
     repository = os.environ["GITHUB_REPOSITORY"]
     meta = subprocess.run(["gh", "api", f"repos/{repository}/actions/artifacts/12108273813"],
@@ -211,6 +238,7 @@ def main():
         return False
     public_browser_probe()
     if os.environ.get("VETO_EXTERNAL_MODE") == "public":
+        deployment_metadata()
         # This is an observation job, not a release gate or a deployment.
         return True
     server_log = (OUT / "server.log").open("w")
