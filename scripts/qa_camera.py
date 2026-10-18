@@ -65,7 +65,8 @@ async def run(args):
         if args.real_provider:
             handle=await page.locator("#cameraPreviewBox iframe").element_handle()
             frame=await handle.content_frame()
-            await frame.wait_for_function("typeof window.onmessage==='function'",timeout=60000)
+            await frame.wait_for_url("https://vdo.ninja/**",wait_until="domcontentloaded",timeout=60000)
+            await frame.wait_for_function("() => typeof window.onmessage==='function'",timeout=60000)
             assert await frame.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--fit-style').trim()")=="cover"
             await frame.evaluate("""poster=>{
               const video=document.createElement('video');
