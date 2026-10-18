@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  actions: read
 jobs:
   schedule:
     runs-on: ubuntu-latest
@@ -19,3 +20,5 @@ jobs:
           python-version: "3.12"
       - run: python3 -m pip install playwright && python3 -m playwright install --with-deps chromium
       - run: python3 scripts/inspect_match_schedule.py
+        env:
+          GH_TOKEN: ${{ github.token }}

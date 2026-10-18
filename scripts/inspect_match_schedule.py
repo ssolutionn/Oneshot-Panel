@@ -48,15 +48,15 @@ try:
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(locale="ru-RU", timezone_id="Europe/Moscow")
-        expected = git("ls-remote", "--heads", "origin", "refs/heads/claude/gracious-sagan-apztcc").split()[0]
-        report["expected_build"] = expected
+        expected_build = git("ls-remote", "--heads", "origin", "refs/heads/claude/gracious-sagan-apztcc").split()[0]
+        report["expected_build"] = expected_build
         for attempt in range(36):
             build = page.goto("https://oneshot-panel.pages.dev/build.txt", wait_until="domcontentloaded", timeout=30000)
             report["published_build"] = build.text().strip() if build and build.status == 200 else None
-            if report["published_build"] == expected:
+            if report["published_build"] == expected_build:
                 break
             time.sleep(5)
-        if report["published_build"] != expected:
+        if report["published_build"] != expected_build:
             raise RuntimeError("The panel host has not yet published the expected commit")
         app = page.goto("https://oneshot-panel.pages.dev/app.js", wait_until="domcontentloaded", timeout=30000)
         report["app_matches_source"] = hashlib.sha256(app.body()).digest() == hashlib.sha256(Path("app.js").read_bytes()).digest()
@@ -92,6 +92,12 @@ except Exception as error:
     report["error"] = str(error)
     report["passed"] = False
 finally:
+    if os.environ.get("GH_TOKEN") and report.get("expected_build"):
+        runs = subprocess.run(["gh", "api", "repos/ssolutionn/Oneshot-Panel/actions/runs?head_sha=" + report["expected_build"]],
+                              capture_output=True, text=True, timeout=30)
+        if runs.returncode == 0:
+            report["checks"] = [{k:r.get(k) for k in ["name","status","conclusion","html_url","id"]}
+                                for r in json.loads(runs.stdout).get("workflow_runs", [])]
     ref = "refs/heads/codex/match-schedule-results"
     payload = (json.dumps(report, ensure_ascii=False, indent=2) + "\n").encode()
     with tempfile.TemporaryDirectory() as folder:
