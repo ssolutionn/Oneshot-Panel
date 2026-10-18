@@ -23,7 +23,10 @@ In the **Oneshot-Veto** repository's Settings → Secrets and variables → Acti
 set `CLOUDFLARE_API_TOKEN` as a secret (Account → Workers Scripts → Edit and
 Account → Cloudflare Pages → Edit, scoped to the existing account).
 Set `CLOUDFLARE_ACCOUNT_ID` as a repository variable or secret for that same
-account. These values are not part of the site or captain links. The workflow
+account. If it is absent, the workflow attempts account discovery and accepts
+only one account whose existing Pages project owns `oneshot-veto.pages.dev`.
+Discovery needs permission to list accounts; otherwise set the ID explicitly.
+These values are not part of the site or captain links. The workflow
 fails explicitly when either value is missing; it never treats a static-only
 upload as a ready relay. Re-run the workflow after adding missing credentials.
 
