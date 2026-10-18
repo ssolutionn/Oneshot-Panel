@@ -247,7 +247,7 @@
       ]
     }
   },
-  "updated_at": "2026-10-18T00:43:43.294910+00:00",
+  "updated_at": "2026-10-18T00:43:45.171159+00:00",
   "deployment_runs": [
     {
       "id": 39083707269,
@@ -285,5 +285,6 @@
   "cloudflare_bindings": {
     "CLOUDFLARE_API_TOKEN": false,
     "CLOUDFLARE_ACCOUNT_ID": false
-  }
+  },
+  "public_journeys": "not run: deployed files or relay health are not ready"
 }
