@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "day": "2026-10-19",
+  "startedAt": 1792358706805,
+  "updatedAt": 1792358706842,
+  "books": {
+    "fonbet": {
+      "checkedAt": 1792358706831,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "pari": {
+      "checkedAt": 1792358706824,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "bettery": {
+      "checkedAt": 1792358706840,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "bet24": {
+      "checkedAt": 1792358706837,
+      "status": "partial",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "olimp": {
+      "checkedAt": 1792358706842,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": [
+        {
+          "id": "86098632",
+          "team1": "6yuBoJlbl",
+          "team2": "HyperSpirit",
+          "tournament": "CS2. CyberClash",
+          "start": 1792357200000,
+          "odds": [
+            1.43,
+            2.55
+          ],
+          "url": "https://www.olimp.bet/live/kibersport-112/8354797/86098632",
+          "live": true,
+          "liveOffered": false,
+          "first": 1792358706842,
+          "last": 1792358706842,
+          "open": [
+            1.43,
+            2.55
+          ],
+          "liveSeen": true,
+          "names": [
+            "CS2. CyberClash"
+          ]
+        }
+      ]
+    },
+    "marathon": {
+      "checkedAt": 1792358706820,
+      "status": "error",
+      "coverage": "prematch",
+      "events": []
+    },
+    "betcity": {
+      "checkedAt": 1792358706809,
+      "status": "partial",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "sportbet": {
+      "checkedAt": 1792358706835,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "baltbet": {
+      "checkedAt": 1792358706812,
+      "status": "ok",
+      "coverage": "prematch",
+      "events": []
+    },
+    "winline": {
+      "checkedAt": 1792358706817,
+      "status": "ok",
+      "coverage": "prematch",
+      "events": []
+    },
+    "leon": {
+      "checkedAt": 1792358706805,
+      "status": "ok",
+      "coverage": "prematch",
+      "events": []
+    }
+  }
+}
