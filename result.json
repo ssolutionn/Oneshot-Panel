@@ -74,7 +74,10 @@
       "exit_code": 1,
       "seconds": 28.0,
       "tail": "Traceback (most recent call last):\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/scripts/qa_camera_obs.py\", line 197, in <module>\n    asyncio.run(run())\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/asyncio/runners.py\", line 195, in run\n    return runner.run(main)\n           ^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/asyncio/runners.py\", line 118, in run\n    return self._loop.run_until_complete(task)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/asyncio/base_events.py\", line 691, in run_until_complete\n    return future.result()\n           ^^^^^^^^^^^^^^^\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/scripts/qa_camera_obs.py\", line 147, in run\n    image=await picture(slot,\"json-slot-\"+str(slot))\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/scripts/qa_camera_obs.py\", line 139, in picture\n    raise AssertionError(f\"{label}: visible camera bounds {bounds}, expected {expected}\")\nAssertionError: json-slot-1: visible camera bounds None, expected (312, 54, 1608, 1026)\n"
+    },
+    "real_vdo_api": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-10-18T20:34:14.412538+00:00"
+  "updated_at": "2026-10-18T20:34:16.364641+00:00"
 }
