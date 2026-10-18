@@ -63,6 +63,11 @@ try:
         response = page.goto("https://oneshot-panel.pages.dev/", wait_until="domcontentloaded", timeout=45000)
         report["public_status"] = response.status
         page.wait_for_function("() => window.oneshotPanel && document.querySelector('#syncTitle').textContent.includes('команд из таблицы')", timeout=45000)
+        report["review_features"] = page.evaluate("""() => ({
+          defaultCoin:document.querySelector('#cvStart')?.value==='coin',
+          exportRecovery:!!document.querySelector('#exportRecovery'),
+          exportDialog:!!document.querySelector('#exportText')
+        })""")
         page.click("#refreshBtn")
         page.wait_for_function("() => !document.querySelector('#refreshBtn').disabled", timeout=45000)
         report["panel"] = page.evaluate('''() => ({
@@ -86,12 +91,30 @@ try:
             report["selection_checks"].append(check)
         loaded = report["panel"]["schedule"]
         report["missing"] = [m for m in expected if m not in loaded]
-        report["passed"] = report["app_matches_source"] and not report["missing"] and not report["panel"]["error"] and all(c["passed"] for c in report["selection_checks"])
+        report["passed"] = report["app_matches_source"] and all(report["review_features"].values()) and not report["missing"] and not report["panel"]["error"] and all(c["passed"] for c in report["selection_checks"])
         browser.close()
 except Exception as error:
     report["error"] = str(error)
     report["passed"] = False
 finally:
+    if os.environ.get("GH_TOKEN"):
+        veto_sha = git("ls-remote","--heads","https://github.com/ssolutionn/Oneshot-Veto.git","refs/heads/main").split()[0]
+        report["veto_expected"] = veto_sha
+        for attempt in range(18):
+            query = subprocess.run(["gh","api","repos/ssolutionn/Oneshot-Veto/actions/runs?head_sha="+veto_sha],
+                                   capture_output=True,text=True,timeout=30)
+            if query.returncode != 0:
+                report["veto_metadata_error"] = "GitHub deployment metadata unavailable"
+                break
+            candidates = [r for r in json.loads(query.stdout).get("workflow_runs",[])
+                          if r.get("name")=="Deploy veto to Cloudflare"]
+            if candidates:
+                run=candidates[0]
+                report["veto_deployment"]={k:run.get(k) for k in ("name","head_sha","status","conclusion","html_url")}
+                if run.get("status")=="completed":
+                    break
+            time.sleep(10)
+        report["passed"] = report.get("passed") and report.get("veto_deployment",{}).get("conclusion")=="success"
     if os.environ.get("GH_TOKEN") and report.get("expected_build"):
         runs = subprocess.run(["gh", "api", "repos/ssolutionn/Oneshot-Panel/actions/runs?head_sha=" + report["expected_build"]],
                               capture_output=True, text=True, timeout=30)
