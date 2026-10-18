@@ -1,7 +1,7 @@
 {
-  "source_sha": "1fa31a732978b1883eaeebafb839deef750c32b7",
-  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39108962253",
-  "checked_at": "2026-10-18T10:47:34.941121+03:00",
+  "source_sha": "4c7cda9436b52cae2d32602d16b9ec49896678ea",
+  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39109065138",
+  "checked_at": "2026-10-18T10:49:13.700967+03:00",
   "teams": [
     {
       "name": "Nuclear TigeRES",
@@ -113,7 +113,7 @@
   "public_status": 200,
   "panel": {
     "error": "",
-    "sync": "Обновлено 10:47 МСК",
+    "sync": "Обновлено 10:49 МСК",
     "groups": [
       {
         "label": "18.10 · сегодня",
@@ -159,7 +159,61 @@
       }
     ]
   },
-  "selection_checks": [],
-  "error": "string indices must be integers, not 'str'",
-  "passed": false
+  "selection_checks": [
+    {
+      "team1": "Fire Flux",
+      "team2": "Bushido Wildcats",
+      "time": "13:00",
+      "stage": "Decider Match",
+      "selectedA": 5,
+      "selectedB": 5,
+      "matchError": "",
+      "date": "18.10",
+      "passed": true
+    },
+    {
+      "team1": "UPGRADE",
+      "team2": "Lavked",
+      "time": "17:00",
+      "stage": "Decider Match",
+      "selectedA": 5,
+      "selectedB": 5,
+      "matchError": "",
+      "date": "18.10",
+      "passed": true
+    },
+    {
+      "team1": "Black Phoenix",
+      "team2": "LPH",
+      "time": "20:00",
+      "stage": "Decider Match",
+      "selectedA": 5,
+      "selectedB": 5,
+      "matchError": "",
+      "date": "18.10",
+      "passed": true
+    },
+    {
+      "team1": "6yuBoJlbl",
+      "team2": "HYPERSPIRIT",
+      "time": "23:00",
+      "stage": "Decider Match",
+      "selectedA": 5,
+      "selectedB": 5,
+      "matchError": "",
+      "date": "18.10",
+      "passed": true
+    }
+  ],
+  "missing": [],
+  "passed": true,
+  "checks": [
+    {
+      "name": "Panel checks",
+      "status": "in_progress",
+      "conclusion": null,
+      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39108896993",
+      "id": 39108896993
+    }
+  ]
 }
