@@ -2,34 +2,326 @@
   "version": 1,
   "day": "2026-10-18",
   "startedAt": 1792270025702,
-  "updatedAt": 1792298920274,
+  "updatedAt": 1792314681086,
   "books": {
     "fonbet": {
-      "checkedAt": 1792298920271,
+      "checkedAt": 1792314681067,
       "status": "ok",
       "coverage": "line-and-live",
-      "events": []
+      "events": [
+        {
+          "id": "69083767",
+          "team1": "Fire Flux Esports",
+          "team2": "Bushido Wildcats",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792317600000,
+          "odds": [
+            1.95,
+            1.75
+          ],
+          "url": "https://fon.bet/sports/esports/147516/69083767",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792314681067,
+          "last": 1792314681067,
+          "open": [
+            1.95,
+            1.75
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        },
+        {
+          "id": "69083765",
+          "team1": "UPGRADE",
+          "team2": "Lavked",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792332000000,
+          "odds": [
+            1.45,
+            2.55
+          ],
+          "url": "https://fon.bet/sports/esports/147516/69083765",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792314681067,
+          "last": 1792314681067,
+          "open": [
+            1.45,
+            2.55
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        },
+        {
+          "id": "69083754",
+          "team1": "6yuBoJlbl",
+          "team2": "HyperSpirit",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792353600000,
+          "odds": [
+            1.46,
+            2.52
+          ],
+          "url": "https://fon.bet/sports/esports/147516/69083754",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792314681067,
+          "last": 1792314681067,
+          "open": [
+            1.46,
+            2.52
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        }
+      ]
     },
     "pari": {
-      "checkedAt": 1792298920267,
+      "checkedAt": 1792314681068,
       "status": "ok",
       "coverage": "line-and-live",
-      "events": []
+      "events": [
+        {
+          "id": "69083767",
+          "team1": "Fire Flux Esports",
+          "team2": "Bushido Wildcats",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792317600000,
+          "odds": [
+            1.95,
+            1.75
+          ],
+          "url": "https://pari.ru/sports/esports/147516/69083767",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792314681068,
+          "last": 1792314681068,
+          "open": [
+            1.95,
+            1.75
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        },
+        {
+          "id": "69083765",
+          "team1": "UPGRADE",
+          "team2": "Lavked",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792332000000,
+          "odds": [
+            1.45,
+            2.55
+          ],
+          "url": "https://pari.ru/sports/esports/147516/69083765",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792314681068,
+          "last": 1792314681068,
+          "open": [
+            1.45,
+            2.55
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        },
+        {
+          "id": "69083754",
+          "team1": "6yuBoJlbl",
+          "team2": "HyperSpirit",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792353600000,
+          "odds": [
+            1.46,
+            2.52
+          ],
+          "url": "https://pari.ru/sports/esports/147516/69083754",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792314681068,
+          "last": 1792314681068,
+          "open": [
+            1.46,
+            2.52
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        }
+      ]
     },
     "bettery": {
-      "checkedAt": 1792298920260,
+      "checkedAt": 1792314681082,
       "status": "ok",
       "coverage": "line-and-live",
-      "events": []
+      "events": [
+        {
+          "id": "69083767",
+          "team1": "Fire Flux Esports",
+          "team2": "Bushido Wildcats",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792317600000,
+          "odds": [
+            1.95,
+            1.75
+          ],
+          "url": "https://bettery.ru/sports/esports/147516/69083767",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792314681082,
+          "last": 1792314681082,
+          "open": [
+            1.95,
+            1.75
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        },
+        {
+          "id": "69083765",
+          "team1": "UPGRADE",
+          "team2": "Lavked",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792332000000,
+          "odds": [
+            1.45,
+            2.55
+          ],
+          "url": "https://bettery.ru/sports/esports/147516/69083765",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792314681082,
+          "last": 1792314681082,
+          "open": [
+            1.45,
+            2.55
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        },
+        {
+          "id": "69083754",
+          "team1": "6yuBoJlbl",
+          "team2": "HyperSpirit",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792353600000,
+          "odds": [
+            1.46,
+            2.52
+          ],
+          "url": "https://bettery.ru/sports/esports/147516/69083754",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792314681082,
+          "last": 1792314681082,
+          "open": [
+            1.46,
+            2.52
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        }
+      ]
     },
     "bet24": {
-      "checkedAt": 1792298920269,
+      "checkedAt": 1792314681086,
       "status": "ok",
       "coverage": "line-and-live",
-      "events": []
+      "events": [
+        {
+          "id": "69083767",
+          "team1": "Fire Flux Esports",
+          "team2": "Bushido Wildcats",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792317600000,
+          "odds": [
+            1.95,
+            1.75
+          ],
+          "url": "https://24bet.ru/sports/esports/147516/69083767",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792314681086,
+          "last": 1792314681086,
+          "open": [
+            1.95,
+            1.75
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        },
+        {
+          "id": "69083765",
+          "team1": "UPGRADE",
+          "team2": "Lavked",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792332000000,
+          "odds": [
+            1.45,
+            2.55
+          ],
+          "url": "https://24bet.ru/sports/esports/147516/69083765",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792314681086,
+          "last": 1792314681086,
+          "open": [
+            1.45,
+            2.55
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        },
+        {
+          "id": "69083754",
+          "team1": "6yuBoJlbl",
+          "team2": "HyperSpirit",
+          "tournament": "Counter-Strike. CyberClash. Отборочные игры. Bo3",
+          "start": 1792353600000,
+          "odds": [
+            1.46,
+            2.52
+          ],
+          "url": "https://24bet.ru/sports/esports/147516/69083754",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792314681086,
+          "last": 1792314681086,
+          "open": [
+            1.46,
+            2.52
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Отборочные игры. Bo3"
+          ]
+        }
+      ]
     },
     "olimp": {
-      "checkedAt": 1792298920266,
+      "checkedAt": 1792314681084,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -47,7 +339,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792276907477,
-          "last": 1792298920266,
+          "last": 1792314681084,
           "open": [
             1.99,
             1.76
@@ -64,14 +356,14 @@
           "tournament": "CS2. CyberClash",
           "start": 1792332000000,
           "odds": [
-            1.3,
-            3.33
+            1.44,
+            2.67
           ],
           "url": "https://www.olimp.bet/line/kibersport-112/8354797/86098625",
           "live": false,
           "liveOffered": false,
           "first": 1792276907477,
-          "last": 1792298920266,
+          "last": 1792314681084,
           "open": [
             1.38,
             2.9
@@ -95,7 +387,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792276907477,
-          "last": 1792298920266,
+          "last": 1792314681084,
           "open": [
             1.44,
             2.67
@@ -108,25 +400,123 @@
       ]
     },
     "marathon": {
-      "checkedAt": 1792298920265,
+      "checkedAt": 1792314681061,
       "status": "ok",
       "coverage": "prematch",
-      "events": []
+      "events": [
+        {
+          "id": "29775975",
+          "team1": "UPGRADE",
+          "team2": "Lavked",
+          "tournament": "CS 2. CyberClash. Закрытая квалификация. Матч из 3-х карт",
+          "start": 1792332000000,
+          "odds": [
+            1.46,
+            2.54
+          ],
+          "url": "https://www.marathonbet.ru/su/betting/e-Sports/Counter-Strike+2/CyberClash/Closed+Qualification/Best+of+3+maps/UPGRADE+vs+Lavked+-+32671078",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792314681061,
+          "last": 1792314681061,
+          "open": [
+            1.46,
+            2.54
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS 2. CyberClash. Закрытая квалификация. Матч из 3-х карт"
+          ]
+        },
+        {
+          "id": "29775976",
+          "team1": "6yuBoJlbl",
+          "team2": "HyperSpirit",
+          "tournament": "CS 2. CyberClash. Закрытая квалификация. Матч из 3-х карт",
+          "start": 1792353600000,
+          "odds": [
+            1.46,
+            2.54
+          ],
+          "url": "https://www.marathonbet.ru/su/betting/e-Sports/Counter-Strike+2/CyberClash/Closed+Qualification/Best+of+3+maps/6yuBoJlbl+vs+HyperSpirit+-+32671079",
+          "live": false,
+          "liveOffered": false,
+          "first": 1792314681061,
+          "last": 1792314681061,
+          "open": [
+            1.46,
+            2.54
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS 2. CyberClash. Закрытая квалификация. Матч из 3-х карт"
+          ]
+        }
+      ]
     },
     "betcity": {
-      "checkedAt": 1792298920268,
+      "checkedAt": 1792314681069,
       "status": "ok",
       "coverage": "line-and-live",
-      "events": []
+      "events": [
+        {
+          "id": "24647262",
+          "team1": "Fire Flux Esports",
+          "team2": "Bushido Wildcats",
+          "tournament": "CS2. CIS Esports League CyberClash (best of 3)",
+          "start": 1792317300000,
+          "odds": [
+            1.96,
+            1.75
+          ],
+          "url": "https://betcity.ru/ru/line/cybersport/960748/24647262",
+          "live": false,
+          "liveOffered": true,
+          "first": 1792314681069,
+          "last": 1792314681069,
+          "open": [
+            1.96,
+            1.75
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS2. CIS Esports League CyberClash (best of 3)"
+          ]
+        },
+        {
+          "id": "24647265",
+          "team1": "6yuBoJlbl",
+          "team2": "HyperSpirit",
+          "tournament": "CS2. CIS Esports League CyberClash (best of 3)",
+          "start": 1792353300000,
+          "odds": [
+            1.46,
+            2.5
+          ],
+          "url": "https://betcity.ru/ru/line/cybersport/960748/24647265",
+          "live": false,
+          "liveOffered": true,
+          "first": 1792314681069,
+          "last": 1792314681069,
+          "open": [
+            1.46,
+            2.5
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS2. CIS Esports League CyberClash (best of 3)"
+          ]
+        }
+      ]
     },
     "sportbet": {
-      "checkedAt": 1792298920270,
+      "checkedAt": 1792314681080,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "baltbet": {
-      "checkedAt": 1792298920274,
+      "checkedAt": 1792314681078,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -144,7 +534,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792276907454,
-          "last": 1792298920274,
+          "last": 1792314681078,
           "open": [
             1.43,
             2.43
@@ -157,7 +547,7 @@
       ]
     },
     "winline": {
-      "checkedAt": 1792298920273,
+      "checkedAt": 1792314681064,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -175,7 +565,7 @@
           "live": false,
           "liveOffered": true,
           "first": 1792282899707,
-          "last": 1792298920273,
+          "last": 1792314681064,
           "open": [
             1.96,
             1.75
@@ -192,14 +582,14 @@
           "tournament": "CyberClash",
           "start": 1792332000000,
           "odds": [
-            1.32,
-            3.09
+            1.45,
+            2.55
           ],
           "url": "https://winline.ru/stavki/sport/kibersport/counter-strike",
           "live": false,
           "liveOffered": true,
           "first": 1792282899707,
-          "last": 1792298920273,
+          "last": 1792314681064,
           "open": [
             1.4,
             2.74
@@ -223,7 +613,7 @@
           "live": false,
           "liveOffered": true,
           "first": 1792282899707,
-          "last": 1792298920273,
+          "last": 1792314681064,
           "open": [
             1.45,
             2.55
@@ -236,7 +626,7 @@
       ]
     },
     "leon": {
-      "checkedAt": 1792298920263,
+      "checkedAt": 1792314681073,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -254,7 +644,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792270025726,
-          "last": 1792298920263,
+          "last": 1792314681073,
           "open": [
             1.95,
             1.75
@@ -271,14 +661,14 @@
           "tournament": "CyberClash Closed Qualifier",
           "start": 1792332000000,
           "odds": [
-            1.3,
-            3.25
+            1.44,
+            2.6
           ],
           "url": "https://leon.ru/bets/esports/cs2/cyberclash-closed-qualifier/1970324853942787-upgrade-lavked",
           "live": false,
           "liveOffered": false,
           "first": 1792270025726,
-          "last": 1792298920263,
+          "last": 1792314681073,
           "open": [
             1.38,
             2.8
@@ -302,7 +692,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792270025726,
-          "last": 1792298920263,
+          "last": 1792314681073,
           "open": [
             1.44,
             2.6
