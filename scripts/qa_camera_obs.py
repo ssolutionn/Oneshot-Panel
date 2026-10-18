@@ -152,7 +152,7 @@ async def run():
             assert target,'Controlled media browser target unavailable'
             async with websockets.connect(target['webSocketDebuggerUrl']) as cdp:
                 await cdp.send(json.dumps({'id':1,'method':'Runtime.evaluate','params':{
-                    'expression':"(async()=>{const v=document.querySelector('video');v.muted=true;await v.play();return {paused:v.paused,width:v.videoWidth,height:v.videoHeight}})()",
+                    'expression':"(async()=>{for(let n=0;n<100;n++){const v=document.querySelector('video');if(v){v.muted=true;await v.play();return {paused:v.paused,width:v.videoWidth,height:v.videoHeight}}await new Promise(r=>setTimeout(r,50))}throw Error('Controlled video document did not load')})()",
                     'awaitPromise':True,'returnByValue':True}}))
                 while True:
                     playback=json.loads(await asyncio.wait_for(cdp.recv(),timeout=15))
