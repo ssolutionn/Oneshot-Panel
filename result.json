@@ -1,7 +1,7 @@
 {
-  "source_sha": "03c9acebb4785149dc65634b4f0b3e0b1ea29c33",
-  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39108624895",
-  "checked_at": "2026-10-18T10:42:13.948923+03:00",
+  "source_sha": "0f16c935fe502e10a626283646c2ed3f0c4d723b",
+  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39108729988",
+  "checked_at": "2026-10-18T10:43:52.883068+03:00",
   "teams": [
     {
       "name": "Nuclear TigeRES",
@@ -108,6 +108,100 @@
   ],
   "unresolved": [],
   "public_status": 200,
-  "error": "Page.wait_for_function: EvalError: Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: script-src 'self'\".\n\n    at eval (<anonymous>)\n    at predicate (eval at evaluate (:370:30), <anonymous>:4:60)\n    at next (eval at evaluate (:370:30), <anonymous>:29:33)",
-  "passed": false
+  "panel": {
+    "error": "",
+    "sync": "Обновлено 10:43 МСК",
+    "groups": [
+      {
+        "label": "18.10 · сегодня",
+        "count": 4
+      }
+    ],
+    "schedule": [
+      {
+        "date": "18.10",
+        "time": "13:00",
+        "team1": "Fire Flux",
+        "team2": "Bushido Wildcats",
+        "group": "",
+        "stage": "Decider Match",
+        "key": "[\"18.10\",\"13:00\",\"Fire Flux\",\"Bushido Wildcats\",\"Decider Match\",0]"
+      },
+      {
+        "date": "18.10",
+        "time": "17:00",
+        "team1": "UPGRADE",
+        "team2": "Lavked",
+        "group": "",
+        "stage": "Decider Match",
+        "key": "[\"18.10\",\"17:00\",\"UPGRADE\",\"Lavked\",\"Decider Match\",0]"
+      },
+      {
+        "date": "18.10",
+        "time": "20:00",
+        "team1": "Black Phoenix",
+        "team2": "LPH",
+        "group": "",
+        "stage": "Decider Match",
+        "key": "[\"18.10\",\"20:00\",\"Black Phoenix\",\"LPH\",\"Decider Match\",0]"
+      },
+      {
+        "date": "18.10",
+        "time": "23:00",
+        "team1": "6yuBoJlbl",
+        "team2": "HYPERSPIRIT",
+        "group": "",
+        "stage": "Decider Match",
+        "key": "[\"18.10\",\"23:00\",\"6yuBoJlbl\",\"HYPERSPIRIT\",\"Decider Match\",0]"
+      }
+    ]
+  },
+  "selection_checks": [
+    {
+      "team1": "Fire Flux",
+      "team2": "Bushido Wildcats",
+      "time": "13:00",
+      "stage": "Decider Match",
+      "selectedA": 5,
+      "selectedB": 5,
+      "matchError": "",
+      "date": "18.10",
+      "passed": true
+    },
+    {
+      "team1": "UPGRADE",
+      "team2": "Lavked",
+      "time": "17:00",
+      "stage": "Decider Match",
+      "selectedA": 5,
+      "selectedB": 5,
+      "matchError": "",
+      "date": "18.10",
+      "passed": true
+    },
+    {
+      "team1": "Black Phoenix",
+      "team2": "LPH",
+      "time": "20:00",
+      "stage": "Decider Match",
+      "selectedA": 5,
+      "selectedB": 5,
+      "matchError": "",
+      "date": "18.10",
+      "passed": true
+    },
+    {
+      "team1": "6yuBoJlbl",
+      "team2": "HYPERSPIRIT",
+      "time": "23:00",
+      "stage": "Decider Match",
+      "selectedA": 5,
+      "selectedB": 5,
+      "matchError": "",
+      "date": "18.10",
+      "passed": true
+    }
+  ],
+  "missing": [],
+  "passed": true
 }
