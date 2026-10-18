@@ -7,8 +7,9 @@
 
 Цель выпуска: ходы, состояние и overlay передаются через Cloudflare relay;
 камеры остаются в VDO. Локальная проверка подтверждает эту архитектуру,
-но публичный backend пока не готов: браузерная проверка получила HTML формы
-вместо JSON health на Pages и HTTP 404 на адресе Worker.
+публичные Worker и Pages теперь опубликованы. Браузерная проверка 18 октября
+около 03:56 МСК подтвердила все пять файлов выпуска и JSON health ready=true
+на обоих адресах.
 
 ## Подтверждённые находки
 
@@ -38,6 +39,24 @@ watchdog не давал ни одному viewer закончить подкл�
 подключения / multi-tab и весь набор из 12 сценариев. Это подтверждает
 восстановление в проверенных условиях, но не устанавливает причину исходного
 падения из handoff, где нет состояния соединений в момент таймаута.
+
+### P1. Cloudflare Pages возвращал 503 из-за неподдерживаемого redirect — исправлено
+
+Место: `functions/api/veto-relay.js`.
+
+Node fetch поддерживает `redirect: 'error'`, edge fetch Cloudflare — только
+`follow` и `manual`. Прокси бросал исключение ещё до обращения к Worker,
+а общий catch возвращал relay-unavailable. После публикации статические
+файлы совпали, Worker health был ready=true, но Pages health оставался 503.
+Воспроизведение в настоящем workerd дало точную ошибку Invalid redirect value.
+
+Теперь используется `manual` с явным отклонением HTTP 3xx. Pages связан
+с Worker через внутренний `VETO_RELAY_SERVICE`; binding задаётся конфигурацией
+публикации, публичный Worker-to-Worker HTTP больше не требуется.
+Расширенный Cloudflare QA проверяет реальный Pages proxy → service binding →
+Worker → SQLite Durable Object: health, подписанную запись, шифрование,
+чтение нескольких topics и static assets. Две Node-проверки защищают
+маршрутизацию через binding и JSON-ошибку при отказе/редиректе без внешнего HTTP.
 
 ### P1. Отказ записи nonce в localStorage останавливал монетку — исправлено
 
@@ -129,18 +148,21 @@ Web Lock координирует вкладки одного браузера �
 | Проверка | Результат |
 | --- | --- |
 | `npm run check` | Прошла |
-| `npm test` | 125 passed, 0 failed, 0 skipped |
+| `npm test` | 127 passed, 0 failed, 0 skipped |
 | Chromium, локальная маршрутизация VDO | 14 сценариев прошли |
 | Chromium, настоящий локальный Node relay | 13 сценариев прошли |
 | Новый `qa_veto_resilience.py`, Chromium | 4 сценария прошли: медленный сигналинг, viewer до издателя, очередь HTTP, отказ localStorage |
 | Серверный overlay в отдельных browser contexts | Подтверждение, анимация, reload, offline recovery, stale ACK rejection прошли; 0 запросов VDO у источника |
-| Локальный настоящий workerd + SQLite Durable Objects | Health, подписи, шифротекст, multi-topic GET, static assets прошли |
+| Локальный настоящий Pages proxy + service binding + workerd + SQLite Durable Objects | Health, подписи, шифротекст, multi-topic GET, static assets прошли; чистый прогон без диагностических подмен |
 | Генерация сайта / Claude artifact | Прошла, tracked Claude artifact не изменён |
-| WebKit на GitHub runner, run `39080635984` | 13 серверных сценариев прошли; серверная ветка после этого не менялась |
+| WebKit на GitHub runner, run `39080635984` | 13 локальных серверных сценариев прошли; Cloudflare proxy после этого проверен отдельно |
 | Chromium и WebKit, run `39081631163` | По 4 сценария восстановления прошли с уточнением 30/60/90 с |
 | Реальный VDO, run `39081631163` | 2 отдельных сценария восстановления и полный набор из 12 сценариев прошли |
-| Публичный Cloudflare в Chromium, run `39082538126` | Страница и JS/CSS отвечают 200, но все 5 файлов отличаются от выпуска; Pages health возвращает HTML, Worker — 404 |
-| Workflow публикации, run `39082509816` | Worker и Pages Functions собраны; остановка на отсутствии двух Cloudflare credentials. Deploy/migration не выполнялись |
+| Публичный Cloudflare в Chromium, run `39084543588` | Все 5 файлов совпали с выпуском, оба health отвечают 200 / protocol=1 / ready=true |
+| Workflow публикации, run `39084484953` | Worker/Durable Objects → Pages с service binding → публичная проверка файлов/CSP/health завершились успешно |
+| Публичный серверный транспорт, run `39084543588` | 5 сценариев: ссылки, полный BO3, reload/поздний зритель, мобильная вёрстка, BO1/BO5 прошли |
+| Публичное восстановление/защита, тот же run | Подделка зрителем, переподписанный ход и одновременное подтверждение в двух вкладках прошли |
+| Overlay через публичный relay, тот же run | Подтверждение отрисовки, анимация, reload, offline recovery и запрет stale ACK прошли; 0 VDO-запросов |
 | Проверка deployment на локальном workerd | Файлы совпали, backup CSP и JSON health прошли; workflow/scripts/server недоступны через static assets (404) |
 | Настоящий OBS/CEF и два физических устройства | В этом сеансе не запускались |
 
@@ -173,46 +195,51 @@ GitHub Actions workflow. В архиве только четыре снимка 
 вкладок в момент таймаута нет. Исходный сбой multi-tab подтверждён журналом,
 причина не установлена. Нельзя объявлять его исключительно ошибкой внешнего CI.
 
-## Текущее состояние публикации и оставшиеся шаги
+## Текущее состояние публикации
 
-PR сайта №2 слит: GitHub подтвердил `merged: true`, merge commit
-`f16cadba7ee1dc96220fc50845a75d5b15080e95`. Затем в `Oneshot-Veto/main`
-добавлен workflow публикации: `4dff498f9de47f9defa8118f10e418f3bbe761cf`.
-Исходники исправлений и генератора также влиты в `claude/gracious-sagan-apztcc`.
+PR сайта №2 слит: GitHub подтвердил merged=true, merge commit
+`f16cadba7ee1dc96220fc50845a75d5b15080e95`. Текущий опубликованный
+`Oneshot-Veto/main`: `f1d703587b0855de1382e3e602c8b1bede935c50`.
+Исходники исправлений и генератора влиты в `claude/gracious-sagan-apztcc`.
 
-Пользователь вручную завершил BO3 на опубликованном сайте. Браузерная
-проверка подтвердила доступность страницы, но на ней пока нет новых маркеров
-`vtTransport`/`vtReconnect`/`signRoomMessage`/`claimPush`, цвета CSS старые,
-CSP не содержит backup VDO. Обычный Python HTTP-клиент получал Cloudflare
-1010; проверка браузером обошлась без изменения защиты и дала HTTP 200.
+Пользователь добавил Cloudflare API token в GitHub secrets Oneshot-Veto.
+Account ID определён автоматически: workflow выбирает ровно один аккаунт,
+чей существующий Pages project владеет oneshot-veto.pages.dev. Значения
+учётных данных не сохранены в коде, отчёте или диагностической Git-ветке.
 
-Публикация через GitHub Actions дошла до **Check Cloudflare credentials**
-и явно сообщила об отсутствии `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
-Это подтверждено журналом
-https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39082509816 .
-Сборка Worker и Pages Functions перед этой проверкой прошла; deploy и
-миграция не запускались. Публичный сайт после обновления main остался старым.
+Публикация завершилась успешно:
+https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39084484953 .
+Worker с SQLite Durable Objects развёрнут, Pages использует внутренний
+service binding. Все пять публичных файлов совпали с выпуском, CSP содержит
+backup VDO, оба health вернули protocol=1 и ready=true.
 
-1. В Settings → Secrets and variables → Actions репозитория **Oneshot-Veto**
-   добавить `CLOUDFLARE_API_TOKEN` (Account: Workers Scripts Edit и Cloudflare
-   Pages Edit) и `CLOUDFLARE_ACCOUNT_ID` для существующего аккаунта.
-   Значения вводятся только в GitHub; в Codex environment они не нужны.
-   Перезапустить **Deploy veto to Cloudflare**. Инструкции находятся в `server/RELAY.md`.
-2. Дождаться Worker/Durable Objects → Pages → успешной браузерной проверки
-   хешей файлов, CSP и `GET /api/veto-relay?health=1` с JSON ready=true.
-   Выполнить публичный сценарий двух капитанов с серверным транспортом.
-3. Новые комнаты нужно создавать с «Наш сервер»; старые VDO-ссылки остаются
-   VDO-ссылками. Пересоздать ссылки комнаты и скопировать overlay URL с
-   `&relay=`, оставить панель открытой и дождаться подтверждения overlay.
-   Существующий выбор транспорта и старые ссылки автоматически не мигрированы.
-4. Провести финальную проверку на двух устройствах капитанов, админской странице
-   и OBS с заблокированным VDO для ходов/overlay. Камеры проверить отдельно.
+Публичная проверка завершилась успешно около 03:58 МСК 18 октября:
+https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39084543588 .
+Капитаны и зрители использовали отдельные browser contexts с настоящим
+публичным API. Полные BO3/BO1/BO5, reload/позднее подключение, защита от
+подделки и конфликтов прошли. Ходы не обращались к VDO.
 
+Проверка overlay использовала текущую локальную панель и браузерный источник
+с настоящим публичным relay. Отрисовка и ACK текущего состояния, reload,
+восстановление сети и отказ принять сохранённый ACK прошли. Источник не
+делал запросов к VDO. Это браузерная проверка, а не запуск физического OBS/CEF.
+
+Для эксплуатации:
+
+1. Создать новые ссылки комнаты с выбранным «Наш сервер». Ранее выданные
+   VDO-ссылки сохраняют свой транспорт; автоматической миграции во время вето нет.
+2. Скопировать новый overlay URL с relay-параметром, оставить панель открытой
+   и дождаться «Оверлей получает вето». Код графики не даёт управлять OBS.
+3. Перед эфиром пройти сценарий на двух реальных устройствах капитанов,
+   админской странице и OBS. Камеры остаются в VDO и проверяются отдельно.
+   В этом сеансе физические устройства и фактический OBS/CEF не запускались.
+
+## Среда разработки
+
+Локальные Node/Chromium, relay и Cloudflare runtime подготовлены и проверены.
 В черновике настроек среды сохранена unrestricted network policy, но запросы
-текущей машины по-прежнему блокируются. Для внешних проверок добавлен
-workflow, который передаёт безопасные результаты через отдельную Git-ветку
-`codex/veto-validation-results`, не меняя исходную или production-ветку.
-Настройка среды и диагностический workflow не публикуют приложения.
-Отдельный workflow публикации подготовлен и проверен до отсутствующих
-учётных данных. Завершение production-публикации и эксплуатационные проверки
-остаются обязательными; готовность публичного server transport не объявлена.
+текущей машины по-прежнему блокируются. Git read/push работает. Внешний
+диагностический workflow передаёт безопасные результаты через отдельную
+Git-ветку codex/veto-validation-results; Cloudflare credentials ему не нужны.
+Production публикует отдельный workflow Oneshot-Veto с GitHub secrets.
+Повторно менять настройки Codex environment для этого выпуска не требуется.
