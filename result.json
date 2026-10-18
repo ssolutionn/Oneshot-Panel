@@ -83,10 +83,13 @@
       "tail": "PASS: a re-signed move is not taken back: the opponent keeps the first and sees a warning\nPASS: two tabs of one captain confirm together: one move counts, no conflict; standby takes over\nveto recovery: 2 scenarios passed\n"
     },
     "chromium_recovery": {
-      "status": "running"
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 63.0,
+      "tail": "PASS: 20-second VDO signalling survives; reconnect preserves publisher ownership; standby takes over\nPASS: viewers stranded before publishers reconnect within 45 seconds; reconnect preserves publisher ownership; standby takes over\nPASS: stalled HTTP POST retains only the newest queued signed snapshot\nPASS: a refused localStorage nonce write does not stop the active commit/reveal\n"
     }
   },
-  "updated_at": "2026-10-18T00:09:41.526768+00:00",
+  "updated_at": "2026-10-18T00:10:46.453768+00:00",
   "cloudflare_bindings": {
     "CLOUDFLARE_API_TOKEN": false,
     "CLOUDFLARE_ACCOUNT_ID": false
