@@ -2,6 +2,13 @@
   "source_sha": "b9564ff30b0007ea02b5efb997cbf2f15fd0847c",
   "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39083766636",
   "status": "running",
-  "steps": {},
-  "updated_at": "2026-10-18T00:42:50.525475+00:00"
+  "steps": {
+    "deployment_wait": {
+      "status": "completed",
+      "conclusion": "failure",
+      "head_sha": "647686982e3168927ddfad56cf10e69a4b654f76",
+      "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39083707269"
+    }
+  },
+  "updated_at": "2026-10-18T00:42:53.416348+00:00"
 }
