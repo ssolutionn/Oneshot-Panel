@@ -112,6 +112,51 @@ def public_probe():
     publish()
 
 
+def public_browser_probe():
+    """Use an ordinary browser when Cloudflare rejects the Python HTTP client."""
+    from playwright.sync_api import sync_playwright
+
+    results = []
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        try:
+            for url in [
+                "https://oneshot-veto.pages.dev/",
+                "https://oneshot-veto.pages.dev/veto.js",
+                "https://oneshot-veto.pages.dev/veto-room.js",
+                "https://oneshot-veto.pages.dev/veto.css",
+                "https://oneshot-veto.pages.dev/api/veto-relay?health=1",
+                "https://oneshot-veto.cyberclash.workers.dev/api/veto-relay?health=1",
+            ]:
+                row = {"url": url}
+                try:
+                    response = page.goto(url, wait_until="domcontentloaded", timeout=20000)
+                    if response is None:
+                        raise RuntimeError("navigation returned no HTTP response")
+                    body = response.body()[:400000].decode("utf-8", "replace")
+                    row.update(status=response.status, content_type=response.headers.get("content-type"),
+                               csp=response.headers.get("content-security-policy"),
+                               cf_mitigated=response.headers.get("cf-mitigated"),
+                               markers={marker: marker in body for marker in [
+                                   "vtTransport", "vtReconnect", "signRoomMessage", "claimPush",
+                                   "--vt-ct:#7fb2f0", "--vt-t:#f0a95e"]})
+                    if "?health=1" in url:
+                        try:
+                            row["health"] = json.loads(body)
+                        except ValueError:
+                            row["health_error"] = "expected JSON"
+                    if response.status != 200:
+                        row["body"] = safe(body[:1200])
+                except Exception as error:
+                    row["error"] = safe(str(error))
+                results.append(row)
+        finally:
+            browser.close()
+    REPORT["steps"]["public_browser_endpoints"] = {"status": "observed", "results": results}
+    publish()
+
+
 def prior_failure():
     repository = os.environ["GITHUB_REPOSITORY"]
     meta = subprocess.run(["gh", "api", f"repos/{repository}/actions/artifacts/12108273813"],
@@ -154,15 +199,20 @@ def main():
         except Exception as error:
             REPORT["cloudflare_token_check"] = safe(str(error))
     publish()
-    try:
-        prior_failure()
-    except Exception as error:
-        REPORT["steps"]["prior_real_vdo_failure"] = {"status": "unavailable", "error": safe(str(error))}
-        publish()
+    if os.environ.get("VETO_EXTERNAL_MODE") != "public":
+        try:
+            prior_failure()
+        except Exception as error:
+            REPORT["steps"]["prior_real_vdo_failure"] = {"status": "unavailable", "error": safe(str(error))}
+            publish()
     if not step("install_playwright", ["python3", "-m", "pip", "install", "playwright"], 180):
         return False
     if not step("install_browsers", ["python3", "-m", "playwright", "install", "--with-deps", "chromium", "webkit"], 360):
         return False
+    public_browser_probe()
+    if os.environ.get("VETO_EXTERNAL_MODE") == "public":
+        # This is an observation job, not a release gate or a deployment.
+        return True
     server_log = (OUT / "server.log").open("w")
     server = subprocess.Popen(["node", "server.js"], cwd=ROOT, stdout=server_log, stderr=subprocess.STDOUT)
     try:
