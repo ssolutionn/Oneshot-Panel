@@ -4,15 +4,18 @@ import {Readable} from 'node:stream';
 import {pathToFileURL} from 'node:url';
 import {handleRelay,reply} from './veto-relay-api.js';
 import {FileRelayStore} from './veto-relay-file.js';
-export async function nodeRelay(request,response,store) {
- if(request.url!=='/api/veto-relay'&&!request.url.startsWith('/api/veto-relay?'))return false;
+import {handleShortLink} from './veto-short-api.js';
+import {shortIdValid} from '../assets/veto-short-protocol.js';
+export async function nodeRelay(request,response,store,shortStore) {
+ const short=request.url==='/api/veto-link'||request.url.startsWith('/api/veto-link?');
+ if(!short&&request.url!=='/api/veto-relay'&&!request.url.startsWith('/api/veto-relay?'))return false;
  try{
   const controller=new AbortController();
   request.on('aborted',()=>controller.abort());
   const input=new Request('http://localhost'+request.url,{
    method:request.method,headers:request.headers,signal:controller.signal,
    ...(['GET','HEAD'].includes(request.method)?{}:{body:Readable.toWeb(request),duplex:'half'})});
-  const output=await handleRelay(input,store);
+  const output=await (short?handleShortLink(input,shortStore):handleRelay(input,store));
   response.writeHead(output.status,Object.fromEntries(output.headers));
   response.end(Buffer.from(await output.arrayBuffer()));
  }catch{
@@ -21,15 +24,16 @@ export async function nodeRelay(request,response,store) {
  }
  return true;
 }
-export function relayServer(store){
+export function relayServer(store,shortStore){
  return http.createServer(async(req,res)=>{
-  if(await nodeRelay(req,res,store))return;
+  if(await nodeRelay(req,res,store,shortStore))return;
   res.writeHead(404,{'content-type':'text/plain','x-content-type-options':'nosniff'});res.end('Not found');
  });
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  const store=new FileRelayStore(process.env.VETO_RELAY_DIR||'.veto-relay-data');
- const server=relayServer(store);
+ const shortStore=new FileRelayStore((process.env.VETO_RELAY_DIR||'.veto-relay-data')+'/links',shortIdValid);
+ const server=relayServer(store,shortStore);
  server.requestTimeout=15000;server.headersTimeout=10000;
  const cleanup=setInterval(()=>store.prune().catch(()=>{}),3600000);cleanup.unref();
  server.listen(Number(process.env.PORT||3101),process.env.HOST||'127.0.0.1',

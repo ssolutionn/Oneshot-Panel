@@ -12,19 +12,22 @@ export function topicList(request) {
  const ids=params.get('topics')?.split(',');
  return ids?.length&&ids.length<=4&&ids.every(topicValid)?[...new Set(ids)]:null;
 }
-export async function readRelayPacket(request) {
+export async function readJsonBody(request, maxBytes=MAX_PACKET_BYTES) {
  if(!/^application\/json(?:\s*;|$)/i.test(request.headers.get('content-type')||''))throw Error('type');
- if(Number(request.headers.get('content-length'))>MAX_PACKET_BYTES)throw Error('size');
+ if(Number(request.headers.get('content-length'))>maxBytes)throw Error('size');
  const reader=request.body?.getReader();if(!reader)throw Error('body');
  const chunks=[];let total=0,timer;
  try{
   await Promise.race([(async()=>{
    while(true){const {done,value}=await reader.read();if(done)break;
-    total+=value.length;if(total>MAX_PACKET_BYTES)throw Error('size');chunks.push(value);}
+    total+=value.length;if(total>maxBytes)throw Error('size');chunks.push(value);}
   })(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('timeout')),8000);})]);
  }finally{clearTimeout(timer);reader.cancel().catch(()=>{});}
  const all=new Uint8Array(total);let offset=0;for(const c of chunks){all.set(c,offset);offset+=c.length;}
- const packet=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(all));
+ return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(all));
+}
+export async function readRelayPacket(request) {
+ const packet=await readJsonBody(request);
  if(!packetShape(packet))throw Error('shape');return packet;
 }
 export async function handleRelay(request,store,now=Date.now()) {

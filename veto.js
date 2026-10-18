@@ -10,6 +10,8 @@ import { seal, unseal, VDO_CONNECT_TIMEOUT, VDO_CONNECT_MAX_TIMEOUT, VDO_IDLE_TI
 import { ServerRoomLink } from './assets/veto-relay-links.js';
 import { checkRelay } from './assets/veto-relay-client.js';
 import { relayEndpoint } from './assets/veto-relay-protocol.js';
+import {DEFAULT_TOURNAMENT,friendlyCaptainLinks,resolveRoomLink} from './assets/veto-short-links.js';
+import {shortPathValid} from './assets/veto-short-protocol.js';
 import {
   decodeLink, createRoom, roomSecrets, captainKey, acceptKey, seat, verifyLog, replay, nextTurn,
   signMove, mergeLog, clock, formatClock, mapBoard, resultText, captainMessage, spectatorMessage,
@@ -35,6 +37,11 @@ function store(key, value) {
 // ---- Words ----
 const WORDS = {
   en: {
+    tournament:'Tournament',openingLink:'Opening your captain link…',retryLink:'Try again',
+    shortFallback:'Short addresses are temporarily unavailable. These full links work normally.',
+    'short-link-invalid':'The captain link is incomplete or damaged. Copy the whole personal link from the admin.',
+    'short-link-missing':'This captain link was not found. Ask the admin to send it again.',
+    'short-link-unavailable':'The captain link could not be loaded. Try again.',
     transport:'Connection',ourServer:'Our server',
     serverOnline:'Server connection active',serverRetry:'Server unavailable. Reconnecting; the last verified moves are kept.',
     serverWait:'Connecting to our server…',vdoConnection:'Connection: VDO.Ninja',
@@ -91,6 +98,11 @@ const WORDS = {
     calling: '🔔 Admin call'
   },
   ru: {
+    tournament:'Турнир',openingLink:'Открываем личную ссылку капитана…',retryLink:'Повторить',
+    shortFallback:'Короткие адреса сейчас недоступны. Эти полные ссылки работают как обычно.',
+    'short-link-invalid':'Личная ссылка неполная или повреждена. Скопируй ссылку от админа целиком.',
+    'short-link-missing':'Личная ссылка не найдена. Попроси админа прислать её ещё раз.',
+    'short-link-unavailable':'Не удалось загрузить личную ссылку. Повтори попытку.',
     transport:'Связь',ourServer:'Наш сервер',
     serverOnline:'Связь с сервером установлена',serverRetry:'Сервер недоступен. Восстанавливаем связь; проверенные ходы сохранены.',
     serverWait:'Подключаемся к нашему серверу…',vdoConnection:'Связь: VDO.Ninja',
@@ -219,7 +231,8 @@ function showLinks(made) {
   $('vtMsgO').value = links.o;
   $('vtWatch').href = links.o;
   $('vtLinks').hidden = false;
-  $('vtMade').textContent = made.restored ? t('made', new Date(made.at).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-GB', { hour: '2-digit', minute: '2-digit' })) : '';
+  $('vtMade').textContent = [made.restored ? t('made', new Date(made.at).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-GB', { hour: '2-digit', minute: '2-digit' })) : '',
+    made.shortLinkFallback ? t('shortFallback') : ''].filter(Boolean).join(' ');
 }
 relabel.add(() => { if (shownLinks) showLinks(shownLinks); });
 const RESTORE_FOR = 6 * 3600000;
@@ -295,6 +308,7 @@ async function setupCreate() {
       try {
         if (relay) await checkRelay(relay);
         made = await createRoom(base, [$('vtTeamA').value, $('vtTeamB').value], $('vtFormat').value, Number($('vtTimer').value), relay);
+        made = await friendlyCaptainLinks(made,base,$('vtTournament').value);
       } finally { submit.disabled = false; }
       made.at = Date.now();
       store(LAST_KEY, made);
@@ -314,6 +328,7 @@ async function setupCreate() {
     $('vtTeamB').value = b;
   });
   const params = new URLSearchParams(location.hash.slice(1));
+  $('vtTournament').value = (params.get('tournament')||DEFAULT_TOURNAMENT).slice(0,60);
   const asked = params.has('new') ? [params.get('a') || '', params.get('b') || '', params.get('f')] : null;
   if (['server','vdo'].includes(params.get('via'))) $('vtTransport').value = params.get('via');
   if (asked) {
@@ -329,12 +344,14 @@ async function setupCreate() {
     const room = last?.room;
     const fresh = Date.now() - (Number(last?.at) || 0) < RESTORE_FOR;
     if (fresh && room && Array.isArray(room.t) && last.links?.a && last.links?.b && last.links?.s && last.links?.o &&
-        (!asked || (asked[0] === room.t[0] && asked[1] === room.t[1] && asked[2] === room.f && (!params.has('via') || Boolean(room.relay) === (params.get('via') === 'server'))))) {
+        (!asked || (asked[0] === room.t[0] && asked[1] === room.t[1] && asked[2] === room.f && (!params.has('via') || Boolean(room.relay) === (params.get('via') === 'server')) &&
+          (!params.has('tournament') || params.get('tournament') === (last.tournament||DEFAULT_TOURNAMENT))))) {
       $('vtTeamA').value = room.t[0];
       $('vtTeamB').value = room.t[1];
       $('vtFormat').value = room.f;
       $('vtTimer').value = String(room.m ?? 5);
       $('vtTransport').value = room.relay ? 'server' : 'vdo';
+      $('vtTournament').value = last.tournament||DEFAULT_TOURNAMENT;
       showLinks({ ...last, restored: true });
     }
   } catch { /* odd saved data: start clean */ }
@@ -1026,9 +1043,19 @@ async function enterRoom(room) {
 
 // A room link pasted into the form's tab: open it.
 addEventListener('hashchange', () => location.reload());
-const room = decodeLink(location.hash);
-if (room) enterRoom(room).catch(error => showError(error.message));
-else if (/(?:^#|&)v=/.test(location.hash)) {
-  applyWords();
-  showError(t('brokenLink'), ['brokenLink']);
-} else setupCreate();
+$('vtRetryLink').addEventListener('click',()=>location.reload());
+async function openVeto() {
+  const short=new URLSearchParams(location.hash.slice(1)).has('k')||shortPathValid(location.pathname);
+  if(short){applyWords();$('vtLinkStatus').hidden=false;}
+  let resolved;
+  try{resolved=await resolveRoomLink(location.href);}
+  catch(error){
+    applyWords();showError(t(error.message),[error.message]);
+    $('vtRetryLink').hidden=error.message!=='short-link-unavailable';return;
+  }finally{$('vtLinkStatus').hidden=true;}
+  if(resolved)return enterRoom(resolved.room);
+  if(/(?:^#|&)v=/.test(location.hash)){
+    applyWords();showError(t('brokenLink'),['brokenLink']);
+  }else return setupCreate();
+}
+openVeto().catch(error=>showError(errorText(error.message)));

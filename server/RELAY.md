@@ -63,7 +63,7 @@ captain online merely because a snapshot exists.
 ## Move to a VPS or any host with a server runtime
 
 No Cloudflare-specific code is used by browsers. Serve the generated static
-site using nginx/Caddy, and reverse proxy **/api/veto-relay** (all GET/POST/
+site using nginx/Caddy, and reverse proxy **/api/veto-relay** and **/api/veto-link** (all GET/POST/
 OPTIONS, query preserved, no caching) to this native Node >=22 service:
 
 ```sh
@@ -77,6 +77,23 @@ Use a service manager to restart the process. It needs no npm packages.
 Running the complete panel with node server.js also serves this endpoint
 for local development. Expired files are pruned hourly by the standalone
 service. Back up/restore only this directory when continuity is required.
+
+## Readable personal captain links
+
+Captain URLs use `/tournament_team#k=<22 characters>`. Serve `veto.html` for
+these single-segment paths (the Node server, Worker and Pages function do
+this already). The fragment is essential: a bare team address grants no
+captain access. Captains' original links are AES-GCM encrypted in the browser;
+only the ciphertext, a readable slug and SHA-256 of the random fragment key
+reach `/api/veto-link`. The server never gets the decryption/signing secret.
+
+Directory records are immutable and have no automatic expiry. Repeated POST
+of the same record succeeds; replacement returns 409. New matches with the
+same tournament/team text have distinct private keys and separate records.
+The `short:` DO namespace is separate from move topics; Node stores the
+records in the private `links/` subdirectory. Back up that subdirectory too.
+Validated encrypted records are cached by the browser for offline reopening.
+Creation falls back to the original long links if the directory is unavailable.
 
 New links use the new origin automatically. Previously sent server links
 still point to their original endpoint: retain that endpoint during any

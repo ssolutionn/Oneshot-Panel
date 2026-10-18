@@ -40,7 +40,7 @@ addEventListener('message', e => {
 # a dishonest or slow captain (the page code stays untouched).
 SIGN_IN_PAGE = """async ([kind, value, drop, shift]) => {
   const m = await import('/veto-room.js');
-  const room = m.decodeLink(location.hash);
+  const room = (await (await import('/assets/veto-short-links.js')).resolveRoomLink(location.href)).room;
   const key = await m.captainKey(room);
   const name = 'oneshot-veto-log:' + room.r;
   let log = JSON.parse(localStorage.getItem(name) || '[]').slice(0, drop === null ? undefined : drop);
@@ -55,6 +55,7 @@ async def run(args):
     args.browser = getattr(args, "browser", "chromium")
     args.real_vdo = getattr(args, "real_vdo", False)
     args.server = getattr(args, "server", False)
+    args.pretty_links = getattr(args, "pretty_links", False)
     args.chromium = getattr(args, "chromium", None)
     base = args.url.rstrip("/")
     output = Path(args.artifacts)
@@ -130,6 +131,11 @@ async def run(args):
         async def open_context(width=1280, height=900, english=False):
             context = await browser.new_context(viewport={"width": width, "height": height}, locale="ru-RU")
             contexts.append(context)
+            if not args.pretty_links:
+                # Keep the legacy-link compatibility scenarios independent of
+                # the directory. --pretty-links exercises its actual HTTP API.
+                await context.route("**/api/veto-link*", lambda route: route.fulfill(
+                    status=503, content_type="application/json", body='{"error":"qa-unavailable"}'))
             # The site is English by default; most scenarios read the Russian texts.
             if not english:
                 await context.add_init_script("try { localStorage.setItem('oneshot-veto-lang', '\"ru\"') } catch {}")
@@ -164,7 +170,7 @@ async def run(args):
             context = context or await open_context(width, height, english)
             page = await context.new_page()
             def page_error(error):
-                message = f"{page.url[:60]}: {error}"
+                message = f"{page.url.split('#')[0]}: {error}"
                 # WebKit reports an aborted same-origin long-poll as CORS when
                 # its page closes. Every live relay path is asserted above.
                 if (args.server and args.browser == "webkit" and
@@ -175,7 +181,7 @@ async def run(args):
             page.on("pageerror", page_error)
             if args.server:
                 page.on("request", lambda req: errors.append("Server room contacted VDO: " + req.url)
-                        if "/veto.html" in page.url and req.url.startswith(("https://vdo.ninja/", "https://cdn-backup.vdo.ninja/")) else None)
+                        if ("/veto.html" in page.url or "#k=" in page.url) and req.url.startswith(("https://vdo.ninja/", "https://cdn-backup.vdo.ninja/")) else None)
             if args.server:
                 page.on("requestfailed", lambda req: print("RELAY_REQUEST_FAILED", urlsplit(req.url).path, req.failure, flush=True)
                         if "/api/veto-relay" in req.url else None)
@@ -188,6 +194,8 @@ async def run(args):
 
         async def make_links(admin, a, b, fmt):
             await admin.goto(base + "/veto.html")
+            if args.pretty_links:
+                await admin.fill("#vtTournament", "CyberClash Finals")
             await admin.fill("#vtTeamA", a)
             await admin.fill("#vtTeamB", b)
             await admin.select_option("#vtFormat", fmt)
@@ -211,7 +219,8 @@ async def run(args):
                         continue
                     try:
                         state = await page.evaluate("""async () => {
-                          const m=await import('/veto-room.js'), room=m.decodeLink(location.hash);
+                          const m=await import('/veto-room.js');
+                          const room=(await (await import('/assets/veto-short-links.js')).resolveRoomLink(location.href))?.room;
                           if(!room)return null;
                           const saved=JSON.parse(localStorage.getItem('oneshot-veto-log:'+room.r)||'[]');
                           const locks=await navigator.locks?.query();
@@ -425,6 +434,8 @@ async def run(args):
         admin = await open_page(base + "/veto.html#new&a=UPGRADE&b=Lavked&f=BO3")
         await expect(admin.locator("#vtTeamA")).to_have_value("UPGRADE")
         await expect(admin.locator("#vtFormat")).to_have_value("BO3")
+        if args.pretty_links:
+            await admin.fill("#vtTournament", "CyberClash Finals")
         if args.server:
             await admin.select_option("#vtTransport", "server")
         await admin.click("#vtForm button[type=submit]")
@@ -440,7 +451,11 @@ async def run(args):
         assert "Монетку бросите на сайте" in message_a
         assert len({link_a, link_b, link_s, public}) == 4
         assert max(len(link_a), len(link_b), len(link_s)) < (400 if args.server else 150), (len(link_a), len(link_s))
-        if args.server:
+        if args.pretty_links:
+            assert urlsplit(link_a).path == "/cyberclash-finals_upgrade"
+            assert urlsplit(link_b).path == "/cyberclash-finals_lavked"
+            assert re.fullmatch(r"k=[\w-]{22}", urlsplit(link_a).fragment)
+        elif args.server:
             assert "&via=server&relay=" in link_a and "&via=server&relay=" in public
         await admin.screenshot(path=str(output / "veto-site-admin.png"), full_page=True)
         await admin.reload()
@@ -504,9 +519,18 @@ async def run(args):
         passed("whole BO3 by turns; spectators only listen; HLTV text copies")
 
         # 3. Reloads and late viewers; the public spectator link has no HLTV text.
+        alias_reloads = []
+        if args.pretty_links:
+            async def unavailable_alias(route):
+                alias_reloads.append(True)
+                await route.fulfill(status=503, content_type="application/json", body='{}')
+            await cap_a.route("**/api/veto-link*", unavailable_alias)
         await cap_a.reload()
         await expect(cap_a.locator("#vtStage")).to_have_attribute("data-phase", "done", timeout=wait)
         await expect(cap_a.locator("#vtResult")).to_be_hidden()
+        if args.pretty_links:
+            assert not alias_reloads, "an opened immutable link must reload from its encrypted cache"
+            assert "#k=" in cap_a.url and "#v=" not in cap_a.url
         late = await open_page(link_s)
         await expect(late.locator("#vtResultText")).to_have_text(result, timeout=wait)
         viewer = await open_page(public)
@@ -521,7 +545,17 @@ async def run(args):
         await spectator.screenshot(path=str(output / "veto-site-done.png"), full_page=True)
         broken = await open_page(base + "/veto.html#v=broken")
         await expect(broken.locator("#vtError")).to_contain_text("повреждена")
-        payload = link_a.split("#v=")[1].split("&")[0]
+        canonical_a = link_a
+        if args.pretty_links:
+            canonical_a = await cap_a.evaluate("""async () => {
+                const m=await import('/assets/veto-short-links.js');
+                return (await m.resolveRoomLink(location.href)).canonical;
+            }""")
+            incomplete = await open_page(link_a.split('#')[0])
+            await expect(incomplete.locator("#vtError")).to_contain_text("неполная")
+            await expect(incomplete.locator("#vtCreate")).to_be_hidden()
+            await incomplete.close()
+        payload = canonical_a.split("#v=")[1].split("&")[0]
         # Flip one byte of the captain's secret (after version, flags, room
         # and two fingerprints): the key no longer fits the link.
         bad_key = await broken.evaluate("""p => {
@@ -687,7 +721,7 @@ async def run(args):
         await expect(panel.locator("#cvAdminOpen")).to_have_attribute("href", own_admin)
         link_a = re.search(r"https?://\S+", await panel.input_value("#cvMsgA")).group(0)
         link_b = re.search(r"https?://\S+", await panel.input_value("#cvMsgB")).group(0)
-        assert link_a.startswith(base + "/veto.html#v="), link_a
+        assert (urlsplit(link_a).path == '/cyberclash_upgrade' and '#k=' in link_a) if args.pretty_links else link_a.startswith(base + "/veto.html#v=")
         if not args.real_vdo and not args.server:
             asymmetric_view_pages.append(panel)
         cap_a = await open_page(link_a)
@@ -753,7 +787,10 @@ async def run(args):
         assert not await panel.locator("#cvWatchMore").evaluate("el => el.open")
         await expect(panel.locator("#cvWatchStop")).to_be_visible()
         await expect(panel.locator("#cvAdminOpen")).to_have_attribute("href", own_admin)
-        assert link_a.split("#v=")[1] not in await panel.evaluate("localStorage.getItem('oneshot-veto-watch')")
+        if args.pretty_links:
+            assert urlsplit(link_a).fragment not in await panel.evaluate("localStorage.getItem('oneshot-veto-watch')")
+        else:
+            assert link_a.split("#v=")[1] not in await panel.evaluate("localStorage.getItem('oneshot-veto-watch')")
         await panel.click("#cvWatchStop")
         await expect(panel.locator("#cvWatchStop")).to_be_hidden()
         # «Сбросить вето» in the panel stops carrying the room's moves, so the
@@ -777,7 +814,8 @@ async def run(args):
         await expect(panel.locator("#vetoOutput")).to_have_value("")
         await expect(panel.locator("#cvSync")).to_be_checked()
         new_a = re.search(r"https?://\S+", await panel.input_value("#cvMsgA")).group(0)
-        assert new_a.startswith(base + "/veto.html#v=") and new_a != link_a, new_a
+        assert new_a != link_a
+        assert (urlsplit(new_a).path == '/cyberclash_upgrade' and '#k=' in new_a) if args.pretty_links else new_a.startswith(base + "/veto.html#v=")
         await panel.wait_for_timeout(3000)  # the old room's captains are still sending: nothing comes back
         await expect(panel.locator("#vetoOutput")).to_have_value("")
         for page in (cap_a, cap_b, boss, panel):
@@ -808,6 +846,7 @@ if __name__ == "__main__":
     parser.add_argument("--chromium", default=None)
     parser.add_argument("--browser", default="chromium", choices=["chromium", "webkit"])
     parser.add_argument("--server", action="store_true", help="use the actual local server relay; no VDO for rooms")
+    parser.add_argument("--pretty-links", action="store_true", help="create and open real encrypted tournament/team captain links")
     parser.add_argument("--focus-recovery", action="store_true", help="run late join, re-sign/reload and multi-tab cases only")
     parser.add_argument("--focus-match", action="store_true", help="run links, full BO3/BO1/BO5, reload and mobile cases without the panel")
     parser.add_argument("--real-vdo", action="store_true", help="use the real VDO.Ninja (needs internet)")

@@ -43,6 +43,7 @@ const assets = [
   'assets/favicon-night.png', 'assets/card/cyberclash-logo.png',
   'assets/veto-backdrop.jpg', 'assets/veto-appearance.js',
   'assets/veto-relay-protocol.js', 'assets/veto-relay-client.js', 'assets/veto-relay-links.js',
+  'assets/veto-short-protocol.js', 'assets/veto-short-links.js',
   'assets/fonts/Oswald-Variable.ttf', 'assets/fonts/OFL-Oswald.txt',
   'assets/maps/LICENSE.txt', 'assets/maps/README.md', 'assets/flags', 'assets/teams'
 ];
@@ -54,7 +55,8 @@ for (const asset of assets) {
 
 // The same protocol on Workers (Durable Objects) and an optional Node host.
 for (const file of ['server/veto-relay-api.js', 'server/veto-relay-cloudflare.js',
-  'server/veto-relay-file.js', 'server/veto-relay-node.mjs', 'functions/api/veto-relay.js']) {
+  'server/veto-relay-file.js', 'server/veto-relay-node.mjs', 'server/veto-short-api.js',
+  'functions/api/veto-relay.js','functions/api/veto-link.js','functions/[vetoSlug].js']) {
   await mkdir(path.dirname(to(file)), {recursive:true});
   await cp(from(file), to(file));
 }
@@ -113,7 +115,8 @@ does not see this repository: Settings → Builds → Git repository → Manage.
 
 VDO rooms work on any static host. Server rooms need the relay described in
 \`RELAY.md\`: deploy this Worker's Durable Objects first; Pages forwards only
-\`/api/veto-relay\` to that Worker. For a future server use Node >=22 and the
+\`/api/veto-relay\` and \`/api/veto-link\` to that Worker. Readable personal captain
+addresses use \`/tournament_team#k=…\`; send the complete private link. For a future server use Node >=22 and the
 same HTTP protocol. A static file server alone cannot synchronize clients.
 `);
 

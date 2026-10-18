@@ -32,6 +32,8 @@
 
   <main class="vt-main">
     <p class="vt-error" id="vtError" role="alert" hidden></p>
+    <p class="vt-note" id="vtLinkStatus" role="status" hidden data-i18n="openingLink">Opening your captain link…</p>
+    <button class="vt-button" id="vtRetryLink" type="button" hidden data-i18n="retryLink">Try again</button>
 
     <section class="vt-create" id="vtCreate" hidden aria-labelledby="vtCreateHeading">
       <h2 id="vtCreateHeading" data-i18n="createHeading">New captains' veto</h2>
@@ -40,6 +42,7 @@
         <fieldset class="vt-settings">
           <legend data-i18n="settings">Veto settings</legend>
           <label class="vt-wide"><span data-i18n="match">Match from the schedule</span><select id="vtMatch"><option value="" data-i18n="loadingSchedule">Loading the schedule…</option></select></label>
+          <label class="vt-wide"><span data-i18n="tournament">Tournament</span><input id="vtTournament" value="CyberClash" maxlength="60" required autocomplete="off"></label>
           <label><span data-i18n="team1">Team 1</span><input id="vtTeamA" list="vtTeamList" required autocomplete="off"></label>
           <label><span data-i18n="team2">Team 2</span><input id="vtTeamB" list="vtTeamList" required autocomplete="off"></label>
           <label><span data-i18n="format">Format</span>
