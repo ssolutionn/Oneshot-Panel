@@ -81,9 +81,12 @@
       "exit_code": 0,
       "seconds": 23.1,
       "tail": "PASS: a re-signed move is not taken back: the opponent keeps the first and sees a warning\nPASS: two tabs of one captain confirm together: one move counts, no conflict; standby takes over\nveto recovery: 2 scenarios passed\n"
+    },
+    "chromium_recovery": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-10-18T00:09:39.642279+00:00",
+  "updated_at": "2026-10-18T00:09:41.526768+00:00",
   "cloudflare_bindings": {
     "CLOUDFLARE_API_TOKEN": false,
     "CLOUDFLARE_ACCOUNT_ID": false
