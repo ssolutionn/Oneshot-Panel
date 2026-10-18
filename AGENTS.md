@@ -145,6 +145,8 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   Worker/Durable Objects → Pages → проверка публичных файлов/CSP/health
   (`scripts/verify_veto_deployment.py`, в копии `scripts/verify_deployment.py`).
   Требует Cloudflare secret/variable в Oneshot-Veto; значения в код не писать.
+  Pages использует service binding `VETO_RELAY_SERVICE` к Worker `oneshot-veto`.
+  В edge fetch допустимы `redirect: 'manual'/'follow'`; `'error'` не поддерживается.
 - Блок панели «Вето для капитанов» (`live.js`, только сайт, `captainVeto`):
   формат (как у вето панели, пока не изменён здесь), таймер, язык сообщений
   капитанам (English по умолчанию) → четыре ссылки для текущего матча

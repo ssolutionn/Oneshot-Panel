@@ -37,8 +37,12 @@ For deployment through the existing Cloudflare Git integration instead:
    It adds the VETO_RELAY binding and a SQLite Durable Object migration.
    Keep the old Worker domain enabled; do not replace the migration tag
    on subsequent deployments. Static VDO links at that domain still work.
-2. Pages deploys the same repo with functions/api/veto-relay.js. It forwards
-   only this API to the fixed Worker address configured in that file.
+2. Pages deploys the same repo with functions/api/veto-relay.js. Configure a
+   **service binding** named `VETO_RELAY_SERVICE` to Worker `oneshot-veto`.
+   The GitHub workflow supplies this in its Pages Wrangler configuration.
+   Requests use the internal binding, avoiding public Worker-to-Worker HTTP.
+   Without a binding the proxy retains its fixed-address HTTP fallback for
+   compatibility, but production readiness must be checked on the Pages URL.
    The browser uses its Pages origin; nothing sensitive is sent in a query.
 3. Verify GET /api/veto-relay?health=1 returns
    {"protocol":1,"ready":true} on the **public Pages address**.

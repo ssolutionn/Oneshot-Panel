@@ -1,15 +1,26 @@
 #!/usr/bin/env python3
-"""Actual workerd + SQLite Durable Objects, not a mocked storage binding."""
+"""Actual Pages proxy, internal service binding, workerd and SQLite Durable Objects."""
 import json
 import subprocess
 import time
+import tempfile
 from pathlib import Path
 from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
 base = "http://127.0.0.1:8791/api/veto-relay"
-with open("/tmp/oneshot-workerd.log", "w") as log:
-    process = subprocess.Popen(["npx", "--yes", "wrangler@4", "dev", "--local", "--port", "8791", "--ip", "127.0.0.1"],
-                               cwd="dist-veto", stdout=log, stderr=log)
+with tempfile.TemporaryDirectory(prefix="oneshot-pages-service-") as temporary, open("/tmp/oneshot-workerd.log", "w") as log:
+    root = Path.cwd()
+    pages = Path(temporary) / "pages"
+    subprocess.run(["npx", "--yes", "wrangler@4.151.1", "pages", "functions", "build", "functions", "--outdir", str(pages)],
+                   check=True, stdout=log, stderr=log)
+    config = Path(temporary) / "wrangler.jsonc"
+    config.write_text(json.dumps({"name": "oneshot-veto-pages-local", "main": str(pages / "index.js"),
+        "compatibility_date": "2026-10-01",
+        "assets": {"directory": str(root / "dist-veto"), "binding": "ASSETS", "run_worker_first": ["/api/veto-relay"]},
+        "services": [{"binding": "VETO_RELAY_SERVICE", "service": "oneshot-veto"}]}))
+    process = subprocess.Popen(["npx", "--yes", "wrangler@4.151.1", "dev", "--config", str(config),
+                                "--config", str(root / "dist-veto/wrangler.jsonc"),
+                                "--local", "--port", "8791", "--ip", "127.0.0.1"], stdout=log, stderr=log)
     try:
         deadline = time.monotonic() + 120
         while True:
@@ -41,7 +52,7 @@ assert.deepEqual(await unseal(secrets.key,body.records[0].packet.box),{t:'log',l
 const html=await fetch('http://127.0.0.1:8791/');
 assert.equal(html.status,200);
 assert.match(await html.text(),/vtTransport/);
-console.log('PASS: real workerd + SQLite Durable Object signatures, encrypted state, multi-topic read and static assets');
+console.log('PASS: real Pages proxy + internal service + SQLite Durable Object signatures, encrypted state, multi-topic read and static assets');
 """], check=True)
     finally:
         process.terminate()

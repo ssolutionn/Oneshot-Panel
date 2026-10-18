@@ -31,6 +31,13 @@ jobs:
           cp -R assets "$RUNNER_TEMP/veto-pages/assets"
           npx --yes wrangler@4.151.1 pages functions build functions --outdir "$RUNNER_TEMP/veto-pages/_worker.js" --output-routes-path "$RUNNER_TEMP/veto-pages/_routes.json"
           node --check "$RUNNER_TEMP/veto-pages/_worker.js/index.js"
+          node --input-type=module <<'JS'
+          import { writeFileSync } from 'node:fs';
+          writeFileSync(process.env.RUNNER_TEMP + '/veto-pages/wrangler.jsonc', JSON.stringify({
+            name: 'oneshot-veto', compatibility_date: '2026-10-01', pages_build_output_dir: '.',
+            services: [{binding: 'VETO_RELAY_SERVICE', service: 'oneshot-veto'}]
+          }, null, 2));
+          JS
       - name: Check Cloudflare credentials
         run: |
           node --input-type=module <<'JS'

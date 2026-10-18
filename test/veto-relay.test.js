@@ -11,6 +11,7 @@ import {RelayClient,checkRelay} from '../assets/veto-relay-client.js';
 import {MemoryRelayStore,handleRelay} from '../server/veto-relay-api.js';
 import {FileRelayStore} from '../server/veto-relay-file.js';
 import {relayServer} from '../server/veto-relay-node.mjs';
+import {onRequest as pagesRelay} from '../functions/api/veto-relay.js';
 const endpoint='https://example.test/api/veto-relay';
 async function captain() {
  const made=await createRoom('https://example.test/veto.html',['A','B'],'BO3',5,endpoint);
@@ -20,6 +21,43 @@ async function captain() {
 const post=packet=>new Request(endpoint,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(packet)});
 const get=topic=>new Request(endpoint+'?topics='+topic);
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
+
+test('Pages uses the internal relay service for health and signed state without public HTTP',async t=>{
+ const outbound=t.mock.method(globalThis,'fetch',async()=>{throw Error('public HTTP must not be used');});
+ const store=new MemoryRelayStore(),forwarded=[];
+ const env={VETO_RELAY_SERVICE:{fetch:async(url,options)=>{
+  assert.equal(options.redirect,'manual','Cloudflare accepts manual/follow, but not error');
+  forwarded.push(new URL(url));
+  return handleRelay(new Request(url,options),store);
+ }}};
+ const health=await pagesRelay({request:new Request(endpoint+'?health=1'),env});
+ assert.equal(health.status,200);
+ assert.deepEqual(await health.json(),{protocol:1,ready:true});
+ const c=await captain(),box=await seal(c.secrets.key,{revision:1});
+ const packet=await signRelayPacket(c.key,c.point,box);
+ assert.equal((await pagesRelay({request:post(packet),env})).status,200);
+ const result=await pagesRelay({request:get(packet.topic),env});
+ assert.equal(result.status,200);
+ assert.equal(result.headers.get('access-control-allow-origin'),'*');
+ const records=(await result.json()).records;
+ assert.deepEqual(await unseal(c.secrets.key,records[0].packet.box),{revision:1});
+ const count=forwarded.length;
+ assert.equal((await pagesRelay({request:new Request(endpoint+'?health=1&url=https://evil.test'),env})).status,400);
+ assert.equal(forwarded.length,count);
+ assert.ok(forwarded.every(url=>url.origin==='https://oneshot-veto.cyberclash.workers.dev'&&url.pathname==='/api/veto-relay'));
+ assert.equal(outbound.mock.callCount(),0);
+});
+
+test('a broken or redirecting internal relay stays an explicit JSON failure without public HTTP',async t=>{
+ const outbound=t.mock.method(globalThis,'fetch',async()=>{throw Error('public HTTP must not be used');});
+ for(const fetch of [async()=>{throw Error('service unavailable');},async()=>new Response('{"ready":true}',{
+  status:302,headers:{'content-type':'application/json',location:'https://evil.test'}})]){
+  const result=await pagesRelay({request:new Request(endpoint+'?health=1'),env:{VETO_RELAY_SERVICE:{fetch}}});
+  assert.equal(result.status,503);
+  assert.deepEqual(await result.json(),{protocol:1,ready:false,error:'relay-unavailable'});
+ }
+ assert.equal(outbound.mock.callCount(),0);
+});
 
 test('room links retain transport, drop captain secrets for admin, and keep old VDO bytes',async()=>{
  const {made,room}=await captain();
