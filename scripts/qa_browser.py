@@ -460,9 +460,12 @@ async def run(args):
         bad = await browser.new_context()
         await bad.route("https://docs.google.com/**/gviz/**", normal_sheets)
         await bad.add_init_script(
+            # The failure belongs to the panel; sandboxed VDO frames may not
+            # access storage at all and must not run this setup code.
+            "if (window === window.top) {"
             "localStorage.setItem('webcam-desk-source', '{broken'); "
             "localStorage.setItem('oneshot-webcam-match-v1', '{broken'); "
-            "Storage.prototype.setItem = () => {throw Error('storage denied')}"
+            "Storage.prototype.setItem = () => {throw Error('storage denied')} }"
         )
         bad_page = await bad.new_page()
         bad_page.on("pageerror", lambda error: errors.append(str(error)))
@@ -489,7 +492,11 @@ async def run(args):
             if template_mode["fail"]:
                 await route.fulfill(status=404, body="Not found")
             else:
-                await route.continue_()
+                await route.fulfill(
+                    status=200, content_type="application/json",
+                    body=(Path(__file__).resolve().parent.parent /
+                          "assets/obs-template.json").read_text(),
+                )
 
         await missing.route("**/assets/obs-template.json", template_route)
         missing_page = await missing.new_page()
