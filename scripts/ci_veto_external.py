@@ -183,6 +183,12 @@ def wait_deployment():
         run = runs[0]
         REPORT["steps"]["deployment_wait"] = {key: run.get(key) for key in [
             "status", "conclusion", "head_sha", "html_url"]}
+        jobs = subprocess.run(["gh", "api", f"repos/ssolutionn/Oneshot-Veto/actions/runs/{run['id']}/jobs"],
+                              capture_output=True, text=True, timeout=30)
+        if jobs.returncode == 0:
+            REPORT["steps"]["deployment_wait"]["job_steps"] = [
+                {key: item.get(key) for key in ["name", "status", "conclusion"]}
+                for job in json.loads(jobs.stdout).get("jobs", []) for item in job.get("steps", [])]
         publish()
         if run.get("status") == "completed":
             return
