@@ -1,7 +1,7 @@
 {
-  "source_sha": "0f16c935fe502e10a626283646c2ed3f0c4d723b",
-  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39108729988",
-  "checked_at": "2026-10-18T10:43:52.883068+03:00",
+  "source_sha": "1fa31a732978b1883eaeebafb839deef750c32b7",
+  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39108962253",
+  "checked_at": "2026-10-18T10:47:34.941121+03:00",
   "teams": [
     {
       "name": "Nuclear TigeRES",
@@ -107,10 +107,13 @@
     }
   ],
   "unresolved": [],
+  "expected_build": "55580069386c9898de2ba882b29d2bed26ea2220",
+  "published_build": "55580069386c9898de2ba882b29d2bed26ea2220",
+  "app_matches_source": true,
   "public_status": 200,
   "panel": {
     "error": "",
-    "sync": "Обновлено 10:43 МСК",
+    "sync": "Обновлено 10:47 МСК",
     "groups": [
       {
         "label": "18.10 · сегодня",
@@ -156,52 +159,7 @@
       }
     ]
   },
-  "selection_checks": [
-    {
-      "team1": "Fire Flux",
-      "team2": "Bushido Wildcats",
-      "time": "13:00",
-      "stage": "Decider Match",
-      "selectedA": 5,
-      "selectedB": 5,
-      "matchError": "",
-      "date": "18.10",
-      "passed": true
-    },
-    {
-      "team1": "UPGRADE",
-      "team2": "Lavked",
-      "time": "17:00",
-      "stage": "Decider Match",
-      "selectedA": 5,
-      "selectedB": 5,
-      "matchError": "",
-      "date": "18.10",
-      "passed": true
-    },
-    {
-      "team1": "Black Phoenix",
-      "team2": "LPH",
-      "time": "20:00",
-      "stage": "Decider Match",
-      "selectedA": 5,
-      "selectedB": 5,
-      "matchError": "",
-      "date": "18.10",
-      "passed": true
-    },
-    {
-      "team1": "6yuBoJlbl",
-      "team2": "HYPERSPIRIT",
-      "time": "23:00",
-      "stage": "Decider Match",
-      "selectedA": 5,
-      "selectedB": 5,
-      "matchError": "",
-      "date": "18.10",
-      "passed": true
-    }
-  ],
-  "missing": [],
-  "passed": true
+  "selection_checks": [],
+  "error": "string indices must be integers, not 'str'",
+  "passed": false
 }
