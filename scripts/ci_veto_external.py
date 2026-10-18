@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run external release probes on GitHub's runner and mirror safe results over Git."""
 import json
+import hashlib
 import os
 import re
 import subprocess
@@ -126,6 +127,7 @@ def public_browser_probe():
                 "https://oneshot-veto.pages.dev/veto.js",
                 "https://oneshot-veto.pages.dev/veto-room.js",
                 "https://oneshot-veto.pages.dev/veto.css",
+                "https://oneshot-veto.pages.dev/vdo.js",
                 "https://oneshot-veto.pages.dev/api/veto-relay?health=1",
                 "https://oneshot-veto.cyberclash.workers.dev/api/veto-relay?health=1",
             ]:
@@ -140,7 +142,14 @@ def public_browser_probe():
                                cf_mitigated=response.headers.get("cf-mitigated"),
                                markers={marker: marker in body for marker in [
                                    "vtTransport", "vtReconnect", "signRoomMessage", "claimPush",
-                                   "--vt-ct:#7fb2f0", "--vt-t:#f0a95e"]})
+                                   "--vt-ct:#7fb2f0", "--vt-t:#f0a95e",
+                                   "background:var(--vt-ct); color:var(--vt-bg)",
+                                   "background:var(--vt-t); color:var(--vt-bg)",
+                                   "VDO_CONNECT_TIMEOUT = 30000"]})
+                    file = url.rsplit("/", 1)[-1] or "veto.html"
+                    if file in ["veto.html", "veto.js", "veto.css", "veto-room.js", "vdo.js"]:
+                        row["matches_source"] = hashlib.sha256(response.body()).digest() == hashlib.sha256(
+                            (ROOT / file).read_bytes()).digest()
                     if "?health=1" in url:
                         try:
                             row["health"] = json.loads(body)
@@ -181,6 +190,24 @@ def deployment_metadata():
                                for check in data.get("check_runs", [])]
         results.append(row)
     REPORT["steps"]["deployment_metadata"] = {"status": "observed", "results": results}
+    command = subprocess.run(["gh", "api", "repos/ssolutionn/Oneshot-Veto/actions/runs?branch=main&per_page=3"],
+                             capture_output=True, text=True, timeout=30)
+    if command.returncode == 0:
+        runs = json.loads(command.stdout).get("workflow_runs", [])
+        REPORT["deployment_runs"] = [{key: run.get(key) for key in [
+            "id", "name", "head_sha", "status", "conclusion", "html_url"]} for run in runs]
+        for run in runs[:1]:
+            if run.get("conclusion") == "failure":
+                logs = subprocess.run(["gh", "run", "view", str(run["id"]), "--repo", "ssolutionn/Oneshot-Veto", "--log-failed"],
+                                      capture_output=True, text=True, timeout=40)
+                REPORT["deployment_failure"] = safe((logs.stdout or logs.stderr)[-7000:])
+    else:
+        REPORT["deployment_runs_error"] = safe(command.stderr[-1500:])
+    command = subprocess.run(["gh", "api", "repos/ssolutionn/Oneshot-Veto/pulls/2"],
+                             capture_output=True, text=True, timeout=30)
+    if command.returncode == 0:
+        pull = json.loads(command.stdout)
+        REPORT["site_pull_request"] = {key: pull.get(key) for key in ["number", "state", "merged", "merge_commit_sha", "html_url"]}
     publish()
 
 
@@ -234,7 +261,8 @@ def main():
             publish()
     if not step("install_playwright", ["python3", "-m", "pip", "install", "playwright"], 180):
         return False
-    if not step("install_browsers", ["python3", "-m", "playwright", "install", "--with-deps", "chromium", "webkit"], 360):
+    browsers = ["chromium"] if os.environ.get("VETO_EXTERNAL_MODE") == "public" else ["chromium", "webkit"]
+    if not step("install_browsers", ["python3", "-m", "playwright", "install", "--with-deps", *browsers], 360):
         return False
     public_browser_probe()
     if os.environ.get("VETO_EXTERNAL_MODE") == "public":
