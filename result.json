@@ -1,7 +1,7 @@
 {
-  "source_sha": "85fee60ff27592ab4ada534477ced1382eb19411",
-  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39161207885",
-  "checked_at": "2026-10-18T22:59:41.517790+03:00",
+  "source_sha": "4ca57dc07899aab9fa925756314b6f10a7487309",
+  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39165851049",
+  "checked_at": "2026-10-19T00:00:41.907755+03:00",
   "teams": [
     {
       "name": "Nuclear TigeRES",
@@ -68,172 +68,50 @@
       "main": 5
     }
   ],
-  "matches": [
-    {
-      "date": "18.10",
-      "time": "13:00",
-      "team1": "Fire Flux",
-      "team2": "Bushido Wildcats",
-      "group": "",
-      "stage": "Decider Match",
-      "key": "[\"18.10\",\"13:00\",\"Fire Flux\",\"Bushido Wildcats\",\"Decider Match\",0]"
-    },
-    {
-      "date": "18.10",
-      "time": "17:00",
-      "team1": "UPGRADE",
-      "team2": "Lavked",
-      "group": "",
-      "stage": "Decider Match",
-      "key": "[\"18.10\",\"17:00\",\"UPGRADE\",\"Lavked\",\"Decider Match\",0]"
-    },
-    {
-      "date": "18.10",
-      "time": "20:00",
-      "team1": "Black Phoenix",
-      "team2": "LPH",
-      "group": "",
-      "stage": "Decider Match",
-      "key": "[\"18.10\",\"20:00\",\"Black Phoenix\",\"LPH\",\"Decider Match\",0]"
-    },
-    {
-      "date": "18.10",
-      "time": "23:00",
-      "team1": "6yuBoJlbl",
-      "team2": "HYPERSPIRIT",
-      "group": "",
-      "stage": "Decider Match",
-      "key": "[\"18.10\",\"23:00\",\"6yuBoJlbl\",\"HYPERSPIRIT\",\"Decider Match\",0]"
-    }
-  ],
+  "matches": [],
   "unresolved": [],
-  "expected_build": "fc753a67b093b50dbbebf2216ba61e762c0f6366",
-  "published_build": "fc753a67b093b50dbbebf2216ba61e762c0f6366",
+  "expected_build": "f79f091dd249a629a4cb5f08025fdb6b7e37c7db",
+  "published_build": "f79f091dd249a629a4cb5f08025fdb6b7e37c7db",
   "app_matches_source": true,
   "public_status": 200,
   "review_features": {
     "defaultCoin": true,
     "exportRecovery": true,
-    "exportDialog": true
+    "exportDialog": true,
+    "cameraFrame": true,
+    "cameraEditor": true
   },
   "panel": {
     "error": "",
-    "sync": "Обновлено 22:59 МСК",
-    "groups": [
-      {
-        "label": "18.10 · сегодня",
-        "count": 4
-      }
-    ],
-    "schedule": [
-      {
-        "date": "18.10",
-        "time": "13:00",
-        "team1": "Fire Flux",
-        "team2": "Bushido Wildcats",
-        "group": "",
-        "stage": "Decider Match",
-        "key": "[\"18.10\",\"13:00\",\"Fire Flux\",\"Bushido Wildcats\",\"Decider Match\",0]"
-      },
-      {
-        "date": "18.10",
-        "time": "17:00",
-        "team1": "UPGRADE",
-        "team2": "Lavked",
-        "group": "",
-        "stage": "Decider Match",
-        "key": "[\"18.10\",\"17:00\",\"UPGRADE\",\"Lavked\",\"Decider Match\",0]"
-      },
-      {
-        "date": "18.10",
-        "time": "20:00",
-        "team1": "Black Phoenix",
-        "team2": "LPH",
-        "group": "",
-        "stage": "Decider Match",
-        "key": "[\"18.10\",\"20:00\",\"Black Phoenix\",\"LPH\",\"Decider Match\",0]"
-      },
-      {
-        "date": "18.10",
-        "time": "23:00",
-        "team1": "6yuBoJlbl",
-        "team2": "HYPERSPIRIT",
-        "group": "",
-        "stage": "Decider Match",
-        "key": "[\"18.10\",\"23:00\",\"6yuBoJlbl\",\"HYPERSPIRIT\",\"Decider Match\",0]"
-      }
-    ]
+    "sync": "Обновлено 00:00 МСК",
+    "groups": [],
+    "schedule": []
   },
-  "selection_checks": [
-    {
-      "team1": "Fire Flux",
-      "team2": "Bushido Wildcats",
-      "time": "13:00",
-      "stage": "Decider Match",
-      "selectedA": 5,
-      "selectedB": 5,
-      "matchError": "",
-      "date": "18.10",
-      "passed": true
-    },
-    {
-      "team1": "UPGRADE",
-      "team2": "Lavked",
-      "time": "17:00",
-      "stage": "Decider Match",
-      "selectedA": 5,
-      "selectedB": 5,
-      "matchError": "",
-      "date": "18.10",
-      "passed": true
-    },
-    {
-      "team1": "Black Phoenix",
-      "team2": "LPH",
-      "time": "20:00",
-      "stage": "Decider Match",
-      "selectedA": 5,
-      "selectedB": 5,
-      "matchError": "",
-      "date": "18.10",
-      "passed": true
-    },
-    {
-      "team1": "6yuBoJlbl",
-      "team2": "HYPERSPIRIT",
-      "time": "23:00",
-      "stage": "Decider Match",
-      "selectedA": 5,
-      "selectedB": 5,
-      "matchError": "",
-      "date": "18.10",
-      "passed": true
-    }
-  ],
+  "selection_checks": [],
   "missing": [],
   "passed": true,
-  "veto_expected": "dbccb5134c188d30db4e4776f8f3761413cf751d",
+  "veto_expected": "c304e70d1fdeaaf90c413759abf4a00e1051fbf1",
   "veto_deployment": {
     "name": "Deploy veto to Cloudflare",
-    "head_sha": "dbccb5134c188d30db4e4776f8f3761413cf751d",
+    "head_sha": "c304e70d1fdeaaf90c413759abf4a00e1051fbf1",
     "status": "completed",
     "conclusion": "success",
-    "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39161096041"
+    "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39165785153"
   },
   "checks": [
     {
       "name": "Panel checks",
       "status": "in_progress",
       "conclusion": null,
-      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39161077093",
-      "id": 39161077093
+      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39165826979",
+      "id": 39165826979
     },
     {
-      "name": "Veto site regression",
+      "name": "Camera framing and OBS",
       "status": "in_progress",
       "conclusion": null,
-      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39161077052",
-      "id": 39161077052
+      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39165826926",
+      "id": 39165826926
     }
   ]
 }
