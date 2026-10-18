@@ -13,13 +13,16 @@ test('veto site build: veto pages and assets only, no roster sheet, no panel add
   try {
     await promisify(execFile)(process.execPath, [new URL('../scripts/build-veto-site.mjs', import.meta.url).pathname, out]);
     const top = (await readdir(out)).sort();
-    assert.deepEqual(top, ['.assetsignore', 'README.md', 'RELAY.md', '_headers', 'assets', 'core.js', 'functions', 'index.html', 'package.json', 'server', 'vdo.js',
+    assert.deepEqual(top, ['.assetsignore', '.github', 'README.md', 'RELAY.md', '_headers', 'assets', 'core.js', 'functions', 'index.html', 'package.json', 'scripts', 'server', 'vdo.js',
       'veto-room.js', 'veto.css', 'veto.html', 'veto.js', 'worker.js', 'wrangler.jsonc']);
     const worker = JSON.parse(await readFile(path.join(out, 'wrangler.jsonc'), 'utf8'));
     assert.deepEqual(worker.assets, { directory: '.', binding:'ASSETS', run_worker_first:['/api/veto-relay'] });
     assert.deepEqual(worker.durable_objects.bindings, [{name:'VETO_RELAY',class_name:'VetoRelayTopic'}]);
     assert.deepEqual(worker.migrations[0].new_sqlite_classes, ['VetoRelayTopic']);
     assert.match(await readFile(path.join(out, '.assetsignore'), 'utf8'), /^wrangler\.jsonc$/m);
+    const patterns = await readFile(path.join(out, '.assetsignore'), 'utf8');
+    assert.match(patterns, /^\.github\/$/m);
+    assert.match(patterns, /^scripts\/$/m);
     assert.equal(await readFile(path.join(out, 'index.html'), 'utf8'), await readFile(new URL('../veto.html', import.meta.url), 'utf8'));
     const core = await readFile(path.join(out, 'core.js'), 'utf8');
     assert.match(core, /^ {2}id: '',\n {2}gid: '',$/m);

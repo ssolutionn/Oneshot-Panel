@@ -13,6 +13,22 @@ the camera sources inside the JSON do.
 
 ## Cloudflare (current hosting)
 
+The generated repo includes **Deploy veto to Cloudflare**, a GitHub Actions
+workflow for pushes to `main` and manual runs. It validates the Worker and
+Pages Functions, deploys the Worker/migration first, then Pages, and checks
+the public file hashes, CSP and JSON health in Chromium. Pages receives a
+separate directory containing public assets and the compiled API only.
+
+In the **Oneshot-Veto** repository's Settings → Secrets and variables → Actions,
+set `CLOUDFLARE_API_TOKEN` as a secret (Account → Workers Scripts → Edit and
+Account → Cloudflare Pages → Edit, scoped to the existing account).
+Set `CLOUDFLARE_ACCOUNT_ID` as a repository variable or secret for that same
+account. These values are not part of the site or captain links. The workflow
+fails explicitly when either value is missing; it never treats a static-only
+upload as a ready relay. Re-run the workflow after adding missing credentials.
+
+For deployment through the existing Cloudflare Git integration instead:
+
 1. In the existing **oneshot-veto Worker** connected to this generated repo,
    deploy the committed wrangler.jsonc with **npx wrangler deploy**.
    It adds the VETO_RELAY binding and a SQLite Durable Object migration.

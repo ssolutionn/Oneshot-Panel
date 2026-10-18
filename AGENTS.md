@@ -141,6 +141,10 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   попал ID таблицы или адрес панели (`test/veto-site.test.js`). Игроки видят
   только адрес сайта вето. После правок вето: пересобрать и запушить копию
   в `oneshot-veto` (main).
+  `server/veto-deploy-cloudflare.yml` генерируется в workflow отдельного сайта:
+  Worker/Durable Objects → Pages → проверка публичных файлов/CSP/health
+  (`scripts/verify_veto_deployment.py`, в копии `scripts/verify_deployment.py`).
+  Требует Cloudflare secret/variable в Oneshot-Veto; значения в код не писать.
 - Блок панели «Вето для капитанов» (`live.js`, только сайт, `captainVeto`):
   формат (как у вето панели, пока не изменён здесь), таймер, язык сообщений
   капитанам (English по умолчанию) → четыре ссылки для текущего матча

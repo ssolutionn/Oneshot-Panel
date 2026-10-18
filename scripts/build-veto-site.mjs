@@ -59,6 +59,10 @@ for (const file of ['server/veto-relay-api.js', 'server/veto-relay-cloudflare.js
   await cp(from(file), to(file));
 }
 await cp(from('server/veto-relay-worker-entry.js'), to('worker.js'));
+await mkdir(to('.github/workflows'), {recursive:true});
+await cp(from('server/veto-deploy-cloudflare.yml'), to('.github/workflows/deploy-cloudflare.yml'));
+await mkdir(to('scripts'), {recursive:true});
+await cp(from('scripts/verify_veto_deployment.py'), to('scripts/verify_deployment.py'));
 
 // Cloudflare Pages headers: the veto needs Google Sheets (the schedule) and
 // VDO.Ninja frames only.
@@ -72,7 +76,7 @@ await writeFile(to('_headers'), `/*
 // repository): the files at the root are the site; .assetsignore keeps the
 // config and the README out of it. Pages works too (output directory /).
 await cp(from('server/veto-relay-wrangler.jsonc'), to('wrangler.jsonc'));
-await writeFile(to('.assetsignore'), '.git\n.assetsignore\nwrangler.jsonc\nREADME.md\nworker.js\nserver/\nfunctions/\npackage.json\nRELAY.md\n');
+await writeFile(to('.assetsignore'), '.git\n.github/\nscripts/\n.assetsignore\nwrangler.jsonc\nREADME.md\nworker.js\nserver/\nfunctions/\npackage.json\nRELAY.md\n');
 await cp(from('server/RELAY.md'), to('RELAY.md'));
 await writeFile(to('package.json'), JSON.stringify({private:true,type:'module',engines:{node:'>=22'},scripts:{relay:'node server/veto-relay-node.mjs'}},null,2)+'\n');
 
@@ -87,6 +91,14 @@ the HLTV text. English by default, Russian with the flag.
 there rebuilds this copy without any panel files or roster data.
 
 ## Publish (Cloudflare)
+
+The included **Deploy veto to Cloudflare** GitHub Actions workflow publishes
+both the Worker relay and Pages on a push to \`main\`. Configure the two
+repository credentials described in \`RELAY.md\`; no credentials belong in
+the site files. The workflow verifies public assets and relay health after
+deployment. A missing credential is an explicit failed check.
+
+Alternatively, using the Cloudflare Git integration:
 
 Workers & Pages → Create → Import a repository → this one. \`wrangler.jsonc\`
 serves the files as static assets (\`.assetsignore\` leaves the config out);
