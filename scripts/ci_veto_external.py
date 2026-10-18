@@ -273,18 +273,6 @@ def main():
         wait_deployment()
         deployment_metadata()
     public_probe()
-    REPORT["cloudflare_bindings"] = {key: bool(os.environ.get(key)) for key in
-                                     ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]}
-    if os.environ.get("CLOUDFLARE_API_TOKEN"):
-        try:
-            request = urllib.request.Request("https://api.cloudflare.com/client/v4/user/tokens/verify",
-                      headers={"Authorization": "Bearer " + os.environ["CLOUDFLARE_API_TOKEN"]})
-            with urllib.request.urlopen(request, timeout=20) as response:
-                result = json.load(response)
-                REPORT["cloudflare_token_active"] = bool(result.get("success") and result.get("result", {}).get("status") == "active")
-        except Exception as error:
-            REPORT["cloudflare_token_check"] = safe(str(error))
-    publish()
     if os.environ.get("VETO_EXTERNAL_MODE") != "public":
         try:
             prior_failure()
