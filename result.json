@@ -2,6 +2,52 @@
   "source_sha": "e05d33a308ad07c6185d6891736abc0ac8867893",
   "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39081631163",
   "status": "running",
-  "steps": {},
-  "updated_at": "2026-10-18T00:08:07.919392+00:00"
+  "steps": {
+    "public_endpoints": {
+      "status": "observed",
+      "results": [
+        {
+          "url": "https://oneshot-veto.pages.dev/",
+          "error": "HTTP Error 403: Forbidden",
+          "server": "cloudflare",
+          "content_type": "text/plain; charset=UTF-8",
+          "cf_mitigated": null,
+          "body": "error code: 1010\n"
+        },
+        {
+          "url": "https://oneshot-veto.pages.dev/veto.js",
+          "error": "HTTP Error 403: Forbidden",
+          "server": "cloudflare",
+          "content_type": "text/plain; charset=UTF-8",
+          "cf_mitigated": null,
+          "body": "error code: 1010\n"
+        },
+        {
+          "url": "https://oneshot-veto.pages.dev/veto-room.js",
+          "error": "HTTP Error 403: Forbidden",
+          "server": "cloudflare",
+          "content_type": "text/plain; charset=UTF-8",
+          "cf_mitigated": null,
+          "body": "error code: 1010\n"
+        },
+        {
+          "url": "https://oneshot-veto.pages.dev/api/veto-relay?health=1",
+          "error": "HTTP Error 403: Forbidden",
+          "server": "cloudflare",
+          "content_type": "text/plain; charset=UTF-8",
+          "cf_mitigated": null,
+          "body": "error code: 1010\n"
+        },
+        {
+          "url": "https://oneshot-veto.cyberclash.workers.dev/api/veto-relay?health=1",
+          "error": "HTTP Error 403: Forbidden",
+          "server": "cloudflare",
+          "content_type": "text/plain; charset=UTF-8",
+          "cf_mitigated": null,
+          "body": "error code: 1010\n"
+        }
+      ]
+    }
+  },
+  "updated_at": "2026-10-18T00:08:10.519852+00:00"
 }
