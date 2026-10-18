@@ -9,21 +9,26 @@ from playwright.async_api import async_playwright, expect
 from qa_veto_site import FAKE_VDO
 
 
-async def slow_vdo(browser, base):
+async def slow_vdo(browser, base, late_publishers=False):
     frames = {}
+    stranded = set()
 
     async def hello(source, password, identity, role, stream):
+        if late_publishers and role == "view" and not any(
+                pw == password and other_role == "push" and other_stream == stream
+                for pw, _, other_role, other_stream, _ in frames.values()):
+            stranded.add(identity)
         frames[identity] = (password, source["frame"], role, stream, time.monotonic())
 
     async def relay(source, password, identity, data):
-        if identity not in frames:
+        if identity not in frames or identity in stranded:
             return
         _, _, role, stream, created = frames[identity]
         for other, (pw, frame, other_role, other_stream, born) in list(frames.items()):
-            if other == identity or pw != password or stream != other_stream or role == other_role:
+            if other == identity or other in stranded or pw != password or stream != other_stream or role == other_role:
                 continue
             # A healthy viewer needs 20 seconds of uninterrupted signalling.
-            if time.monotonic() - (created if role == "view" else born) < 20:
+            if not late_publishers and time.monotonic() - (created if role == "view" else born) < 20:
                 continue
             try:
                 await frame.evaluate("d => window.__deliver(d)", {"dataReceived": data, "UUID": identity})
@@ -36,7 +41,7 @@ async def slow_vdo(browser, base):
     contexts = []
     pages = []
     try:
-        for _ in range(2):
+        for _ in range(3 if late_publishers else 2):
             context = await browser.new_context(reduced_motion="reduce")
             contexts.append(context)
             await context.route("https://docs.google.com/**", lambda r: r.abort())
@@ -50,12 +55,18 @@ async def slow_vdo(browser, base):
           return (await m.createRoom(location.href, ['Slow A', 'Slow B'], 'BO1')).links;
         }""")
         await setup.close()
+        watcher = None
+        if late_publishers:
+            watcher = await contexts[2].new_page()
+            await watcher.goto(links["s"])
         for context, link in [(contexts[0], links["a"]), (contexts[0], links["a"]), (contexts[1], links["b"])]:
             page = await context.new_page()
             pages.append(page)
             await page.goto(link)
         for page in pages:
             await expect(page.locator("#vtKicker")).to_contain_text("Coin:", timeout=40000)
+        if watcher:
+            await expect(watcher.locator("#vtKicker")).to_contain_text("Coin:", timeout=45000)
         a1, a2, _ = pages
         publisher = 'iframe.vdo-frame[src*="push="]'
         assert await a1.locator(publisher).count() + await a2.locator(publisher).count() == 1
@@ -68,7 +79,8 @@ async def slow_vdo(browser, base):
         await expect(leader.locator(publisher)).to_have_count(1)
         await leader.close()
         await expect(standby.locator(publisher)).to_have_count(1)
-        print("PASS: 20-second VDO signalling survives; reconnect restarts the publisher without stealing its lock; standby takes over", flush=True)
+        print("PASS: " + ("viewers stranded before publishers reconnect within 45 seconds" if late_publishers else
+              "20-second VDO signalling survives") + "; reconnect preserves publisher ownership; standby takes over", flush=True)
     finally:
         for context in contexts:
             await context.close()
@@ -170,6 +182,7 @@ async def main(args):
         browser = await getattr(p, args.browser).launch(**options)
         try:
             await slow_vdo(browser, args.url.rstrip("/"))
+            await slow_vdo(browser, args.url.rstrip("/"), late_publishers=True)
             await stalled_sender(browser, args.url.rstrip("/"))
             await unavailable_coin_storage(browser, args.url.rstrip("/"))
         finally:

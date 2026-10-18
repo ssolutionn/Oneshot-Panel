@@ -4,7 +4,7 @@
 // without this file (the Claude artifact has none of it).
 import { buildObs, DEFAULT_CARD_BASE } from './core.js';
 import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto } from './obs.js';
-import { VdoLink, CamWatch, bridgeSecrets, newBridgeCode, normalizeCode, VDO_CONNECT_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
+import { VdoLink, CamWatch, bridgeSecrets, newBridgeCode, normalizeCode, VDO_CONNECT_TIMEOUT, VDO_CONNECT_MAX_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
 import { mountQrReader, parseObsQr, parsePairingQr } from './assets/obs-qr.js';
 import { createRoom, captainMessage, spectatorMessage, nextTurn, clock, formatClock, resultText } from './veto-room.js';
 import { RoomWatch, adminRoom, roomToPanel, roomMoves } from './veto-watch.js';
@@ -530,7 +530,7 @@ const savedVetoCode = normalizeCode(read(VETO_CHANNEL_STORE));
 const vetoCode = savedVetoCode || newBridgeCode();
 write(VETO_CHANNEL_STORE, vetoCode);
 let vetoLink = null, vetoOpening = null, vetoTimer, lastVeto = '', vetoId = '', vetoAck = '', vetoSeen = 0,
-  vetoOpenedAt = 0, vetoSending = false;
+  vetoOpenedAt = 0, vetoSending = false, vetoConnectWait = VDO_CONNECT_TIMEOUT;
 function setVetoStatus(text, kind = '') {
   $('vetoLiveStatus').textContent = text;
   $('vetoLiveStatus').dataset.kind = kind;
@@ -552,6 +552,7 @@ function ensureVetoLink() {
   if (vetoEndpoint !== endpoint) {
     vetoLink?.close(); vetoLink = null; vetoAck = ''; vetoSeen = 0; vetoOpenedAt = 0; lastVeto = '';
     vetoEndpoint = endpoint;
+    vetoConnectWait = VDO_CONNECT_TIMEOUT;
   }
   if (vetoLink) return Promise.resolve(vetoLink);
   if (vetoOpening) return vetoOpening;
@@ -562,6 +563,7 @@ function ensureVetoLink() {
       if (message.type !== 'veto-received' || message.id !== vetoId) return;
       vetoAck = message.id;
       vetoSeen = Date.now();
+      vetoConnectWait = VDO_CONNECT_TIMEOUT;
       paintVetoStatus();
     };
     return endpoint ? ServerDisplayLink.create(vetoCode, 'dock', endpoint, receive).then(link => {
@@ -608,7 +610,8 @@ async function flushVeto() {
     // acknowledges every snapshot, so a missing ACK is an objective reason to
     // rebuild only this display channel.
     if (!vetoEndpoint && vetoLink && Date.now() - Math.max(vetoSeen, vetoOpenedAt) >=
-        (vetoSeen ? VDO_IDLE_TIMEOUT : VDO_CONNECT_TIMEOUT)) {
+        (vetoSeen ? VDO_IDLE_TIMEOUT : vetoConnectWait)) {
+      vetoConnectWait = vetoSeen ? VDO_CONNECT_TIMEOUT : Math.min(VDO_CONNECT_MAX_TIMEOUT, vetoConnectWait * 2);
       vetoLink.close();
       vetoLink = null;
       vetoOpenedAt = 0;

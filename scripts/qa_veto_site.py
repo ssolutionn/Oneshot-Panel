@@ -233,6 +233,7 @@ async def run(args):
                     except Exception as error:
                         states.append({"diagnosticError": type(error).__name__})
             (output / "connection-timeout.json").write_text(json.dumps(states, ensure_ascii=False, indent=2))
+            print("CONNECTION_TIMEOUT", json.dumps(states, ensure_ascii=False), flush=True)
 
         async def coin_shown(*pages):
             try:
@@ -288,6 +289,137 @@ async def run(args):
                 await expect(page.locator("#vtStage")).to_have_attribute("data-phase", "done", timeout=wait)
                 await expect(page.locator("#vtResult")).to_be_hidden()
             return result
+
+        async def recovery_scenarios(admin):
+            try:
+                # 7. A spectator forges a move and fakes the absent captain's presence.
+                link_a, link_b, link_s = await make_links(admin, "Omega", "Fire Flux", "BO1")
+                a = await open_page(link_a)
+                s = await open_page(link_s)
+                await expect(a.locator("#vtPrompt")).to_have_text("Ждём капитана Fire Flux")
+                if not args.real_vdo:
+                    await s.evaluate("""async () => {
+                      const m = await import('/veto-room.js'), v = await import('/vdo.js');
+                      const room = m.decodeLink(location.hash), secrets = await m.roomSecrets(room);
+                      const forged = [{ k: 'order', v: '0', at: Date.now(), s: 'A'.repeat(86) }];
+                      const box = await v.seal(secrets.key, { t: 'log', from: 'b', log: forged });
+                      if(room.relay) {
+                        const protocol=await import('/assets/veto-relay-protocol.js');
+                        const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
+                        const point=await crypto.subtle.exportKey('jwk',pair.publicKey);
+                        const packet=await protocol.signRelayPacket(pair.privateKey,[point.x,point.y],box);
+                        packet.topic=room.fp[1];
+                        const response=await fetch(room.relay,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(packet)});
+                        if(response.status!==403)throw Error('Spectator write was not rejected');
+                      }
+                      for (const frame of document.querySelectorAll('iframe.vdo-frame')) {
+                        frame.contentWindow.postMessage({ sendData: { oneshotVeto: box } }, '*');
+                      }
+                    }""")
+                    await a.wait_for_timeout(3000)
+                    await expect(a.locator("#vtTeam1")).to_have_attribute("data-online", "no")
+                    await expect(a.locator("#vtLog li")).to_have_count(0)
+                    await expect(a.locator("#vtKicker")).to_have_text("Монетка")
+                    passed("spectator cannot forge a move or fake the opponent being online")
+
+                # 7. A captain re-signs a move after it was seen: the others keep it and warn.
+                b = await open_page(link_b)
+                await expect(a.locator("#vtTeam1")).to_have_attribute("data-online", "yes", timeout=join)
+                first, second = await winner_of(a, b)
+                await first.get_by_role("button", name="Баним первыми").click()
+                for page in (a, b):
+                    await expect(page.locator("#vtLog li")).to_have_count(1, timeout=wait)
+                await first.locator(".vt-map:not([disabled])").first.click()
+                banned = await first.locator(".vt-map.is-selected").get_attribute("data-map")
+                await first.locator("#vtActions .vt-primary").click()
+                for page in (a, b, s):
+                    await expect(page.locator(f'.vt-map[data-map="{banned}"]')).to_have_attribute("data-status", "ban", timeout=wait)
+                other_map = "Nuke" if banned != "Nuke" else "Mirage"
+                # Keep the coin (3 moves) and the order, sign another ban.
+                await first.evaluate(SIGN_IN_PAGE, ["ban", other_map, 4, 0])
+                await first.reload()
+                # The real VDO.Ninja may take a while to take the reloaded stream back.
+                back = 90000 if args.real_vdo else wait
+                first_team = "0" if first is a else "1"
+                await expect(second.locator(f"#vtTeam{first_team}")).to_have_attribute("data-online", "yes", timeout=back)
+                # Presence may still be the old page's (8 s): the real VDO.Ninja can
+                # take a minute and more to take the reloaded stream back.
+                await expect(second.locator("#vtError")).to_contain_text("подписал два разных хода", timeout=back)
+                await expect(second.locator(f'.vt-map[data-map="{banned}"]')).to_have_attribute("data-status", "ban")
+                await expect(second.locator(f'.vt-map[data-map="{other_map}"]')).to_have_attribute("data-status", "open")
+                passed("a re-signed move is not taken back: the opponent keeps the first and sees a warning")
+                for page in (a, b, s):
+                    await page.close()
+
+                # 8. Two tabs of one captain confirm at once: one move counts, no conflict.
+                link_a, link_b, link_s = await make_links(admin, "Rune Eaters", "PCIFIC", "BO3")
+                ctx = await open_context()
+                a1 = await open_page(link_a, context=ctx)
+                a2 = await open_page(link_a, context=ctx)
+                b = await open_page(link_b)
+                if not args.server:
+                    publishers = 0
+                    for _ in range(100):
+                        publishers = sum([
+                            await a1.locator('iframe.vdo-frame[src*="push="]').count(),
+                            await a2.locator('iframe.vdo-frame[src*="push="]').count()
+                        ])
+                        if publishers == 1:
+                            break
+                        await a1.wait_for_timeout(100)
+                    assert publishers == 1, f"captain tabs created {publishers} VDO publishers"
+                await coin_shown(a1, b)
+                if await b.locator("#vtActions button").count():
+                    await b.get_by_role("button", name=re.compile("Первыми банят")).click()
+                else:
+                    await a1.get_by_role("button", name="Баним первыми").click()
+                for page in (a1, a2, b):
+                    await expect(page.locator("#vtStage")).to_have_attribute(
+                        "data-phase", re.compile("mine|wait"), timeout=wait)
+                    try:
+                        await expect(page.locator("#vtLog li")).to_have_count(1, timeout=wait)
+                    except Exception:
+                        await connection_diagnostics()
+                        raise
+                await expect(a1.locator("#vtStage")).to_have_attribute("data-phase", "mine")
+                await expect(a2.locator("#vtStage")).to_have_attribute("data-phase", "mine")
+                enabled = a1.locator(".vt-map:not([disabled])")
+                await enabled.nth(0).click()
+                await a2.locator(".vt-map:not([disabled])").nth(1).click()
+                await expect(a1.locator("#vtActions .vt-primary")).to_be_visible()
+                await expect(a2.locator("#vtActions .vt-primary")).to_be_visible()
+                # Both confirm within the same moment (scheduled in each page).
+                at = await a1.evaluate("Date.now() + 400")
+                await asyncio.gather(*(page.evaluate("""t => setTimeout(() =>
+                    document.querySelector('#vtActions .vt-primary')?.click(), t - Date.now())""", at)
+                    for page in (a1, a2)))
+                for page in (a1, a2, b):
+                    await expect(page.locator("#vtLog li")).to_have_count(2, timeout=wait)
+                await b.wait_for_timeout(3000)
+                await expect(b.locator("#vtError")).to_be_hidden()
+                texts = [await page.locator("#vtLog").inner_text() for page in (a1, a2, b)]
+                assert len(set(texts)) == 1, texts
+                if not args.server:
+                    first_tab, standby = (a1, a2) if await a1.locator(
+                        'iframe.vdo-frame[src*="push="]').count() else (a2, a1)
+                    await first_tab.close()
+                    await expect(standby.locator(
+                        'iframe.vdo-frame[src*="push="]')).to_have_count(1, timeout=wait)
+                passed("two tabs of one captain confirm together: one move counts, no conflict; standby takes over")
+                for page in (a1, a2, b):
+                    if not page.is_closed():
+                        await page.close()
+            except Exception:
+                await connection_diagnostics()
+                raise
+
+        if getattr(args, "focus_recovery", False):
+            admin = await open_page(base + "/veto.html")
+            await recovery_scenarios(admin)
+            assert not errors, errors
+            await browser.close()
+            print(f"veto recovery: {len(checks)} scenarios passed", flush=True)
+            return
 
         # 1. Admin links.
         admin = await open_page(base + "/veto.html#new&a=UPGRADE&b=Lavked&f=BO3")
@@ -448,123 +580,7 @@ async def run(args):
                 await page.close()
             passed("one dead VDO viewer recovers through signed reverse presence and manual reconnect")
 
-        # 7. A spectator forges a move and fakes the absent captain's presence.
-        link_a, link_b, link_s = await make_links(admin, "Omega", "Fire Flux", "BO1")
-        a = await open_page(link_a)
-        s = await open_page(link_s)
-        await expect(a.locator("#vtPrompt")).to_have_text("Ждём капитана Fire Flux")
-        if not args.real_vdo:
-            await s.evaluate("""async () => {
-              const m = await import('/veto-room.js'), v = await import('/vdo.js');
-              const room = m.decodeLink(location.hash), secrets = await m.roomSecrets(room);
-              const forged = [{ k: 'order', v: '0', at: Date.now(), s: 'A'.repeat(86) }];
-              const box = await v.seal(secrets.key, { t: 'log', from: 'b', log: forged });
-              if(room.relay) {
-                const protocol=await import('/assets/veto-relay-protocol.js');
-                const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
-                const point=await crypto.subtle.exportKey('jwk',pair.publicKey);
-                const packet=await protocol.signRelayPacket(pair.privateKey,[point.x,point.y],box);
-                packet.topic=room.fp[1];
-                const response=await fetch(room.relay,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(packet)});
-                if(response.status!==403)throw Error('Spectator write was not rejected');
-              }
-              for (const frame of document.querySelectorAll('iframe.vdo-frame')) {
-                frame.contentWindow.postMessage({ sendData: { oneshotVeto: box } }, '*');
-              }
-            }""")
-            await a.wait_for_timeout(3000)
-            await expect(a.locator("#vtTeam1")).to_have_attribute("data-online", "no")
-            await expect(a.locator("#vtLog li")).to_have_count(0)
-            await expect(a.locator("#vtKicker")).to_have_text("Монетка")
-            passed("spectator cannot forge a move or fake the opponent being online")
-
-        # 7. A captain re-signs a move after it was seen: the others keep it and warn.
-        b = await open_page(link_b)
-        await expect(a.locator("#vtTeam1")).to_have_attribute("data-online", "yes", timeout=join)
-        first, second = await winner_of(a, b)
-        await first.get_by_role("button", name="Баним первыми").click()
-        for page in (a, b):
-            await expect(page.locator("#vtLog li")).to_have_count(1, timeout=wait)
-        await first.locator(".vt-map:not([disabled])").first.click()
-        banned = await first.locator(".vt-map.is-selected").get_attribute("data-map")
-        await first.locator("#vtActions .vt-primary").click()
-        for page in (a, b, s):
-            await expect(page.locator(f'.vt-map[data-map="{banned}"]')).to_have_attribute("data-status", "ban", timeout=wait)
-        other_map = "Nuke" if banned != "Nuke" else "Mirage"
-        # Keep the coin (3 moves) and the order, sign another ban.
-        await first.evaluate(SIGN_IN_PAGE, ["ban", other_map, 4, 0])
-        await first.reload()
-        # The real VDO.Ninja may take a while to take the reloaded stream back.
-        back = 90000 if args.real_vdo else wait
-        first_team = "0" if first is a else "1"
-        await expect(second.locator(f"#vtTeam{first_team}")).to_have_attribute("data-online", "yes", timeout=back)
-        # Presence may still be the old page's (8 s): the real VDO.Ninja can
-        # take a minute and more to take the reloaded stream back.
-        await expect(second.locator("#vtError")).to_contain_text("подписал два разных хода", timeout=back)
-        await expect(second.locator(f'.vt-map[data-map="{banned}"]')).to_have_attribute("data-status", "ban")
-        await expect(second.locator(f'.vt-map[data-map="{other_map}"]')).to_have_attribute("data-status", "open")
-        passed("a re-signed move is not taken back: the opponent keeps the first and sees a warning")
-        for page in (a, b, s):
-            await page.close()
-
-        # 8. Two tabs of one captain confirm at once: one move counts, no conflict.
-        link_a, link_b, link_s = await make_links(admin, "Rune Eaters", "PCIFIC", "BO3")
-        ctx = await open_context()
-        a1 = await open_page(link_a, context=ctx)
-        a2 = await open_page(link_a, context=ctx)
-        b = await open_page(link_b)
-        if not args.server:
-            publishers = 0
-            for _ in range(100):
-                publishers = sum([
-                    await a1.locator('iframe.vdo-frame[src*="push="]').count(),
-                    await a2.locator('iframe.vdo-frame[src*="push="]').count()
-                ])
-                if publishers == 1:
-                    break
-                await a1.wait_for_timeout(100)
-            assert publishers == 1, f"captain tabs created {publishers} VDO publishers"
-        await coin_shown(a1, b)
-        if await b.locator("#vtActions button").count():
-            await b.get_by_role("button", name=re.compile("Первыми банят")).click()
-        else:
-            await a1.get_by_role("button", name="Баним первыми").click()
-        for page in (a1, a2, b):
-            await expect(page.locator("#vtStage")).to_have_attribute(
-                "data-phase", re.compile("mine|wait"), timeout=wait)
-            try:
-                await expect(page.locator("#vtLog li")).to_have_count(1, timeout=wait)
-            except Exception:
-                await connection_diagnostics()
-                raise
-        await expect(a1.locator("#vtStage")).to_have_attribute("data-phase", "mine")
-        await expect(a2.locator("#vtStage")).to_have_attribute("data-phase", "mine")
-        enabled = a1.locator(".vt-map:not([disabled])")
-        await enabled.nth(0).click()
-        await a2.locator(".vt-map:not([disabled])").nth(1).click()
-        await expect(a1.locator("#vtActions .vt-primary")).to_be_visible()
-        await expect(a2.locator("#vtActions .vt-primary")).to_be_visible()
-        # Both confirm within the same moment (scheduled in each page).
-        at = await a1.evaluate("Date.now() + 400")
-        await asyncio.gather(*(page.evaluate("""t => setTimeout(() =>
-            document.querySelector('#vtActions .vt-primary')?.click(), t - Date.now())""", at)
-            for page in (a1, a2)))
-        for page in (a1, a2, b):
-            await expect(page.locator("#vtLog li")).to_have_count(2, timeout=wait)
-        await b.wait_for_timeout(3000)
-        await expect(b.locator("#vtError")).to_be_hidden()
-        texts = [await page.locator("#vtLog").inner_text() for page in (a1, a2, b)]
-        assert len(set(texts)) == 1, texts
-        if not args.server:
-            first_tab, standby = (a1, a2) if await a1.locator(
-                'iframe.vdo-frame[src*="push="]').count() else (a2, a1)
-            await first_tab.close()
-            await expect(standby.locator(
-                'iframe.vdo-frame[src*="push="]')).to_have_count(1, timeout=wait)
-        passed("two tabs of one captain confirm together: one move counts, no conflict; standby takes over")
-        for page in (a1, a2, b):
-            if not page.is_closed():
-                await page.close()
+        await recovery_scenarios(admin)
 
         # 9. The 5-minute clock runs out (both clocks jump 5 min 10 s after the order).
         link_a, link_b, _ = await make_links(admin, "Walczaki", "Johnny Speeds", "BO1")
@@ -786,6 +802,7 @@ if __name__ == "__main__":
     parser.add_argument("--chromium", default=None)
     parser.add_argument("--browser", default="chromium", choices=["chromium", "webkit"])
     parser.add_argument("--server", action="store_true", help="use the actual local server relay; no VDO for rooms")
+    parser.add_argument("--focus-recovery", action="store_true", help="run late join, re-sign/reload and multi-tab cases only")
     parser.add_argument("--real-vdo", action="store_true", help="use the real VDO.Ninja (needs internet)")
     parser.add_argument("--artifacts", default="artifacts")
     asyncio.run(run(parser.parse_args()))

@@ -26,6 +26,9 @@ jobs:
       - name: External probes and results over Git
         env:
           GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VETO_EXTERNAL_MODE: ${{ contains(github.event.head_commit.message, '[vdo-recovery]') && 'recovery' || 'all' }}
         run: python3 scripts/ci_veto_external.py
       - uses: actions/upload-artifact@v4
         if: always()

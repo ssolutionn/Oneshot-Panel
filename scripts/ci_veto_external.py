@@ -6,6 +6,7 @@ import re
 import subprocess
 import time
 import urllib.request
+import urllib.error
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -70,6 +71,12 @@ def step(name, command, timeout):
         "status": status, "exit_code": code, "seconds": round(time.monotonic() - started, 1),
         "tail": safe(log.read_text(errors="replace")[-16000:])
     }
+    diagnostics = []
+    for file in (ROOT / "artifacts").glob("**/connection-timeout.json"):
+        if file.stat().st_size < 100000:
+            diagnostics.append({"file": str(file.relative_to(ROOT)), "state": json.loads(file.read_text())})
+    if diagnostics:
+        REPORT["steps"][name]["diagnostics"] = diagnostics
     print(name, status, flush=True)
     publish()
     return status == "passed"
@@ -93,6 +100,11 @@ def public_probe():
                                "vtReconnect", "signRoomMessage", "claimPush", "VDO_CONNECT_TIMEOUT"]})
                 if "?health=1" in url:
                     row["health"] = json.loads(body)
+        except urllib.error.HTTPError as error:
+            row.update(error=safe(str(error)), server=error.headers.get("server"),
+                       content_type=error.headers.get("content-type"),
+                       cf_mitigated=error.headers.get("cf-mitigated"),
+                       body=safe(error.read(1200).decode("utf-8", "replace")))
         except Exception as error:
             row["error"] = safe(str(error))
         results.append(row)
@@ -130,6 +142,18 @@ def prior_failure():
 def main():
     publish()
     public_probe()
+    REPORT["cloudflare_bindings"] = {key: bool(os.environ.get(key)) for key in
+                                     ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]}
+    if os.environ.get("CLOUDFLARE_API_TOKEN"):
+        try:
+            request = urllib.request.Request("https://api.cloudflare.com/client/v4/user/tokens/verify",
+                      headers={"Authorization": "Bearer " + os.environ["CLOUDFLARE_API_TOKEN"]})
+            with urllib.request.urlopen(request, timeout=20) as response:
+                result = json.load(response)
+                REPORT["cloudflare_token_active"] = bool(result.get("success") and result.get("result", {}).get("status") == "active")
+        except Exception as error:
+            REPORT["cloudflare_token_check"] = safe(str(error))
+    publish()
     try:
         prior_failure()
     except Exception as error:
@@ -156,13 +180,23 @@ def main():
         commands = [
             ("webkit_server", ["python3", "scripts/qa_veto_site.py", "--server", "--browser", "webkit",
                                "--artifacts", "artifacts/external-webkit"], 420),
-            ("webkit_recovery", ["python3", "scripts/qa_veto_resilience.py", "--browser", "webkit"], 100),
+            ("webkit_recovery", ["python3", "scripts/qa_veto_resilience.py", "--browser", "webkit"], 150),
             ("real_vdo", ["python3", "scripts/qa_veto_site.py", "--real-vdo", "--browser", "chromium",
                           "--artifacts", "artifacts/external-real-vdo"], 900),
         ]
+        if os.environ.get("VETO_EXTERNAL_MODE") == "recovery":
+            commands = [
+                ("real_vdo_recovery", ["python3", "scripts/qa_veto_site.py", "--focus-recovery", "--real-vdo",
+                                       "--browser", "chromium", "--artifacts", "artifacts/external-real-recovery"], 360),
+                ("chromium_recovery", ["python3", "scripts/qa_veto_resilience.py", "--browser", "chromium"], 150),
+                ("webkit_recovery", ["python3", "scripts/qa_veto_resilience.py", "--browser", "webkit"], 150),
+            ]
         good = True
         for name, command, limit in commands:
             good = step(name, command, limit) and good
+        if good and os.environ.get("VETO_EXTERNAL_MODE") == "recovery":
+            good = step("real_vdo_full", ["python3", "scripts/qa_veto_site.py", "--real-vdo", "--browser", "chromium",
+                                          "--artifacts", "artifacts/external-real-vdo"], 900)
         return good
     finally:
         server.terminate()

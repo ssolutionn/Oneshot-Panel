@@ -6,7 +6,7 @@
 // also talk over a BroadcastChannel. Rules live in veto-room.js. English by
 // default, Russian with the flag (localStorage oneshot-veto-lang).
 import { MAP_POOL, teamLogo, teamHltv, DEFAULT_SOURCE, decodeGviz, parseSchedule } from './core.js';
-import { seal, unseal, VDO_CONNECT_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
+import { seal, unseal, VDO_CONNECT_TIMEOUT, VDO_CONNECT_MAX_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
 import { ServerRoomLink } from './assets/veto-relay-links.js';
 import { checkRelay } from './assets/veto-relay-client.js';
 import { relayEndpoint } from './assets/veto-relay-protocol.js';
@@ -424,7 +424,7 @@ class Link {
   replaceView(stream, manual = false) {
     const view = this.views.get(stream);
     if (!view || this.closed) return;
-    const retry = VDO_CONNECT_TIMEOUT;
+    const retry = Math.min(VDO_CONNECT_MAX_TIMEOUT, Math.max(VDO_CONNECT_TIMEOUT, view.retry * 2));
     this.views.delete(stream);
     this.removeFrame(view.frame);
     this.make('view', stream, retry);

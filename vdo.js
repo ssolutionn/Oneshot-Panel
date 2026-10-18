@@ -6,7 +6,7 @@
 const VDO = 'https://vdo.ninja/';
 // Signalling/ICE can take much longer than a heartbeat gap. Never tear down
 // a new connection on the shorter deadline used for an established channel.
-export const VDO_CONNECT_TIMEOUT = 90000, VDO_IDLE_TIMEOUT = 15000;
+export const VDO_CONNECT_TIMEOUT = 30000, VDO_CONNECT_MAX_TIMEOUT = 90000, VDO_IDLE_TIMEOUT = 15000;
 const enc = new TextEncoder(), dec = new TextDecoder();
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 

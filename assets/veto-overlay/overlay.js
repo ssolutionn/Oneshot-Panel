@@ -4,7 +4,7 @@ import { snapshot, demoState, nextDemoMap } from './model.js';
 import { appendVeto } from '../../core.js';
 import { artwork, VetoScene } from './scene.js';
 import { VETO_EVENT } from '../../obs.js';
-import { VdoLink, bridgeSecrets, normalizeCode, VDO_CONNECT_TIMEOUT, VDO_IDLE_TIMEOUT } from '../../vdo.js';
+import { VdoLink, bridgeSecrets, normalizeCode, VDO_CONNECT_TIMEOUT, VDO_CONNECT_MAX_TIMEOUT, VDO_IDLE_TIMEOUT } from '../../vdo.js';
 
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
 const preview=params.get('preview')==='1';
@@ -138,11 +138,12 @@ async function init() {
     const code=normalizeCode(new URLSearchParams(location.hash.slice(1)).get('r'));
     if(code) {
       const secrets=await bridgeSecrets(code);
-      let receivedAt=Date.now(),hasReceived=false;
+      let receivedAt=Date.now(),hasReceived=false,connectWait=VDO_CONNECT_TIMEOUT;
       const receive=async message=>{
         if(message.type!=='veto-state'||typeof message.id!=='string')return;
         receivedAt=Date.now();
         hasReceived=true;
+        connectWait=VDO_CONNECT_TIMEOUT;
         try {
           // Confirm only what is actually on screen.
           if(await apply(message.state))await displayLink?.send({type:'veto-received',id:message.id});
@@ -152,11 +153,12 @@ async function init() {
       displayLink=endpoint ? await ServerDisplayLink.create(code,'veto',relayEndpoint(endpoint),receive,undefined,Number(new URLSearchParams(location.hash.slice(1)).get('at'))||0) : new VdoLink(secrets,'veto',receive);
       if(!endpoint)displayWatchdog=setInterval(async()=>{
         if(document.hidden||displayOpening||Date.now()-receivedAt<
-          (hasReceived?VDO_IDLE_TIMEOUT:VDO_CONNECT_TIMEOUT))return;
+          (hasReceived?VDO_IDLE_TIMEOUT:connectWait))return;
         displayOpening=true;
         try {
           displayLink?.close();
           displayLink=new VdoLink(secrets,'veto',receive);
+          connectWait=hasReceived?VDO_CONNECT_TIMEOUT:Math.min(VDO_CONNECT_MAX_TIMEOUT,connectWait*2);
           receivedAt=Date.now();
           hasReceived=false;
         } catch { /* the next watchdog tick retries */ }

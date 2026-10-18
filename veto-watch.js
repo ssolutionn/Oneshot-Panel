@@ -3,7 +3,7 @@
 // site, takes only signed moves that continue the log (veto-room.js) and
 // tells the panel about moves, presence and «Call admin». It never sends:
 // the captains' pages do not know it is there.
-import { unseal, VDO_CONNECT_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
+import { unseal, VDO_CONNECT_TIMEOUT, VDO_CONNECT_MAX_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
 import { connectServerWatch } from './assets/veto-relay-links.js';
 import {
   decodeLink, encodeLink, roomSecrets, acceptKey, verifyRoomMessage, verifyLog, mergeLog, replay, nextTurn, COIN_MOVES
@@ -62,7 +62,7 @@ export function roomMoves(room, log) {
 function connectVdo(secrets, deliver) {
   const views = [];
   let stopped = false;
-  const make = team => {
+  const make = (team, retry = VDO_CONNECT_TIMEOUT) => {
     const stream = secrets.streams[team], url = new URL(VDO);
     url.search = new URLSearchParams({ view: stream, password: secrets.password, label: 'oneshot-veto' }) +
       '&dataonly&cleanoutput';
@@ -71,12 +71,14 @@ function connectVdo(secrets, deliver) {
     iframe.allow = 'autoplay';
     iframe.setAttribute('aria-hidden', 'true');
     document.body.append(iframe);
-    views[team] = { frame: iframe, last: Date.now(), received: false };
+    views[team] = { frame: iframe, last: Date.now(), received: false, retry };
   };
   const replace = team => {
     if (stopped) return;
-    views[team]?.frame.remove();
-    make(team);
+    const view = views[team];
+    const retry = !view || view.received ? VDO_CONNECT_TIMEOUT : Math.min(VDO_CONNECT_MAX_TIMEOUT, view.retry * 2);
+    view?.frame.remove();
+    make(team, retry);
   };
   secrets.streams.forEach((_, team) => make(team));
   const listen = event => {
@@ -95,7 +97,7 @@ function connectVdo(secrets, deliver) {
     if (document.hidden || stopped) return;
     const now = Date.now();
     for (const [team, view] of views.entries()) {
-      if (now - view.last >= (view.received ? VDO_IDLE_TIMEOUT : VDO_CONNECT_TIMEOUT)) replace(team);
+      if (now - view.last >= (view.received ? VDO_IDLE_TIMEOUT : view.retry)) replace(team);
     }
   }, 5000);
   return {
