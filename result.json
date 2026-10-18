@@ -40,8 +40,11 @@
       "tail": "wrote claude-artifact/oneshot-panel.html (832048 bytes)\n"
     },
     "editor_chromium": {
-      "status": "running"
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 3.0,
+      "tail": "PASS: chromium camera cover/pan/rotation preview, one connection, player persistence across slots/reload, JSON/live parity, mobile, frame setting and outdated-dock rejection\n"
     }
   },
-  "updated_at": "2026-10-18T20:31:16.990955+00:00"
+  "updated_at": "2026-10-18T20:31:21.854347+00:00"
 }
