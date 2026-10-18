@@ -62,7 +62,10 @@
       "exit_code": 0,
       "seconds": 8.9,
       "tail": "PASS: webkit camera cover/pan/rotation preview, one connection, player persistence across slots/reload, JSON/live parity, mobile, frame setting and outdated-dock rejection\n"
+    },
+    "panel_chromium": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-10-18T20:58:58.282469+00:00"
+  "updated_at": "2026-10-18T20:59:00.197161+00:00"
 }
