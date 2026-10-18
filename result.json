@@ -4,8 +4,8 @@
   "status": "running",
   "steps": {
     "deployment_wait": {
-      "status": "in_progress",
-      "conclusion": null,
+      "status": "completed",
+      "conclusion": "failure",
       "head_sha": "31cef75a64ce58a1893d3a3b03bb29662cc4f084",
       "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39083903439",
       "job_steps": [
@@ -82,5 +82,5 @@
       ]
     }
   },
-  "updated_at": "2026-10-18T00:46:49.849867+00:00"
+  "updated_at": "2026-10-18T00:47:02.511405+00:00"
 }
