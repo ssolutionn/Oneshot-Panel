@@ -1,7 +1,7 @@
 {
   "source_sha": "32539e1e8fe0a26fa8cc740aacfef99f0d1f13d2",
   "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39081824474",
-  "status": "running",
+  "status": "passed",
   "steps": {
     "public_endpoints": {
       "status": "observed",
@@ -182,7 +182,7 @@
       ]
     }
   },
-  "updated_at": "2026-10-18T00:15:44.481757+00:00",
+  "updated_at": "2026-10-18T00:15:46.096403+00:00",
   "cloudflare_bindings": {
     "CLOUDFLARE_API_TOKEN": false,
     "CLOUDFLARE_ACCOUNT_ID": false
