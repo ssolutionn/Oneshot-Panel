@@ -1,7 +1,7 @@
 {
-  "source_sha": "4c7cda9436b52cae2d32602d16b9ec49896678ea",
-  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39109065138",
-  "checked_at": "2026-10-18T10:49:13.700967+03:00",
+  "source_sha": "0c6e50c148631223ac8c9095aa4cb7a068f773e0",
+  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39109206889",
+  "checked_at": "2026-10-18T10:51:35.609769+03:00",
   "teams": [
     {
       "name": "Nuclear TigeRES",
@@ -107,13 +107,13 @@
     }
   ],
   "unresolved": [],
-  "expected_build": "55580069386c9898de2ba882b29d2bed26ea2220",
-  "published_build": "55580069386c9898de2ba882b29d2bed26ea2220",
+  "expected_build": "2d2d63730548eb1256d1281fa2bde351d407fad1",
+  "published_build": "2d2d63730548eb1256d1281fa2bde351d407fad1",
   "app_matches_source": true,
   "public_status": 200,
   "panel": {
     "error": "",
-    "sync": "Обновлено 10:49 МСК",
+    "sync": "Обновлено 10:51 МСК",
     "groups": [
       {
         "label": "18.10 · сегодня",
@@ -212,8 +212,8 @@
       "name": "Panel checks",
       "status": "in_progress",
       "conclusion": null,
-      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39108896993",
-      "id": 39108896993
+      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39109196904",
+      "id": 39109196904
     }
   ]
 }
