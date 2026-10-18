@@ -51,12 +51,12 @@
         },
         {
           "name": "Install browser for public verification",
-          "status": "in_progress",
-          "conclusion": null
+          "status": "completed",
+          "conclusion": "success"
         },
         {
           "name": "Verify public assets and relay health",
-          "status": "pending",
+          "status": "in_progress",
           "conclusion": null
         },
         {
@@ -77,5 +77,5 @@
       ]
     }
   },
-  "updated_at": "2026-10-18T08:48:19.987394+00:00"
+  "updated_at": "2026-10-18T08:48:32.422913+00:00"
 }
