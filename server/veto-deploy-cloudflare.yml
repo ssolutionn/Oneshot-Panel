@@ -29,7 +29,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/veto-pages"
           cp index.html veto.html veto.js veto.css veto-room.js vdo.js core.js _headers "$RUNNER_TEMP/veto-pages/"
           cp -R assets "$RUNNER_TEMP/veto-pages/assets"
-          npx --yes wrangler@4.151.1 pages functions build functions --outfile "$RUNNER_TEMP/veto-pages/_worker.js" --output-routes-path "$RUNNER_TEMP/veto-pages/_routes.json"
+          npx --yes wrangler@4.151.1 pages functions build functions --outdir "$RUNNER_TEMP/veto-pages/_worker.js" --output-routes-path "$RUNNER_TEMP/veto-pages/_routes.json"
+          node --check "$RUNNER_TEMP/veto-pages/_worker.js/index.js"
       - name: Check Cloudflare credentials
         run: |
           node --input-type=module <<'JS'
