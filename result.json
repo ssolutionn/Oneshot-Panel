@@ -1,7 +1,7 @@
 {
   "source_sha": "8de7a1061dab1d406420583b40e773d7c42ad713",
   "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39160371015",
-  "status": "running",
+  "status": "passed",
   "steps": {
     "install_playwright": {
       "status": "passed",
@@ -58,5 +58,5 @@
       "tail": "PASS: admin makes three short links; they survive a reload; the match comes from the schedule\nPASS: whole BO3 by turns; spectators only listen; HLTV text copies\nPASS: a reload and late viewers get the finished veto; HLTV text only on the admin link\nPASS: 375 px without horizontal scroll; broken link and broken key explain themselves\nPASS: BO1 by keyboard only (select with Enter, focus lands on confirm) and BO5 with four sides\nPASS: assigned order choice: both teams, no coin, signed propagation, reload and mobile YOU badge\nPASS: spectator cannot forge a move or fake the opponent being online\nPASS: a re-signed move is not taken back: the opponent keeps the first and sees a warning\nPASS: two tabs of one captain confirm together: one move counts, no conflict; standby takes over\nPASS: the 5-minute clock shows «время вышло» on every page; play goes on\nPASS: English by default, the RU flag switches and is remembered; timer «No timer» in the message\nPASS: «Call admin» rings on the admin's page only, once answered stays quiet; HLTV links by team\nRELAY_REQUEST_FAILED /api/veto-relay Load request cancelled\nPASS: the panel's «Вето» tab watches the captains: presence, coin, call admin, reset and start over; moves land in the panel's veto\nPASS: HTML in team names is shown as text\nnote: 401 style-src reports from Playwright's own WebKit helpers ignored\nveto site: 14 scenarios passed\n"
     }
   },
-  "updated_at": "2026-10-18T19:55:29.544501+00:00"
+  "updated_at": "2026-10-18T19:55:31.224571+00:00"
 }
