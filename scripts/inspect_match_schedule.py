@@ -66,7 +66,9 @@ try:
         report["review_features"] = page.evaluate("""() => ({
           defaultCoin:document.querySelector('#cvStart')?.value==='coin',
           exportRecovery:!!document.querySelector('#exportRecovery'),
-          exportDialog:!!document.querySelector('#exportText')
+          exportDialog:!!document.querySelector('#exportText'),
+          cameraFrame:document.querySelector('#cameraFrame')?.value==='inner43',
+          cameraEditor:!!document.querySelector('#cameraPreviewBox') && !!document.querySelector('#cameraApplyObs')
         })""")
         page.click("#refreshBtn")
         page.wait_for_function("() => !document.querySelector('#refreshBtn').disabled", timeout=45000)
@@ -84,10 +86,11 @@ try:
             check = page.evaluate('''() => {const s=window.oneshotPanel.snapshot();return {
               team1:s.a.name,team2:s.b.name,time:s.time,stage:s.stage,
               selectedA:s.playersA.filter(Boolean).length,selectedB:s.playersB.filter(Boolean).length,
+              cameraButtons:document.querySelectorAll('[data-camera]:not([disabled])').length,
               matchError:s.matchError
             }}''')
             check["date"] = match["date"]
-            check["passed"] = all(check[k] == match[k] for k in ["team1", "team2", "time", "stage"]) and not check["matchError"]
+            check["passed"] = all(check[k] == match[k] for k in ["team1", "team2", "time", "stage"]) and not check["matchError"] and check["cameraButtons"]==10
             report["selection_checks"].append(check)
         loaded = report["panel"]["schedule"]
         report["missing"] = [m for m in expected if m not in loaded]
