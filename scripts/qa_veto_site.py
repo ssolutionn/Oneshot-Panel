@@ -192,16 +192,20 @@ async def run(args):
                 await page.goto(url)
             return page
 
-        async def make_links(admin, a, b, fmt):
+        async def make_links(admin, a, b, fmt, start="coin"):
             await admin.goto(base + "/veto.html")
             if args.pretty_links:
                 await admin.fill("#vtTournament", "CyberClash Finals")
             await admin.fill("#vtTeamA", a)
             await admin.fill("#vtTeamB", b)
             await admin.select_option("#vtFormat", fmt)
+            await admin.select_option("#vtStart", start)
             if args.server:
                 await admin.select_option("#vtTransport", "server")
             await admin.click("#vtForm button[type=submit]")
+            # A previous room may already be restored for these same teams.
+            # Wait for the new signing keys/aliases before reading its links.
+            await expect(admin.locator("#vtForm button[type=submit]")).to_be_enabled(timeout=wait)
             await expect(admin.locator("#vtMsgA")).to_have_value(re.compile(re.escape(f"vs {b} ({fmt})")))
             message_a = await admin.locator("#vtMsgA").input_value()
             message_b = await admin.locator("#vtMsgB").input_value()
@@ -560,7 +564,7 @@ async def run(args):
         # and two fingerprints): the key no longer fits the link.
         bad_key = await broken.evaluate("""p => {
             const b = Uint8Array.from(atob(p.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
-            b[32] ^= 1;
+            b[b[0] === 3 ? 33 : 32] ^= 1;
             return btoa(String.fromCharCode(...b)).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');
         }""", payload)
         await broken.goto(base + "/veto.html#v=" + bad_key)
@@ -585,6 +589,32 @@ async def run(args):
             for page in (a, b, s):
                 await page.close()
         passed("BO1 by keyboard only (select with Enter, focus lands on confirm) and BO5 with four sides")
+
+        for chooser in (0, 1):
+            link_a, link_b, link_s = await make_links(admin, "UPGRADE", "Lavked", "BO3", str(chooser))
+            await expect(admin.locator("#vtMsgA")).to_have_value(re.compile("Админ назначил"))
+            a, b, s = await open_page(link_a), await open_page(link_b, 375, 800), await open_page(link_s)
+            pages = [a,b]
+            await expect(pages[chooser].locator("#vtActions button").first).to_have_text("Баним первыми")
+            await expect(pages[1-chooser].locator("#vtActions button")).to_have_count(0)
+            await expect(s.locator("#vtPrompt")).to_contain_text("выбирают порядок")
+            for team, page in enumerate(pages):
+                await expect(page.locator("#vtCoin")).to_be_hidden()
+                # The badge shares the team-name row on either side.
+                await expect(page.locator(f"#vtTeam{team} .vt-team-heading .vt-you")).to_be_visible()
+                assert not await page.evaluate("document.documentElement.scrollWidth > innerWidth")
+            await pages[chooser].locator("#vtActions button").first.click()
+            for page in (a,b,s):
+                await expect(page.locator("#vtKicker")).to_contain_text(re.compile("ban|бан", re.I), timeout=wait)
+            await s.reload()
+            await expect(s.locator("#vtKicker")).to_contain_text(re.compile("ban|бан", re.I), timeout=wait)
+            assert await s.evaluate("""async () => {
+                const m=await import('/assets/veto-short-links.js');
+                const {room}=await m.resolveRoomLink(location.href);
+                return JSON.parse(localStorage.getItem('oneshot-veto-log:'+room.r))[0].k;
+            }""") == "order"
+            for page in (a,b,s): await page.close()
+        passed("assigned order choice: both teams, no coin, signed propagation, reload and mobile YOU badge")
 
         if getattr(args, "focus_match", False):
             assert not errors, errors

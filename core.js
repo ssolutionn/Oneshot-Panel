@@ -351,8 +351,18 @@ function fitItem(item, x = 0, y = 0, width = 1920, height = 1080) {
   });
 }
 
+function sceneUuid() {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  // randomUUID is absent in some embedded browsers and HTTP LAN previews;
+  // getRandomValues is available there and still produces a proper v4 UUID.
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 15) | 64;
+  bytes[8] = (bytes[8] & 63) | 128;
+  const hex = [...bytes].map(n => n.toString(16).padStart(2, '0')).join('');
+  return [hex.slice(0,8),hex.slice(8,12),hex.slice(12,16),hex.slice(16,20),hex.slice(20)].join('-');
+}
 export function buildObs(template, a, b, ka, kb,
-                         uuidFn = () => crypto.randomUUID(),
+                         uuidFn = sceneUuid,
                          { cardBase = DEFAULT_CARD_BASE, includeCards = false } = {}) {
   const error = validateMatch(a, b, ka, kb);
   if (error) throw new Error(error);

@@ -325,6 +325,11 @@ body.dock { background:var(--bg); font-size:12px; }
 .lm-team.right { text-align:right; }
 .lm-team.won { color:var(--success-ink); }
 .lm-score { font-size:22px; font-variant-numeric:tabular-nums; letter-spacing:-.5px; }
+.lm-series { display:grid; justify-items:center; gap:3px; }
+.lm-series > span { color:var(--muted); font-size:9px; text-align:center; }
+.lm-game { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px 12px; padding:9px 10px; border:1px solid var(--line); border-radius:5px; background:var(--surface-2); }
+.lm-game > span { color:var(--muted); font-size:11px; }
+.lm-game > b { color:var(--ink); font-size:13px; font-variant-numeric:tabular-nums; }
 .lm-maps { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:6px; }
 .lm-maps li { padding:3px 8px; border-radius:4px; background:var(--soft); color:var(--muted); font-size:10px; text-transform:capitalize; }
 .lm-maps li.a,.lm-maps li.b { color:var(--ink); font-weight:700; }

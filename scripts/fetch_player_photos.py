@@ -21,6 +21,19 @@ PHOTO = re.compile(r"^https://img-cdn\.hltv\.org/playerbodyshot/[\w-]+\.png\?[^\
 HREF = re.compile(r"^https://www\.hltv\.org/(player|coach)/(\d+)/([\w.-]+)$")
 TYPES = {b"\x89PNG\r\n\x1a\n": ".png", b"\xff\xd8\xff": ".jpg", b"RIFF": ".webp"}
 LIMIT = 4 * 1024 * 1024
+LOCAL_FILE = re.compile(r"^[\w.-]+\.(png|jpe?g|webp)$", re.IGNORECASE)
+
+
+def local_photo(filename):
+    if not isinstance(filename, str) or not LOCAL_FILE.fullmatch(filename):
+        raise ValueError("invalid local filename")
+    path = LIST.parent / filename
+    if path.resolve().parent != LIST.parent.resolve():
+        raise ValueError("photo leaves its catalog")
+    extension = image_extension(path.read_bytes())
+    if path.suffix.lower().replace(".jpeg", ".jpg") != extension:
+        raise ValueError("image type does not match filename")
+    return filename
 
 
 def base_name(entry):
@@ -87,8 +100,20 @@ def main():
     players = document["players"]
     tasks, entries = {}, {}
     invalid = 0
+    local = 0
     for entry in players:
         photo = entry.get("photo")
+        # Venue portraits do not require an HLTV identity. --force must not
+        # replace an explicitly selected local portrait with an HLTV image.
+        if entry.get("source") == "local" or (not photo and entry.get("file")):
+            try:
+                entry["file"] = local_photo(entry.get("file"))
+                local += 1
+            except (OSError, ValueError) as error:
+                entry["file"] = None
+                invalid += 1
+                print(f"  ! {entry.get('nick', '?')}: {error}; using fallback")
+            continue
         entry["file"] = None
         if not photo:
             continue
@@ -118,7 +143,7 @@ def main():
                          encoding="utf-8")
     temporary.replace(LIST)
     available = sum(bool(p.get("file")) for p in players)
-    print(f"Photos: {saved} downloaded, {kept} cached, {failed} failed; "
+    print(f"Photos: {saved} downloaded, {kept} cached, {local} local, {failed} failed; "
           f"{available}/{len(players)} players have local photos, "
           f"{len(players) - available} use fallback cards.")
     return 1 if failed and not args.allow_missing else 0

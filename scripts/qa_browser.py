@@ -65,15 +65,20 @@ async def run(args):
         print("PASS:", name, flush=True)
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            executable_path=args.chromium, headless=True
-        )
+        engine = getattr(p, getattr(args,"browser","chromium"))
+        launch = {"headless":True}
+        if getattr(args,"browser","chromium") == "chromium" and args.chromium:
+            launch["executable_path"] = args.chromium
+        browser = await engine.launch(**launch)
         # The panel watches webcams through VDO.Ninja iframes; QA never
         # contacts the real service (scripts/qa_live.py tests that part).
         real_new_context = browser.new_context
 
         async def new_context(**options):
             ctx = await real_new_context(**options)
+            # Exercise the portable download path here; the native save dialog
+            # is checked separately with a controlled browser implementation.
+            await ctx.add_init_script("window.showSaveFilePicker = undefined")
             await ctx.route("https://vdo.ninja/**", lambda route: route.fulfill(
                 content_type="text/html", body="<!doctype html><title>VDO.Ninja stub</title>"))
             return ctx
@@ -251,6 +256,46 @@ async def run(args):
         await cards_option.uncheck()
         await verify_no_cards("disabled-again")
         passed("browser download: cards default off, enabled, disabled again; ten cameras")
+
+        await page.evaluate("""() => {
+            window.__randomUUID=crypto.randomUUID;
+            Object.defineProperty(crypto,'randomUUID',{value:undefined,configurable:true});
+            window.__savedFile = null;
+            window.showSaveFilePicker = async options => ({createWritable: async () => ({
+                write: async text => {window.__savedFile={name:options.suggestedName,text}},
+                close: async () => {window.__saveClosed=true}
+            })});
+        }""")
+        await page.click("#downloadBtn")
+        await page.wait_for_function("window.__saveClosed === true")
+        saved = await page.evaluate("window.__savedFile")
+        assert saved["name"].endswith(".json") and json.loads(saved["text"])["resolution"] == {"x":1920,"y":1080}
+        ids = [source["uuid"] for source in json.loads(saved["text"])["sources"]]
+        assert len(set(ids)) == len(ids) and all(re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", uid) for uid in ids)
+        await page.evaluate("() => {Object.defineProperty(crypto,'randomUUID',{value:window.__randomUUID,configurable:true})}")
+        await page.evaluate("() => {window.showSaveFilePicker = async () => {throw new DOMException('blocked','SecurityError')}}")
+        async with page.expect_download() as info:
+            await page.click("#downloadBtn")
+        assert not await (await info.value).failure()
+        await page.evaluate("() => {window.showSaveFilePicker = async () => {throw new DOMException('cancelled','AbortError')}}")
+        await page.click("#downloadBtn")
+        await expect(page.locator("#toast")).to_contain_text("Сохранение отменено")
+        # Some embedded browsers silently ignore <a download>. The user still
+        # gets the actual collection and an explicit retry/manual-copy path.
+        await page.evaluate("""() => {
+            window.showSaveFilePicker=undefined;
+            window.__anchorClick=HTMLAnchorElement.prototype.click;
+            HTMLAnchorElement.prototype.click=function(){};
+        }""")
+        await page.click("#downloadBtn")
+        await expect(page.locator("#toast")).to_contain_text("Сохранение JSON запрошено")
+        await page.click("#exportRecovery")
+        await expect(page.locator("#exportDialog")).to_be_visible()
+        assert json.loads(await page.locator("#exportText").input_value())["resolution"] == {"x":1920,"y":1080}
+        assert await page.locator("#exportFilename").text_content() == saved["name"]
+        await page.click("#closeExport")
+        await page.evaluate("() => {HTMLAnchorElement.prototype.click=window.__anchorClick}")
+        passed("JSON: native save, refused dialog fallback, cancellation and silent-download recovery")
 
         await page.fill("#matchStage", "")
         assert await page.locator("#downloadBtn").is_disabled()
@@ -845,7 +890,8 @@ async def run(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default="http://127.0.0.1:3000")
-    parser.add_argument("--chromium", default="/usr/bin/chromium")
+    parser.add_argument("--chromium", default=None)
+    parser.add_argument("--browser", choices=["chromium","webkit"], default="chromium")
     parser.add_argument("--roster")
     parser.add_argument("--schedule")
     parser.add_argument("--artifacts", default="artifacts")

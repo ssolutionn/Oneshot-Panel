@@ -91,6 +91,7 @@
       <div class="export-meta">
         <p id="exportHint">10 вебок, сцены «Игрок 1–10» и «Матрица»</p>
         <p id="filenamePreview"></p>
+<!-- web-only --><button id="exportRecovery" class="text-button" type="button">Файл не появился?</button><!-- /web-only -->
       </div>
     </section>
 
@@ -202,7 +203,7 @@
           <div><span class="eyebrow">CAPTAINS' VETO</span><h2 id="captainVetoHeading">Вето для капитанов</h2></div>
           <a id="playerVeto" class="text-button" href="https://oneshot-veto.pages.dev/" target="_blank" rel="noopener">Сайт вето ↗</a>
         </div>
-        <p class="cv-intro">Капитаны банят сами на своём сайте, монетку бросают тоже сами. Команды — из выбранного матча. Ссылки короткие; текст для HLTV видит только админская ссылка.</p>
+        <p class="cv-intro">Капитаны банят сами на своём сайте. По умолчанию — монетка; можно назначить команду выбирать порядок вето. Команды — из выбранного матча. Текст для HLTV видит только админская ссылка.</p>
         <div class="cv-settings">
           <label>Турнир<input id="cvTournament" value="CyberClash" maxlength="60" required autocomplete="off"></label>
           <label>Формат<select id="cvFormat"><option>BO1</option><option>BO2</option><option selected>BO3</option><option>BO5</option></select></label>
@@ -210,6 +211,7 @@
             <option value="5" selected>5 минут</option><option value="3">3 минуты</option><option value="7">7 минут</option>
             <option value="10">10 минут</option><option value="15">15 минут</option><option value="0">Без таймера</option>
           </select></label>
+          <label>Кто выбирает порядок вето<select id="cvStart"><option value="coin" selected>Монетка (по умолчанию)</option><option value="0">Первая команда</option><option value="1">Вторая команда</option></select></label>
           <label>Связь при создании комнаты<select id="cvTransport"><option value="vdo" selected>VDO.Ninja</option><option value="server">Наш сервер</option></select></label>
           <label>Сообщения капитанам<select id="cvLang"><option value="en" selected>English</option><option value="ru">Русский</option></select></label>
           <button id="cvCreate" class="button primary" type="button">Создать ссылки</button>
@@ -558,6 +560,15 @@
       </div>
     </form>
   </dialog>
+
+  <!-- web-only --><dialog id="exportDialog" aria-labelledby="exportHeading">
+    <div class="dialog-head"><h2 id="exportHeading">Сохранить коллекцию OBS</h2><button id="closeExport" class="icon-button" type="button" aria-label="Закрыть">×</button></div>
+    <p>Если браузер заблокировал файл, попробуй сохранить ещё раз или скопируй текст в обычный текстовый файл с этим именем:</p>
+    <p id="exportFilename"></p>
+    <textarea id="exportText" readonly aria-label="Коллекция OBS в JSON"></textarea>
+    <div class="dialog-actions"><button id="exportAgain" class="button" type="button">Сохранить ещё раз</button><button id="exportCopy" class="button primary" type="button">Скопировать JSON</button></div>
+    <p class="muted">Во встроенном браузере Discord или Telegram открой панель в обычном Chrome, Firefox или Safari.</p>
+  </dialog><!-- /web-only -->
 
   <dialog id="copyDialog" aria-labelledby="copyHeading">
     <div class="dialog-head">

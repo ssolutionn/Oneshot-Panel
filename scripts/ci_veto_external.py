@@ -269,11 +269,13 @@ def prior_failure():
 
 def main():
     publish()
+    review = os.environ.get("VETO_EXTERNAL_MODE") == "review"
     if os.environ.get("VETO_EXTERNAL_MODE") in ("public","short"):
         wait_deployment()
         deployment_metadata()
-    public_probe()
-    if os.environ.get("VETO_EXTERNAL_MODE") not in ("public","short"):
+    if not review:
+        public_probe()
+    if os.environ.get("VETO_EXTERNAL_MODE") not in ("public","short","review"):
         try:
             prior_failure()
         except Exception as error:
@@ -284,7 +286,7 @@ def main():
     browsers = ["chromium"] if os.environ.get("VETO_EXTERNAL_MODE") == "public" else ["chromium", "webkit"]
     if not step("install_browsers", ["python3", "-m", "playwright", "install", "--with-deps", *browsers], 360):
         return False
-    public_ready = public_browser_probe()
+    public_ready = public_browser_probe() if not review else False
     if os.environ.get("VETO_EXTERNAL_MODE") in ("public","short"):
         deployment_metadata()
         if not public_ready:
@@ -338,6 +340,16 @@ def main():
                     "https://oneshot-veto.pages.dev/veto.html"], 240),
             ]
         good = True
+        if review:
+            commands = [
+                ("node_checks", ["npm","run","check"], 60),
+                ("node_tests", ["npm","test"], 120),
+                ("photo_tests", ["python3","-m","unittest","discover","-s","test","-p","*_test.py"], 60),
+                ("panel_chromium", ["python3","scripts/qa_browser.py","--artifacts","artifacts/review-chromium"], 360),
+                ("panel_webkit", ["python3","scripts/qa_browser.py","--browser","webkit","--artifacts","artifacts/review-webkit"], 360),
+                ("panel_obs_lobby", ["python3","scripts/qa_live.py","--artifacts","artifacts/review-live"], 360),
+                ("webkit_veto", ["python3","scripts/qa_veto_site.py","--server","--pretty-links","--browser","webkit","--artifacts","artifacts/review-veto-webkit"], 480),
+            ]
         for name, command, limit in commands:
             good = step(name, command, limit) and good
         if good and os.environ.get("VETO_EXTERNAL_MODE") == "recovery":

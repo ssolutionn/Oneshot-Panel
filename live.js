@@ -395,13 +395,16 @@ $('sendObsConfig').addEventListener('click', async () => {
   }
 });
 
+let sendingMatch = false;
 $('sendObsBtn').addEventListener('click', async () => {
+  if (sendingMatch) return;
   let payload;
   try { payload = matchPayload(); } catch (error) { return panel.toast(error.message); }
   if (!obsSettings().configured) {
     return openObsSettings();
   }
   const button = $('sendObsBtn');
+  sendingMatch = true;
   button.disabled = true;
   obsBadge('Отправляем в OBS…', 'wait');
   try {
@@ -412,6 +415,7 @@ $('sendObsBtn').addEventListener('click', async () => {
   } catch (error) {
     panel.showError(`${error.message} JSON для импорта можно скачать или скопировать рядом.`);
   } finally {
+    sendingMatch = false;
     button.disabled = !!panel.snapshot().matchError;
     renderObsState();
   }
@@ -652,7 +656,7 @@ setInterval(() => {
 // ---------- follow the panel ----------
 function onChange() {
   const s = panel.snapshot();
-  $('sendObsBtn').disabled = !!s.matchError;
+  $('sendObsBtn').disabled = sendingMatch || !!s.matchError;
   $('copyJsonBtn').disabled = !!s.matchError || !s.template;
   syncWatcher();
   sendVeto();
@@ -666,6 +670,7 @@ function playerVetoLink(s) {
   const params = new URLSearchParams({ a: s.a?.name || '', b: s.b?.name || '', f: $('cvFormat').value, m: $('cvTimer').value });
   params.set('via', $('cvTransport').value === 'server' ? 'server' : 'vdo');
   params.set('tournament',$('cvTournament').value.trim()||DEFAULT_TOURNAMENT);
+  params.set('start', $('cvStart').value);
   $('playerVeto').href = vetoSite() + '#new&' + params;
 }
 
@@ -727,6 +732,9 @@ function cvStatus(text, kind = '') {
   $('cvStatus').dataset.kind = kind;
 }
 function captainVeto(s) {
+  for (const [team, name] of [s.a?.name, s.b?.name].entries()) {
+    $('cvStart').options[team + 1].textContent = `${name || (team ? 'Вторая команда' : 'Первая команда')} выбирают порядок`;
+  }
   if (!cv.touched && s.veto?.format) $('cvFormat').value = s.veto.format;
   const match = cvMatch(s);
   const last = read(CV_STORE)?.last;
@@ -739,6 +747,7 @@ function captainVeto(s) {
 $('cvFormat').addEventListener('change', () => { cv.touched = true; playerVetoLink(panel.snapshot()); });
 $('cvTimer').addEventListener('change', () => { cvSave(); playerVetoLink(panel.snapshot()); });
 $('cvTransport').addEventListener('change', () => { cvSave(); playerVetoLink(panel.snapshot()); });
+$('cvStart').addEventListener('change', () => playerVetoLink(panel.snapshot()));
 $('cvLang').addEventListener('change', () => { cvSave(); if (cv.made) cvShow(cv.made); });
 $('cvSite').addEventListener('change', () => { cvSave(); playerVetoLink(panel.snapshot()); });
 $('cvTournament').addEventListener('change',()=>{cvSave();playerVetoLink(panel.snapshot());});
@@ -749,7 +758,8 @@ $('cvCreate').addEventListener('click', async () => {
     $('cvCreate').disabled = true;
     const relay = $('cvTransport').value === 'server' ? relayEndpoint('/api/veto-relay', vetoSite()) : '';
     if (relay) { cvStatus('Проверяем сервер вето…'); await checkRelay(relay); }
-    let made = await createRoom(vetoSite(), [s.a.name, s.b.name], $('cvFormat').value, Number($('cvTimer').value), relay);
+    let made = await createRoom(vetoSite(), [s.a.name, s.b.name], $('cvFormat').value, Number($('cvTimer').value), relay,
+      $('cvStart').value === 'coin' ? null : Number($('cvStart').value));
     made=await friendlyCaptainLinks(made,vetoSite(),$('cvTournament').value);
     if (cvMatch(panel.snapshot()) !== cvMatch(s)) throw new Error('За время подключения матч изменился. Создай ссылки для выбранного матча ещё раз.');
     const last = { ...made,match: cvMatch(s), at: Date.now() };
@@ -914,7 +924,7 @@ function paintWatch() {
   for (const team of [0, 1]) {
     const card = $('cvTeam' + team);
     card.dataset.online = online[team] ? 'yes' : 'no';
-    card.classList.toggle('is-turn', turn.team === team && state.coin !== null);
+    card.classList.toggle('is-turn', turn.team === team && state.chooser !== null);
     setText(card.querySelector('b'), names[team]);
     setText(card.querySelector('span'), online[team] ? 'online' : 'offline');
   }
@@ -923,10 +933,10 @@ function paintWatch() {
   setText($('cvLiveState'), done ? 'вето готово' : online.every(Boolean) ? 'оба капитана здесь' :
     online.some(Boolean) ? `здесь ${names[online.indexOf(true)]}` : 'капитанов нет');
   let stage;
-  if (state.coin === null) {
+  if (state.chooser === null) {
     stage = state.commit !== null || online.every(Boolean) ? 'Капитаны бросают монетку…' :
       `Ждём капитанов: ${names.filter((_, team) => !online[team]).join(' и ')}.`;
-  } else if (turn.kind === 'order') stage = `Монетку выиграли ${names[state.coin]} — выбирают, кто банит первым.`;
+  } else if (turn.kind === 'order') stage = room.chooser == null ? `Монетку выиграли ${names[state.coin]} — выбирают, кто банит первым.` : `Админ назначил ${names[state.chooser]} выбирать, кто банит первым.`;
   else if (turn.kind === 'side') stage = `${names[turn.team]} выбирают сторону на ${state.pending.map}.`;
   else if (done) stage = 'Вето завершено. Текст для HLTV — в вето панели ниже.';
   else stage = `Ход ${state.actions.length + 1}/6 · ${names[turn.team]} · ${turn.kind === 'ban' ? 'BAN — убирают карту' : 'PICK — выбирают карту'}`;
@@ -995,7 +1005,7 @@ $('cvRestart').addEventListener('click', async () => {
   try {
     const site = new URL(watch.adminLink);
     if (room.relay) await checkRelay(room.relay);
-    let made = await createRoom(site.origin + site.pathname, room.t, room.f, room.m ?? 5, room.relay || '');
+    let made = await createRoom(site.origin + site.pathname, room.t, room.f, room.m ?? 5, room.relay || '', room.chooser ?? null);
     made=await friendlyCaptainLinks(made,site.href,cv.made?.tournament||$('cvTournament').value);
     const s = panel.snapshot();
     cvSave({ ...made,match: JSON.stringify(room.t), at: Date.now() });

@@ -47,7 +47,7 @@ const WORDS = {
     serverWait:'Connecting to our server…',vdoConnection:'Connection: VDO.Ninja',
     reconnect:'Reconnect',reconnecting:'Reconnecting…',
     title: 'Map veto', createHeading: "New captains' veto",
-    createNote: 'The site makes short links: one per captain (DM on Discord), one for spectators and one for the admin. The captains toss the coin themselves in the room — nobody knows it in advance, not even you.',
+    createNote: 'The site makes a personal link for each captain, a spectator link and an admin link. By default the captains toss a fair coin; you can instead assign a team to choose the veto order.',
     settings: 'Veto settings', match: 'Match from the schedule', loadingSchedule: 'Loading the schedule…',
     pickMatch: 'Pick a match — the teams fill in', noMatches: 'No upcoming matches in the schedule',
     scheduleFailed: 'The schedule did not load — type the teams below', today: 'today', tomorrow: 'tomorrow', noDate: 'No date',
@@ -64,6 +64,9 @@ const WORDS = {
     footAdmin: 'Admin view: you watch and get the HLTV text. Keep this link to yourselves.',
     footCaptain: name => `You are the captain of ${name}. This link is yours only — do not forward it.`,
     itsYou: "that's you", online: 'online', offline: 'offline',
+    startChoice: 'Who chooses the veto order', coinDefault: 'Coin toss (default)',
+    assignedChoice: name => `${name} choose the veto order`, assignedYou: 'You choose the veto order',
+    logAssignedOrder: (name, first) => `${name} chose the order: ${first} ban first`,
     coin: 'Coin', tossing: 'Tossing…', waitCaptains: 'Waiting for the captains', waitCaptain: name => `Waiting for captain ${name}`,
     coinHint: 'Both captains toss the coin once they open their links: each adds a random part, so nobody knows the result in advance — not the captains, not the admin.',
     coinWinner: name => `Coin: ${name}`, youWon: 'You won the coin', decideOrder: 'Decide who bans first.',
@@ -108,7 +111,7 @@ const WORDS = {
     serverWait:'Подключаемся к нашему серверу…',vdoConnection:'Связь: VDO.Ninja',
     reconnect:'Переподключить связь',reconnecting:'Переподключаем…',
     title: 'Вето карт', createHeading: 'Новое вето для капитанов',
-    createNote: 'Сайт сделает короткие ссылки: по одной каждому капитану (в личку в Discord), одну для зрителей и одну для админа. Монетку капитаны бросят сами прямо в комнате — заранее её не знает никто, даже ты.',
+    createNote: 'Сайт сделает личную ссылку каждому капитану, ссылку зрителей и ссылку админа. По умолчанию капитаны бросают честную монетку; вместо неё можно назначить команду, которая выбирает порядок вето.',
     settings: 'Настройки вето', match: 'Матч из расписания', loadingSchedule: 'Загружаем расписание…',
     pickMatch: 'Выбери матч — команды подставятся сами', noMatches: 'В расписании нет предстоящих матчей',
     scheduleFailed: 'Расписание не загрузилось — впиши команды ниже', today: 'сегодня', tomorrow: 'завтра', noDate: 'Без даты',
@@ -125,6 +128,9 @@ const WORDS = {
     footAdmin: 'Вид админа: смотришь и получаешь текст для HLTV. Эту ссылку держите у себя.',
     footCaptain: name => `Ты капитан ${name}. Эта ссылка только для тебя — не пересылай её.`,
     itsYou: 'это ты', online: 'online', offline: 'offline',
+    startChoice: 'Кто выбирает порядок вето', coinDefault: 'Монетка (по умолчанию)',
+    assignedChoice: name => `${name} выбирают порядок вето`, assignedYou: 'Вы выбираете порядок вето',
+    logAssignedOrder: (name, first) => `${name} выбрали порядок: первыми банят ${first}`,
     coin: 'Монетка', tossing: 'Подбрасываем…', waitCaptains: 'Ждём капитанов', waitCaptain: name => `Ждём капитана ${name}`,
     coinHint: 'Монетку бросают оба капитана, когда откроют свои ссылки: каждый добавляет свою случайную часть, поэтому результат заранее не знает никто — ни капитаны, ни админ.',
     coinWinner: name => `Монетка: ${name}`, youWon: 'Вы выиграли монетку', decideOrder: 'Решите, кто банит первым.',
@@ -232,6 +238,7 @@ function showLinks(made) {
   $('vtWatch').href = links.o;
   $('vtLinks').hidden = false;
   $('vtMade').textContent = [made.restored ? t('made', new Date(made.at).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-GB', { hour: '2-digit', minute: '2-digit' })) : '',
+    room.chooser == null ? t('coinDefault') : t('assignedChoice', room.t[room.chooser]),
     made.shortLinkFallback ? t('shortFallback') : ''].filter(Boolean).join(' ');
 }
 relabel.add(() => { if (shownLinks) showLinks(shownLinks); });
@@ -294,6 +301,13 @@ async function setupCreate() {
   $('vtCreate').hidden = false;
   relabel.add(() => { document.title = t('newTitle'); });
   applyWords();
+  const choiceOptions = () => {
+    for (const [team, id] of ['vtTeamA', 'vtTeamB'].entries()) {
+      $('vtStart').options[team + 1].textContent = t('assignedChoice', $(id).value.trim() || `Team ${team + 1}`);
+    }
+  };
+  for (const id of ['vtTeamA', 'vtTeamB']) $(id).addEventListener('input', choiceOptions);
+  relabel.add(choiceOptions);
   // The form works before anything else loads (a slow teams.json or odd
   // saved data must not leave it submitting natively).
   $('vtForm').addEventListener('submit', async event => {
@@ -307,14 +321,15 @@ async function setupCreate() {
       let made;
       try {
         if (relay) await checkRelay(relay);
-        made = await createRoom(base, [$('vtTeamA').value, $('vtTeamB').value], $('vtFormat').value, Number($('vtTimer').value), relay);
+        made = await createRoom(base, [$('vtTeamA').value, $('vtTeamB').value], $('vtFormat').value, Number($('vtTimer').value), relay,
+          $('vtStart').value === 'coin' ? null : Number($('vtStart').value));
         made = await friendlyCaptainLinks(made,base,$('vtTournament').value);
       } finally { submit.disabled = false; }
       made.at = Date.now();
       store(LAST_KEY, made);
       const prefill = new URLSearchParams(location.hash.slice(1));
       if (prefill.has('new')) {
-        for (const [name,value] of Object.entries({a:made.room.t[0],b:made.room.t[1],f:made.room.f,m:made.room.m,via:relay?'server':'vdo'})) prefill.set(name,String(value));
+        for (const [name,value] of Object.entries({a:made.room.t[0],b:made.room.t[1],f:made.room.f,m:made.room.m,start:made.room.chooser ?? 'coin',via:relay?'server':'vdo'})) prefill.set(name,String(value));
         history.replaceState(null,'',location.pathname+location.search+'#'+prefill);
       }
       showLinks(made);
@@ -326,11 +341,13 @@ async function setupCreate() {
     const [a, b] = JSON.parse($('vtMatch').value);
     $('vtTeamA').value = a;
     $('vtTeamB').value = b;
+    choiceOptions();
   });
   const params = new URLSearchParams(location.hash.slice(1));
   $('vtTournament').value = (params.get('tournament')||DEFAULT_TOURNAMENT).slice(0,60);
   const asked = params.has('new') ? [params.get('a') || '', params.get('b') || '', params.get('f')] : null;
   if (['server','vdo'].includes(params.get('via'))) $('vtTransport').value = params.get('via');
+  if (['coin','0','1'].includes(params.get('start'))) $('vtStart').value = params.get('start');
   if (asked) {
     $('vtTeamA').value = asked[0];
     $('vtTeamB').value = asked[1];
@@ -345,16 +362,19 @@ async function setupCreate() {
     const fresh = Date.now() - (Number(last?.at) || 0) < RESTORE_FOR;
     if (fresh && room && Array.isArray(room.t) && last.links?.a && last.links?.b && last.links?.s && last.links?.o &&
         (!asked || (asked[0] === room.t[0] && asked[1] === room.t[1] && asked[2] === room.f && (!params.has('via') || Boolean(room.relay) === (params.get('via') === 'server')) &&
-          (!params.has('tournament') || params.get('tournament') === (last.tournament||DEFAULT_TOURNAMENT))))) {
+          (!params.has('tournament') || params.get('tournament') === (last.tournament||DEFAULT_TOURNAMENT)) &&
+          (!params.has('start') || params.get('start') === String(room.chooser ?? 'coin'))))) {
       $('vtTeamA').value = room.t[0];
       $('vtTeamB').value = room.t[1];
       $('vtFormat').value = room.f;
       $('vtTimer').value = String(room.m ?? 5);
+      $('vtStart').value = String(room.chooser ?? 'coin');
       $('vtTransport').value = room.relay ? 'server' : 'vdo';
       $('vtTournament').value = last.tournament||DEFAULT_TOURNAMENT;
       showLinks({ ...last, restored: true });
     }
   } catch { /* odd saved data: start clean */ }
+  choiceOptions();
   loadMatches();
   const logos = await teamLogos();
   $('vtTeamList').replaceChildren(...Object.keys(logos).sort((a, b) => a.localeCompare(b))
@@ -817,7 +837,7 @@ async function enterRoom(room) {
     const prior = replay(room, log.slice(0, index));
     const team = nextTurn(room, prior).team;
     if (COIN_MOVES.includes(entry.k)) return '';
-    if (entry.k === 'order') return t('logOrder', names[team], names[Number(entry.v)]);
+    if (entry.k === 'order') return t(room.chooser == null ? 'logOrder' : 'logAssignedOrder', names[team], names[Number(entry.v)]);
     if (entry.k === 'ban') return t('logBan', names[team], entry.v);
     if (entry.k === 'pick') return t('logPick', names[team], entry.v);
     return t('logSide', names[team], entry.v, prior.pending?.map || state.pending?.map || '');
@@ -889,7 +909,7 @@ async function enterRoom(room) {
     const turn = nextTurn(room, state);
     // A coin tossed long ago (a reload, a late viewer) is shown at once;
     // a fresh one flips.
-    if (state.first !== null && coin !== 'shown') {
+    if ((state.first !== null || room.chooser != null) && coin !== 'shown') {
       coin = 'shown';
       $('vtCoin').dataset.result = String(state.coin);
     }
@@ -920,14 +940,14 @@ async function enterRoom(room) {
       hint = t('coinHint');
     } else if (turn.kind === 'order') {
       stage.dataset.phase = mine ? 'mine' : 'wait';
-      kicker = t('coinWinner', names[state.coin]);
+      kicker = room.chooser == null ? t('coinWinner', names[state.coin]) : t('assignedChoice', names[state.chooser]);
       if (mine) {
-        prompt = t('youWon');
+        prompt = t(room.chooser == null ? 'youWon' : 'assignedYou');
         hint = t('decideOrder');
         actions.push(button(t('weBanFirst'), () => move('order', String(me)), true));
         actions.push(button(t('theyBanFirst', names[opp]), () => move('order', String(opp))));
       } else {
-        prompt = t('wonCoin', names[state.coin]);
+        prompt = room.chooser == null ? t('wonCoin', names[state.coin]) : t('assignedChoice', names[state.chooser]);
         hint = t('decidingOrder');
       }
     } else if (turn.kind === 'side') {
@@ -972,7 +992,7 @@ async function enterRoom(room) {
     setText($('vtPrompt'), prompt);
     setText($('vtHint'), hint);
     $('vtActions').replaceChildren(...actions);
-    $('vtCoin').hidden = coin === 'shown' && turn.kind !== 'order';
+    $('vtCoin').hidden = room.chooser != null || (coin === 'shown' && turn.kind !== 'order');
 
     const choosing = mine && coin === 'shown' && (turn.kind === 'ban' || turn.kind === 'pick');
     const order = new Map(state.actions.map((a, i) => [a.map, i + 1]));

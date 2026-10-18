@@ -117,11 +117,13 @@ h1,h2,h3 { font-family:var(--vt-display); font-weight:600; letter-spacing:.02em;
 .vt-team > div { min-width:0; flex:1; }
 .vt-logo { width:52px; height:52px; flex:none; border-radius:12px; background:var(--vt-field); display:grid; place-items:center; overflow:hidden; }
 .vt-logo img { width:44px; height:44px; object-fit:contain; }
+.vt-team-heading { display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; }
+.vt-team[data-team="1"] .vt-team-heading { justify-content:flex-end; }
 .vt-team-name { display:block; font:600 clamp(18px,2.6vw,26px)/1.1 var(--vt-display); text-transform:uppercase; overflow-wrap:anywhere; }
 .vt-presence { display:inline-flex; align-items:center; gap:6px; color:var(--vt-muted); font-size:13px; }
 .vt-presence::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--vt-offline); }
 .vt-team[data-online=yes] .vt-presence::before { background:var(--vt-online); box-shadow:0 0 8px var(--vt-online); }
-.vt-you { padding:3px 8px; border-radius:6px; background:var(--vt-accent); color:var(--vt-accent-ink); font:600 12px var(--vt-display); letter-spacing:.1em; }
+.vt-you { flex:none; padding:3px 8px; border-radius:6px; background:var(--vt-accent); color:var(--vt-accent-ink); font:600 12px var(--vt-display); letter-spacing:.1em; }
 .vt-versus { font:600 22px var(--vt-display); color:var(--vt-muted); }
 .vt-hltv { display:inline-block; margin-left:10px; color:var(--vt-accent); font:600 12px/1 var(--vt-display); letter-spacing:.08em; text-decoration:none; }
 .vt-hltv:hover { color:var(--vt-ink); text-decoration:underline; }

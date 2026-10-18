@@ -58,6 +58,9 @@
               <option value="0" data-i18n="noTimer">No timer</option>
             </select>
           </label>
+          <label class="vt-wide"><span data-i18n="startChoice">Who chooses the veto order</span>
+            <select id="vtStart"><option value="coin" data-i18n="coinDefault" selected>Coin toss (default)</option><option value="0">Team 1</option><option value="1">Team 2</option></select>
+          </label>
           <label class="vt-wide"><span data-i18n="transport">Connection</span>
             <select id="vtTransport"><option value="vdo">VDO.Ninja</option><option value="server" data-i18n="ourServer">Our server</option></select>
           </label>
@@ -102,14 +105,12 @@
       <div class="vt-teams">
         <article class="vt-team" id="vtTeam0" data-team="0">
           <span class="vt-logo"><img alt="" hidden></span>
-          <div><b class="vt-team-name"></b><span class="vt-presence"></span><a class="vt-hltv" target="_blank" rel="noreferrer" hidden>HLTV ↗</a></div>
-          <span class="vt-you" hidden data-i18n="you">YOU</span>
+          <div><div class="vt-team-heading"><b class="vt-team-name"></b><span class="vt-you" hidden data-i18n="you">YOU</span></div><span class="vt-presence"></span><a class="vt-hltv" target="_blank" rel="noreferrer" hidden>HLTV ↗</a></div>
         </article>
         <span class="vt-versus" aria-hidden="true">VS</span>
         <article class="vt-team" id="vtTeam1" data-team="1">
           <span class="vt-logo"><img alt="" hidden></span>
-          <div><b class="vt-team-name"></b><span class="vt-presence"></span><a class="vt-hltv" target="_blank" rel="noreferrer" hidden>HLTV ↗</a></div>
-          <span class="vt-you" hidden data-i18n="you">YOU</span>
+          <div><div class="vt-team-heading"><b class="vt-team-name"></b><span class="vt-you" hidden data-i18n="you">YOU</span></div><span class="vt-presence"></span><a class="vt-hltv" target="_blank" rel="noreferrer" hidden>HLTV ↗</a></div>
         </article>
       </div>
 
