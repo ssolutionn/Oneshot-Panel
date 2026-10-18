@@ -2,35 +2,35 @@
   "version": 1,
   "day": "2026-10-18",
   "startedAt": 1792270025702,
-  "updatedAt": 1792282899719,
+  "updatedAt": 1792298920274,
   "books": {
     "fonbet": {
-      "checkedAt": 1792282899708,
+      "checkedAt": 1792298920271,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "pari": {
-      "checkedAt": 1792282899697,
+      "checkedAt": 1792298920267,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "bettery": {
-      "checkedAt": 1792282899705,
+      "checkedAt": 1792298920260,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "bet24": {
-      "checkedAt": 1792282899718,
+      "checkedAt": 1792298920269,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "olimp": {
-      "checkedAt": 1792282899701,
-      "status": "partial",
+      "checkedAt": 1792298920266,
+      "status": "ok",
       "coverage": "line-and-live",
       "events": [
         {
@@ -47,7 +47,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792276907477,
-          "last": 1792282899701,
+          "last": 1792298920266,
           "open": [
             1.99,
             1.76
@@ -64,14 +64,14 @@
           "tournament": "CS2. CyberClash",
           "start": 1792332000000,
           "odds": [
-            1.38,
-            2.9
+            1.3,
+            3.33
           ],
           "url": "https://www.olimp.bet/line/kibersport-112/8354797/86098625",
           "live": false,
           "liveOffered": false,
           "first": 1792276907477,
-          "last": 1792282899701,
+          "last": 1792298920266,
           "open": [
             1.38,
             2.9
@@ -95,7 +95,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792276907477,
-          "last": 1792282899701,
+          "last": 1792298920266,
           "open": [
             1.44,
             2.67
@@ -108,25 +108,25 @@
       ]
     },
     "marathon": {
-      "checkedAt": 1792282899710,
+      "checkedAt": 1792298920265,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "betcity": {
-      "checkedAt": 1792282899715,
+      "checkedAt": 1792298920268,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "sportbet": {
-      "checkedAt": 1792282899704,
+      "checkedAt": 1792298920270,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "baltbet": {
-      "checkedAt": 1792282899719,
+      "checkedAt": 1792298920274,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -144,7 +144,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792276907454,
-          "last": 1792282899719,
+          "last": 1792298920274,
           "open": [
             1.43,
             2.43
@@ -157,7 +157,7 @@
       ]
     },
     "winline": {
-      "checkedAt": 1792282899707,
+      "checkedAt": 1792298920273,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -175,7 +175,7 @@
           "live": false,
           "liveOffered": true,
           "first": 1792282899707,
-          "last": 1792282899707,
+          "last": 1792298920273,
           "open": [
             1.96,
             1.75
@@ -192,14 +192,14 @@
           "tournament": "CyberClash",
           "start": 1792332000000,
           "odds": [
-            1.4,
-            2.74
+            1.32,
+            3.09
           ],
           "url": "https://winline.ru/stavki/sport/kibersport/counter-strike",
           "live": false,
           "liveOffered": true,
           "first": 1792282899707,
-          "last": 1792282899707,
+          "last": 1792298920273,
           "open": [
             1.4,
             2.74
@@ -223,7 +223,7 @@
           "live": false,
           "liveOffered": true,
           "first": 1792282899707,
-          "last": 1792282899707,
+          "last": 1792298920273,
           "open": [
             1.45,
             2.55
@@ -236,7 +236,7 @@
       ]
     },
     "leon": {
-      "checkedAt": 1792282899714,
+      "checkedAt": 1792298920263,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -254,7 +254,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792270025726,
-          "last": 1792282899714,
+          "last": 1792298920263,
           "open": [
             1.95,
             1.75
@@ -271,14 +271,14 @@
           "tournament": "CyberClash Closed Qualifier",
           "start": 1792332000000,
           "odds": [
-            1.38,
-            2.8
+            1.3,
+            3.25
           ],
           "url": "https://leon.ru/bets/esports/cs2/cyberclash-closed-qualifier/1970324853942787-upgrade-lavked",
           "live": false,
           "liveOffered": false,
           "first": 1792270025726,
-          "last": 1792282899714,
+          "last": 1792298920263,
           "open": [
             1.38,
             2.8
@@ -302,7 +302,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792270025726,
-          "last": 1792282899714,
+          "last": 1792298920263,
           "open": [
             1.44,
             2.6
