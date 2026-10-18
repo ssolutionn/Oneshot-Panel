@@ -16,7 +16,7 @@ test('veto site build: veto pages and assets only, no roster sheet, no panel add
     assert.deepEqual(top, ['.assetsignore', '.github', 'README.md', 'RELAY.md', '_headers', 'assets', 'core.js', 'functions', 'index.html', 'package.json', 'scripts', 'server', 'vdo.js',
       'veto-room.js', 'veto.css', 'veto.html', 'veto.js', 'worker.js', 'wrangler.jsonc']);
     const worker = JSON.parse(await readFile(path.join(out, 'wrangler.jsonc'), 'utf8'));
-    assert.deepEqual(worker.assets, { directory: '.', binding:'ASSETS', run_worker_first:['/api/veto-relay'] });
+    assert.deepEqual(worker.assets, { directory: '.', binding:'ASSETS', run_worker_first:['/api/veto-relay','/api/veto-link','/*_*'] });
     assert.deepEqual(worker.durable_objects.bindings, [{name:'VETO_RELAY',class_name:'VetoRelayTopic'}]);
     assert.deepEqual(worker.migrations[0].new_sqlite_classes, ['VetoRelayTopic']);
     assert.match(await readFile(path.join(out, '.assetsignore'), 'utf8'), /^wrangler\.jsonc$/m);
@@ -31,7 +31,7 @@ test('veto site build: veto pages and assets only, no roster sheet, no panel add
     const headers = await readFile(path.join(out, '_headers'), 'utf8');
     assert.match(headers, /connect-src 'self' https:\/\/docs\.google\.com https:\/\/oneshot-veto\.cyberclash\.workers\.dev;/);
     assert.match(headers, /frame-src https:\/\/vdo\.ninja https:\/\/cdn-backup\.vdo\.ninja;/);
-    assert.deepEqual((await readdir(path.join(out, 'assets'))).sort(), ['card', 'favicon-night.png', 'flags', 'fonts', 'maps', 'teams', 'veto-appearance.js', 'veto-backdrop.jpg', 'veto-relay-client.js', 'veto-relay-links.js', 'veto-relay-protocol.js']);
+    assert.deepEqual((await readdir(path.join(out, 'assets'))).sort(), ['card', 'favicon-night.png', 'flags', 'fonts', 'maps', 'teams', 'veto-appearance.js', 'veto-backdrop.jpg', 'veto-relay-client.js', 'veto-relay-links.js', 'veto-relay-protocol.js','veto-short-links.js','veto-short-protocol.js']);
   } finally {
     await rm(out, { recursive: true, force: true });
   }

@@ -156,6 +156,10 @@ async def run(args):
                                             locale="ru-RU", timezone_id="Europe/Moscow")
         await context.route("https://docs.google.com/**/gviz/**", sheets)
         await context.route("https://vdo.ninja/**", lambda route: route.fulfill(content_type="text/html", body=FAKE_VDO))
+        # This suite protects the legacy/fallback links; short links have real
+        # HTTP coverage in qa_veto_site.py --pretty-links.
+        await context.route("**/api/veto-link*", lambda route: route.fulfill(
+            status=503, content_type="application/json", body='{"error":"qa-unavailable"}'))
         # The site's bookmakers function (bookies.js), answered from here.
         bookie_lines = {
             "fonbet": [{"id": "1", "team1": "6yuBoJlbl", "team2": "HyperSpirit", "odds": [1.8, 2.0],

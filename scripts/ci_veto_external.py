@@ -269,11 +269,11 @@ def prior_failure():
 
 def main():
     publish()
-    if os.environ.get("VETO_EXTERNAL_MODE") == "public":
+    if os.environ.get("VETO_EXTERNAL_MODE") in ("public","short"):
         wait_deployment()
         deployment_metadata()
     public_probe()
-    if os.environ.get("VETO_EXTERNAL_MODE") != "public":
+    if os.environ.get("VETO_EXTERNAL_MODE") not in ("public","short"):
         try:
             prior_failure()
         except Exception as error:
@@ -285,12 +285,12 @@ def main():
     if not step("install_browsers", ["python3", "-m", "playwright", "install", "--with-deps", *browsers], 360):
         return False
     public_ready = public_browser_probe()
-    if os.environ.get("VETO_EXTERNAL_MODE") == "public":
+    if os.environ.get("VETO_EXTERNAL_MODE") in ("public","short"):
         deployment_metadata()
         if not public_ready:
             REPORT["public_journeys"] = "not run: deployed files or relay health are not ready"
             publish()
-            return True
+            return os.environ.get("VETO_EXTERNAL_MODE") == "public"
     server_log = (OUT / "server.log").open("w")
     server = subprocess.Popen(["node", "server.js"], cwd=ROOT, stdout=server_log, stderr=subprocess.STDOUT)
     try:
@@ -327,6 +327,15 @@ def main():
                                        "--browser", "chromium", "--artifacts", "artifacts/external-real-recovery"], 360),
                 ("chromium_recovery", ["python3", "scripts/qa_veto_resilience.py", "--browser", "chromium"], 150),
                 ("webkit_recovery", ["python3", "scripts/qa_veto_resilience.py", "--browser", "webkit"], 150),
+            ]
+        if os.environ.get("VETO_EXTERNAL_MODE") == "short":
+            commands = [
+                ("webkit_short_links", ["python3", "scripts/qa_veto_site.py", "--server", "--pretty-links",
+                    "--browser", "webkit", "--artifacts", "artifacts/short-webkit"], 420),
+                ("public_short_links", ["python3", "scripts/qa_veto_site.py", "--server", "--pretty-links", "--focus-match",
+                    "--url", "https://oneshot-veto.pages.dev", "--artifacts", "artifacts/short-public"], 420),
+                ("public_server_overlay", ["python3", "scripts/qa_veto_relay_overlay.py", "--veto-site",
+                    "https://oneshot-veto.pages.dev/veto.html"], 240),
             ]
         good = True
         for name, command, limit in commands:

@@ -6,7 +6,7 @@ on:
         type: choice
         required: true
         default: public
-        options: [public, recovery, all]
+        options: [public, short, recovery, all]
   push:
     branches: ["codex/veto-resilience-review"]
     paths: [".github/workflows/veto-external.yml", "scripts/ci_veto_external.py", "functions/api/veto-relay.js", "server/veto-deploy-cloudflare.yml"]
@@ -32,7 +32,7 @@ jobs:
       - name: External probes and results over Git
         env:
           GH_TOKEN: ${{ github.token }}
-          VETO_EXTERNAL_MODE: ${{ inputs.mode || contains(github.event.head_commit.message, '[vdo-recovery]') && 'recovery' || contains(github.event.head_commit.message, '[full-veto]') && 'all' || 'public' }}
+          VETO_EXTERNAL_MODE: ${{ inputs.mode || contains(github.event.head_commit.message, '[short-links]') && 'short' || contains(github.event.head_commit.message, '[vdo-recovery]') && 'recovery' || contains(github.event.head_commit.message, '[full-veto]') && 'all' || 'public' }}
         run: python3 scripts/ci_veto_external.py
       - uses: actions/upload-artifact@v4
         if: always()

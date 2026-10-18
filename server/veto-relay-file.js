@@ -2,8 +2,8 @@ import {mkdir,readFile,writeFile,rename,unlink,readdir} from 'node:fs/promises';
 import path from 'node:path';
 import {topicValid} from '../assets/veto-relay-protocol.js';
 export class FileRelayStore {
- constructor(directory){this.directory=path.resolve(directory);this.queues=new Map();}
- file(topic){if(!topicValid(topic))throw Error('topic');return path.join(this.directory,topic+'.json');}
+ constructor(directory,valid=topicValid){this.directory=path.resolve(directory);this.queues=new Map();this.valid=valid;}
+ file(topic){if(!this.valid(topic))throw Error('topic');return path.join(this.directory,topic+'.json');}
  async read(topic){
   try{return JSON.parse(await readFile(this.file(topic),'utf8'));}
   catch(e){if(e.code==='ENOENT')return null;throw Error('storage');}
@@ -26,7 +26,7 @@ export class FileRelayStore {
  async prune(now=Date.now()){
   let names;try{names=await readdir(this.directory);}catch(e){if(e.code==='ENOENT')return;throw e;}
   for(const name of names){
-   const topic=name.replace(/\.json$/,'');if(name!==topic+'.json'||!topicValid(topic))continue;
+   const topic=name.replace(/\.json$/,'');if(name!==topic+'.json'||!this.valid(topic))continue;
    await this.update(topic,row=>row&&row.expiresAt<=now?null:row);
   }
  }

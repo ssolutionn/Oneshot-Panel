@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import re
 import time
 from pathlib import Path
 
@@ -18,7 +19,9 @@ def verify(base, root, attempts, chromium=None):
                 try:
                     for url_path, file in [("/", "index.html"), ("/veto.js", "veto.js"),
                                            ("/veto.css", "veto.css"), ("/veto-room.js", "veto-room.js"),
-                                           ("/vdo.js", "vdo.js")]:
+                                           ("/vdo.js", "vdo.js"),
+                                           ("/assets/veto-short-links.js", "assets/veto-short-links.js"),
+                                           ("/assets/veto-short-protocol.js", "assets/veto-short-protocol.js")]:
                         response = page.goto(base.rstrip("/") + url_path, wait_until="domcontentloaded", timeout=20000)
                         assert response and response.status == 200, f"HTTP error: {url_path}"
                         assert hashlib.sha256(response.body()).digest() == hashlib.sha256(
@@ -32,12 +35,30 @@ def verify(base, root, attempts, chromium=None):
                     assert "application/json" in response.headers.get("content-type", ""), "Relay returned HTML"
                     health = json.loads(response.body())
                     assert health.get("protocol") == 1 and health.get("ready") is True, "Relay is not ready"
-                    print("PASS: public veto assets match the release, backup CSP is present, relay health is ready", flush=True)
+                    page.goto(base.rstrip('/')+'/',wait_until='domcontentloaded',timeout=20000)
+                    link=page.evaluate("""async () => {
+                        const room=await import('/veto-room.js');
+                        const short=await import('/assets/veto-short-links.js');
+                        const made=await room.createRoom(location.origin+'/', ['Release QA A','Release QA B'],'BO1',5,
+                          location.origin+'/api/veto-relay');
+                        const pretty=await short.friendlyCaptainLinks(made,location.origin,'Release QA');
+                        if(pretty.shortLinkFallback)throw Error('Short-link API did not save both captain links');
+                        const resolved=await short.resolveRoomLink(pretty.links.a,fetch,null);
+                        if(resolved.room.r!==made.room.r||resolved.room.me!=='a')throw Error('Short-link room mismatch');
+                        return pretty.links.a;
+                    }""")
+                    response=page.goto(link,wait_until='domcontentloaded',timeout=20000)
+                    assert response and response.status==200,"Pretty captain path did not load"
+                    assert "script-src 'self'" in response.headers.get('content-security-policy',''),"Pretty page has no CSP"
+                    page.wait_for_selector('#vtRoom:not([hidden])',timeout=15000)
+                    assert '#k=' in page.url and '#v=' not in page.url,"Captain address did not stay readable"
+                    print("PASS: public release assets, backup CSP, relay health, encrypted captain links and readable routes", flush=True)
                     return
                 except Exception as error:
-                    print(f"Deployment check {attempt + 1}/{attempts}: {error}", flush=True)
+                    safe=re.sub(r'(https?://[^\s#]+)#[^\s]+',r'\1#[redacted]',str(error))
+                    print(f"Deployment check {attempt + 1}/{attempts}: {safe}", flush=True)
                     if attempt + 1 == attempts:
-                        raise
+                        raise AssertionError(safe) from None
                     time.sleep(5)
         finally:
             browser.close()

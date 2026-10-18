@@ -1,7 +1,7 @@
 name: Veto server transport
 on:
   pull_request:
-    paths: ["veto*", "index.html", "live.js", "server.js", "_headers", "netlify.toml", "assets/veto-relay*", "server/**", "functions/api/veto-relay.js", "test/veto-relay.test.js", "scripts/qa_veto_site.py", "scripts/qa_veto_resilience.py", "scripts/qa_veto_relay*.py", ".github/workflows/veto-relay.yml"]
+    paths: ["veto*", "index.html", "live.js", "server.js", "_headers", "netlify.toml", "assets/veto-relay*", "assets/veto-short*", "server/**", "functions/**", "test/veto-*.test.js", "scripts/qa_veto_site.py", "scripts/qa_veto_resilience.py", "scripts/qa_veto_relay*.py", ".github/workflows/veto-relay.yml"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -26,18 +26,20 @@ jobs:
           node scripts/build-veto-site.mjs
           python3 claude-artifact/build_oneshot_artifact.py
           git diff --exit-code -- claude-artifact/oneshot-panel.html
-      - name: Cloudflare Durable Objects locally
-        run: python3 scripts/qa_veto_relay_cloudflare.py
       - name: Install browser QA
         run: |
           python3 -m pip install playwright
           python3 -m playwright install --with-deps chromium webkit
+      - name: Cloudflare Durable Objects, readable routes and browser bootstrap locally
+        run: python3 scripts/qa_veto_relay_cloudflare.py
       - name: Server rooms in Chromium and mobile WebKit, old VDO regression
         run: |
           node server.js > /tmp/relay-server.log 2>&1 &
           python3 scripts/qa_veto_relay_overlay.py
           python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --server --browser chromium --artifacts artifacts/server-chromium
           python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --server --browser webkit --artifacts artifacts/server-webkit
+          python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --server --pretty-links --focus-match --browser chromium --artifacts artifacts/short-chromium
+          python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --server --pretty-links --focus-match --browser webkit --artifacts artifacts/short-webkit
           python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --browser chromium --artifacts artifacts/vdo
           python3 scripts/qa_veto_resilience.py --url http://127.0.0.1:3000 --browser chromium
           python3 scripts/qa_veto_resilience.py --url http://127.0.0.1:3000 --browser webkit

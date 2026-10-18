@@ -131,6 +131,17 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   `oneshot-player-veto` (последние ссылки админа),
   `oneshot-veto-log:<код>`, `oneshot-veto-keys:<код>`, `oneshot-veto-coin:<код>`. Логика покрыта `test/veto-room.test.js`,
   страница — `scripts/qa_veto_site.py` (три отдельных браузера).
+- Читаемые капитанские адреса — `/<турнир>_<команда>#k=<22 символа>`:
+  `assets/veto-short-links.js` шифрует исходный `#v=` AES-GCM, ключ остаётся
+  во фрагменте; `assets/veto-short-protocol.js` задаёт формат. Endpoint
+  `/api/veto-link` хранит неизменяемый зашифрованный документ по SHA-256
+  ключа без автоматического срока действия. Cloudflare использует тот же
+  класс DO в отдельном пространстве имён `short:`; Node — каталог `links/`.
+  Две формы (`vtTournament`, `cvTournament`) вызывают `friendlyCaptainLinks`;
+  отказ сервиса оставляет обычные ссылки. Открытие — `resolveRoomLink`;
+  проверенный зашифрованный документ кешируется для перезагрузки без API.
+  `functions/[vetoSlug].js` и Worker отдают `veto.html` по красивому пути.
+  Старые `#v=` ссылки и админская/зрительская ссылки остаются совместимыми.
 - Сайт вето — отдельный репозиторий `ssolutionn/Oneshot-Veto` (Cloudflare
   Pages, без сборки, https://oneshot-veto.pages.dev/ — каждый пуш в main
   выходит сам; старый Worker oneshot-veto.cyberclash.workers.dev оставлен

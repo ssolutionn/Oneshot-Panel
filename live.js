@@ -11,6 +11,7 @@ import { RoomWatch, adminRoom, roomToPanel, roomMoves } from './veto-watch.js';
 import { ServerDisplayLink } from './assets/veto-relay-links.js';
 import { checkRelay } from './assets/veto-relay-client.js';
 import { relayEndpoint } from './assets/veto-relay-protocol.js';
+import {DEFAULT_TOURNAMENT,friendlyCaptainLinks,resolveRoomLink} from './assets/veto-short-links.js';
 
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
@@ -664,6 +665,7 @@ function onChange() {
 function playerVetoLink(s) {
   const params = new URLSearchParams({ a: s.a?.name || '', b: s.b?.name || '', f: $('cvFormat').value, m: $('cvTimer').value });
   params.set('via', $('cvTransport').value === 'server' ? 'server' : 'vdo');
+  params.set('tournament',$('cvTournament').value.trim()||DEFAULT_TOURNAMENT);
   $('playerVeto').href = vetoSite() + '#new&' + params;
 }
 
@@ -693,6 +695,7 @@ function vetoSite() {
 const cv = { touched: false, made: null };
 {
   const saved = read(CV_STORE) || {};
+  $('cvTournament').value=typeof saved.tournament==='string'?saved.tournament.slice(0,60):DEFAULT_TOURNAMENT;
   $('cvSite').value = typeof saved.site === 'string' ? saved.site : '';
   if (['0', '3', '5', '7', '10', '15'].includes(String(saved.timer))) $('cvTimer').value = String(saved.timer);
   if (['en', 'ru'].includes(saved.lang)) $('cvLang').value = saved.lang;
@@ -700,7 +703,7 @@ const cv = { touched: false, made: null };
 }
 const cvMatch = s => s.a?.name && s.b?.name ? JSON.stringify([s.a.name, s.b.name]) : '';
 function cvSave(last = read(CV_STORE)?.last) {
-  write(CV_STORE, { timer: $('cvTimer').value, lang: $('cvLang').value, site: $('cvSite').value.trim(), transport: $('cvTransport').value, last });
+  write(CV_STORE, { tournament:$('cvTournament').value.trim()||DEFAULT_TOURNAMENT,timer: $('cvTimer').value, lang: $('cvLang').value, site: $('cvSite').value.trim(), transport: $('cvTransport').value, last });
 }
 function cvShow(made) {
   cv.made = made;
@@ -716,7 +719,8 @@ function cvShow(made) {
   $('cvLinks').hidden = false;
   const time = new Date(made.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   cvStatus(`Ссылки для ${room.t[0]} vs ${room.t[1]} (${room.f}${room.m ? `, ${room.m} мин` : ', без таймера'}) созданы в ${time}. ` +
-    `Связь: ${room.relay ? 'наш сервер' : 'VDO.Ninja'}. Новые ссылки — снова «Создать ссылки»: старые продолжат работать, но это будет другая комната.`);
+    `Связь: ${room.relay ? 'наш сервер' : 'VDO.Ninja'}. Новые ссылки — снова «Создать ссылки»: старые продолжат работать, но это будет другая комната.` +
+    (made.shortLinkFallback?' Короткие адреса сейчас недоступны; выданы рабочие полные ссылки.':''));
 }
 function cvStatus(text, kind = '') {
   $('cvStatus').textContent = text;
@@ -737,6 +741,7 @@ $('cvTimer').addEventListener('change', () => { cvSave(); playerVetoLink(panel.s
 $('cvTransport').addEventListener('change', () => { cvSave(); playerVetoLink(panel.snapshot()); });
 $('cvLang').addEventListener('change', () => { cvSave(); if (cv.made) cvShow(cv.made); });
 $('cvSite').addEventListener('change', () => { cvSave(); playerVetoLink(panel.snapshot()); });
+$('cvTournament').addEventListener('change',()=>{cvSave();playerVetoLink(panel.snapshot());});
 $('cvCreate').addEventListener('click', async () => {
   const s = panel.snapshot();
   try {
@@ -744,9 +749,10 @@ $('cvCreate').addEventListener('click', async () => {
     $('cvCreate').disabled = true;
     const relay = $('cvTransport').value === 'server' ? relayEndpoint('/api/veto-relay', vetoSite()) : '';
     if (relay) { cvStatus('Проверяем сервер вето…'); await checkRelay(relay); }
-    const made = await createRoom(vetoSite(), [s.a.name, s.b.name], $('cvFormat').value, Number($('cvTimer').value), relay);
+    let made = await createRoom(vetoSite(), [s.a.name, s.b.name], $('cvFormat').value, Number($('cvTimer').value), relay);
+    made=await friendlyCaptainLinks(made,vetoSite(),$('cvTournament').value);
     if (cvMatch(panel.snapshot()) !== cvMatch(s)) throw new Error('За время подключения матч изменился. Создай ссылки для выбранного матча ещё раз.');
-    const last = { match: cvMatch(s), at: Date.now(), room: made.room, links: made.links };
+    const last = { ...made,match: cvMatch(s), at: Date.now() };
     cvSave(last);
     cvShow(last);
     watchSave({ pasted: null });
@@ -989,9 +995,10 @@ $('cvRestart').addEventListener('click', async () => {
   try {
     const site = new URL(watch.adminLink);
     if (room.relay) await checkRelay(room.relay);
-    const made = await createRoom(site.origin + site.pathname, room.t, room.f, room.m ?? 5, room.relay || '');
+    let made = await createRoom(site.origin + site.pathname, room.t, room.f, room.m ?? 5, room.relay || '');
+    made=await friendlyCaptainLinks(made,site.href,cv.made?.tournament||$('cvTournament').value);
     const s = panel.snapshot();
-    cvSave({ match: JSON.stringify(room.t), at: Date.now(), room: made.room, links: made.links });
+    cvSave({ ...made,match: JSON.stringify(room.t), at: Date.now() });
     watchSave({ pasted: null, syncOff: null });
     if (sameMatch(room, s)) panel.setVeto({ format: room.f, first: s.veto.first, actions: [], pending: null });
     cv.made = null;
@@ -1007,9 +1014,15 @@ $('cvCopyResult').addEventListener('click', () => {
   const live = watch.live;
   if (live) panel.copy(resultText(live.room, live.state));
 });
-$('cvWatchGo').addEventListener('click', () => {
-  const found = adminRoom($('cvWatchLink').value);
-  if (!found) return panel.toast('Это не ссылка комнаты вето: нужна ссылка с …#v=…');
+$('cvWatchGo').addEventListener('click', async () => {
+  let found;
+  $('cvWatchGo').disabled=true;
+  try{
+    const resolved=await resolveRoomLink($('cvWatchLink').value.trim());
+    found=resolved?adminRoom(resolved.canonical):null;
+  }catch{ return panel.toast('Не удалось открыть ссылку вето. Скопируй её целиком или повтори попытку.'); }
+  finally{$('cvWatchGo').disabled=false;}
+  if (!found) return panel.toast('Это не ссылка комнаты вето: вставь полную ссылку капитана, зрителя или админа.');
   watchSave({ pasted: { link: found.adminLink, at: Date.now() } });
   // A captain's link must not stay on screen: only the admin's view is kept.
   $('cvWatchLink').value = '';

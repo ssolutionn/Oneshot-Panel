@@ -6,6 +6,7 @@ import { bookmakersResponse } from './netlify/functions/bookmakers.mjs';
 import { proxyFaceit } from './netlify/functions/faceit.mjs';
 import { nodeRelay } from './server/veto-relay-node.mjs';
 import { FileRelayStore } from './server/veto-relay-file.js';
+import {shortIdValid,shortPathValid} from './assets/veto-short-protocol.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicFiles = new Set([
@@ -22,13 +23,14 @@ const mime = {
   '.json': 'application/json; charset=utf-8',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml'
 };
-export function createServer({relayStore = new FileRelayStore(process.env.VETO_RELAY_DIR || path.join(root, '.veto-relay-data'))} = {}) {
+export function createServer({relayStore = new FileRelayStore(process.env.VETO_RELAY_DIR || path.join(root, '.veto-relay-data')),
+  shortStore = new FileRelayStore(path.join(process.env.VETO_RELAY_DIR || path.join(root, '.veto-relay-data'),'links'),shortIdValid)} = {}) {
   return http.createServer(async (request, response) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     response.setHeader('Content-Security-Policy',
       "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://open.faceit.com https://oneshot-veto.pages.dev https://oneshot-veto.cyberclash.workers.dev ws://127.0.0.1:* ws://localhost:*; frame-src https://vdo.ninja https://cdn-backup.vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
-    if (await nodeRelay(request, response, relayStore)) return;
+    if (await nodeRelay(request, response, relayStore, shortStore)) return;
     if (!['GET', 'HEAD'].includes(request.method)) {
       response.writeHead(405, { Allow: 'GET, HEAD' });
       response.end();
@@ -69,7 +71,7 @@ export function createServer({relayStore = new FileRelayStore(process.env.VETO_R
     try {
       const pathname = decodeURIComponent(
         new URL(request.url, 'http://localhost').pathname);
-      const relative = pathname === '/' ? 'index.html' : pathname.slice(1);
+      const relative = pathname === '/' ? 'index.html' : shortPathValid(pathname)?'veto.html':pathname.slice(1);
       const target = path.resolve(root, relative);
       const asset =
         /^assets\/[\w./-]+$/.test(relative) &&
