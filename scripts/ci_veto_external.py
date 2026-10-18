@@ -22,6 +22,7 @@ REPORT = {"source_sha": os.environ.get("GITHUB_SHA"),
 
 def safe(text):
     text = re.sub(r"(https?://[^\s#]+)#[^\s]+", r"\1#[redacted]", text)
+    text = re.sub(r"\b(?:cfut_|cfat_)[A-Za-z0-9_-]+", "[redacted]", text)
     return re.sub(r"(?i)(password|token|authorization)([=:]\s*)[^\s,;]+", r"\1\2[redacted]", text)
 
 
@@ -166,6 +167,24 @@ def public_browser_probe():
     publish()
 
 
+def wait_deployment():
+    for attempt in range(18):
+        command = subprocess.run(["gh", "api", "repos/ssolutionn/Oneshot-Veto/actions/runs?branch=main&per_page=1"],
+                                 capture_output=True, text=True, timeout=30)
+        if command.returncode:
+            return
+        runs = json.loads(command.stdout).get("workflow_runs", [])
+        if not runs:
+            return
+        run = runs[0]
+        REPORT["steps"]["deployment_wait"] = {key: run.get(key) for key in [
+            "status", "conclusion", "head_sha", "html_url"]}
+        publish()
+        if run.get("status") == "completed":
+            return
+        time.sleep(10)
+
+
 def deployment_metadata():
     """Read existing Pages/Worker checks without changing any deployment."""
     results = []
@@ -240,6 +259,9 @@ def prior_failure():
 
 def main():
     publish()
+    if os.environ.get("VETO_EXTERNAL_MODE") == "public":
+        wait_deployment()
+        deployment_metadata()
     public_probe()
     REPORT["cloudflare_bindings"] = {key: bool(os.environ.get(key)) for key in
                                      ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]}
