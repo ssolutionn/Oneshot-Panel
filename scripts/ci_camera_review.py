@@ -19,7 +19,7 @@ def main():
         ("obs_install",["bash","-c",'''
 curl --fail --location --retry 2 https://github.com/obsproject/obs-studio/releases/download/32.2.2/OBS-Studio-32.2.2-Ubuntu-24.04-x86_64.deb --output "$RUNNER_TEMP/oneshot-camera-obs.deb"
 sudo apt-get update -qq
-sudo apt-get install -y "$RUNNER_TEMP/oneshot-camera-obs.deb" xvfb libgl1-mesa-dri
+sudo apt-get install -y "$RUNNER_TEMP/oneshot-camera-obs.deb" xvfb libgl1-mesa-dri ffmpeg
 '''],360),
         ("syntax",["npm","run","check"],60),
         ("node",["npm","test"],120),

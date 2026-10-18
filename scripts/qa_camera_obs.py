@@ -1,6 +1,6 @@
 """Import exported camera scenes and applyMatch in real OBS/CEF.
 
-The camera document is a controlled landscape poster with VDO's cover/CSS
+The camera document plays a controlled landscape clip with VDO's cover/CSS
 contract. OBS itself, its collection reader, transforms and screenshots are real.
 No player stream or webcam is accessed.
 """
@@ -16,7 +16,7 @@ import threading
 import time
 import urllib.request
 
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageDraw
 import websockets
 from qa_camera import CAMERA_HTML
 
@@ -28,9 +28,11 @@ class CameraHandler(BaseHTTPRequestHandler):
     requests=0
     def do_GET(self):
         type(self).requests+=1
-        data=CAMERA_HTML.encode()
+        movie=self.path.split('?',1)[0]=='/camera.webm'
+        data=(OUT/'camera.webm').read_bytes() if movie else CAMERA_HTML.replace(
+            '<video poster=', '<video autoplay muted loop playsinline src="/camera.webm" poster=').encode()
         self.send_response(200)
-        self.send_header("Content-Type","text/html; charset=utf-8")
+        self.send_header("Content-Type","video/webm" if movie else "text/html; charset=utf-8")
         self.send_header("Content-Length",str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -75,6 +77,14 @@ def fixture(origin):
 
 async def run():
     OUT.mkdir(parents=True,exist_ok=True)
+    poster=Image.new('RGB',(1600,900))
+    draw=ImageDraw.Draw(poster)
+    for i,color in enumerate(('red','lime','blue','yellow')):
+        draw.rectangle((i*400,0,(i+1)*400-1,899),fill=color)
+    poster.save(OUT/'camera.png')
+    subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-loop','1',
+        '-i',str(OUT/'camera.png'),'-t','2','-r','5','-c:v','libvpx',
+        '-deadline','realtime','-cpu-used','8','-pix_fmt','yuv420p','-an',str(OUT/'camera.webm')],check=True)
     server=ThreadingHTTPServer(("127.0.0.1",0),CameraHandler)
     threading.Thread(target=server.serve_forever,daemon=True).start()
     origin="http://127.0.0.1:"+str(server.server_address[1])
@@ -147,7 +157,7 @@ async def run():
                         for target in [p for p in pages if p.get("url","").startswith(origin)][:1]:
                             async with websockets.connect(target["webSocketDebuggerUrl"]) as cdp:
                                 await cdp.send(json.dumps({"id":1,"method":"Runtime.evaluate","params":{
-                                    "expression":"JSON.stringify({url:location.href,body:document.body.innerHTML,width:innerWidth,height:innerHeight,video:[...document.querySelectorAll('video')].map(v=>({poster:v.poster,rect:v.getBoundingClientRect(),fit:getComputedStyle(v).objectFit}))})","returnByValue":True}}))
+                                    "expression":"JSON.stringify({url:location.href,width:innerWidth,height:innerHeight,video:[...document.querySelectorAll('video')].map(v=>({rect:v.getBoundingClientRect(),fit:getComputedStyle(v).objectFit,ready:v.readyState,videoWidth:v.videoWidth,videoHeight:v.videoHeight,paused:v.paused,error:v.error?.message}))})","returnByValue":True}}))
                                 while True:
                                     value=json.loads(await cdp.recv())
                                     if value.get("id")==1:
@@ -209,7 +219,9 @@ async def run():
         except subprocess.TimeoutExpired: process.kill()
         log.close()
         server.shutdown()
-        print("OBS_LOG_TAIL",(OUT/"obs.log").read_text(errors="replace")[-7000:],flush=True)
+        lines=(OUT/"obs.log").read_text(errors="replace").splitlines()
+        print("OBS_DIAGNOSTICS",'\n'.join(line for line in lines if any(word in line.lower()
+            for word in ('error:','cef','[obs-browser]')))[:6000],flush=True)
 
 
 if __name__=="__main__":
