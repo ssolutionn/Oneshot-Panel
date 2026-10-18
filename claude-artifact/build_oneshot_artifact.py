@@ -657,7 +657,7 @@ app = "const ARTIFACT_LOGOS = " + json.dumps(logo_files) + ";\n" + app
 template_json = (ROOT / "assets" / "obs-template.json").read_text(encoding="utf-8").strip()
 json.loads(template_json)  # Validate without rewriting the canonical template.
 template_json = template_json.replace("</", "<\\/")
-app = replace_once(app, "fetch('/assets/obs-template.json', { signal: AbortSignal.timeout(12000) })",
+app = replace_once(app, "fetch('/assets/obs-template.json', { signal })",
                    "Promise.resolve({ok:true,json:async()=>(" + template_json + ")})")
 app = replace_once(app, "  pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false\n};",
                    "  pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false, cache: null\n};")

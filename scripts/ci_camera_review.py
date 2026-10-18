@@ -40,13 +40,13 @@ sudo apt-get install -y "$RUNNER_TEMP/oneshot-camera-obs.deb" xvfb libgl1-mesa-d
         else: raise RuntimeError("Test server did not become ready")
         os.environ.update(XDG_CONFIG_HOME=str(evidence.OUT/"config"),LIBGL_ALWAYS_SOFTWARE="1",QT_QPA_PLATFORM="xcb")
         commands=[
+            ("real_obs",["xvfb-run","-a","-s","-screen 0 1920x1080x24","python3","scripts/qa_camera_obs.py"],240),
+            ("real_vdo_api",["python3","scripts/qa_camera.py","--real-provider","--artifacts","artifacts/camera-provider"],120),
             ("editor_chromium",["python3","scripts/qa_camera.py","--artifacts","artifacts/camera-chromium"],180),
             ("editor_webkit",["python3","scripts/qa_camera.py","--browser","webkit","--artifacts","artifacts/camera-webkit"],180),
             ("panel_chromium",["python3","scripts/qa_browser.py","--artifacts","artifacts/camera-panel-chromium"],360),
             ("panel_webkit",["python3","scripts/qa_browser.py","--browser","webkit","--artifacts","artifacts/camera-panel-webkit"],360),
-            ("obs_lobby",["python3","scripts/qa_live.py","--artifacts","artifacts/camera-live"],360),
-            ("real_obs",["xvfb-run","-a","-s","-screen 0 1920x1080x24","python3","scripts/qa_camera_obs.py"],240),
-            ("real_vdo_api",["python3","scripts/qa_camera.py","--real-provider","--artifacts","artifacts/camera-provider"],120)
+            ("obs_lobby",["python3","scripts/qa_live.py","--artifacts","artifacts/camera-live"],360)
         ]
         good=True
         for name,command,limit in commands:

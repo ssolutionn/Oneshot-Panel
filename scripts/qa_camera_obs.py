@@ -14,6 +14,7 @@ from pathlib import Path
 import subprocess
 import threading
 import time
+import urllib.request
 
 from PIL import Image, ImageChops
 import websockets
@@ -24,7 +25,9 @@ OUT=ROOT/"artifacts"/"camera-obs"
 
 
 class CameraHandler(BaseHTTPRequestHandler):
+    requests=0
     def do_GET(self):
+        type(self).requests+=1
         data=CAMERA_HTML.encode()
         self.send_response(200)
         self.send_header("Content-Type","text/html; charset=utf-8")
@@ -91,7 +94,7 @@ async def run():
     log=(OUT/"obs.log").open("w")
     process=subprocess.Popen(["obs","--collection","Oneshot Camera QA","--profile","CameraQA",
         "--disable-shutdown-check","--disable-missing-files-check","--skip-release-check",
-        "--disable-updater","--disable-auto-config","--no-sandbox","--disable-gpu","--disable-webgl"],
+        "--disable-updater","--disable-auto-config","--remote-debugging-port=9223","--no-sandbox","--disable-gpu","--disable-webgl"],
         stdout=log,stderr=subprocess.STDOUT)
     ws=None
     try:
@@ -136,6 +139,21 @@ async def run():
                     return image
                 if time.monotonic()-started>25:
                     (OUT/(label+"-failed.png")).write_bytes(raw)
+                    items=(await request("GetSceneItemList",{"sceneName":"Игрок "+str(slot)}))["sceneItems"]
+                    print("CAMERA_DIAGNOSTICS",json.dumps({"httpRequests":CameraHandler.requests,"items":items}),flush=True)
+                    try:
+                        with urllib.request.urlopen("http://127.0.0.1:9223/json/list",timeout=3) as targets:
+                            pages=json.load(targets)
+                        for target in [p for p in pages if p.get("url","").startswith(origin)][:1]:
+                            async with websockets.connect(target["webSocketDebuggerUrl"]) as cdp:
+                                await cdp.send(json.dumps({"id":1,"method":"Runtime.evaluate","params":{
+                                    "expression":"JSON.stringify({url:location.href,body:document.body.innerHTML,width:innerWidth,height:innerHeight,video:[...document.querySelectorAll('video')].map(v=>({poster:v.poster,rect:v.getBoundingClientRect(),fit:getComputedStyle(v).objectFit}))})","returnByValue":True}}))
+                                while True:
+                                    value=json.loads(await cdp.recv())
+                                    if value.get("id")==1:
+                                        print("CAMERA_CEF",json.dumps(value)[:6000],flush=True)
+                                        break
+                    except Exception as error: print("CAMERA_CEF_DIAGNOSTICS",str(error),flush=True)
                     raise AssertionError(f"{label}: visible camera bounds {bounds}, expected {expected}")
                 await asyncio.sleep(.5)
 
@@ -191,6 +209,7 @@ async def run():
         except subprocess.TimeoutExpired: process.kill()
         log.close()
         server.shutdown()
+        print("OBS_LOG_TAIL",(OUT/"obs.log").read_text(errors="replace")[-7000:],flush=True)
 
 
 if __name__=="__main__":

@@ -314,8 +314,9 @@ function syncScheduledSelection() {
 async function loadTemplate() {
   if (templatePromise) return templatePromise;
   templatePromise = (async () => {
+    const signal = AbortSignal.timeout(12000);
     try {
-      const response = await fetch('/assets/obs-template.json', { signal: AbortSignal.timeout(12000) });
+      const response = await fetch('/assets/obs-template.json', { signal });
       if (!response.ok) {
         throw new Error('Не загружен шаблон OBS. Попробуй обновить страницу.');
       }
@@ -326,7 +327,7 @@ async function loadTemplate() {
       state.template = template;
       state.templateError = '';
     } catch (error) {
-      state.templateError = error.name === 'TimeoutError' ?
+      state.templateError = signal.aborted || error.name === 'TimeoutError' ?
         'Шаблон OBS долго загружается. Нажми «Обновить» и повтори.' : error.message;
     } finally {
       templatePromise = null;
