@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """Separate panel/source browser contexts, real HTTP relay, VDO blocked on source."""
 import asyncio
+import argparse
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 from playwright.async_api import async_playwright, expect
 from qa_browser import gviz, sample_roster
 
-async def main():
-    base="http://127.0.0.1:3000"
+async def main(args):
+    base=args.url.rstrip('/')
     async with async_playwright() as p:
-        browser=await p.chromium.launch()
+        launch={"args":["--enable-unsafe-swiftshader","--use-angle=swiftshader"]}
+        if args.chromium: launch['executable_path']=args.chromium
+        browser=await p.chromium.launch(**launch)
         panel_ctx=await browser.new_context(viewport={"width":1440,"height":1000})
         source_ctx=await browser.new_context(viewport={"width":1920,"height":400})
         errors=[]
@@ -28,12 +31,13 @@ async def main():
         # The existing OBS control bridge is outside this task; no active dock.
         await panel_ctx.route("https://vdo.ninja/**",lambda r:r.fulfill(content_type="text/html",body="<!doctype html>"))
         await source_ctx.route("https://vdo.ninja/**",lambda r:r.abort())
+        await source_ctx.route("https://cdn-backup.vdo.ninja/**",lambda r:r.abort())
         panel=await panel_ctx.new_page()
         panel.on("pageerror",lambda e:errors.append(str(e)))
         await panel.goto(base)
         await expect(panel.locator("#syncTitle")).to_contain_text("команд из таблицы",timeout=15000)
         await panel.click("#vetoNavBtn")
-        await panel.fill("#cvSite",base+"/veto.html")
+        await panel.fill("#cvSite",args.veto_site or base+"/veto.html")
         await panel.locator("#cvSite").dispatch_event("change")
         await panel.select_option("#cvTransport","server")
         await panel.click("#cvCreate")
@@ -46,7 +50,7 @@ async def main():
         await expect(panel.locator("#vetoLiveStatus")).to_contain_text("Ждём оверлей")
         source=await source_ctx.new_page()
         source.on("pageerror",lambda e:errors.append(str(e)))
-        source.on("request",lambda r:errors.append("VDO request: "+r.url) if r.url.startswith("https://vdo.ninja/") else None)
+        source.on("request",lambda r:errors.append("VDO request: "+r.url) if r.url.startswith(("https://vdo.ninja/","https://cdn-backup.vdo.ninja/")) else None)
         await source.goto(url)
         await source.wait_for_selector("body[data-ready='true']")
         await expect(panel.locator("#vetoLiveStatus")).to_contain_text("Оверлей получает вето",timeout=20000)
@@ -83,4 +87,9 @@ async def main():
         await browser.close()
         print("PASS: server OBS overlay receipt, strip crop, animation, reload, offline recovery, stale receipt rejection; zero VDO requests")
 
-asyncio.run(main())
+if __name__=='__main__':
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--url',default='http://127.0.0.1:3000')
+    parser.add_argument('--veto-site',help='site whose real relay carries both room and overlay messages')
+    parser.add_argument('--chromium')
+    asyncio.run(main(parser.parse_args()))

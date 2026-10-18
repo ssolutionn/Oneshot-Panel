@@ -175,7 +175,7 @@ async def run(args):
             page.on("pageerror", page_error)
             if args.server:
                 page.on("request", lambda req: errors.append("Server room contacted VDO: " + req.url)
-                        if "/veto.html" in page.url and req.url.startswith("https://vdo.ninja/") else None)
+                        if "/veto.html" in page.url and req.url.startswith(("https://vdo.ninja/", "https://cdn-backup.vdo.ninja/")) else None)
             if args.server:
                 page.on("requestfailed", lambda req: print("RELAY_REQUEST_FAILED", urlsplit(req.url).path, req.failure, flush=True)
                         if "/api/veto-relay" in req.url else None)
@@ -552,6 +552,12 @@ async def run(args):
                 await page.close()
         passed("BO1 by keyboard only (select with Enter, focus lands on confirm) and BO5 with four sides")
 
+        if getattr(args, "focus_match", False):
+            assert not errors, errors
+            await browser.close()
+            print(f"veto matches: {len(checks)} scenarios passed", flush=True)
+            return
+
         # 6. One captain's VDO viewer can fail while the reverse data path
         # remains healthy. Signed envelopes must still prove presence and carry
         # the veto; the broken viewer is retried independently.
@@ -803,6 +809,7 @@ if __name__ == "__main__":
     parser.add_argument("--browser", default="chromium", choices=["chromium", "webkit"])
     parser.add_argument("--server", action="store_true", help="use the actual local server relay; no VDO for rooms")
     parser.add_argument("--focus-recovery", action="store_true", help="run late join, re-sign/reload and multi-tab cases only")
+    parser.add_argument("--focus-match", action="store_true", help="run links, full BO3/BO1/BO5, reload and mobile cases without the panel")
     parser.add_argument("--real-vdo", action="store_true", help="use the real VDO.Ninja (needs internet)")
     parser.add_argument("--artifacts", default="artifacts")
     asyncio.run(run(parser.parse_args()))

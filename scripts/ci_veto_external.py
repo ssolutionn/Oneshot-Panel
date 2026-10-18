@@ -165,6 +165,10 @@ def public_browser_probe():
             browser.close()
     REPORT["steps"]["public_browser_endpoints"] = {"status": "observed", "results": results}
     publish()
+    return all(row.get("status") == 200 and (
+        row.get("health", {}).get("ready") is True and row.get("health", {}).get("protocol") == 1
+        if "?health=1" in row["url"] else row.get("matches_source") is True
+    ) for row in results)
 
 
 def wait_deployment():
@@ -286,11 +290,13 @@ def main():
     browsers = ["chromium"] if os.environ.get("VETO_EXTERNAL_MODE") == "public" else ["chromium", "webkit"]
     if not step("install_browsers", ["python3", "-m", "playwright", "install", "--with-deps", *browsers], 360):
         return False
-    public_browser_probe()
+    public_ready = public_browser_probe()
     if os.environ.get("VETO_EXTERNAL_MODE") == "public":
         deployment_metadata()
-        # This is an observation job, not a release gate or a deployment.
-        return True
+        if not public_ready:
+            REPORT["public_journeys"] = "not run: deployed files or relay health are not ready"
+            publish()
+            return True
     server_log = (OUT / "server.log").open("w")
     server = subprocess.Popen(["node", "server.js"], cwd=ROOT, stdout=server_log, stderr=subprocess.STDOUT)
     try:
@@ -312,6 +318,15 @@ def main():
             ("real_vdo", ["python3", "scripts/qa_veto_site.py", "--real-vdo", "--browser", "chromium",
                           "--artifacts", "artifacts/external-real-vdo"], 900),
         ]
+        if os.environ.get("VETO_EXTERNAL_MODE") == "public":
+            commands = [
+                ("public_server_matches", ["python3", "scripts/qa_veto_site.py", "--server", "--focus-match",
+                    "--url", "https://oneshot-veto.pages.dev", "--artifacts", "artifacts/public-server-matches"], 420),
+                ("public_server_recovery", ["python3", "scripts/qa_veto_site.py", "--server", "--focus-recovery",
+                    "--url", "https://oneshot-veto.pages.dev", "--artifacts", "artifacts/public-server-recovery"], 300),
+                ("public_server_overlay", ["python3", "scripts/qa_veto_relay_overlay.py", "--veto-site",
+                    "https://oneshot-veto.pages.dev/veto.html"], 240),
+            ]
         if os.environ.get("VETO_EXTERNAL_MODE") == "recovery":
             commands = [
                 ("real_vdo_recovery", ["python3", "scripts/qa_veto_site.py", "--focus-recovery", "--real-vdo",
