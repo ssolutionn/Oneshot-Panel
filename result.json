@@ -2,6 +2,10 @@
   "source_sha": "8de7a1061dab1d406420583b40e773d7c42ad713",
   "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39160371015",
   "status": "running",
-  "steps": {},
-  "updated_at": "2026-10-18T19:47:43.361124+00:00"
+  "steps": {
+    "install_playwright": {
+      "status": "running"
+    }
+  },
+  "updated_at": "2026-10-18T19:47:45.669859+00:00"
 }
