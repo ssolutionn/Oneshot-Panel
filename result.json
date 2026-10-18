@@ -1,7 +1,7 @@
 {
-  "source_sha": "0c6e50c148631223ac8c9095aa4cb7a068f773e0",
-  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39109206889",
-  "checked_at": "2026-10-18T10:51:35.609769+03:00",
+  "source_sha": "44de29ce7944dbbccca6ac6a091e493a2f3606b9",
+  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39113088104",
+  "checked_at": "2026-10-18T11:52:18.755938+03:00",
   "teams": [
     {
       "name": "Nuclear TigeRES",
@@ -107,13 +107,13 @@
     }
   ],
   "unresolved": [],
-  "expected_build": "2d2d63730548eb1256d1281fa2bde351d407fad1",
-  "published_build": "2d2d63730548eb1256d1281fa2bde351d407fad1",
+  "expected_build": "14c031738f1fbefc235906dfb4a1d0d75d739d95",
+  "published_build": "14c031738f1fbefc235906dfb4a1d0d75d739d95",
   "app_matches_source": true,
   "public_status": 200,
   "panel": {
     "error": "",
-    "sync": "Обновлено 10:51 МСК",
+    "sync": "Обновлено 11:52 МСК",
     "groups": [
       {
         "label": "18.10 · сегодня",
@@ -209,11 +209,25 @@
   "passed": true,
   "checks": [
     {
+      "name": "Veto external verification",
+      "status": "in_progress",
+      "conclusion": null,
+      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39112827858",
+      "id": 39112827858
+    },
+    {
       "name": "Panel checks",
       "status": "in_progress",
       "conclusion": null,
-      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39109196904",
-      "id": 39109196904
+      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39112827612",
+      "id": 39112827612
+    },
+    {
+      "name": "Veto site regression",
+      "status": "in_progress",
+      "conclusion": null,
+      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39112827572",
+      "id": 39112827572
     }
   ]
 }
