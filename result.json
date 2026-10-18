@@ -49,5 +49,9 @@
       ]
     }
   },
-  "updated_at": "2026-10-18T00:08:10.519852+00:00"
+  "updated_at": "2026-10-18T00:08:12.458848+00:00",
+  "cloudflare_bindings": {
+    "CLOUDFLARE_API_TOKEN": false,
+    "CLOUDFLARE_ACCOUNT_ID": false
+  }
 }
