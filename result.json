@@ -31,31 +31,36 @@
         },
         {
           "name": "Check Cloudflare credentials",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Deploy Worker and Durable Object migration",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Deploy Pages and API route",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install browser for public verification",
           "status": "in_progress",
           "conclusion": null
         },
         {
-          "name": "Deploy Worker and Durable Object migration",
-          "status": "pending",
-          "conclusion": null
-        },
-        {
-          "name": "Deploy Pages and API route",
-          "status": "pending",
-          "conclusion": null
-        },
-        {
-          "name": "Run actions/setup-python@v5",
-          "status": "pending",
-          "conclusion": null
-        },
-        {
-          "name": "Install browser for public verification",
-          "status": "pending",
-          "conclusion": null
-        },
-        {
           "name": "Verify public assets and relay health",
+          "status": "pending",
+          "conclusion": null
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
           "status": "pending",
           "conclusion": null
         },
@@ -72,5 +77,5 @@
       ]
     }
   },
-  "updated_at": "2026-10-18T08:47:55.370852+00:00"
+  "updated_at": "2026-10-18T08:48:07.715341+00:00"
 }
