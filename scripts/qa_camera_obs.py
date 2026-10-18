@@ -136,6 +136,28 @@ async def run():
 
         async def picture(slot,label,expected=(312,54,1608,1026)):
             await request("SetCurrentProgramScene",{"sceneName":"Игрок "+str(slot)})
+            camera_name=next(p['name'] for p in data['document']['sources'] if p['name'].startswith(f'CAM {slot:02} '))
+            print('CAMERA_ACTIVITY',slot,await request('GetSourceActive',{'sourceName':camera_name}),flush=True)
+            # Drive the controlled input explicitly. A paused poster is not a
+            # playing webcam; OSR autoplay policy is outside this geometry test.
+            for attempt in range(40):
+                with urllib.request.urlopen('http://127.0.0.1:9223/json/list',timeout=3) as targets:
+                    pages=json.load(targets)
+                target=next((p for p in pages if p.get('url','').startswith(origin+'/') and
+                    ('?view=qa'+str(slot-1)+'&') in p['url']),None)
+                if target: break
+                await asyncio.sleep(.25)
+            assert target,'Controlled media browser target unavailable'
+            async with websockets.connect(target['webSocketDebuggerUrl']) as cdp:
+                await cdp.send(json.dumps({'id':1,'method':'Runtime.evaluate','params':{
+                    'expression':"(async()=>{const v=document.querySelector('video');v.muted=true;await v.play();return {paused:v.paused,width:v.videoWidth,height:v.videoHeight}})()",
+                    'awaitPromise':True,'returnByValue':True}}))
+                while True:
+                    playback=json.loads(await asyncio.wait_for(cdp.recv(),timeout=15))
+                    if playback.get('id')==1:
+                        print('CAMERA_PLAYBACK',slot,json.dumps(playback),flush=True)
+                        assert 'exceptionDetails' not in playback.get('result',{}),playback
+                        break
             started=time.monotonic()
             while True:
                 response=await request("GetSourceScreenshot",{"sourceName":"Игрок "+str(slot),
@@ -170,6 +192,10 @@ async def run():
         # The exported collection, loaded by OBS, must really have ten scenes.
         names={s["sceneName"] for s in (await request("GetSceneList"))["scenes"]}
         assert all("Игрок "+str(i) in names for i in range(1,11)),names
+        transitions=await request('GetSceneTransitionList')
+        print('CAMERA_TRANSITIONS',json.dumps(transitions),flush=True)
+        cut=next(t for t in transitions['transitions'] if t['transitionKind']=='cut_transition')
+        await request('SetCurrentSceneTransition',{'transitionName':cut['transitionName']})
         expected_colors=[(255,0,0),(0,255,0),(255,0,0),(0,0,255),(255,255,0),(255,255,0)]
         for slot,color in enumerate(expected_colors,1):
             image=await picture(slot,"json-slot-"+str(slot))
