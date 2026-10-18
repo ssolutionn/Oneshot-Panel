@@ -96,7 +96,9 @@ async def run():
     profile=config_root/"basic"/"profiles"/"CameraQA"
     profile.mkdir(parents=True,exist_ok=True)
     (profile/"basic.ini").write_text("[General]\nName=CameraQA\n[Video]\nBaseCX=1920\nBaseCY=1080\nOutputCX=1920\nOutputCY=1080\nFPSType=0\nFPSCommon=30\n")
-    (config_root/"global.ini").write_text("[Basic]\nProfile=CameraQA\nProfileDir=CameraQA\nSceneCollection=Oneshot Camera QA\nSceneCollectionFile=OneshotCameraQA\n")
+    # Use CEF's software paint path with Xvfb/Mesa. Disabling GPU only via
+    # Chromium flags leaves OBS expecting shared GPU textures on some builds.
+    (config_root/"global.ini").write_text("[General]\nBrowserHWAccel=false\n[Basic]\nProfile=CameraQA\nProfileDir=CameraQA\nSceneCollection=Oneshot Camera QA\nSceneCollectionFile=OneshotCameraQA\n")
     settings=config_root/"plugin_config"/"obs-websocket"/"config.json"
     settings.parent.mkdir(parents=True,exist_ok=True)
     settings.write_text(json.dumps({"server_enabled":True,"server_port":4455,"auth_required":False,
