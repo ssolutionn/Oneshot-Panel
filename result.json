@@ -328,10 +328,13 @@
       "tail": "PASS: admin makes three short links; they survive a reload; the match comes from the schedule\nPASS: whole BO3 by turns; spectators only listen; HLTV text copies\nPASS: a reload and late viewers get the finished veto; HLTV text only on the admin link\nPASS: 375 px without horizontal scroll; broken link and broken key explain themselves\nPASS: BO1 by keyboard only (select with Enter, focus lands on confirm) and BO5 with four sides\nPASS: spectator cannot forge a move or fake the opponent being online\nPASS: a re-signed move is not taken back: the opponent keeps the first and sees a warning\nPASS: two tabs of one captain confirm together: one move counts, no conflict; standby takes over\nPASS: the 5-minute clock shows «время вышло» on every page; play goes on\nPASS: English by default, the RU flag switches and is remembered; timer «No timer» in the message\nPASS: «Call admin» rings on the admin's page only, once answered stays quiet; HLTV links by team\nPASS: the panel's «Вето» tab watches the captains: presence, coin, call admin, reset and start over; moves land in the panel's veto\nPASS: HTML in team names is shown as text\nnote: 292 style-src reports from Playwright's own WebKit helpers ignored\nveto site: 13 scenarios passed\n"
     },
     "public_short_links": {
-      "status": "running"
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 59.8,
+      "tail": "PASS: admin makes three short links; they survive a reload; the match comes from the schedule\nPASS: whole BO3 by turns; spectators only listen; HLTV text copies\nPASS: a reload and late viewers get the finished veto; HLTV text only on the admin link\nPASS: 375 px without horizontal scroll; broken link and broken key explain themselves\nPASS: BO1 by keyboard only (select with Enter, focus lands on confirm) and BO5 with four sides\nveto matches: 5 scenarios passed\n"
     }
   },
-  "updated_at": "2026-10-18T08:54:39.189388+00:00",
+  "updated_at": "2026-10-18T08:55:40.471942+00:00",
   "deployment_runs": [
     {
       "id": 39112821872,
