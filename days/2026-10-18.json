@@ -2,35 +2,35 @@
   "version": 1,
   "day": "2026-10-18",
   "startedAt": 1792270025702,
-  "updatedAt": 1792276907487,
+  "updatedAt": 1792282899719,
   "books": {
     "fonbet": {
-      "checkedAt": 1792276907472,
+      "checkedAt": 1792282899708,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "pari": {
-      "checkedAt": 1792276907462,
+      "checkedAt": 1792282899697,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "bettery": {
-      "checkedAt": 1792276907479,
+      "checkedAt": 1792282899705,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "bet24": {
-      "checkedAt": 1792276907485,
+      "checkedAt": 1792282899718,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "olimp": {
-      "checkedAt": 1792276907477,
-      "status": "ok",
+      "checkedAt": 1792282899701,
+      "status": "partial",
       "coverage": "line-and-live",
       "events": [
         {
@@ -47,7 +47,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792276907477,
-          "last": 1792276907477,
+          "last": 1792282899701,
           "open": [
             1.99,
             1.76
@@ -71,7 +71,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792276907477,
-          "last": 1792276907477,
+          "last": 1792282899701,
           "open": [
             1.38,
             2.9
@@ -95,7 +95,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792276907477,
-          "last": 1792276907477,
+          "last": 1792282899701,
           "open": [
             1.44,
             2.67
@@ -108,25 +108,25 @@
       ]
     },
     "marathon": {
-      "checkedAt": 1792276907471,
+      "checkedAt": 1792282899710,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "betcity": {
-      "checkedAt": 1792276907474,
+      "checkedAt": 1792282899715,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "sportbet": {
-      "checkedAt": 1792276907464,
+      "checkedAt": 1792282899704,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "baltbet": {
-      "checkedAt": 1792276907454,
+      "checkedAt": 1792282899719,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -144,7 +144,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792276907454,
-          "last": 1792276907454,
+          "last": 1792282899719,
           "open": [
             1.43,
             2.43
@@ -157,13 +157,86 @@
       ]
     },
     "winline": {
-      "checkedAt": 1792276907468,
+      "checkedAt": 1792282899707,
       "status": "ok",
       "coverage": "prematch",
-      "events": []
+      "events": [
+        {
+          "id": "16956021",
+          "team1": "FIRE FLUX ESPORTS",
+          "team2": "BUSHIDO WILDCATS",
+          "tournament": "CyberClash",
+          "start": 1792317600000,
+          "odds": [
+            1.96,
+            1.75
+          ],
+          "url": "https://winline.ru/stavki/sport/kibersport/counter-strike",
+          "live": false,
+          "liveOffered": true,
+          "first": 1792282899707,
+          "last": 1792282899707,
+          "open": [
+            1.96,
+            1.75
+          ],
+          "liveSeen": false,
+          "names": [
+            "CyberClash"
+          ]
+        },
+        {
+          "id": "16956022",
+          "team1": "UPGRADE",
+          "team2": "LAVKED",
+          "tournament": "CyberClash",
+          "start": 1792332000000,
+          "odds": [
+            1.4,
+            2.74
+          ],
+          "url": "https://winline.ru/stavki/sport/kibersport/counter-strike",
+          "live": false,
+          "liveOffered": true,
+          "first": 1792282899707,
+          "last": 1792282899707,
+          "open": [
+            1.4,
+            2.74
+          ],
+          "liveSeen": false,
+          "names": [
+            "CyberClash"
+          ]
+        },
+        {
+          "id": "16956023",
+          "team1": "6YUBOJLBL",
+          "team2": "HYPERSPIRIT",
+          "tournament": "CyberClash",
+          "start": 1792353600000,
+          "odds": [
+            1.45,
+            2.55
+          ],
+          "url": "https://winline.ru/stavki/sport/kibersport/counter-strike",
+          "live": false,
+          "liveOffered": true,
+          "first": 1792282899707,
+          "last": 1792282899707,
+          "open": [
+            1.45,
+            2.55
+          ],
+          "liveSeen": false,
+          "names": [
+            "CyberClash"
+          ]
+        }
+      ]
     },
     "leon": {
-      "checkedAt": 1792276907487,
+      "checkedAt": 1792282899714,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -181,7 +254,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792270025726,
-          "last": 1792276907487,
+          "last": 1792282899714,
           "open": [
             1.95,
             1.75
@@ -205,7 +278,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792270025726,
-          "last": 1792276907487,
+          "last": 1792282899714,
           "open": [
             1.38,
             2.8
@@ -229,7 +302,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1792270025726,
-          "last": 1792276907487,
+          "last": 1792282899714,
           "open": [
             1.44,
             2.6
