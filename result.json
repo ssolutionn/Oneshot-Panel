@@ -1,7 +1,7 @@
 {
   "source_sha": "842656e90cf0cdcccde99594fbcca1d9730a4dc5",
   "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39080635984",
-  "status": "running",
+  "status": "failed",
   "steps": {
     "public_endpoints": {
       "status": "observed",
@@ -75,5 +75,5 @@
       "tail": "PASS: admin makes three short links; they survive a reload; the match comes from the schedule\nPASS: whole BO3 by turns; spectators only listen; HLTV text copies\nPASS: a reload and late viewers get the finished veto; HLTV text only on the admin link\nPASS: 375 px without horizontal scroll; broken link and broken key explain themselves\nPASS: BO1 by keyboard only (select with Enter, focus lands on confirm) and BO5 with four sides\nTraceback (most recent call last):\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/scripts/qa_veto_site.py\", line 791, in <module>\n    asyncio.run(run(parser.parse_args()))\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/asyncio/runners.py\", line 195, in run\n    return runner.run(main)\n           ^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/asyncio/runners.py\", line 118, in run\n    return self._loop.run_until_complete(task)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/asyncio/base_events.py\", line 691, in run_until_complete\n    return future.result()\n           ^^^^^^^^^^^^^^^\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/scripts/qa_veto_site.py\", line 483, in run\n    await expect(a.locator(\"#vtTeam1\")).to_have_attribute(\"data-online\", \"yes\", timeout=join)\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/async_api/_generated.py\", line 15010, in to_have_attribute\n    await self._impl_obj.to_have_attribute(\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_assertions.py\", line 349, in to_have_attribute\n    await self._expect_impl(\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_assertions.py\", line 128, in _expect_impl\n    _record_soft_or_raise(\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_assertions.py\", line 60, in _record_soft_or_raise\n    raise error\nAssertionError: Locator expected to have attribute 'yes'\nActual value: no \nCall log:\n  - Expect \"to_have_attribute\" locator(\"#vtTeam1\") with timeout 90000ms\n  - waiting for locator(\"#vtTeam1\")\n    183 × locator resolved to <article id=\"vtTeam1\" data-team=\"1\" class=\"vt-team\" data-online=\"no\">…</article>\n        - unexpected value \"no\"\n\nAria snapshot:\n- article:\n  - text: Fire Flux offline\n  - link \"HLTV ↗\":\n    - /url: https://www.hltv.org/team/12960/fire-flux\n"
     }
   },
-  "updated_at": "2026-10-18T00:00:19.938125+00:00"
+  "updated_at": "2026-10-18T00:00:21.299009+00:00"
 }
