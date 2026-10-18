@@ -527,13 +527,21 @@ async def run(args):
         passed("corrupt storage and denied persistence remain usable")
         await bad.close()
 
-        template_mode = {"fail": True}
+        template_mode = {"fail": True, "hang":False}
+        template_release = asyncio.Event()
         missing = await browser.new_context()
         await missing.route(
             "https://docs.google.com/**/gviz/**", normal_sheets
         )
 
         async def template_route(route):
+            if template_mode["hang"]:
+                await template_release.wait()
+                try:
+                    await route.abort()
+                except Exception:
+                    pass  # The browser has already cancelled the timed-out fetch.
+                return
             if template_mode["fail"]:
                 await route.fulfill(status=404, body="Not found")
             else:
@@ -558,6 +566,16 @@ async def run(args):
         await missing_page.click("#refreshBtn")
         await expect(missing_page.locator("#downloadBtn")).to_be_enabled()
         passed("missing template blocks export; refresh retries")
+        template_mode["hang"] = True
+        await missing_page.reload()
+        await expect(missing_page.locator("#exportHint")).to_contain_text(
+            "Шаблон OBS долго загружается", timeout=17000)
+        assert await missing_page.locator("#downloadBtn").is_disabled()
+        template_mode["hang"] = False
+        template_release.set()
+        await missing_page.click("#refreshBtn")
+        await expect(missing_page.locator("#downloadBtn")).to_be_enabled()
+        passed("a hanging OBS template times out; refresh can load it again")
         await missing.close()
 
         injection = json.loads(sample_roster().split("(", 1)[1][:-2])
