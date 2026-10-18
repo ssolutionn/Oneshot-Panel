@@ -1,7 +1,7 @@
 {
-  "source_sha": "44de29ce7944dbbccca6ac6a091e493a2f3606b9",
-  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39113088104",
-  "checked_at": "2026-10-18T11:52:18.755938+03:00",
+  "source_sha": "85fee60ff27592ab4ada534477ced1382eb19411",
+  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39161207885",
+  "checked_at": "2026-10-18T22:59:41.517790+03:00",
   "teams": [
     {
       "name": "Nuclear TigeRES",
@@ -107,13 +107,18 @@
     }
   ],
   "unresolved": [],
-  "expected_build": "14c031738f1fbefc235906dfb4a1d0d75d739d95",
-  "published_build": "14c031738f1fbefc235906dfb4a1d0d75d739d95",
+  "expected_build": "fc753a67b093b50dbbebf2216ba61e762c0f6366",
+  "published_build": "fc753a67b093b50dbbebf2216ba61e762c0f6366",
   "app_matches_source": true,
   "public_status": 200,
+  "review_features": {
+    "defaultCoin": true,
+    "exportRecovery": true,
+    "exportDialog": true
+  },
   "panel": {
     "error": "",
-    "sync": "Обновлено 11:52 МСК",
+    "sync": "Обновлено 22:59 МСК",
     "groups": [
       {
         "label": "18.10 · сегодня",
@@ -207,27 +212,28 @@
   ],
   "missing": [],
   "passed": true,
+  "veto_expected": "dbccb5134c188d30db4e4776f8f3761413cf751d",
+  "veto_deployment": {
+    "name": "Deploy veto to Cloudflare",
+    "head_sha": "dbccb5134c188d30db4e4776f8f3761413cf751d",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39161096041"
+  },
   "checks": [
-    {
-      "name": "Veto external verification",
-      "status": "in_progress",
-      "conclusion": null,
-      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39112827858",
-      "id": 39112827858
-    },
     {
       "name": "Panel checks",
       "status": "in_progress",
       "conclusion": null,
-      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39112827612",
-      "id": 39112827612
+      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39161077093",
+      "id": 39161077093
     },
     {
       "name": "Veto site regression",
       "status": "in_progress",
       "conclusion": null,
-      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39112827572",
-      "id": 39112827572
+      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39161077052",
+      "id": 39161077052
     }
   ]
 }
