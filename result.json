@@ -322,10 +322,13 @@
       ]
     },
     "public_server_matches": {
-      "status": "running"
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 58.3,
+      "tail": "PASS: admin makes three short links; they survive a reload; the match comes from the schedule\nPASS: whole BO3 by turns; spectators only listen; HLTV text copies\nPASS: a reload and late viewers get the finished veto; HLTV text only on the admin link\nPASS: 375 px without horizontal scroll; broken link and broken key explain themselves\nPASS: BO1 by keyboard only (select with Enter, focus lands on confirm) and BO5 with four sides\nveto matches: 5 scenarios passed\n"
     }
   },
-  "updated_at": "2026-10-18T00:56:15.694050+00:00",
+  "updated_at": "2026-10-18T00:57:15.520320+00:00",
   "deployment_runs": [
     {
       "id": 39084484953,
