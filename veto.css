@@ -196,10 +196,10 @@ h1,h2,h3 { font-family:var(--vt-display); font-weight:600; letter-spacing:.02em;
 .vt-side { font-weight:700; }
 .vt-side[data-side=CT] { color:var(--vt-ct); }
 .vt-side[data-side=T] { color:var(--vt-t); }
-.vt-button[data-side=CT] { border-color:var(--vt-ct); background:var(--vt-ct-soft); color:var(--vt-ink); }
-.vt-button[data-side=T] { border-color:var(--vt-t); background:var(--vt-t-soft); color:var(--vt-ink); }
-.vt-button[data-side=CT]:hover:not(:disabled) { background:var(--vt-ct); color:#04111f; }
-.vt-button[data-side=T]:hover:not(:disabled) { background:var(--vt-t); color:#1f1004; }
+.vt-button[data-side=CT] { border-color:var(--vt-ct); background:var(--vt-ct); color:var(--vt-bg); }
+.vt-button[data-side=T] { border-color:var(--vt-t); background:var(--vt-t); color:var(--vt-bg); }
+.vt-button[data-side=CT]:hover:not(:disabled) { background:var(--vt-ct); filter:brightness(1.1); }
+.vt-button[data-side=T]:hover:not(:disabled) { background:var(--vt-t); filter:brightness(1.1); }
 .vt-map-num {
   position:absolute !important; top:10px; left:10px; width:26px; height:26px; border-radius:50%;
   display:grid; place-items:center; background:var(--vt-shade); font:600 13px var(--vt-display);
