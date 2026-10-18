@@ -52,8 +52,11 @@
       "tail": "PASS: current real VDO accepts cover URL and live style messages for camera pan/rotation; controlled media, no player stream\n"
     },
     "editor_chromium": {
-      "status": "running"
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 2.2,
+      "tail": "PASS: chromium camera cover/pan/rotation preview, one connection, player persistence across slots/reload, JSON/live parity, mobile, frame setting and outdated-dock rejection\n"
     }
   },
-  "updated_at": "2026-10-18T21:02:02.930969+00:00"
+  "updated_at": "2026-10-18T21:02:06.665021+00:00"
 }
