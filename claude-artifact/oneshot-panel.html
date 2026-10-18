@@ -75,6 +75,7 @@
 :root[data-theme=dark]:not([data-mode=light]),:root[data-mode=dark]{color-scheme:dark;--bg:#101012;--ink:#ececec;--muted:#a3a3a8;--line:#2e2e33;--red:#e0313c;--red-hover:#f04751;--surface:#1a1a1d;--surface-2:#161619;--soft:#26262a;--soft-ink:#c4c4c8;--hover:#2a2a2f;--divider:#26262a;--divider-2:#2a2a2f;--btn-line:#3c3c42;--field:#121214;--field-line:#45454c;--sub:#c4c4c8;--code:#121214;--code-ink:#e2e2e2;--strong:#ececec;--strong-hover:#fff;--on-strong:#111;--bar:#000;--header:#0a0a0b;--header-ink:#fff;--map-hover:#ececec;--logo-day:none;--logo-night:block;--warn:#33280f;--warn-ink:#f2d8a0;--warn-line:#6e5626;--side:#3a3113;--shadow:#0009;--backdrop:#000b}
 /* Shared layout tokens; the scene and copy formats are owned by core.js. */
 :root {
+  --camera-stage:#000;
   --on-accent:#fff; --success:#239b56; --success-bg:#e7f5ec; --success-ink:#176738;
   --focus:#246bde; --map-base:#3a4544; --map-ink:#fff; --map-shade:#0009;
   --map-ban:#ed1637; --map-pick:#33814a; --map-decider:#59616c;
@@ -197,6 +198,21 @@ h2 { font-size:17px; line-height:1.4; letter-spacing:-.3px; margin-bottom:0; }
 .player-info { flex:1; min-width:0; }
 .player-info select { width:100%; min-width:0; max-width:100%; border:0; background:transparent; color:var(--ink); font-size:13px; font-weight:700; padding:1px 14px 1px 0; }
 .player-subline { display:block; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:9px; color:var(--muted); }
+.camera-adjust { display:block; font-size:10px; min-height:24px; color:var(--muted); }
+.camera-frame-setting { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:8px; color:var(--muted); font-size:11px; }
+.camera-frame-setting select { max-width:100%; padding:6px 8px; background:var(--field); color:var(--ink); border:1px solid var(--field-line); border-radius:5px; }
+.camera-frame-setting > span { flex-basis:100%; font-size:10px; }
+.camera-dialog { width:min(780px,calc(100% - 24px)); }
+.camera-preview-stage { position:relative; width:100%; aspect-ratio:16/9; overflow:hidden; background:var(--camera-stage); }
+.camera-preview-box { position:absolute; left:var(--camera-left); top:var(--camera-top); width:var(--camera-width); height:var(--camera-height); overflow:hidden; outline:1px solid var(--red); }
+.camera-preview-box iframe { position:absolute; inset:0; width:100%; height:100%; border:0; transform-origin:0 0; }
+.camera-preview-box[data-rotation="90"] iframe { inset:auto; left:100%; top:0; width:var(--camera-rotated-width); height:var(--camera-rotated-height); transform:rotate(90deg); }
+.camera-preview-box[data-rotation="180"] iframe { inset:auto; left:100%; top:100%; transform:rotate(180deg); }
+.camera-preview-box[data-rotation="270"] iframe { inset:auto; left:0; top:100%; width:var(--camera-rotated-width); height:var(--camera-rotated-height); transform:rotate(270deg); }
+.camera-tools { display:flex; flex-wrap:wrap; align-items:end; gap:10px; margin-top:14px; }
+.camera-tools label { display:grid; gap:4px; color:var(--muted); font-size:12px; }
+.camera-tools select { padding:7px; background:var(--field); color:var(--ink); border:1px solid var(--field-line); border-radius:5px; }
+.camera-pan { display:flex; flex-wrap:wrap; gap:6px; flex-basis:100%; }
 .copy-icon { display:grid; place-items:center; flex-shrink:0; width:30px; height:32px; border:0; border-radius:5px; background:transparent; color:var(--muted); font-size:20px; }
 .copy-icon:hover { background:var(--soft); color:var(--ink); }
 .regen-icon { font-size:17px; } .setid-icon { font-size:15px; }
@@ -604,6 +620,10 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
         
       </div>
       <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
+      <label class="camera-frame-setting">Рамка вебок
+        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 4:3</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option></select>
+        <span>Заполнение с обрезкой краёв. «Кадр» под ником — поворот и положение игрока.</span>
+      </label>
       <div class="export-meta">
         <p id="exportHint">10 вебок, сцены «Игрок 1–10» и «Матрица»</p>
         <p id="filenamePreview"></p>
@@ -941,6 +961,45 @@ function pushUrl(p) {
 function directorUrl(team) {
   return `https://vdo.ninja/?director=${encodeURIComponent(team.room)}${roomPassword(team)}`;
 }
+const DEFAULT_CAMERA_FRAME = 'inner43';
+const CAMERA_FRAMES = {
+  inner43: { x:312, y:54, width:1296, height:972 },
+  full43: { x:240, y:0, width:1440, height:1080 },
+  wide: { x:0, y:0, width:1920, height:1080 }
+};
+function cameraFrame(value = DEFAULT_CAMERA_FRAME) {
+  return { ...CAMERA_FRAMES[typeof value==='string' && Object.hasOwn(CAMERA_FRAMES,value) ? value : DEFAULT_CAMERA_FRAME] };
+}
+function normalizeCamera(value) {
+  const percent = number => Number.isFinite(number) ? Math.max(0,Math.min(100,number)) : 50;
+  return {rotation:[0,90,180,270].includes(value?.rotation) ? value.rotation : 0,
+    panX:percent(value?.panX),panY:percent(value?.panY)};
+}
+// VDO's supported cover/base64css URL options and style iframe message use
+// this same CSS. Only normalized numbers enter it. Pan follows screen axes
+// after rotation, rather than making "left" move up on a sideways camera.
+function cameraCss(value) {
+  const c=normalizeCamera(value);
+  let x=c.panX,y=c.panY;
+  if(c.rotation===90)[x,y]=[y,100-x];
+  else if(c.rotation===180)[x,y]=[100-x,100-y];
+  else if(c.rotation===270)[x,y]=[100-y,x];
+  return 'video{object-fit:cover!important;object-position:'+x+'% '+y+'%!important;}';
+}
+function cameraViewUrl(player) {
+  const c=normalizeCamera(player?.camera);
+  return viewUrl(player)+'&cover'+(c.panX===50 && c.panY===50 ? '' :
+    '&b64css='+encodeURIComponent(btoa(cameraCss(c))));
+}
+function cameraGeometry(player, frame = DEFAULT_CAMERA_FRAME) {
+  const rect=cameraFrame(frame),{rotation}=normalizeCamera(player?.camera);
+  const quarter=rotation===90 || rotation===270;
+  return {rotation,
+    x:rect.x+(rotation===90 || rotation===180 ? rect.width : 0),
+    y:rect.y+(rotation===180 || rotation===270 ? rect.height : 0),
+    width:quarter ? rect.height : rect.width,
+    height:quarter ? rect.width : rect.height};
+}
 // A fresh stream ID for one player when their link leaked: nick letters
 // (VDO.Ninja keeps only letters, digits and _) plus 6 random characters.
 function newStreamId(nick, random = n => crypto.getRandomValues(new Uint8Array(n))) {
@@ -1090,7 +1149,7 @@ function sceneUuid() {
 }
 function buildObs(template, a, b, ka, kb,
                          uuidFn = sceneUuid,
-                         { cardBase = DEFAULT_CARD_BASE, includeCards = false } = {}) {
+                         { cardBase = DEFAULT_CARD_BASE, includeCards = false, cameraFrame: frame = DEFAULT_CAMERA_FRAME } = {}) {
   const error = validateMatch(a, b, ka, kb);
   if (error) throw new Error(error);
   if (!Array.isArray(template?.sources)) {
@@ -1129,12 +1188,14 @@ function buildObs(template, a, b, ka, kb,
     used.add(browser.uuid);
     item.source_uuid = browser.uuid;
     item.name = browser.name;
+    const geometry=cameraGeometry(p,frame);
     Object.assign(browser.settings, {
-      url: viewUrl(p), width: 1920, height: 1080
+      url: cameraViewUrl(p), width:geometry.width, height:geometry.height
     });
     const slot = String(i + 1).padStart(2, '0');
     names.set(browser.name, `CAM ${slot} | ${p.team} | ${p.nick}`);
-    fitItem(item);
+    fitItem(item,geometry.x,geometry.y,geometry.width,geometry.height);
+    item.rot=geometry.rotation;
 
     if (includeCards) {
       // The player card sits right under the camera: it is seen whenever
@@ -1151,7 +1212,8 @@ function buildObs(template, a, b, ka, kb,
         source_uuid: cardSource.uuid, visible: true,
         id: Math.max(...scene.settings.items.map(it => Number(it.id) || 0)) + 1
       };
-      fitItem(cardItem);
+      const rect=cameraFrame(frame);
+      fitItem(cardItem,rect.x,rect.y,rect.width,rect.height);
       scene.settings.items.splice(scene.settings.items.indexOf(item), 0, cardItem);
     }
   });
@@ -1409,6 +1471,7 @@ const state = {
   scheduleDay: '',
   source: { ...DEFAULT_SOURCE }, template: null, templateError: '', logos: {},
   veto: { format: 'BO3', first: 0, actions: [], matchKey: '' },
+  cameras: readStorage('oneshot-camera-settings-v1') || {}, cameraFrame: DEFAULT_CAMERA_FRAME,
   pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false, cache: null
 };
 let toastTimer, regenTimer, refreshId = 0, controller, templatePromise;
@@ -1444,6 +1507,9 @@ if (savedSource &&
 // New stream IDs made with ↻ next to a player (core.applyStreamIds).
 state.streamIds = readStorage('oneshot-stream-ids') || {};
 const savedMatch = readStorage('oneshot-webcam-match-v1');
+const savedCameraFrame=readStorage('oneshot-camera-frame-v1');
+if(typeof savedCameraFrame==='string' && Object.hasOwn(CAMERA_FRAMES,savedCameraFrame))state.cameraFrame=savedCameraFrame;
+$('cameraFrame').value=state.cameraFrame;
 if (savedMatch && savedMatch.source === JSON.stringify(state.source)) {
   for (const key of ['a', 'b', 'matchKey']) {
     if (typeof savedMatch[key] === 'string') state[key] = savedMatch[key];
@@ -1495,10 +1561,92 @@ function escapeHtml(value) {
 }
 function applyIds() {
   const applied = applyStreamIds(state.sheetTeams, state.streamIds);
-  state.teams = applied.teams;
+  state.teams = applied.teams.map(team=>({...team,players:team.players.map(player=>({
+    ...player,camera:normalizeCamera(state.cameras[cameraKey(player)])
+  }))}));
   state.streamIds = applied.saved;
   writeStorage('oneshot-stream-ids', state.streamIds);
 }
+const CAMERA_STORE='oneshot-camera-settings-v1';
+function cameraKey(player) {
+  return JSON.stringify([state.source.id,state.source.gid,player.key]);
+}
+let cameraEditor=null,cameraPreview=null,cameraPreviewTimer;
+function editorPlayer() {
+  const player=cameraEditor ? chosen(cameraEditor.side)[cameraEditor.slot] : null;
+  return player && cameraKey(player)===cameraEditor.key ? player : null;
+}
+function updateCameraPreview() {
+  const player=editorPlayer();
+  if(!player){$('cameraDialog').close();return;}
+  const config=normalizeCamera(player.camera),rect=cameraFrame(state.cameraFrame);
+  $('cameraRotation').value=String(config.rotation);
+  $('cameraPreviewBox').dataset.rotation=String(config.rotation);
+  for(const [name,value] of Object.entries({left:rect.x/1920*100,top:rect.y/1080*100,
+    width:rect.width/1920*100,height:rect.height/1080*100,
+    'rotated-width':rect.height/rect.width*100,'rotated-height':rect.width/rect.height*100})) {
+    $('cameraPreviewBox').style.setProperty('--camera-'+name,value+'%');
+  }
+  clearTimeout(cameraPreviewTimer);
+  cameraPreviewTimer=setTimeout(()=>{
+    if(cameraPreview && editorPlayer())cameraPreview.contentWindow?.postMessage(
+      {style:cameraCss(editorPlayer().camera)},'https://vdo.ninja');
+  },100);
+}
+function saveCamera(patch) {
+  const player=editorPlayer();
+  if(!player)return;
+  const stored=readStorage(CAMERA_STORE);
+  state.cameras={...state.cameras,...(stored && typeof stored==='object' ? stored : {}),
+    [cameraKey(player)]:normalizeCamera({...player.camera,...patch})};
+  const kept=writeStorage(CAMERA_STORE,state.cameras);
+  applyIds();
+  render();
+  updateCameraPreview();
+  $('cameraSaveHint').textContent=kept ?
+    'Сохранено для игрока. Настройки попадут в следующий JSON и отправку в OBS.' :
+    'Настройки работают сейчас. Браузер запретил сохранение для следующего открытия.';
+}
+function openCamera(side,slot) {
+  const player=chosen(side)[slot];
+  if(!player)return;
+  cameraEditor={side,slot,key:cameraKey(player)};
+  $('cameraHeading').textContent='Кадр: '+getTeam(side).name+' / '+player.nick;
+  $('cameraSaveHint').textContent='Предпросмотр без звука. Игрок должен включить свою вебку.';
+  cameraPreview=document.createElement('iframe');
+  cameraPreview.title='Предпросмотр камеры '+player.nick;
+  cameraPreview.allow='autoplay';
+  cameraPreview.referrerPolicy='no-referrer';
+  cameraPreview.src=cameraViewUrl(player)+'&noaudio';
+  cameraPreview.addEventListener('load',updateCameraPreview);
+  $('cameraPreviewBox').replaceChildren(cameraPreview);
+  $('cameraDialog').showModal();
+  updateCameraPreview();
+}
+$('closeCamera').addEventListener('click',()=>$('cameraDialog').close());
+$('cameraDialog').addEventListener('close',()=>{
+  clearTimeout(cameraPreviewTimer);
+  cameraPreview?.remove();cameraPreview=null;cameraEditor=null;
+});
+$('cameraRotation').addEventListener('change',()=>saveCamera({rotation:Number($('cameraRotation').value)}));
+$('cameraRotate').addEventListener('click',()=>{
+  const player=editorPlayer();if(player)saveCamera({rotation:(normalizeCamera(player.camera).rotation+90)%360});
+});
+$('cameraReset').addEventListener('click',()=>saveCamera({rotation:0,panX:50,panY:50}));
+for(const button of document.querySelectorAll('[data-camera-pan]')) {
+  button.addEventListener('click',()=>{
+    const player=editorPlayer();if(!player)return;
+    const c=normalizeCamera(player.camera);
+    const [axis,delta]=button.dataset.cameraPan.split(':');
+    saveCamera(axis==='center' ? {panX:50,panY:50} : {[axis]:c[axis]+Number(delta)});
+  });
+}
+$('cameraFrame').addEventListener('change',()=>{
+  state.cameraFrame=Object.hasOwn(CAMERA_FRAMES,$('cameraFrame').value) ? $('cameraFrame').value : DEFAULT_CAMERA_FRAME;
+  writeStorage('oneshot-camera-frame-v1',state.cameraFrame);
+  renderOutput();
+  if(cameraEditor)updateCameraPreview();
+});
 // ↻ next to a player: a new stream ID, so a leaked link stops being theirs.
 // The new message for the player is copied right away.
 function regenerate(side, slot) {
@@ -1564,12 +1712,14 @@ function snapshot() {
     keysA: [...state.keysA], keysB: [...state.keysB],
     matchError: valid(), template: state.template, templateError: state.templateError,
     includeCards: $('includeCards').checked, logos: state.logos,
+    cameraFrame:state.cameraFrame,
     veto: { ...state.veto, actions: [...state.veto.actions] }, pending: state.pending,
     schedule: state.schedule, matchKey: state.matchKey,
     time: $('matchTime').value, stage: $('matchStage').value
   };
 }
 function notify() {
+  if(cameraEditor && !editorPlayer())$('cameraDialog').close();
   document.dispatchEvent(new CustomEvent('oneshot:change'));
 }
 window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next) };
@@ -1886,6 +2036,7 @@ function render() {
                 title="Вернуть ID из таблицы (${escapeHtml(player.sheetId)})">вернуть</button> · ` : '') +
               escapeHtml(viewUrl(player)) :
               'Место не заполнено'}</span>
+            <button class="link-button camera-adjust" type="button" id="camera-${side}-${i}" data-camera="${side}" data-slot="${i}" ${!player ? 'disabled' : ''}>Кадр${player?.camera?.rotation ? ' · '+player.camera.rotation+'°' : ''}</button>
           </div>
           <button class="copy-icon regen-icon${state.regenAsk === `${side}${i}` ? ' asking' : ''}"
             id="regen-${side}-${i}" type="button" data-regen="${side}" data-slot="${i}"
@@ -1963,6 +2114,8 @@ function render() {
     }));
   $('teamGrid').querySelectorAll('[data-setid]').forEach(el =>
     el.addEventListener('click', () => setStreamId(el.dataset.setid, Number(el.dataset.slot))));
+  $('teamGrid').querySelectorAll('[data-camera]').forEach(el =>
+    el.addEventListener('click', () => openCamera(el.dataset.camera,Number(el.dataset.slot))));
   $('teamGrid').querySelectorAll('[data-unregen]').forEach(el =>
     el.addEventListener('click', () => unregenerate(el.dataset.unregen, Number(el.dataset.slot))));
   $('teamGrid').querySelectorAll('[data-view]').forEach(el =>
@@ -2273,7 +2426,7 @@ function obsFile() {
     $('matchTime').value, $('matchStage').value);
   const text = JSON.stringify(buildObs(state.template,
     getTeam('a'), getTeam('b'), state.keysA, state.keysB, undefined,
-    { includeCards: $('includeCards').checked }), null, 2) + '\n';
+    { includeCards: $('includeCards').checked, cameraFrame:state.cameraFrame }), null, 2) + '\n';
   return { filename, text };
 }
 function downloadNote(text) {

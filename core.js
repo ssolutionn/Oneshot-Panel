@@ -214,6 +214,45 @@ export function pushUrl(p) {
 export function directorUrl(team) {
   return `https://vdo.ninja/?director=${encodeURIComponent(team.room)}${roomPassword(team)}`;
 }
+export const DEFAULT_CAMERA_FRAME = 'inner43';
+export const CAMERA_FRAMES = {
+  inner43: { x:312, y:54, width:1296, height:972 },
+  full43: { x:240, y:0, width:1440, height:1080 },
+  wide: { x:0, y:0, width:1920, height:1080 }
+};
+export function cameraFrame(value = DEFAULT_CAMERA_FRAME) {
+  return { ...CAMERA_FRAMES[typeof value==='string' && Object.hasOwn(CAMERA_FRAMES,value) ? value : DEFAULT_CAMERA_FRAME] };
+}
+export function normalizeCamera(value) {
+  const percent = number => Number.isFinite(number) ? Math.max(0,Math.min(100,number)) : 50;
+  return {rotation:[0,90,180,270].includes(value?.rotation) ? value.rotation : 0,
+    panX:percent(value?.panX),panY:percent(value?.panY)};
+}
+// VDO's supported cover/base64css URL options and style iframe message use
+// this same CSS. Only normalized numbers enter it. Pan follows screen axes
+// after rotation, rather than making "left" move up on a sideways camera.
+export function cameraCss(value) {
+  const c=normalizeCamera(value);
+  let x=c.panX,y=c.panY;
+  if(c.rotation===90)[x,y]=[y,100-x];
+  else if(c.rotation===180)[x,y]=[100-x,100-y];
+  else if(c.rotation===270)[x,y]=[100-y,x];
+  return 'video{object-fit:cover!important;object-position:'+x+'% '+y+'%!important;}';
+}
+export function cameraViewUrl(player) {
+  const c=normalizeCamera(player?.camera);
+  return viewUrl(player)+'&cover'+(c.panX===50 && c.panY===50 ? '' :
+    '&b64css='+encodeURIComponent(btoa(cameraCss(c))));
+}
+export function cameraGeometry(player, frame = DEFAULT_CAMERA_FRAME) {
+  const rect=cameraFrame(frame),{rotation}=normalizeCamera(player?.camera);
+  const quarter=rotation===90 || rotation===270;
+  return {rotation,
+    x:rect.x+(rotation===90 || rotation===180 ? rect.width : 0),
+    y:rect.y+(rotation===180 || rotation===270 ? rect.height : 0),
+    width:quarter ? rect.height : rect.width,
+    height:quarter ? rect.width : rect.height};
+}
 // A fresh stream ID for one player when their link leaked: nick letters
 // (VDO.Ninja keeps only letters, digits and _) plus 6 random characters.
 export function newStreamId(nick, random = n => crypto.getRandomValues(new Uint8Array(n))) {
@@ -363,7 +402,7 @@ function sceneUuid() {
 }
 export function buildObs(template, a, b, ka, kb,
                          uuidFn = sceneUuid,
-                         { cardBase = DEFAULT_CARD_BASE, includeCards = false } = {}) {
+                         { cardBase = DEFAULT_CARD_BASE, includeCards = false, cameraFrame: frame = DEFAULT_CAMERA_FRAME } = {}) {
   const error = validateMatch(a, b, ka, kb);
   if (error) throw new Error(error);
   if (!Array.isArray(template?.sources)) {
@@ -402,12 +441,14 @@ export function buildObs(template, a, b, ka, kb,
     used.add(browser.uuid);
     item.source_uuid = browser.uuid;
     item.name = browser.name;
+    const geometry=cameraGeometry(p,frame);
     Object.assign(browser.settings, {
-      url: viewUrl(p), width: 1920, height: 1080
+      url: cameraViewUrl(p), width:geometry.width, height:geometry.height
     });
     const slot = String(i + 1).padStart(2, '0');
     names.set(browser.name, `CAM ${slot} | ${p.team} | ${p.nick}`);
-    fitItem(item);
+    fitItem(item,geometry.x,geometry.y,geometry.width,geometry.height);
+    item.rot=geometry.rotation;
 
     if (includeCards) {
       // The player card sits right under the camera: it is seen whenever
@@ -424,7 +465,8 @@ export function buildObs(template, a, b, ka, kb,
         source_uuid: cardSource.uuid, visible: true,
         id: Math.max(...scene.settings.items.map(it => Number(it.id) || 0)) + 1
       };
-      fitItem(cardItem);
+      const rect=cameraFrame(frame);
+      fitItem(cardItem,rect.x,rect.y,rect.width,rect.height);
       scene.settings.items.splice(scene.settings.items.indexOf(item), 0, cardItem);
     }
   });

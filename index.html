@@ -88,6 +88,10 @@
         <button class="button small obs-setup" id="obsSetupBtn" type="button" aria-controls="obsDialog" title="Открыть вкладку OBS: подключение и инструкция"><i id="obsDot" aria-hidden="true"></i><span id="obsState">OBS не настроен</span></button><!-- /web-only -->
       </div>
       <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
+      <label class="camera-frame-setting">Рамка вебок
+        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 4:3</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option></select>
+        <span>Заполнение с обрезкой краёв. «Кадр» под ником — поворот и положение игрока.</span>
+      </label>
       <div class="export-meta">
         <p id="exportHint">10 вебок, сцены «Игрок 1–10» и «Матрица»</p>
         <p id="filenamePreview"></p>
@@ -559,6 +563,24 @@
         <button type="submit" class="button primary">Подключить</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="cameraDialog" class="camera-dialog" aria-labelledby="cameraHeading">
+    <div class="dialog-head"><h2 id="cameraHeading">Кадр камеры</h2><button id="closeCamera" class="icon-button" type="button" aria-label="Закрыть">×</button></div>
+    <div class="camera-preview-stage"><div id="cameraPreviewBox" class="camera-preview-box" data-rotation="0"></div></div>
+    <div class="camera-tools">
+      <label>Поворот<select id="cameraRotation"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></label>
+      <button id="cameraRotate" class="button" type="button">Повернуть ↻ 90°</button>
+      <div class="camera-pan" aria-label="Область показа камеры">
+        <button class="button" type="button" data-camera-pan="panX:-10" aria-label="Показать область левее">← Левее</button>
+        <button class="button" type="button" data-camera-pan="panY:-10" aria-label="Показать область выше">↑ Выше</button>
+        <button class="button" type="button" data-camera-pan="center:0">По центру</button>
+        <button class="button" type="button" data-camera-pan="panY:10" aria-label="Показать область ниже">↓ Ниже</button>
+        <button class="button" type="button" data-camera-pan="panX:10" aria-label="Показать область правее">Правее →</button>
+      </div>
+    </div>
+    <p id="cameraSaveHint" class="muted" role="status"></p>
+    <div class="dialog-actions"><button id="cameraReset" class="button" type="button">Сбросить кадр</button><!-- web-only --><button id="cameraApplyObs" class="button primary" type="button">Применить в OBS</button><!-- /web-only --></div>
   </dialog>
 
   <!-- web-only --><dialog id="exportDialog" aria-labelledby="exportHeading">

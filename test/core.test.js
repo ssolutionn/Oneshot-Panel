@@ -5,7 +5,7 @@ import {
   decodeGviz, parseTeams, parseSchedule, scheduleDay, defaultLineup, observerText,
   selectedPlayers, validateMatch, playerText, viewUrl, pushUrl, directorUrl,
   safeFilename, buildObs, cardUrl, personKey, DEFAULT_CARD_BASE, MAP_POOL, VETO_RULES,
-  validateVeto, appendVeto, vetoText, photoMatches, playerPhoto, teamLogo
+  validateVeto, appendVeto, vetoText, photoMatches, playerPhoto, teamLogo, cameraViewUrl
 } from '../core.js';
 
 const makeRows = () => ['HYPERSPIRIT', '6yuBoJlbl'].flatMap((team, t) =>
@@ -217,12 +217,12 @@ test('OBS repairs cameras and remaps references without mutating template', () =
     const item = scene.settings.items.find(it => it.name.startsWith('CAM '));
     const browser = byId.get(item.source_uuid);
     refs.add(item.source_uuid);
-    assert.equal(browser.settings.url, viewUrl(players[i]));
-    assert.equal(browser.settings.width, 1920);
-    assert.equal(browser.settings.height, 1080);
+    assert.equal(browser.settings.url, cameraViewUrl(players[i]));
+    assert.equal(browser.settings.width, 1296);
+    assert.equal(browser.settings.height, 972);
     assert.equal(item.rot, 0);
-    assert.deepEqual(item.pos, { x: 0, y: 0 });
-    assert.deepEqual(item.bounds, { x: 1920, y: 1080 });
+    assert.deepEqual(item.pos, { x: 312, y: 54 });
+    assert.deepEqual(item.bounds, { x: 1296, y: 972 });
     assert.equal(item.bounds_type, 2);
     for (const key of ['crop_left', 'crop_right', 'crop_top', 'crop_bottom']) {
       assert.equal(item[key], 0);
@@ -252,8 +252,8 @@ test('OBS omits all player cards by default and when disabled', () => {
       const cameras = scene.settings.items.filter(it => it.name.startsWith('CAM '));
       assert.equal(cameras.length, 1);
       assert.ok(!scene.settings.items.some(it => it.name.startsWith('CARD ')));
-      assert.equal(byId.get(cameras[0].source_uuid).settings.width, 1920);
-      assert.equal(byId.get(cameras[0].source_uuid).settings.height, 1080);
+      assert.equal(byId.get(cameras[0].source_uuid).settings.width, 1296);
+      assert.equal(byId.get(cameras[0].source_uuid).settings.height, 972);
       for (const item of scene.settings.items) assert.ok(byId.has(item.source_uuid));
     }
     assert.ok(result.sources.some(s => s.name === 'Матрица'));
@@ -282,8 +282,8 @@ test('Player card sits under each camera and opens the card page', () => {
     assert.equal(source.id, 'browser_source');
     assert.equal(source.name, item.name);
     assert.equal(item.visible, true);
-    assert.deepEqual(item.bounds, { x: 1920, y: 1080 });
-    assert.deepEqual(item.pos, { x: 0, y: 0 });
+    assert.deepEqual(item.bounds, { x: 1296, y: 972 });
+    assert.deepEqual(item.pos, { x: 312, y: 54 });
     assert.equal(new Set(scene.settings.items.map(it => it.id)).size, names.length);
     assert.deepEqual(source.settings, {
       url: cardUrl(players[i], 'https://panel.example'), width: 1920, height: 1080

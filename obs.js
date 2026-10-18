@@ -1,7 +1,7 @@
 // obs-websocket v5 (built into OBS 28+) and the steps that point an already
 // imported Oneshot collection at a new match. No DOM: the panel, the OBS dock
 // (obs-bridge.html) and the tests share it.
-import { viewUrl, cardUrl, DEFAULT_CARD_BASE } from './core.js';
+import { viewUrl, cameraViewUrl, cameraGeometry, cameraFrame, DEFAULT_CAMERA_FRAME, cardUrl, DEFAULT_CARD_BASE } from './core.js';
 
 export const OBS_DEFAULT_URL = 'ws://127.0.0.1:4455';
 export const VETO_EVENT = 'oneshot-veto';
@@ -120,23 +120,27 @@ export class ObsClient {
 
 // What one "Игрок N" scene needs. Cameras keep their source; the card (CARD)
 // sits right under the camera when cards are on and is hidden when they are off.
-export function slotPlan(sceneItems, player, { includeCards = false, cardBase = DEFAULT_CARD_BASE } = {}) {
+export function slotPlan(sceneItems, player, { includeCards = false, cardBase = DEFAULT_CARD_BASE, cameraFrame: frame = DEFAULT_CAMERA_FRAME, legacyCamera = false } = {}) {
   const scene = `Игрок ${player.slot}`;
   const browsers = (sceneItems || []).filter(it => it.inputKind === 'browser_source');
   const card = browsers.find(it => /^CARD /.test(it.sourceName));
   const camera = browsers.find(it => !/^CARD /.test(it.sourceName));
   if (!camera) throw new Error(`В сцене «${scene}» нет камеры. Импортируй коллекцию из JSON один раз.`);
   const slot = String(player.slot).padStart(2, '0');
-  const size = { width: 1920, height: 1080 };
+  if(legacyCamera){frame='wide';player={...player,camera:null};}
+  const geometry=cameraGeometry(player,frame),rect=cameraFrame(frame);
   return {
     scene,
     camera: {
       item: camera, name: `CAM ${slot} | ${player.team} | ${player.nick}`,
-      settings: { url: viewUrl(player), ...size }
+      settings: {url:legacyCamera ? viewUrl(player) : cameraViewUrl(player),width:geometry.width,height:geometry.height},
+      transform:{...FIT,positionX:geometry.x,positionY:geometry.y,rotation:geometry.rotation,
+        boundsWidth:geometry.width,boundsHeight:geometry.height}
     },
     card: includeCards ? {
       item: card || null, name: `CARD ${slot} | ${player.team} | ${player.nick}`,
-      settings: { url: cardUrl(player, cardBase), ...size }
+      settings: { url: cardUrl(player, cardBase), width:1920,height:1080 },
+      transform:{...FIT,positionX:rect.x,positionY:rect.y,boundsWidth:rect.width,boundsHeight:rect.height}
     } : null,
     hideCard: !includeCards && card ? card : null
   };
@@ -159,7 +163,7 @@ async function applySlot(obs, plan) {
     inputName: camera.name, inputSettings: camera.settings, overlay: true
   });
   await obs.request('SetSceneItemTransform', {
-    sceneName: scene, sceneItemId: camera.item.sceneItemId, sceneItemTransform: FIT
+    sceneName: scene, sceneItemId: camera.item.sceneItemId, sceneItemTransform: camera.transform
   });
   if (hideCard) {
     await obs.request('SetSceneItemEnabled', {
@@ -192,7 +196,7 @@ async function applySlot(obs, plan) {
       sceneName: scene, sceneItemId: cardId, sceneItemIndex: camera.item.sceneItemIndex
     });
   }
-  await obs.request('SetSceneItemTransform', { sceneName: scene, sceneItemId: cardId, sceneItemTransform: FIT });
+  await obs.request('SetSceneItemTransform', { sceneName: scene, sceneItemId: cardId, sceneItemTransform: card.transform });
 }
 
 // match: { players: [{ slot, team, nick, id, room }], includeCards, cardBase }.

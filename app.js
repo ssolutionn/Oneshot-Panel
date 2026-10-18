@@ -4,6 +4,7 @@ import {
   validatePlayers, validateMatch, viewUrl, directorUrl,
   newStreamId, applyStreamIds, playerLine, vdoId,
   observerText, playerText, buildObs, safeFilename, validateMetadata,
+  CAMERA_FRAMES, DEFAULT_CAMERA_FRAME, cameraFrame, normalizeCamera, cameraCss, cameraViewUrl,
   MAP_POOL, VETO_RULES, validateVeto, appendVeto, vetoText
 } from './core.js';
 
@@ -14,6 +15,7 @@ const state = {
   scheduleDay: '',
   source: { ...DEFAULT_SOURCE }, template: null, templateError: '', logos: {},
   veto: { format: 'BO3', first: 0, actions: [], matchKey: '' },
+  cameras: readStorage('oneshot-camera-settings-v1') || {}, cameraFrame: DEFAULT_CAMERA_FRAME,
   pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false
 };
 let toastTimer, regenTimer, refreshId = 0, controller, templatePromise;
@@ -49,6 +51,9 @@ if (savedSource &&
 // New stream IDs made with ↻ next to a player (core.applyStreamIds).
 state.streamIds = readStorage('oneshot-stream-ids') || {};
 const savedMatch = readStorage('oneshot-webcam-match-v1');
+const savedCameraFrame=readStorage('oneshot-camera-frame-v1');
+if(typeof savedCameraFrame==='string' && Object.hasOwn(CAMERA_FRAMES,savedCameraFrame))state.cameraFrame=savedCameraFrame;
+$('cameraFrame').value=state.cameraFrame;
 if (savedMatch && savedMatch.source === JSON.stringify(state.source)) {
   for (const key of ['a', 'b', 'matchKey']) {
     if (typeof savedMatch[key] === 'string') state[key] = savedMatch[key];
@@ -100,10 +105,92 @@ function escapeHtml(value) {
 }
 function applyIds() {
   const applied = applyStreamIds(state.sheetTeams, state.streamIds);
-  state.teams = applied.teams;
+  state.teams = applied.teams.map(team=>({...team,players:team.players.map(player=>({
+    ...player,camera:normalizeCamera(state.cameras[cameraKey(player)])
+  }))}));
   state.streamIds = applied.saved;
   writeStorage('oneshot-stream-ids', state.streamIds);
 }
+const CAMERA_STORE='oneshot-camera-settings-v1';
+function cameraKey(player) {
+  return JSON.stringify([state.source.id,state.source.gid,player.key]);
+}
+let cameraEditor=null,cameraPreview=null,cameraPreviewTimer;
+function editorPlayer() {
+  const player=cameraEditor ? chosen(cameraEditor.side)[cameraEditor.slot] : null;
+  return player && cameraKey(player)===cameraEditor.key ? player : null;
+}
+function updateCameraPreview() {
+  const player=editorPlayer();
+  if(!player){$('cameraDialog').close();return;}
+  const config=normalizeCamera(player.camera),rect=cameraFrame(state.cameraFrame);
+  $('cameraRotation').value=String(config.rotation);
+  $('cameraPreviewBox').dataset.rotation=String(config.rotation);
+  for(const [name,value] of Object.entries({left:rect.x/1920*100,top:rect.y/1080*100,
+    width:rect.width/1920*100,height:rect.height/1080*100,
+    'rotated-width':rect.height/rect.width*100,'rotated-height':rect.width/rect.height*100})) {
+    $('cameraPreviewBox').style.setProperty('--camera-'+name,value+'%');
+  }
+  clearTimeout(cameraPreviewTimer);
+  cameraPreviewTimer=setTimeout(()=>{
+    if(cameraPreview && editorPlayer())cameraPreview.contentWindow?.postMessage(
+      {style:cameraCss(editorPlayer().camera)},'https://vdo.ninja');
+  },100);
+}
+function saveCamera(patch) {
+  const player=editorPlayer();
+  if(!player)return;
+  const stored=readStorage(CAMERA_STORE);
+  state.cameras={...state.cameras,...(stored && typeof stored==='object' ? stored : {}),
+    [cameraKey(player)]:normalizeCamera({...player.camera,...patch})};
+  const kept=writeStorage(CAMERA_STORE,state.cameras);
+  applyIds();
+  render();
+  updateCameraPreview();
+  $('cameraSaveHint').textContent=kept ?
+    'Сохранено для игрока. Настройки попадут в следующий JSON и отправку в OBS.' :
+    'Настройки работают сейчас. Браузер запретил сохранение для следующего открытия.';
+}
+function openCamera(side,slot) {
+  const player=chosen(side)[slot];
+  if(!player)return;
+  cameraEditor={side,slot,key:cameraKey(player)};
+  $('cameraHeading').textContent='Кадр: '+getTeam(side).name+' / '+player.nick;
+  $('cameraSaveHint').textContent='Предпросмотр без звука. Игрок должен включить свою вебку.';
+  cameraPreview=document.createElement('iframe');
+  cameraPreview.title='Предпросмотр камеры '+player.nick;
+  cameraPreview.allow='autoplay';
+  cameraPreview.referrerPolicy='no-referrer';
+  cameraPreview.src=cameraViewUrl(player)+'&noaudio';
+  cameraPreview.addEventListener('load',updateCameraPreview);
+  $('cameraPreviewBox').replaceChildren(cameraPreview);
+  $('cameraDialog').showModal();
+  updateCameraPreview();
+}
+$('closeCamera').addEventListener('click',()=>$('cameraDialog').close());
+$('cameraDialog').addEventListener('close',()=>{
+  clearTimeout(cameraPreviewTimer);
+  cameraPreview?.remove();cameraPreview=null;cameraEditor=null;
+});
+$('cameraRotation').addEventListener('change',()=>saveCamera({rotation:Number($('cameraRotation').value)}));
+$('cameraRotate').addEventListener('click',()=>{
+  const player=editorPlayer();if(player)saveCamera({rotation:(normalizeCamera(player.camera).rotation+90)%360});
+});
+$('cameraReset').addEventListener('click',()=>saveCamera({rotation:0,panX:50,panY:50}));
+for(const button of document.querySelectorAll('[data-camera-pan]')) {
+  button.addEventListener('click',()=>{
+    const player=editorPlayer();if(!player)return;
+    const c=normalizeCamera(player.camera);
+    const [axis,delta]=button.dataset.cameraPan.split(':');
+    saveCamera(axis==='center' ? {panX:50,panY:50} : {[axis]:c[axis]+Number(delta)});
+  });
+}
+$('cameraFrame').addEventListener('change',()=>{
+  state.cameraFrame=Object.hasOwn(CAMERA_FRAMES,$('cameraFrame').value) ? $('cameraFrame').value : DEFAULT_CAMERA_FRAME;
+  writeStorage('oneshot-camera-frame-v1',state.cameraFrame);
+  renderOutput();
+  if(cameraEditor)updateCameraPreview();
+});
 // ↻ next to a player: a new stream ID, so a leaked link stops being theirs.
 // The new message for the player is copied right away.
 function regenerate(side, slot) {
@@ -169,12 +256,14 @@ function snapshot() {
     keysA: [...state.keysA], keysB: [...state.keysB],
     matchError: valid(), template: state.template, templateError: state.templateError,
     includeCards: $('includeCards').checked, logos: state.logos,
+    cameraFrame:state.cameraFrame,
     veto: { ...state.veto, actions: [...state.veto.actions] }, pending: state.pending,
     schedule: state.schedule, matchKey: state.matchKey,
     time: $('matchTime').value, stage: $('matchStage').value
   };
 }
 function notify() {
+  if(cameraEditor && !editorPlayer())$('cameraDialog').close();
   document.dispatchEvent(new CustomEvent('oneshot:change'));
 }
 window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next) };
@@ -448,6 +537,7 @@ function render() {
                 title="Вернуть ID из таблицы (${escapeHtml(player.sheetId)})">вернуть</button> · ` : '') +
               escapeHtml(viewUrl(player)) :
               'Место не заполнено'}</span>
+            <button class="link-button camera-adjust" type="button" id="camera-${side}-${i}" data-camera="${side}" data-slot="${i}" ${!player ? 'disabled' : ''}>Кадр${player?.camera?.rotation ? ' · '+player.camera.rotation+'°' : ''}</button>
           </div>
           <button class="copy-icon regen-icon${state.regenAsk === `${side}${i}` ? ' asking' : ''}"
             id="regen-${side}-${i}" type="button" data-regen="${side}" data-slot="${i}"
@@ -525,6 +615,8 @@ function render() {
     }));
   $('teamGrid').querySelectorAll('[data-setid]').forEach(el =>
     el.addEventListener('click', () => setStreamId(el.dataset.setid, Number(el.dataset.slot))));
+  $('teamGrid').querySelectorAll('[data-camera]').forEach(el =>
+    el.addEventListener('click', () => openCamera(el.dataset.camera,Number(el.dataset.slot))));
   $('teamGrid').querySelectorAll('[data-unregen]').forEach(el =>
     el.addEventListener('click', () => unregenerate(el.dataset.unregen, Number(el.dataset.slot))));
   $('teamGrid').querySelectorAll('[data-view]').forEach(el =>
@@ -825,6 +917,7 @@ function exportObsFile() {
   const filename = safeFilename(state.a, state.b, $('matchTime').value, $('matchStage').value);
   const data = buildObs(state.template, getTeam('a'), getTeam('b'), state.keysA, state.keysB, undefined, {
     includeCards: $('includeCards').checked,
+    cameraFrame:state.cameraFrame,
     ...(/^https?:$/.test(location.protocol) ? { cardBase: location.origin } : {})
   });
   return { filename, text: JSON.stringify(data, null, 2) + '\n' };

@@ -64,14 +64,14 @@ function matchPayload() {
   const players = [
     ...s.playersA.map(p => ({ ...p, team: s.a.name })),
     ...s.playersB.map(p => ({ ...p, team: s.b.name }))
-  ].map((p, i) => ({ slot: i + 1, team: p.team, nick: p.nick, id: p.id, room: p.room, password: p.password || '' }));
-  return { title: `${s.a.name} vs ${s.b.name}`, match: { players, includeCards: s.includeCards, cardBase: cardBase() } };
+  ].map((p, i) => ({ slot: i + 1, team: p.team, nick: p.nick, id: p.id, room: p.room, password: p.password || '', camera:p.camera }));
+  return { title: `${s.a.name} vs ${s.b.name}`, match: { players, includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame } };
 }
 function obsJson() {
   const s = panel.snapshot();
   if (!s.template) throw new Error(s.templateError || 'Шаблон OBS ещё загружается.');
   return JSON.stringify(buildObs(s.template, s.a, s.b, s.keysA, s.keysB, undefined,
-    { includeCards: s.includeCards, cardBase: cardBase() }), null, 2) + '\n';
+    { includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame }), null, 2) + '\n';
 }
 
 // ---------- OBS link ----------
@@ -181,7 +181,7 @@ async function obsCommand(message, timeout = 30000) {
   if (settings.mode === 'direct') {
     const client = await new ObsClient(settings.url, settings.password).connect();
     try {
-      if (message.type === 'apply') return { ok: true, summary: await applyMatch(client, message.match) };
+      if (message.type === 'apply' || message.type === 'apply-camera') return { ok: true, summary: await applyMatch(client, message.match) };
       if (message.type === 'veto') { await emitVeto(client, message.state); return { ok: true }; }
       return { ok: true, obs: `OBS подключён${client.version ? ` · WebSocket ${client.version}` : ''}` };
     } finally { client.close(); }
@@ -203,7 +203,9 @@ async function obsCommand(message, timeout = 30000) {
       clearTimeout(timer);
       clearInterval(resend);
       bridge.waiting.delete(id);
-      reply.ok ? resolve(reply) : reject(new Error(reply.error || 'OBS не принял команду.'));
+      reply.ok ? resolve(reply) : reject(new Error(reply.error==='Неизвестная команда.' && message.type==='apply-camera' ?
+        'Окно Oneshot у обсервера устарело. В OBS нажми по нему правой кнопкой → Обновить, затем повтори отправку.' :
+        reply.error || 'OBS не принял команду.'));
     });
     const stop = () => clearInterval(resend);
     setTimeout(stop, timeout);
@@ -396,6 +398,10 @@ $('sendObsConfig').addEventListener('click', async () => {
 });
 
 let sendingMatch = false;
+$('cameraApplyObs').addEventListener('click',()=>{
+  $('cameraDialog').close();
+  $('sendObsBtn').click();
+});
 $('sendObsBtn').addEventListener('click', async () => {
   if (sendingMatch) return;
   let payload;
@@ -408,7 +414,7 @@ $('sendObsBtn').addEventListener('click', async () => {
   button.disabled = true;
   obsBadge('Отправляем в OBS…', 'wait');
   try {
-    const { summary } = await obsCommand({ type: 'apply', ...payload });
+    const { summary } = await obsCommand({ type: 'apply-camera', ...payload });
     delete button.dataset.attention;
     button.title = '';
     panel.toast(`OBS обновлён: ${summary.slots} камер${summary.cards ? `, ${summary.cards} карточек` : ''}.`);
@@ -657,6 +663,7 @@ setInterval(() => {
 function onChange() {
   const s = panel.snapshot();
   $('sendObsBtn').disabled = sendingMatch || !!s.matchError;
+  $('cameraApplyObs').disabled = sendingMatch || !!s.matchError;
   $('copyJsonBtn').disabled = !!s.matchError || !s.template;
   syncWatcher();
   sendVeto();
