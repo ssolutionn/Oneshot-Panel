@@ -80,7 +80,79 @@
           "conclusion": "success"
         }
       ]
+    },
+    "deployment_metadata": {
+      "status": "observed",
+      "results": [
+        {
+          "ref": "main",
+          "status": {
+            "sha": "f1d703587b0855de1382e3e602c8b1bede935c50",
+            "state": "pending",
+            "statuses": []
+          },
+          "check-runs": [
+            {
+              "name": "deploy",
+              "head_sha": "f1d703587b0855de1382e3e602c8b1bede935c50",
+              "status": "completed",
+              "conclusion": "success",
+              "details_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39084484953/job/117548086282"
+            }
+          ]
+        },
+        {
+          "ref": "codex/veto-resilience-review",
+          "status": {
+            "sha": "f1d703587b0855de1382e3e602c8b1bede935c50",
+            "state": "pending",
+            "statuses": []
+          },
+          "check-runs": [
+            {
+              "name": "deploy",
+              "head_sha": "f1d703587b0855de1382e3e602c8b1bede935c50",
+              "status": "completed",
+              "conclusion": "success",
+              "details_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39084484953/job/117548086282"
+            }
+          ]
+        }
+      ]
     }
   },
-  "updated_at": "2026-10-18T00:55:32.002046+00:00"
+  "updated_at": "2026-10-18T00:55:35.585673+00:00",
+  "deployment_runs": [
+    {
+      "id": 39084484953,
+      "name": "Deploy veto to Cloudflare",
+      "head_sha": "f1d703587b0855de1382e3e602c8b1bede935c50",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39084484953"
+    },
+    {
+      "id": 39083903439,
+      "name": "Deploy veto to Cloudflare",
+      "head_sha": "31cef75a64ce58a1893d3a3b03bb29662cc4f084",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39083903439"
+    },
+    {
+      "id": 39083707269,
+      "name": "Deploy veto to Cloudflare",
+      "head_sha": "647686982e3168927ddfad56cf10e69a4b654f76",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39083707269"
+    }
+  ],
+  "site_pull_request": {
+    "number": 2,
+    "state": "closed",
+    "merged": true,
+    "merge_commit_sha": "f16cadba7ee1dc96220fc50845a75d5b15080e95",
+    "html_url": "https://github.com/ssolutionn/Oneshot-Veto/pull/2"
+  }
 }
