@@ -1,8 +1,10 @@
 """Read the official schedule and verify the public panel, without storing roster secrets."""
 import json
+import hashlib
 import os
 import subprocess
 import tempfile
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -46,6 +48,18 @@ try:
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(locale="ru-RU", timezone_id="Europe/Moscow")
+        expected = git("ls-remote", "--heads", "origin", "refs/heads/claude/gracious-sagan-apztcc").split()[0]
+        report["expected_build"] = expected
+        for attempt in range(36):
+            build = page.goto("https://oneshot-panel.pages.dev/build.txt", wait_until="domcontentloaded", timeout=30000)
+            report["published_build"] = build.text().strip() if build and build.status == 200 else None
+            if report["published_build"] == expected:
+                break
+            time.sleep(5)
+        if report["published_build"] != expected:
+            raise RuntimeError("The panel host has not yet published the expected commit")
+        app = page.goto("https://oneshot-panel.pages.dev/app.js", wait_until="domcontentloaded", timeout=30000)
+        report["app_matches_source"] = hashlib.sha256(app.body()).digest() == hashlib.sha256(Path("app.js").read_bytes()).digest()
         response = page.goto("https://oneshot-panel.pages.dev/", wait_until="domcontentloaded", timeout=45000)
         report["public_status"] = response.status
         page.wait_for_function("() => window.oneshotPanel && document.querySelector('#syncTitle').textContent.includes('команд из таблицы')", timeout=45000)
@@ -72,7 +86,7 @@ try:
             report["selection_checks"].append(check)
         loaded = report["panel"]["schedule"]
         report["missing"] = [m for m in expected if m not in loaded]
-        report["passed"] = not report["missing"] and not report["panel"]["error"] and all(c["passed"] for c in report["selection_checks"])
+        report["passed"] = report["app_matches_source"] and not report["missing"] and not report["panel"]["error"] and all(c["passed"] for c in report["selection_checks"])
         browser.close()
 except Exception as error:
     report["error"] = str(error)
