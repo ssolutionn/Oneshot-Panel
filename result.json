@@ -164,9 +164,12 @@
           "body": "error code: 1010\n"
         }
       ]
+    },
+    "install_playwright": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-10-18T08:48:50.514392+00:00",
+  "updated_at": "2026-10-18T08:48:52.202003+00:00",
   "deployment_runs": [
     {
       "id": 39112821872,
