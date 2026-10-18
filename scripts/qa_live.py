@@ -51,6 +51,8 @@ class MockObs:
 
     def __init__(self, password="pw"):
         self.password, self.requests, self.next_id = password, [], 100
+        self.block_next = False
+        self.blocked, self.release = asyncio.Event(), asyncio.Event()
         self.inputs = {f"Камера {i}": {} for i in range(1, 11)}
         self.scenes = {f"Игрок {i}": [{"sceneItemId": 4, "sourceName": f"Камера {i}",
                                        "inputKind": "browser_source"}] for i in range(1, 11)}
@@ -79,6 +81,14 @@ class MockObs:
                 reply = {"requestType": d["requestType"], "requestId": d["requestId"], "requestStatus": status}
                 if data is not None:
                     reply["responseData"] = data
+                if self.block_next and d["requestType"] == "SetInputSettings":
+                    self.block_next = False
+                    self.blocked.set()
+                    async def later():
+                        await self.release.wait()
+                        ws.send(json.dumps({"op":7, "d":reply}))
+                    asyncio.create_task(later())
+                    return
                 ws.send(json.dumps({"op": 7, "d": reply}))
         ws.on_message(on_message)
 
@@ -310,6 +320,15 @@ async def run(args):
         camera = obs.inputs[scene[1]]
         assert camera["url"].endswith("&cleanoutput&transparent") and camera["width"] == 1920
         assert obs.inputs[scene[0]]["url"].startswith(base + "/card.html?team=HYPERSPIRIT")
+        obs.block_next = True
+        await page.click("#sendObsBtn")
+        await asyncio.wait_for(obs.blocked.wait(), timeout=10)
+        await page.uncheck("#includeCards")
+        await expect(page.locator("#sendObsBtn")).to_be_disabled()
+        obs.release.set()
+        await expect(page.locator("#sendObsBtn")).to_be_enabled()
+        await page.check("#includeCards")
+        passed("changing match options cannot start a second OBS update during an in-flight send")
         await page.click("#obsSetupBtn")
         await page.fill("#obsPassword", "wrong")
         await page.click("#saveObs")
@@ -659,6 +678,48 @@ async def run(args):
         assert not await lobby.evaluate("document.documentElement.scrollWidth > innerWidth")
         passed("lobby: map and match alerts, notification, badge, pause log, Discord texts, bookmakers' lines")
 
+        race = await context.new_page()
+        race.on("pageerror", lambda error: errors.append(str(error)))
+        await race.clock.install()
+        old_id = "1-11111111-2222-4333-8444-555555555555"
+        new_id = "1-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+        race_phase = {"value":0}
+        waiting, release, delivered = asyncio.Event(), asyncio.Event(), asyncio.Event()
+        async def late_faceit(route):
+            url = urlsplit(route.request.url)
+            if url.path.endswith("/matches"):
+                kind = parse_qs(url.query).get("type", [""])[0]
+                items = [faceit_match(old_id,"ONGOING",[0,0],[],teams=("OLD A","OLD B"))] if kind=="ongoing" and race_phase["value"]==0 else []
+                body = {"items":items}
+            elif url.path.endswith("/"+old_id):
+                waiting.set()
+                await release.wait()
+                body = faceit_match(old_id,"FINISHED",[2,0],[],teams=("OLD A","OLD B"))
+            elif url.path.endswith("/"+new_id):
+                body = faceit_match(new_id,"ONGOING",[0,0],[],teams=("NEW A","NEW B"))
+            else:
+                body = {}
+            await route.fulfill(content_type="application/json",body=json.dumps(body))
+            if url.path.endswith("/"+old_id): delivered.set()
+        await race.route("https://open.faceit.com/**",late_faceit)
+        await race.goto(base+"/#lobby")
+        await expect(race.locator("#lobbyMatches")).to_contain_text("OLD A")
+        await expect(race.locator(".lm-series")).to_contain_text("Серия · по картам")
+        await expect(race.locator(".lm-game")).to_contain_text("Раунды на текущей карте")
+        await expect(race.locator(".lm-game")).to_contain_text("Нет данных FACEIT")
+        race_phase["value"]=1
+        await race.clock.run_for(21000)
+        await asyncio.wait_for(waiting.wait(),timeout=10)
+        await race.fill("#faceitUrl",f"https://www.faceit.com/en/cs2/room/{new_id}")
+        await race.locator("#lobbyForm button[type=submit]").click()
+        await expect(race.locator("#lobbyMatches")).to_contain_text("NEW A")
+        release.set()
+        await asyncio.wait_for(delivered.wait(),timeout=10)
+        await race.clock.run_for(1000)
+        await expect(race.locator("#lobbyMatches")).not_to_contain_text("OLD A")
+        await race.close()
+        passed("lobby: separate series/round scores; a late response from the previous target is discarded")
+
         assert not errors, errors
         await browser.close()
     print(f"{len(checks)} live scenarios passed", flush=True)
@@ -670,6 +731,6 @@ async def run(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default="http://127.0.0.1:3000")
-    parser.add_argument("--chromium", default="/usr/bin/chromium")
+    parser.add_argument("--chromium", default=None)
     parser.add_argument("--artifacts", default="artifacts")
     asyncio.run(run(parser.parse_args()))

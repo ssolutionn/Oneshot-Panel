@@ -19,7 +19,7 @@ const FORMATS = ['BO1', 'BO2', 'BO3', 'BO5'];
 const SEATS = ['a', 'b', 's', 'o'];
 // Minutes for the whole veto; 0 = no clock.
 export const TIMERS = [5, 3, 7, 10, 15, 0];
-const VERSION = 2, ROOM_BYTES = 10, PRINT_BYTES = 10, SEED_BYTES = 16, NAME_BYTES = 60;
+const VERSION = 3, ROOM_BYTES = 10, PRINT_BYTES = 10, SEED_BYTES = 16, NAME_BYTES = 60;
 
 function b64url(bytes) {
   let text = '';
@@ -104,7 +104,9 @@ export function encodeLink(base, room) {
   const names = room.t.map(t => enc.encode(t));
   const me = SEATS.indexOf(room.me);
   const timer = Math.max(0, TIMERS.indexOf(room.m ?? VETO_MINUTES));
-  const parts = [[VERSION, me | FORMATS.indexOf(room.f) << 2 | timer << 4], unb64url(room.r),
+  const version = room.v ?? VERSION;
+  const parts = [[version, me | FORMATS.indexOf(room.f) << 2 | timer << 4],
+    version === 3 ? [room.chooser == null ? 0 : room.chooser + 1] : [], unb64url(room.r),
     ...room.fp.map(unb64url), me < 2 ? unb64url(room.k) : [], [names[0].length], names[0], names[1]];
   const bytes = new Uint8Array(parts.reduce((n, part) => n + part.length, 0));
   let at = 0;
@@ -119,12 +121,15 @@ export function decodeLink(hash) {
   try {
     const bytes = unb64url(match[1]);
     const me = SEATS[bytes[1] & 3], f = FORMATS[(bytes[1] >> 2) & 3], m = TIMERS[bytes[1] >> 4];
-    if (bytes[0] !== VERSION || !me || !f || m === undefined) return null;
+    const version = bytes[0];
+    if (![2, VERSION].includes(version) || !me || !f || m === undefined) return null;
     let at = 2;
     const take = n => {
       if (at + n > bytes.length) throw new Error('short');
       return bytes.slice(at, at += n);
     };
+    const start = version === 3 ? take(1)[0] : 0;
+    if (start > 2) return null;
     const r = b64url(take(ROOM_BYTES));
     const fp = [b64url(take(PRINT_BYTES)), b64url(take(PRINT_BYTES))];
     const k = seat({ me }) === null ? undefined : b64url(take(SEED_BYTES));
@@ -135,7 +140,8 @@ export function decodeLink(hash) {
     const via = params.get('via'), endpoint = params.get('relay');
     if (params.getAll('via').length > 1 || params.getAll('relay').length > 1 ||
         (via && via !== 'server') || Boolean(via) !== Boolean(endpoint)) return null;
-    const room = { v: VERSION, r, t, f, m, me, fp, k, p: [null, null] };
+    const room = { v: version, r, t, f, m, me, fp, k, p: [null, null] };
+    if (version === 3) room.chooser = start ? start - 1 : null;
     if (via === 'server') room.relay = relayEndpoint(endpoint);
     return room;
   } catch { return null; }
@@ -143,13 +149,14 @@ export function decodeLink(hash) {
 export const seat = room => room.me === 'a' ? 0 : room.me === 'b' ? 1 : null;
 
 // A new room: four links (captain of teams[0], of teams[1], spectators, admin).
-export async function createRoom(base, teams, format, minutes = VETO_MINUTES, relay = '') {
+export async function createRoom(base, teams, format, minutes = VETO_MINUTES, relay = '', chooser = null) {
   const names = teams.map(t => String(t || '').trim());
   if (!names[0] || !names[1] || names[0] === names[1]) throw new Error('Нужны две разные команды.');
   if (names.some(name => enc.encode(name).length > NAME_BYTES)) throw new Error('Слишком длинное название команды.');
   if (!FORMATS.includes(format)) throw new Error('Неизвестный формат вето.');
   if (!TIMERS.includes(Number(minutes))) throw new Error('Неизвестный таймер.');
-  const room = { v: VERSION, r: b64url(random(ROOM_BYTES)), t: names, f: format, m: Number(minutes), fp: [], p: [] };
+  if (![null, 0, 1].includes(chooser)) throw new Error('Неизвестный выбор порядка.');
+  const room = { v: VERSION, r: b64url(random(ROOM_BYTES)), t: names, f: format, m: Number(minutes), chooser, fp: [], p: [] };
   if (relay) room.relay = relayEndpoint(relay, base);
   const secrets = [b64url(random(SEED_BYTES)), b64url(random(SEED_BYTES))];
   for (const team of [0, 1]) {
@@ -226,9 +233,14 @@ function roomMessageShape(message) {
   return message?.t === 'log' && Array.isArray(message.log) && message.log.length <= 32 &&
     message.log.every(entry) && Array.isArray(message.p) && message.p.length === 2 && message.p.every(point);
 }
+// v2 rooms keep their original signatures. New rooms bind all rules and
+// identities, so editing a link cannot change who has the right to choose.
+function roomContext(room) {
+  return room.v === 3 ? JSON.stringify([3, room.r, room.t, room.f, room.m, room.chooser, room.fp]) : room.r;
+}
 function roomMessageBytes(room, message) {
   return enc.encode(JSON.stringify([
-    'oneshot-veto-message-v1', room.r, message.from, message.at,
+    'oneshot-veto-message-v1', roomContext(room), message.from, message.at,
     Number.isSafeInteger(message.call) ? message.call : null,
     message.log, message.p
   ]));
@@ -265,13 +277,13 @@ export async function coinCommit(room, nonce) {
 // v, at, s }. The signature covers the room, the place in the log and the
 // previous signature.
 function signed(room, index, prev, entry) {
-  return enc.encode(['oneshot-veto-v2', room.r, index, prev, entry.k, entry.v, entry.at].join('|'));
+  return enc.encode(['oneshot-veto-v2', roomContext(room), index, prev, entry.k, entry.v, entry.at].join('|'));
 }
 
 // What the log means. Throws on the first entry that breaks the rules
 // (signatures and the coin's commitment are checked by verifyLog).
 export function replay(room, log) {
-  const state = { commit: null, seed: null, coin: null, first: null, actions: [], pending: null, startedAt: null };
+  const state = { commit: null, seed: null, coin: null, chooser: room.chooser ?? null, first: null, actions: [], pending: null, startedAt: null };
   let prevAt = null;
   for (const entry of log) {
     const turn = nextTurn(room, state);
@@ -289,7 +301,7 @@ export function replay(room, log) {
     } else if (entry.k === 'seed' || entry.k === 'reveal') {
       if (!b64(16).test(entry.v)) throw new Error('Неверная монетка.');
       if (entry.k === 'seed') state.seed = entry.v;
-      else state.coin = (unb64url(entry.v)[0] ^ unb64url(state.seed)[0]) & 1;
+      else state.chooser = state.coin = (unb64url(entry.v)[0] ^ unb64url(state.seed)[0]) & 1;
     } else if (entry.k === 'order') {
       if (!['0', '1'].includes(entry.v)) throw new Error('Неверный выбор порядка.');
       state.first = Number(entry.v);
@@ -310,10 +322,12 @@ export function replay(room, log) {
 // Whose move it is and what kind: the coin (commit by A, seed by B, reveal
 // by A), order (coin winner), ban, pick, side (the opponent of the pick), done.
 export function nextTurn(room, state) {
-  if (state.commit === null) return { kind: 'commit', team: 0 };
-  if (state.seed === null) return { kind: 'seed', team: 1 };
-  if (state.coin === null) return { kind: 'reveal', team: 0 };
-  if (state.first === null) return { kind: 'order', team: state.coin };
+  if (room.chooser == null) {
+    if (state.commit === null) return { kind: 'commit', team: 0 };
+    if (state.seed === null) return { kind: 'seed', team: 1 };
+    if (state.coin === null) return { kind: 'reveal', team: 0 };
+  }
+  if (state.first === null) return { kind: 'order', team: state.chooser };
   if (state.pending) return { kind: 'side', team: 1 - state.pending.team };
   const index = state.actions.length;
   const kind = VETO_RULES[room.f][index];
@@ -336,7 +350,7 @@ export async function verifyLog(room, log, checked = new Set()) {
     if (turn.kind === 'done' || entry.k !== turn.kind) break;
     try { replay(room, [...good, entry]); } catch { break; }
     if (entry.k === 'reveal' && await coinCommit(room, entry.v) !== state.commit) break;
-    const id = [good.length, prev, entry.k, entry.v, entry.at, entry.s].join('|');
+    const id = [roomContext(room), room.fp[turn.team], good.length, prev, entry.k, entry.v, entry.at, entry.s].join('|');
     if (!checked.has(id)) {
       let ok = false;
       try {
@@ -410,7 +424,7 @@ export function resultText(room, state) {
 }
 // The panel's veto snapshot (actions, first) for importing the result.
 export function panelVeto(room, state) {
-  return { format: room.f, first: state.first ?? state.coin ?? 0, actions: state.actions, pending: state.pending };
+  return { format: room.f, first: state.first ?? state.chooser ?? 0, actions: state.actions, pending: state.pending };
 }
 
 // Discord messages. A captain's link is personal: whoever has it can make
@@ -420,6 +434,7 @@ const MESSAGES = {
     head: (room) => `**CyberClash · map veto ${room.t[0]} vs ${room.t[1]} (${room.f})**`,
     captain: name => `Captain of **${name}**, this is your personal veto link:`,
     coin: 'The coin is tossed on the site once both captains are in: each adds a random part, nobody knows the result in advance. The winner decides who bans first.',
+    assigned: name => `The admin assigned ${name} to decide who bans first. There is no coin toss.`,
     clock: m => m ? `The whole veto takes ${m} minutes.` : 'No time limit.',
     secret: 'Do not forward this link to anyone: it lets you move for your team.',
     watch: room => `Map veto ${room.t[0]} vs ${room.t[1]} (${room.f}) live:`
@@ -428,6 +443,7 @@ const MESSAGES = {
     head: (room) => `**CyberClash · вето ${room.t[0]} vs ${room.t[1]} (${room.f})**`,
     captain: name => `Капитан **${name}**, это твоя личная ссылка на вето:`,
     coin: 'Монетку бросите на сайте, когда оба капитана зайдут: каждый добавляет свою случайную часть, заранее результат не знает никто. Победитель решает, кто банит первым.',
+    assigned: name => `Админ назначил ${name} выбирать, кто банит первым. Без монетки.`,
     clock: m => m ? `На всё вето ${m} ${m % 10 >= 2 && m % 10 <= 4 && (m % 100 < 10 || m % 100 >= 20) ? 'минуты' : 'минут'}.` : 'Без ограничения по времени.',
     secret: 'Ссылку никому не пересылай: по ней можно ходить за твою команду.',
     watch: room => `Вето ${room.t[0]} vs ${room.t[1]} (${room.f}) вживую:`
@@ -435,7 +451,7 @@ const MESSAGES = {
 };
 export function captainMessage(room, team, link, lang = 'ru') {
   const t = MESSAGES[lang] || MESSAGES.ru;
-  return [t.head(room), t.captain(room.t[team]), link, '', `• ${t.coin}`,
+  return [t.head(room), t.captain(room.t[team]), link, '', `• ${room.chooser == null ? t.coin : t.assigned(room.t[room.chooser])}`,
     `• ${t.clock(room.m ?? VETO_MINUTES)}`, `• ${t.secret}`].join('\n');
 }
 export function spectatorMessage(room, link, lang = 'ru') {

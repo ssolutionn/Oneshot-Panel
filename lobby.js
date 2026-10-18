@@ -223,9 +223,10 @@ function renderMatches() {
       </div>
       <div class="lm-teams">
         <span class="lm-team ${m.winner === 0 ? 'won' : ''}">${escapeHtml(m.teams[0])}</span>
-        <b class="lm-score">${m.score[0]} : ${m.score[1]}${m.rounds ? `<small> · раунды ${m.rounds[0]}:${m.rounds[1]}</small>` : ''}</b>
+        <div class="lm-series"><span>Серия · по картам</span><b class="lm-score">${m.score[0]} : ${m.score[1]}</b></div>
         <span class="lm-team right ${m.winner === 1 ? 'won' : ''}">${escapeHtml(m.teams[1])}</span>
       </div>
+      ${m.live ? `<div class="lm-game"><span>Раунды на текущей карте${maps[m.liveMap - 1] ? ` · ${escapeHtml(maps[m.liveMap - 1])}` : ''}</span><b>${m.rounds ? `${m.rounds[0]} : ${m.rounds[1]}` : 'Нет данных FACEIT'}</b></div>` : ''}
       ${maps.length ? `<ol class="lm-maps">${maps.map((name, i) => {
         const result = m.maps[i]?.winner;
         return `<li class="${result === 0 ? 'a' : result === 1 ? 'b' : ''}">${escapeHtml(String(name).replace(/^de_/, ''))}</li>`;
@@ -316,8 +317,10 @@ async function poll() {
     for (const [id, before] of lobby.matches) {
       if (before.live && !seen.has(id)) {
         try { seen.set(id, summarizeMatch(await client.match(id))); } catch { /* next poll */ }
+        if (client !== lobby.client) return;
       }
     }
+    if (client !== lobby.client) return;
     for (const [id, after] of seen) {
       matchEvents(lobby.matches.get(id), after).forEach(handle);
       lobby.matches.set(id, after);

@@ -14,7 +14,7 @@ const state = {
   scheduleDay: '',
   source: { ...DEFAULT_SOURCE }, template: null, templateError: '', logos: {},
   veto: { format: 'BO3', first: 0, actions: [], matchKey: '' },
-  pending: null, sheetTeams: [], streamIds: {}, regenAsk: ''
+  pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false
 };
 let toastTimer, regenTimer, refreshId = 0, controller, templatePromise;
 
@@ -226,7 +226,7 @@ async function loadTemplate() {
   if (templatePromise) return templatePromise;
   templatePromise = (async () => {
     try {
-      const response = await fetch('/assets/obs-template.json');
+      const response = await fetch('/assets/obs-template.json', { signal: AbortSignal.timeout(12000) });
       if (!response.ok) {
         throw new Error('Не загружен шаблон OBS. Попробуй обновить страницу.');
       }
@@ -237,7 +237,8 @@ async function loadTemplate() {
       state.template = template;
       state.templateError = '';
     } catch (error) {
-      state.templateError = error.message;
+      state.templateError = error.name === 'TimeoutError' ?
+        'Шаблон OBS долго загружается. Нажми «Обновить» и повтори.' : error.message;
     } finally {
       templatePromise = null;
       renderOutput();
@@ -552,7 +553,8 @@ function renderOutput() {
   const error = valid();
   const metadataError =
     validateMetadata($('matchTime').value, $('matchStage').value);
-  $('downloadBtn').disabled = !!error || !!metadataError || !state.template;
+  $('downloadBtn').disabled = state.exporting || !!error || !!metadataError || !state.template;
+  $('exportRecovery').disabled = $('downloadBtn').disabled;
   $('copyAllBtn').disabled = !!error;
   $('swapBtn').disabled = !getTeam('a') || !getTeam('b');
   $('exportHint').textContent =
@@ -819,29 +821,71 @@ for (const [id, tab] of [
   });
 }
 $('copyAllBtn').addEventListener('click', () => copy($('output').value));
-$('downloadBtn').addEventListener('click', () => {
+function exportObsFile() {
+  const filename = safeFilename(state.a, state.b, $('matchTime').value, $('matchStage').value);
+  const data = buildObs(state.template, getTeam('a'), getTeam('b'), state.keysA, state.keysB, undefined, {
+    includeCards: $('includeCards').checked,
+    ...(/^https?:$/.test(location.protocol) ? { cardBase: location.origin } : {})
+  });
+  return { filename, text: JSON.stringify(data, null, 2) + '\n' };
+}
+function directDownload(file) {
+  const url = URL.createObjectURL(new Blob([file.text], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = file.filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+let exportFile = null;
+$('downloadBtn').addEventListener('click', async () => {
+  if (state.exporting) return;
+  state.exporting = true;
+  renderOutput();
   try {
-    const filename = safeFilename(state.a, state.b,
-      $('matchTime').value, $('matchStage').value);
-    // Player cards come from the site the panel is opened on.
-    const data = buildObs(state.template,
-      getTeam('a'), getTeam('b'), state.keysA, state.keysB, undefined,
-      {
-        includeCards: $('includeCards').checked,
-        ...(/^https?:$/.test(location.protocol) ? { cardBase: location.origin } : {})
-      });
-    const url = URL.createObjectURL(new Blob([
-      JSON.stringify(data, null, 2) + '\n'
-    ], { type: 'application/json' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
-    toast('JSON готов. OBS → Коллекция сцен → Импорт.');
+    const file = exportFile = exportObsFile();
+    $('exportRecovery').hidden = false;
+    if (typeof window.showSaveFilePicker === 'function') {
+      let writer;
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: file.filename,
+          types: [{ description: 'Коллекция сцен OBS', accept: { 'application/json': ['.json'] } }]
+        });
+        writer = await handle.createWritable();
+        await writer.write(file.text);
+        await writer.close();
+        toast('JSON сохранён. OBS → Коллекция сцен → Импорт.');
+        return;
+      } catch (error) {
+        try { await writer?.abort(); } catch { /* release an unsuccessful file write */ }
+        if (error.name === 'AbortError') return toast('Сохранение отменено. Можно повторить.');
+        // Sandboxed and embedded browsers can expose the API but reject it.
+      }
+    }
+    directDownload(file);
+    toast('Сохранение JSON запрошено. Если файла нет — «Файл не появился?» под кнопкой.');
   } catch (error) { showError(error.message); }
+  finally { state.exporting = false; renderOutput(); }
+});
+$('exportRecovery').addEventListener('click', () => {
+  try {
+    // Rebuild for the currently selected match, not a previous export.
+    exportFile = exportObsFile();
+    $('exportFilename').textContent = exportFile.filename;
+    $('exportText').value = exportFile.text;
+    if (!$('exportDialog').open) $('exportDialog').showModal();
+  } catch (error) { showError(error.message); }
+});
+$('closeExport').addEventListener('click', () => $('exportDialog').close());
+$('exportAgain').addEventListener('click', () => { if (exportFile) directDownload(exportFile); });
+$('exportCopy').addEventListener('click', async () => {
+  if (!exportFile) return;
+  // Close before the manual-copy fallback opens its own modal dialog.
+  $('exportDialog').close();
+  await copy(exportFile.text);
 });
 
 function fillSource(source) {

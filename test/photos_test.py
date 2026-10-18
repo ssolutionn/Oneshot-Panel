@@ -93,6 +93,29 @@ class PhotoPreparation(unittest.TestCase):
         with self.assertRaises(ValueError):
             photos.image_extension(b"RIFFxxxxAVI ")
 
+    def test_local_portrait_survives_normal_and_forced_build_without_hltv(self):
+        for arguments in ((), ("--force",)):
+            entry = {"team": "LAN team", "nick": "Player", "source": "local",
+                     "file": "lan-player.png"}
+            status, entries, files, calls = self.run_case(
+                [entry], arguments=arguments, cached={"lan-player.png": PNG})
+            self.assertEqual(status, 0)
+            self.assertEqual(entries[0]["file"], "lan-player.png")
+            self.assertEqual(files["lan-player.png"], PNG)
+            self.assertEqual(calls, 0)
+
+    def test_local_selection_overrides_hltv_and_rejects_missing_or_unsafe_files(self):
+        local = {**self.entry(), "source": "local", "file": "venue.png"}
+        status, entries, _, calls = self.run_case(
+            [local], arguments=("--force",), cached={"venue.png": PNG})
+        self.assertEqual((status, entries[0]["file"], calls), (0, "venue.png", 0))
+        for name, data in (("../escape.png", PNG), ("absent.png", None),
+                           ("fake.png", b"<html>not a photo</html>")):
+            with self.subTest(name=name):
+                status, entries, _, calls = self.run_case(
+                    [{**local, "file": name}], cached={name: data} if data and "/" not in name else {})
+                self.assertEqual((status, entries[0]["file"], calls), (1, None, 0))
+
 
 if __name__ == "__main__":
     unittest.main()
