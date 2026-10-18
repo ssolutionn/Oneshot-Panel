@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { ObsClient, obsAuth, applyMatch, slotPlan, cardIndex, emitVeto, VETO_EVENT, loopbackObsUrl } from '../obs.js';
-import { viewUrl, cardUrl } from '../core.js';
+import { cameraViewUrl as viewUrl, cardUrl } from '../core.js';
 
 // A small obs-websocket v5 server: enough of the protocol and of OBS scenes
 // to run applyMatch end to end over a real WebSocket.
@@ -145,7 +145,7 @@ test('Sending a match updates cameras and puts cards right under them', async ()
       assert.equal(obs.state.inputs.get(camera).settings.css, 'keep');
       assert.equal(obs.state.inputs.get(card).settings.url, cardUrl(p, 'https://panel.example'));
       for (const it of obs.state.scenes.get(`Игрок ${p.slot}`).slice(2)) {
-        assert.equal(it.transform.boundsWidth, 1920);
+        assert.equal(it.transform.boundsWidth, 1296);
         assert.equal(it.transform.boundsType, 'OBS_BOUNDS_SCALE_INNER');
       }
     }

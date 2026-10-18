@@ -1,0 +1,90 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {buildObs,cameraGeometry,cameraFrame,cameraViewUrl,cameraCss,normalizeCamera} from '../core.js';
+import {slotPlan} from '../obs.js';
+
+const template=JSON.parse(fs.readFileSync(new URL('../assets/obs-template.json',import.meta.url),'utf8'));
+const team=(name)=>({name,players:Array.from({length:5},(_,i)=>({
+  key:name+i,nick:'Player'+i,id:name+i,room:name,role:'Основной'
+}))});
+
+test('camera rotation keeps all four corners exactly inside the chosen frame',()=>{
+  const expected=[
+    {rotation:0,x:312,y:54,width:1296,height:972},
+    {rotation:90,x:1608,y:54,width:972,height:1296},
+    {rotation:180,x:1608,y:1026,width:1296,height:972},
+    {rotation:270,x:312,y:1026,width:972,height:1296}
+  ];
+  for(const geometry of expected){
+    const actual=cameraGeometry({camera:{rotation:geometry.rotation}});
+    assert.deepEqual(actual,geometry);
+    const radians=actual.rotation*Math.PI/180;
+    const points=[[0,0],[actual.width,0],[0,actual.height],[actual.width,actual.height]]
+      .map(([x,y])=>[actual.x+x*Math.cos(radians)-y*Math.sin(radians),
+        actual.y+x*Math.sin(radians)+y*Math.cos(radians)]);
+    assert.ok(Math.abs(Math.min(...points.map(p=>p[0]))-312)<1e-8);
+    assert.ok(Math.abs(Math.max(...points.map(p=>p[0]))-1608)<1e-8);
+    assert.ok(Math.abs(Math.min(...points.map(p=>p[1]))-54)<1e-8);
+    assert.ok(Math.abs(Math.max(...points.map(p=>p[1]))-1026)<1e-8);
+  }
+  assert.deepEqual(cameraFrame('full43'),{x:240,y:0,width:1440,height:1080});
+  assert.deepEqual(cameraFrame('wide'),{x:0,y:0,width:1920,height:1080});
+});
+
+test('cover and pan use VDO options with numeric CSS, and screen directions survive rotation',()=>{
+  const player={id:'player',room:'team',password:'secret'};
+  const url=new URL(cameraViewUrl({...player,camera:{rotation:90,panX:20,panY:70}}));
+  assert.equal(url.searchParams.get('view'),'player');
+  assert.equal(url.searchParams.get('password'),'secret');
+  assert.ok(url.searchParams.has('cover') && url.searchParams.has('transparent'));
+  assert.equal(atob(url.searchParams.get('b64css')),
+    'video{object-fit:cover!important;object-position:70% 80%!important;}');
+  assert.match(cameraCss({rotation:270,panX:20,panY:70}),/30% 20%/);
+  assert.match(cameraCss({rotation:180,panX:20,panY:70}),/80% 30%/);
+  assert.deepEqual(normalizeCamera({rotation:'90;bad',panX:Infinity,panY:'0;bad'}),
+    {rotation:0,panX:50,panY:50});
+  assert.deepEqual(normalizeCamera({rotation:90,panX:-50,panY:400}),
+    {rotation:90,panX:0,panY:100});
+  assert.deepEqual(cameraFrame('__proto__'),{x:312,y:54,width:1296,height:972});
+  assert.deepEqual(cameraFrame({toString:null}),{x:312,y:54,width:1296,height:972});
+});
+
+test('an older panel keeps the previous full-frame and contain behavior through an updated dock',()=>{
+  const plan=slotPlan([{inputKind:'browser_source',sourceName:'CAM old',sceneItemId:1}],
+    {slot:1,team:'A',nick:'Player',id:'camera',room:'room',camera:{rotation:90}},
+    {legacyCamera:true});
+  assert.equal(plan.camera.settings.width,1920);
+  assert.equal(plan.camera.settings.height,1080);
+  assert.equal(plan.camera.transform.rotation,0);
+  assert.equal(plan.camera.transform.positionX,0);
+  assert.equal(new URL(plan.camera.settings.url).searchParams.has('cover'),false);
+});
+
+test('JSON export and live OBS apply share camera settings and geometry; cards stay upright',()=>{
+  for(const frame of ['inner43','full43','wide']){
+    for(const rotation of [0,90,180,270]){
+      const a=team('A'),b=team('B');
+      a.players[0].camera={rotation,panX:20,panY:70};
+      const document=buildObs(template,a,b,a.players.map(p=>p.key),b.players.map(p=>p.key),
+        undefined,{includeCards:true,cameraFrame:frame});
+      const scene=document.sources.find(s=>s.name==='Игрок 1');
+      const camera=scene.settings.items.find(it=>it.name.startsWith('CAM '));
+      const card=scene.settings.items.find(it=>it.name.startsWith('CARD '));
+      const source=document.sources.find(s=>s.uuid===camera.source_uuid);
+      const plan=slotPlan([{inputKind:'browser_source',sourceName:'CAM old',sceneItemId:1}],
+        {...a.players[0],team:'A',slot:1},{includeCards:true,cameraFrame:frame});
+      assert.deepEqual(source.settings.url,plan.camera.settings.url);
+      assert.equal(source.settings.width,plan.camera.settings.width);
+      assert.equal(source.settings.height,plan.camera.settings.height);
+      assert.equal(camera.rot,plan.camera.transform.rotation);
+      assert.deepEqual(camera.pos,{x:plan.camera.transform.positionX,y:plan.camera.transform.positionY});
+      assert.deepEqual(camera.bounds,{x:plan.camera.transform.boundsWidth,y:plan.camera.transform.boundsHeight});
+      assert.equal(card.rot,0);
+      const rect=cameraFrame(frame);
+      assert.deepEqual(card.pos,{x:rect.x,y:rect.y});
+      assert.deepEqual(card.bounds,{x:rect.width,y:rect.height});
+      assert.equal(source.settings.url.includes('cover'),true);
+    }
+  }
+});

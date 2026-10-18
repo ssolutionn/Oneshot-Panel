@@ -4,6 +4,7 @@
 :root[data-theme=dark]:not([data-mode=light]),:root[data-mode=dark]{color-scheme:dark;--bg:#101012;--ink:#ececec;--muted:#a3a3a8;--line:#2e2e33;--red:#e0313c;--red-hover:#f04751;--surface:#1a1a1d;--surface-2:#161619;--soft:#26262a;--soft-ink:#c4c4c8;--hover:#2a2a2f;--divider:#26262a;--divider-2:#2a2a2f;--btn-line:#3c3c42;--field:#121214;--field-line:#45454c;--sub:#c4c4c8;--code:#121214;--code-ink:#e2e2e2;--strong:#ececec;--strong-hover:#fff;--on-strong:#111;--bar:#000;--header:#0a0a0b;--header-ink:#fff;--map-hover:#ececec;--logo-day:none;--logo-night:block;--warn:#33280f;--warn-ink:#f2d8a0;--warn-line:#6e5626;--side:#3a3113;--shadow:#0009;--backdrop:#000b}
 /* Shared layout tokens; the scene and copy formats are owned by core.js. */
 :root {
+  --camera-stage:#000;
   --on-accent:#fff; --success:#239b56; --success-bg:#e7f5ec; --success-ink:#176738;
   --focus:#246bde; --map-base:#3a4544; --map-ink:#fff; --map-shade:#0009;
   --map-ban:#ed1637; --map-pick:#33814a; --map-decider:#59616c;
@@ -126,6 +127,21 @@ h2 { font-size:17px; line-height:1.4; letter-spacing:-.3px; margin-bottom:0; }
 .player-info { flex:1; min-width:0; }
 .player-info select { width:100%; min-width:0; max-width:100%; border:0; background:transparent; color:var(--ink); font-size:13px; font-weight:700; padding:1px 14px 1px 0; }
 .player-subline { display:block; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:9px; color:var(--muted); }
+.camera-adjust { display:block; font-size:10px; min-height:24px; color:var(--muted); }
+.camera-frame-setting { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:8px; color:var(--muted); font-size:11px; }
+.camera-frame-setting select { max-width:100%; padding:6px 8px; background:var(--field); color:var(--ink); border:1px solid var(--field-line); border-radius:5px; }
+.camera-frame-setting > span { flex-basis:100%; font-size:10px; }
+.camera-dialog { width:min(780px,calc(100% - 24px)); }
+.camera-preview-stage { position:relative; width:100%; aspect-ratio:16/9; overflow:hidden; background:var(--camera-stage); }
+.camera-preview-box { position:absolute; left:var(--camera-left); top:var(--camera-top); width:var(--camera-width); height:var(--camera-height); overflow:hidden; outline:1px solid var(--red); }
+.camera-preview-box iframe { position:absolute; inset:0; width:100%; height:100%; border:0; transform-origin:0 0; }
+.camera-preview-box[data-rotation="90"] iframe { inset:auto; left:100%; top:0; width:var(--camera-rotated-width); height:var(--camera-rotated-height); transform:rotate(90deg); }
+.camera-preview-box[data-rotation="180"] iframe { inset:auto; left:100%; top:100%; transform:rotate(180deg); }
+.camera-preview-box[data-rotation="270"] iframe { inset:auto; left:0; top:100%; width:var(--camera-rotated-width); height:var(--camera-rotated-height); transform:rotate(270deg); }
+.camera-tools { display:flex; flex-wrap:wrap; align-items:end; gap:10px; margin-top:14px; }
+.camera-tools label { display:grid; gap:4px; color:var(--muted); font-size:12px; }
+.camera-tools select { padding:7px; background:var(--field); color:var(--ink); border:1px solid var(--field-line); border-radius:5px; }
+.camera-pan { display:flex; flex-wrap:wrap; gap:6px; flex-basis:100%; }
 .copy-icon { display:grid; place-items:center; flex-shrink:0; width:30px; height:32px; border:0; border-radius:5px; background:transparent; color:var(--muted); font-size:20px; }
 .copy-icon:hover { background:var(--soft); color:var(--ink); }
 .regen-icon { font-size:17px; } .setid-icon { font-size:15px; }
