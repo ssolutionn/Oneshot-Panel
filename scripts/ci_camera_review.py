@@ -8,6 +8,8 @@ import urllib.request
 import ci_veto_external as evidence
 
 evidence.RESULT_REF="refs/heads/codex/camera-validation-results"
+if os.environ.get('GITHUB_REF')=='refs/heads/claude/gracious-sagan-apztcc':
+    evidence.RESULT_REF+='-production'
 evidence.OUT=Path(os.environ.get("RUNNER_TEMP","/tmp"))/"oneshot-camera-review"
 
 
