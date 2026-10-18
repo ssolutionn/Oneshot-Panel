@@ -204,6 +204,24 @@ function reconcileKeys(team, keys) {
   const available = new Set(team?.players.map(p => p.key));
   return keys.map(key => available.has(key) ? key : '');
 }
+function syncScheduledSelection() {
+  // Keys include the start time. A correction in Sheets must also update a
+  // selected/restored match, without changing teams, lineups or veto progress.
+  let previous;
+  try { previous = JSON.parse(state.matchKey); } catch { return; }
+  if (!Array.isArray(previous) || previous.length !== 6 ||
+      !previous.slice(0, 5).every(value => typeof value === 'string')) return;
+  const [date, time, team1, team2, stage] = previous;
+  if (state.a !== team1 || state.b !== team2) return;
+  const candidates = state.schedule.filter(match => match.date === date &&
+    match.team1 === team1 && match.team2 === team2 && match.stage === stage);
+  const match = candidates.find(match => match.key === state.matchKey) ||
+    (candidates.length === 1 ? candidates[0] : null);
+  if (!match) return;
+  state.matchKey = match.key;
+  // An operator's explicit time override stays in place.
+  if ($('matchTime').value === time) $('matchTime').value = match.time;
+}
 async function loadTemplate() {
   if (templatePromise) return templatePromise;
   templatePromise = (async () => {
@@ -280,6 +298,7 @@ async function refresh() {
     if (pair !== state.a + '\n' + state.b) resetVeto();
     state.keysA = reconcileKeys(getTeam('a'), state.keysA);
     state.keysB = reconcileKeys(getTeam('b'), state.keysB);
+    syncScheduledSelection();
     state.lastSync = new Date();
     state.stale = false;
     render();

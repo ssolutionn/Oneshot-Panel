@@ -578,6 +578,7 @@ async def run(args):
         moscow = datetime.now(timezone(timedelta(hours=3)))
         day = lambda shift: (moscow + timedelta(days=shift)).strftime("%B %-d")
         label = lambda shift: (moscow + timedelta(days=shift)).strftime("%d.%m")
+        organizer_time = "16:00"
 
         async def organizer_schedule(route):
             body = gviz([
@@ -585,7 +586,7 @@ async def run(args):
                  "6yuBoJlbl", "2", "vs", "0", "HYPERSPIRIT"],
                 ["2", "Opening Match B2", day(0), "13:00", "16:00", "A", "",
                  "6yuBoJlbl", "", "vs", "", "HYPERSPIRIT"],
-                ["3", "Losers Match B3", day(1), "13:00", "16:00", "A", "",
+                ["3", "Losers Match B3", day(1), "13:00", organizer_time, "A", "",
                  "HYPERSPIRIT (ex-HS)", "", "vs", "", "6yuBoJlbl"],
                 ["4", "Winners Match B4", day(1), "16:00", "19:00", "A", "",
                  "", "", "vs", "", ""],
@@ -632,6 +633,40 @@ async def run(args):
             path=str(artifacts / "team-logos.png")
         )
         passed("organizer schedule by date; logos on team cards")
+
+        await organizer_page.click("#vetoNavBtn")
+        await organizer_page.click('[data-map="Anubis"]')
+        before_veto = await organizer_page.evaluate(
+            "window.oneshotPanel.snapshot().veto"
+        )
+        organizer_time = "17:30"
+        await organizer_page.click("#refreshBtn")
+        await expect(organizer_page.locator("#refreshBtn")).to_be_enabled()
+        assert await organizer_page.input_value("#matchTime") == organizer_time
+        assert await organizer_page.input_value("#matchSelect")
+        assert await organizer_page.evaluate(
+            "window.oneshotPanel.snapshot().veto"
+        ) == before_veto
+
+        organizer_time = "18:00"
+        await organizer_page.reload()
+        await expect(organizer_page.locator("#syncTitle")).to_contain_text(
+            "команд из таблицы"
+        )
+        assert await organizer_page.input_value("#matchTime") == organizer_time
+        assert await organizer_page.input_value("#matchSelect")
+        assert await organizer_page.evaluate(
+            "window.oneshotPanel.snapshot().veto"
+        ) == before_veto
+
+        await organizer_page.click("#viewPrep")
+        await organizer_page.fill("#matchTime", "18:45")
+        organizer_time = "19:00"
+        await organizer_page.click("#refreshBtn")
+        await expect(organizer_page.locator("#refreshBtn")).to_be_enabled()
+        assert await organizer_page.input_value("#matchTime") == "18:45"
+        assert await organizer_page.input_value("#matchSelect")
+        passed("corrected schedule time refreshes and reloads without losing veto or manual edits")
         await organizer.close()
 
         night = await browser.new_context(

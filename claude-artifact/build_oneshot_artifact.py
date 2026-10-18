@@ -347,6 +347,7 @@ function applyData(data) {
   }
   state.keysA = reconcileKeys(getTeam('a'), state.keysA);
   state.keysB = reconcileKeys(getTeam('b'), state.keysB);
+  syncScheduledSelection();
   state.lastSync = new Date(data.syncedAt || Date.now());
   state.stale = false;
   showError('');
