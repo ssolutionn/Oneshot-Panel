@@ -157,9 +157,32 @@
           "body": "<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\"no-js ie6 oldie\" lang=\"en-US\"> <![endif]-->\n<!--[if IE 7]>    <html class=\"no-js ie7 oldie\" lang=\"en-US\"> <![endif]-->\n<!--[if IE 8]>    <html class=\"no-js ie8 oldie\" lang=\"en-US\"> <![endif]-->\n<!--[if gt IE 8]><!--> <html class=\"no-js\" lang=\"en-US\"> <!--<![endif]-->\n  <head>\n    <meta charSet=\"utf-8\"/>\n    <meta http-equiv=\"refresh\" content=\"30\">\n    <title>Page not found</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"https://workers.cloudflare.com/favicon.ico\" sizes=\"48x48\"/>\n    <style>\n      body {\n        font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Roboto\", \"Oxygen\", \"Ubuntu\", \"Cantarell\", \"Fira Sans\", \"Droid Sans\", \"Helvetica Neue\", sans-serif\n      }\n      body,html {\n        margin: 0;\n        padding: 0;\n      }\n      * {\n        box-sizing: border-box;\n      }\n      .box {\n        display: flex;\n        flex-direction: column;\n        justify-content: center;\n        height: 100vh;\n        background-color: #f8f8f8;\n      }\n      .content {\n        margin: auto;\n      }\n      .content h1 {\n        font-size: 32px;\n        font-weight: 600;\n        margin-bottom: 8px;\n      }\n      .content p {\n        fo"
         }
       ]
+    },
+    "deployment_metadata": {
+      "status": "observed",
+      "results": [
+        {
+          "ref": "main",
+          "status": {
+            "sha": "618a33676aac381a56619f5b1a93d767cf408d3f",
+            "state": "pending",
+            "statuses": []
+          },
+          "check-runs": []
+        },
+        {
+          "ref": "codex/veto-resilience-review",
+          "status": {
+            "sha": "f16cadba7ee1dc96220fc50845a75d5b15080e95",
+            "state": "pending",
+            "statuses": []
+          },
+          "check-runs": []
+        }
+      ]
     }
   },
-  "updated_at": "2026-10-18T00:15:41.157108+00:00",
+  "updated_at": "2026-10-18T00:15:44.481757+00:00",
   "cloudflare_bindings": {
     "CLOUDFLARE_API_TOKEN": false,
     "CLOUDFLARE_ACCOUNT_ID": false
