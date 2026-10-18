@@ -8,7 +8,72 @@
       "conclusion": "failure",
       "head_sha": "9376ab642be503675f216cd0ac4ed9ffd5811408",
       "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39083496923"
+    },
+    "deployment_metadata": {
+      "status": "observed",
+      "results": [
+        {
+          "ref": "main",
+          "status": {
+            "sha": "9376ab642be503675f216cd0ac4ed9ffd5811408",
+            "state": "pending",
+            "statuses": []
+          },
+          "check-runs": [
+            {
+              "name": "deploy",
+              "head_sha": "9376ab642be503675f216cd0ac4ed9ffd5811408",
+              "status": "completed",
+              "conclusion": "failure",
+              "details_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39083496923/job/117545143081"
+            }
+          ]
+        },
+        {
+          "ref": "codex/veto-resilience-review",
+          "status": {
+            "sha": "4dff498f9de47f9defa8118f10e418f3bbe761cf",
+            "state": "pending",
+            "statuses": []
+          },
+          "check-runs": [
+            {
+              "name": "deploy",
+              "head_sha": "4dff498f9de47f9defa8118f10e418f3bbe761cf",
+              "status": "completed",
+              "conclusion": "failure",
+              "details_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39082509816/job/117542211783"
+            }
+          ]
+        }
+      ]
     }
   },
-  "updated_at": "2026-10-18T00:39:51.540020+00:00"
+  "updated_at": "2026-10-18T00:39:55.789507+00:00",
+  "deployment_runs": [
+    {
+      "id": 39083496923,
+      "name": "Deploy veto to Cloudflare",
+      "head_sha": "9376ab642be503675f216cd0ac4ed9ffd5811408",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39083496923"
+    },
+    {
+      "id": 39082509816,
+      "name": "Deploy veto to Cloudflare",
+      "head_sha": "4dff498f9de47f9defa8118f10e418f3bbe761cf",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39082509816"
+    }
+  ],
+  "deployment_failure": "deploy\tCheck Cloudflare credentials\t﻿2026-10-18T00:38:34.0017405Z ##[group]Run node --input-type=module <<'JS'\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0017815Z ^[[36;1mnode --input-type=module <<'JS'^[[0m\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0018333Z ^[[36;1mconst missing = ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'].filter(key => !process.env[key]);^[[0m\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0019055Z ^[[36;1mif (missing.length) throw Error('Add these repository secrets/variables: ' + missing.join(', '));^[[0m\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0019550Z ^[[36;1mJS^[[0m\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0085143Z shell: /usr/bin/bash -e {0}\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0085418Z env:\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0085886Z   CLOUDFLARE_API_TOKEN: [redacted]\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0086155Z   CLOUDFLARE_ACCOUNT_ID: \ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0086403Z   WRANGLER_SEND_METRICS: false\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0086653Z ##[endgroup]\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0442548Z file:///home/runner/work/Oneshot-Veto/Oneshot-Veto/[eval1]:2\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0445554Z if (missing.length) throw Error('Add these repository secrets/variables: ' + missing.join(', '));\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0447137Z                           ^\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0447895Z \ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0448649Z Error: Add these repository secrets/variables: CLOUDFLARE_ACCOUNT_ID\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0449295Z     at file:///home/runner/work/Oneshot-Veto/Oneshot-Veto/[eval1]:2:27\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0449831Z     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0450579Z     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0451280Z     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:282:26)\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0451905Z     at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:278:20)\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0452534Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0452876Z \ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0453235Z Node.js v22.23.3\ndeploy\tCheck Cloudflare credentials\t2026-10-18T00:38:34.0482312Z ##[error]Process completed with exit code 1.\n",
+  "site_pull_request": {
+    "number": 2,
+    "state": "closed",
+    "merged": true,
+    "merge_commit_sha": "f16cadba7ee1dc96220fc50845a75d5b15080e95",
+    "html_url": "https://github.com/ssolutionn/Oneshot-Veto/pull/2"
+  }
 }
