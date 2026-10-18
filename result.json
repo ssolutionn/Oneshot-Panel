@@ -166,7 +166,7 @@
       ]
     }
   },
-  "updated_at": "2026-10-18T00:47:10.813975+00:00",
+  "updated_at": "2026-10-18T00:47:12.547520+00:00",
   "deployment_runs": [
     {
       "id": 39083903439,
@@ -200,5 +200,9 @@
     "merged": true,
     "merge_commit_sha": "f16cadba7ee1dc96220fc50845a75d5b15080e95",
     "html_url": "https://github.com/ssolutionn/Oneshot-Veto/pull/2"
+  },
+  "cloudflare_bindings": {
+    "CLOUDFLARE_API_TOKEN": false,
+    "CLOUDFLARE_ACCOUNT_ID": false
   }
 }
