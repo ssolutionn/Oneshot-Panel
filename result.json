@@ -76,8 +76,11 @@
       "tail": "PASS: webkit white document after load, delayed API, zero decoded frames, video readiness, disconnect/reconnect and cleanup\n"
     },
     "editor_firefox": {
-      "status": "running"
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 7.2,
+      "tail": "PASS: firefox camera cover/pan/rotation preview, one connection, player persistence across slots/reload, JSON/live parity, mobile, frame setting and outdated-dock rejection\n"
     }
   },
-  "updated_at": "2026-10-19T13:46:13.598300+00:00"
+  "updated_at": "2026-10-19T13:46:22.478592+00:00"
 }
