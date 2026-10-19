@@ -399,7 +399,7 @@ $('sendObsConfig').addEventListener('click', async () => {
   }
 });
 
-let sendingMatch = false;
+let sendingMatch = false, lastObsError = '';
 $('cameraApplyObs').addEventListener('click',()=>{
   $('cameraDialog').close();
   $('sendObsBtn').click();
@@ -412,6 +412,8 @@ $('sendObsBtn').addEventListener('click', async () => {
     return openObsSettings();
   }
   const button = $('sendObsBtn');
+  if (lastObsError && $('errorBox').textContent === lastObsError) panel.showError('');
+  lastObsError = '';
   sendingMatch = true;
   button.disabled = true;
   obsBadge('Отправляем в OBS…', 'wait');
@@ -422,7 +424,8 @@ $('sendObsBtn').addEventListener('click', async () => {
     button.title = '';
     panel.toast(`OBS обновлён: ${summary.slots} камер${summary.cards ? `, ${summary.cards} карточек` : ''}.`);
   } catch (error) {
-    panel.showError(`${error.message} JSON для импорта можно скачать или скопировать рядом.`);
+    lastObsError = `${error.message} JSON для импорта можно скачать или скопировать рядом.`;
+    panel.showError(lastObsError);
   } finally {
     sendingMatch = false;
     button.disabled = !!panel.snapshot().matchError;

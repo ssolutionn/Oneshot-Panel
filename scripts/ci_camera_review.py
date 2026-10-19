@@ -46,7 +46,7 @@ sudo apt-get install -y "$RUNNER_TEMP/oneshot-camera-obs.deb" xvfb libgl1-mesa-d
             ("real_vdo_api",["python3","scripts/qa_camera.py","--real-provider","--artifacts","artifacts/camera-provider"],120),
             ("editor_chromium",["python3","scripts/qa_camera.py","--artifacts","artifacts/camera-chromium"],180),
             ("editor_webkit",["python3","scripts/qa_camera.py","--browser","webkit","--artifacts","artifacts/camera-webkit"],180),
-            ("veto_server_chromium",["python3","scripts/qa_veto_site.py","--server","--pretty-links","--artifacts","artifacts/veto-zoom-chromium"],360),
+            ("veto_server_chromium",["python3","scripts/qa_veto_site.py","--server","--pretty-links","--focus-match","--artifacts","artifacts/veto-zoom-chromium"],360),
             ("veto_server_webkit",["python3","scripts/qa_veto_site.py","--server","--pretty-links","--browser","webkit","--focus-match","--artifacts","artifacts/veto-zoom-webkit"],240),
             ("notifications",["python3","scripts/qa_notifications.py"],120),
             ("panel_chromium",["python3","scripts/qa_browser.py","--artifacts","artifacts/camera-panel-chromium"],360),
