@@ -176,9 +176,153 @@
       "exit_code": 0,
       "seconds": 23.6,
       "tail": "Installing dependencies...\nSwitching to root user to install dependencies...\nGet:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]\nHit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease\nGet:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]\nGet:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]\nGet:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]\nGet:6 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1397 kB]\nGet:7 http://azure.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [308 kB]\nGet:8 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1704 kB]\nGet:9 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [342 kB]\nGet:10 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1805 kB]\nGet:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [411 kB]\nGet:12 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Packages [1144 kB]\nGet:13 http://azure.archive.ubuntu.com/ubuntu noble-security/main Translation-en [231 kB]\nGet:14 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1222 kB]\nGet:15 http://azure.archive.ubuntu.com/ubuntu noble-security/universe Translation-en [246 kB]\nGet:16 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1713 kB]\nGet:17 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted Translation-en [392 kB]\nGet:18 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]\nGet:19 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [618 kB]\nGet:20 https://packages.microsoft.com/ubuntu/24.04/prod noble/main armhf Packages [12.4 kB]\nGet:21 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [557 kB]\nFetched 12.5 MB in 3s (3824 kB/s)\nReading package lists...\nReading package lists...\nBuilding dependency tree...\nReading state information...\nlibasound2t64 is already the newest version (1.2.11-1ubuntu0.3).\nlibasound2t64 set to manually installed.\nlibatk-bridge2.0-0t64 is already the newest version (2.52.0-1build1).\nlibatk-bridge2.0-0t64 set to manually installed.\nlibatk1.0-0t64 is already the newest version (2.52.0-1build1).\nlibatk1.0-0t64 set to manually installed.\nlibatspi2.0-0t64 is already the newest version (2.52.0-1build1).\nlibatspi2.0-0t64 set to manually installed.\nlibcairo2 is already the newest version (1.18.0-3build1).\nlibcairo2 set to manually installed.\nlibcups2t64 is already the newest version (2.4.7-1.2ubuntu7.14).\nlibcups2t64 set to manually installed.\nlibdbus-1-3 is already the newest version (1.14.10-4ubuntu4.1).\nlibdbus-1-3 set to manually installed.\nlibdrm2 is already the newest version (2.4.125-1ubuntu0.1~24.04.2).\nlibdrm2 set to manually installed.\nlibgbm1 is already the newest version (25.2.8-0ubuntu0.24.04.4).\nlibgbm1 set to manually installed.\nlibglib2.0-0t64 is already the newest version (2.80.0-6ubuntu3.9).\nlibglib2.0-0t64 set to manually installed.\nlibnspr4 is already the newest version (2:4.35-1.1build1).\nlibnspr4 set to manually installed.\nlibnss3 is already the newest version (2:3.98-1ubuntu0.2).\nlibnss3 set to manually installed.\nlibpango-1.0-0 is already the newest version (1.52.1+ds-1build1).\nlibpango-1.0-0 set to manually installed.\nlibx11-6 is already the newest version (2:1.8.7-1ubuntu0.1).\nlibx11-6 set to manually installed.\nlibxcb1 is already the newest version (1.15-1ubuntu2).\nlibxcb1 set to manually installed.\nlibxcomposite1 is already the newest version (1:0.4.5-1build3).\nlibxcomposite1 set to manually installed.\nlibxdamage1 is already the newest version (1:1.1.6-1build1).\nlibxdamage1 set to manually installed.\nlibxext6 is already the newest version (2:1.3.4-1build2).\nlibxext6 set to manually installed.\nlibxfixes3 is already the newest version (1:6.0.0-2build1).\nlibxfixes3 set to manually installed.\nlibxkbcommon0 is already the newest version (1.6.0-1build1).\nlibxkbcommon0 set to manually installed.\nlibxrandr2 is already the newest version (2:1.5.2-2build1).\nlibxrandr2 set to manually installed.\nxvfb is already the newest version (2:21.1.12-1ubuntu1.8).\nfonts-noto-color-emoji is already the newest version (2.047-0ubuntu0.24.04.1).\nlibfontconfig1 is already the newest version (2.15.0-1.1ubuntu2).\nlibfontconfig1 set to manually installed.\nlibfreetype6 is already the newest version (2.13.2+dfsg-1ubuntu0.2).\nlibfreetype6 set to manually installed.\nfonts-liberation is already the newest version (1:2.1.5-3).\nfonts-liberation set to manually installed.\nThe following additional packages will be installed:\n  xfonts-encodings xfonts-utils\nRecommended packages:\n  fonts-ipafont-mincho fonts-tlwg-loma\nThe following NEW packages will be installed:\n  fonts-freefont-ttf fonts-ipafont-gothic fonts-tlwg-loma-otf fonts-unifont\n  fonts-wqy-zenhei xfonts-cyrillic xfonts-encodings xfonts-scalable\n  xfonts-utils\n0 upgraded, 9 newly installed, 0 to remove and 77 not upgraded.\nNeed to get 21.1 MB of archives.\nAfter this operation, 79.5 MB of additional disk space will be used.\nGet:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]\nGet:2 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-ipafont-gothic all 00303-21ubuntu1 [3513 kB]\nGet:3 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 fonts-freefont-ttf all 20211204+svn4273-2 [5641 kB]\nGet:4 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-tlwg-loma-otf all 1:0.7.3-1 [107 kB]\nGet:5 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-unifont all 1:15.1.01-1build1 [2993 kB]\nGet:6 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-wqy-zenhei all 0.9.45-8 [7472 kB]\nGet:7 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-encodings all 1:1.0.5-0ubuntu2 [578 kB]\nGet:8 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-utils amd64 1:7.7+6build3 [94.4 kB]\nGet:9 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 xfonts-cyrillic all 1:1.0.5+nmu1 [384 kB]\nGet:10 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-scalable all 1:1.0.3-1.3 [304 kB]\nFetched 21.1 MB in 0s (46.2 MB/s)\nSelecting previously unselected package fonts-ipafont-gothic.\n(Reading database ... \n(Reading database ... 5%\n(Reading database ... 10%\n(Reading database ... 15%\n(Reading database ... 20%\n(Reading database ... 25%\n(Reading database ... 30%\n(Reading database ... 35%\n(Reading database ... 40%\n(Reading database ... 45%\n(Reading database ... 50%\n(Reading database ... 55%\n(Reading database ... 60%\n(Reading database ... 65%\n(Reading database ... 70%\n(Reading database ... 75%\n(Reading database ... 80%\n(Reading database ... 85%\n(Reading database ... 90%\n(Reading database ... 95%\n(Reading database ... 100%\n(Reading database ... 203540 files and directories currently installed.)\nPreparing to unpack .../0-fonts-ipafont-gothic_00303-21ubuntu1_all.deb ...\nUnpacking fonts-ipafont-gothic (00303-21ubuntu1) ...\nSelecting previously unselected package fonts-freefont-ttf.\nPreparing to unpack .../1-fonts-freefont-ttf_20211204+svn4273-2_all.deb ...\nUnpacking fonts-freefont-ttf (20211204+svn4273-2) ...\nSelecting previously unselected package fonts-tlwg-loma-otf.\nPreparing to unpack .../2-fonts-tlwg-loma-otf_1%3a0.7.3-1_all.deb ...\nUnpacking fonts-tlwg-loma-otf (1:0.7.3-1) ...\nSelecting previously unselected package fonts-unifont.\nPreparing to unpack .../3-fonts-unifont_1%3a15.1.01-1build1_all.deb ...\nUnpacking fonts-unifont (1:15.1.01-1build1) ...\nSelecting previously unselected package fonts-wqy-zenhei.\nPreparing to unpack .../4-fonts-wqy-zenhei_0.9.45-8_all.deb ...\nUnpacking fonts-wqy-zenhei (0.9.45-8) ...\nSelecting previously unselected package xfonts-encodings.\nPreparing to unpack .../5-xfonts-encodings_1%3a1.0.5-0ubuntu2_all.deb ...\nUnpacking xfonts-encodings (1:1.0.5-0ubuntu2) ...\nSelecting previously unselected package xfonts-utils.\nPreparing to unpack .../6-xfonts-utils_1%3a7.7+6build3_amd64.deb ...\nUnpacking xfonts-utils (1:7.7+6build3) ...\nSelecting previously unselected package xfonts-cyrillic.\nPreparing to unpack .../7-xfonts-cyrillic_1%3a1.0.5+nmu1_all.deb ...\nUnpacking xfonts-cyrillic (1:1.0.5+nmu1) ...\nSelecting previously unselected package xfonts-scalable.\nPreparing to unpack .../8-xfonts-scalable_1%3a1.0.3-1.3_all.deb ...\nUnpacking xfonts-scalable (1:1.0.3-1.3) ...\nSetting up fonts-wqy-zenhei (0.9.45-8) ...\nSetting up fonts-freefont-ttf (20211204+svn4273-2) ...\nSetting up fonts-tlwg-loma-otf (1:0.7.3-1) ...\nSetting up xfonts-encodings (1:1.0.5-0ubuntu2) ...\nSetting up fonts-ipafont-gothic (00303-21ubuntu1) ...\nupdate-alternatives: using /usr/share/fonts/opentype/ipafont-gothic/ipag.ttf to provide /usr/share/fonts/truetype/fonts-japanese-gothic.ttf (fonts-japanese-gothic.ttf) in auto mode\nSetting up fonts-unifont (1:15.1.01-1build1) ...\nSetting up xfonts-utils (1:7.7+6build3) ...\nSetting up xfonts-cyrillic (1:1.0.5+nmu1) ...\nSetting up xfonts-scalable (1:1.0.3-1.3) ...\nProcessing triggers for man-db (2.12.0-4build2) ...\nNot building database; man-db/auto-update is not 'true'.\nProcessing triggers for fontconfig (2.15.0-1.1ubuntu2) ...\n\nRunning kernel seems to be up-to-date.\n\nNo services need to be restarted.\n\nNo containers need to be restarted.\n\nNo user sessions are running outdated binaries.\n\nNo VM guests are running outdated hypervisor (qemu) binaries on this host.\nDownloading Chrome for Testing 156.0.8078.4 (playwright chromium v1248) from https://cdn.playwright.dev/builds/cft/156.0.8078.4/linux64/chrome-linux64.zip\n|                                                                                |   0% of 191.1 MiB\n|■■■■■■■■                                                                        |  10% of 191.1 MiB\n|■■■■■■■■■■■■■■■■                                                                |  20% of 191.1 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 191.1 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 191.1 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 191.1 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 191.1 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 191.1 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 191.1 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 191.1 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 191.1 MiB\nChrome for Testing 156.0.8078.4 (playwright chromium v1248) downloaded to /home/runner/.cache/ms-playwright/chromium-1248\nDownloading FFmpeg (playwright ffmpeg v1013) from https://cdn.playwright.dev/dbazure/download/playwright/builds/ffmpeg/1013/ffmpeg-linux.zip\n|                                                                                |   0% of 2.2 MiB\n|■■■■■■■■                                                                        |  10% of 2.2 MiB\n|■■■■■■■■■■■■■■■■                                                                |  20% of 2.2 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 2.2 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 2.2 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 2.2 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 2.2 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 2.2 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 2.2 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 2.2 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 2.2 MiB\nFFmpeg (playwright ffmpeg v1013) downloaded to /home/runner/.cache/ms-playwright/ffmpeg-1013\nDownloading Chrome Headless Shell 156.0.8078.4 (playwright chromium-headless-shell v1248) from https://cdn.playwright.dev/builds/cft/156.0.8078.4/linux64/chrome-headless-shell-linux64.zip\n|                                                                                |   0% of 120 MiB\n|■■■■■■■■                                                                        |  10% of 120 MiB\n|■■■■■■■■■■■■■■■■                                                                |  20% of 120 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 120 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 120 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 120 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 120 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 120 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 120 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 120 MiB\n|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 120 MiB\nChrome Headless Shell 156.0.8078.4 (playwright chromium-headless-shell v1248) downloaded to /home/runner/.cache/ms-playwright/chromium_headless_shell-1248\n"
+    },
+    "public_browser_endpoints": {
+      "status": "observed",
+      "results": [
+        {
+          "url": "https://oneshot-veto.pages.dev/",
+          "status": 200,
+          "content_type": "text/html; charset=utf-8",
+          "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://oneshot-veto.cyberclash.workers.dev; frame-src https://vdo.ninja https://cdn-backup.vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "cf_mitigated": null,
+          "markers": {
+            "vtTransport": true,
+            "vtReconnect": true,
+            "signRoomMessage": false,
+            "claimPush": false,
+            "--vt-ct:#7fb2f0": false,
+            "--vt-t:#f0a95e": false,
+            "background:var(--vt-ct); color:var(--vt-bg)": false,
+            "background:var(--vt-t); color:var(--vt-bg)": false,
+            "VDO_CONNECT_TIMEOUT = 30000": false
+          },
+          "matches_source": true
+        },
+        {
+          "url": "https://oneshot-veto.pages.dev/veto.js",
+          "status": 200,
+          "content_type": "application/javascript",
+          "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://oneshot-veto.cyberclash.workers.dev; frame-src https://vdo.ninja https://cdn-backup.vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "cf_mitigated": null,
+          "markers": {
+            "vtTransport": true,
+            "vtReconnect": true,
+            "signRoomMessage": true,
+            "claimPush": true,
+            "--vt-ct:#7fb2f0": false,
+            "--vt-t:#f0a95e": false,
+            "background:var(--vt-ct); color:var(--vt-bg)": false,
+            "background:var(--vt-t); color:var(--vt-bg)": false,
+            "VDO_CONNECT_TIMEOUT = 30000": false
+          },
+          "matches_source": true
+        },
+        {
+          "url": "https://oneshot-veto.pages.dev/veto-room.js",
+          "status": 200,
+          "content_type": "application/javascript",
+          "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://oneshot-veto.cyberclash.workers.dev; frame-src https://vdo.ninja https://cdn-backup.vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "cf_mitigated": null,
+          "markers": {
+            "vtTransport": false,
+            "vtReconnect": false,
+            "signRoomMessage": true,
+            "claimPush": false,
+            "--vt-ct:#7fb2f0": false,
+            "--vt-t:#f0a95e": false,
+            "background:var(--vt-ct); color:var(--vt-bg)": false,
+            "background:var(--vt-t); color:var(--vt-bg)": false,
+            "VDO_CONNECT_TIMEOUT = 30000": false
+          },
+          "matches_source": true
+        },
+        {
+          "url": "https://oneshot-veto.pages.dev/veto.css",
+          "status": 200,
+          "content_type": "text/css; charset=utf-8",
+          "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://oneshot-veto.cyberclash.workers.dev; frame-src https://vdo.ninja https://cdn-backup.vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "cf_mitigated": null,
+          "markers": {
+            "vtTransport": false,
+            "vtReconnect": false,
+            "signRoomMessage": false,
+            "claimPush": false,
+            "--vt-ct:#7fb2f0": true,
+            "--vt-t:#f0a95e": true,
+            "background:var(--vt-ct); color:var(--vt-bg)": true,
+            "background:var(--vt-t); color:var(--vt-bg)": true,
+            "VDO_CONNECT_TIMEOUT = 30000": false
+          },
+          "matches_source": true
+        },
+        {
+          "url": "https://oneshot-veto.pages.dev/vdo.js",
+          "status": 200,
+          "content_type": "application/javascript",
+          "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://oneshot-veto.cyberclash.workers.dev; frame-src https://vdo.ninja https://cdn-backup.vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "cf_mitigated": null,
+          "markers": {
+            "vtTransport": false,
+            "vtReconnect": false,
+            "signRoomMessage": false,
+            "claimPush": false,
+            "--vt-ct:#7fb2f0": false,
+            "--vt-t:#f0a95e": false,
+            "background:var(--vt-ct); color:var(--vt-bg)": false,
+            "background:var(--vt-t); color:var(--vt-bg)": false,
+            "VDO_CONNECT_TIMEOUT = 30000": true
+          },
+          "matches_source": true
+        },
+        {
+          "url": "https://oneshot-veto.pages.dev/api/veto-relay?health=1",
+          "status": 200,
+          "content_type": "application/json; charset=utf-8",
+          "csp": "default-src 'none'; frame-ancestors 'none'; form-action 'none'",
+          "cf_mitigated": null,
+          "markers": {
+            "vtTransport": false,
+            "vtReconnect": false,
+            "signRoomMessage": false,
+            "claimPush": false,
+            "--vt-ct:#7fb2f0": false,
+            "--vt-t:#f0a95e": false,
+            "background:var(--vt-ct); color:var(--vt-bg)": false,
+            "background:var(--vt-t); color:var(--vt-bg)": false,
+            "VDO_CONNECT_TIMEOUT = 30000": false
+          },
+          "health": {
+            "protocol": 1,
+            "ready": true
+          }
+        },
+        {
+          "url": "https://oneshot-veto.cyberclash.workers.dev/api/veto-relay?health=1",
+          "status": 200,
+          "content_type": "application/json; charset=utf-8",
+          "csp": "default-src 'none'; frame-ancestors 'none'; form-action 'none'",
+          "cf_mitigated": null,
+          "markers": {
+            "vtTransport": false,
+            "vtReconnect": false,
+            "signRoomMessage": false,
+            "claimPush": false,
+            "--vt-ct:#7fb2f0": false,
+            "--vt-t:#f0a95e": false,
+            "background:var(--vt-ct); color:var(--vt-bg)": false,
+            "background:var(--vt-t); color:var(--vt-bg)": false,
+            "VDO_CONNECT_TIMEOUT = 30000": false
+          },
+          "health": {
+            "protocol": 1,
+            "ready": true
+          }
+        }
+      ]
     }
   },
-  "updated_at": "2026-10-19T13:43:07.545023+00:00",
+  "updated_at": "2026-10-19T13:43:11.262359+00:00",
   "deployment_runs": [
     {
       "id": 39184291213,
