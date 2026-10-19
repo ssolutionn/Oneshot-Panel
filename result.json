@@ -1,7 +1,7 @@
 {
   "source_sha": "5fd791faa72b405113e161dec0dd245ccdd55ce9",
   "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39262416052",
-  "status": "running",
+  "status": "passed",
   "steps": {
     "deployment_wait": {
       "status": "completed",
@@ -340,7 +340,7 @@
       "tail": "PASS: server OBS overlay receipt, strip crop, animation, reload, offline recovery, stale receipt rejection; zero VDO requests\n"
     }
   },
-  "updated_at": "2026-10-19T13:45:22.717827+00:00",
+  "updated_at": "2026-10-19T13:45:24.350688+00:00",
   "deployment_runs": [
     {
       "id": 39184291213,
