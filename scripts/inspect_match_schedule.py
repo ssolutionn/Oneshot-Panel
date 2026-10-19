@@ -59,7 +59,7 @@ try:
         if report["published_build"] != expected_build:
             raise RuntimeError("The panel host has not yet published the expected commit")
         report["asset_checks"] = {}
-        for file in ("app.js", "core.js", "live.js", "lobby.js", "style.css", "notifications.js", "notification-worker.js", "assets/camera/oneshot-preview.png"):
+        for file in ("app.js", "core.js", "live.js", "lobby.js", "obs-bridge.js", "style.css", "notifications.js", "notification-worker.js", "assets/camera/oneshot-preview.png"):
             asset = page.goto("https://oneshot-panel.pages.dev/"+file, wait_until="domcontentloaded", timeout=30000)
             report["asset_checks"][file] = asset.status == 200 and hashlib.sha256(asset.body()).digest() == hashlib.sha256(Path(file).read_bytes()).digest()
         report["app_matches_source"] = all(report["asset_checks"].values())
