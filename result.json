@@ -334,10 +334,13 @@
       "tail": "PASS: spectator cannot forge a move or fake the opponent being online\nPASS: a re-signed move is not taken back: the opponent keeps the first and sees a warning\nPASS: two tabs of one captain confirm together: one move counts, no conflict; standby takes over\nveto recovery: 3 scenarios passed\n"
     },
     "public_server_overlay": {
-      "status": "running"
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 26.4,
+      "tail": "PASS: server OBS overlay receipt, strip crop, animation, reload, offline recovery, stale receipt rejection; zero VDO requests\n"
     }
   },
-  "updated_at": "2026-10-19T13:44:54.841420+00:00",
+  "updated_at": "2026-10-19T13:45:22.717827+00:00",
   "deployment_runs": [
     {
       "id": 39184291213,
