@@ -209,7 +209,8 @@ h2 { font-size:17px; line-height:1.4; letter-spacing:-.3px; margin-bottom:0; }
 .camera-preview-box { position:absolute; left:var(--camera-left); top:var(--camera-top); width:var(--camera-width); height:var(--camera-height); overflow:hidden; outline:1px solid var(--red); }
 .camera-preview-box iframe { position:absolute; inset:0; width:100%; height:100%; border:0; transform-origin:0 0; }
 .camera-preview-box iframe { background:transparent; }
-.camera-preview-stage[data-loading="true"]::after { content:'Загружаем просмотр…'; display:flex; align-items:flex-end; justify-content:center; padding-bottom:18px; position:absolute; inset:0; z-index:2; background:var(--camera-stage) var(--camera-preview-image) center/cover no-repeat; color:var(--camera-loading-ink); font-size:12px; }
+.camera-preview-box[data-loading="true"] iframe { opacity:0; }
+.camera-preview-stage[data-loading="true"]::after { content:'Ожидаем видео…'; display:flex; align-items:flex-end; justify-content:center; padding-bottom:18px; position:absolute; inset:0; z-index:2; background:var(--camera-stage) var(--camera-preview-image) center/cover no-repeat; color:var(--camera-loading-ink); font-size:12px; }
 .camera-preview-box[data-rotation="90"] iframe { inset:auto; left:100%; top:0; width:var(--camera-rotated-width); height:var(--camera-rotated-height); transform:rotate(90deg); }
 .camera-preview-box[data-rotation="180"] iframe { inset:auto; left:100%; top:100%; transform:rotate(180deg); }
 .camera-preview-box[data-rotation="270"] iframe { inset:auto; left:0; top:100%; width:var(--camera-rotated-width); height:var(--camera-rotated-height); transform:rotate(270deg); }
@@ -1582,11 +1583,51 @@ const CAMERA_STORE='oneshot-camera-settings-v1';
 function cameraKey(player) {
   return JSON.stringify([state.source.id,state.source.gid,player.key]);
 }
-let cameraEditor=null,cameraPreview=null,cameraPreviewTimer,cameraPreviewCss='';
+let cameraEditor=null,cameraPreview=null,cameraPreviewTimer,cameraPreviewPoll,cameraPreviewCss='',cameraPreviewAck=false,cameraPreviewRequest='',cameraPreviewSequence=0;
 function editorPlayer() {
   const player=cameraEditor ? chosen(cameraEditor.side)[cameraEditor.slot] : null;
   return player && cameraKey(player)===cameraEditor.key ? player : null;
 }
+function cameraPreviewStyle(camera) {
+  // Only the video paints above our backdrop, including while VDO connects.
+  return cameraCss(camera)+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
+}
+function cameraPreviewLoading(loading) {
+  $('cameraPreviewBox').dataset.loading=String(loading);
+  $('cameraPreviewBox').parentElement.dataset.loading=String(loading);
+}
+function probeCameraPreview() {
+  const player=editorPlayer();
+  if(!player || !cameraPreview?.isConnected)return;
+  const css=cameraPreviewStyle(player.camera);
+  if(css!==cameraPreviewCss){
+    cameraPreviewCss=css;
+    cameraPreviewRequest='camera-preview-'+(++cameraPreviewSequence);
+    cameraPreviewAck=false;
+  }
+  const target=cameraPreview.contentWindow;
+  // A document's load event does not mean VDO's async API is listening yet.
+  // Retry unacknowledged styles. The separate stats request is queued after
+  // the style message, so its correlated reply acknowledges that ordering.
+  if(!cameraPreviewAck)target?.postMessage({style:css},'https://vdo.ninja');
+  target?.postMessage({getStats:true,streamID:player.id,cib:cameraPreviewRequest},'https://vdo.ninja');
+}
+window.addEventListener('message',event=>{
+  if(!cameraPreview || event.source!==cameraPreview.contentWindow || event.origin!=='https://vdo.ninja')return;
+  const data=event.data;
+  if(!data || typeof data!=='object')return;
+  if(data.action==='view-connection' && data.value===false){
+    cameraPreviewCss='';cameraPreviewRequest='';cameraPreviewAck=false;cameraPreviewLoading(true);return;
+  }
+  if(!cameraPreviewRequest || data.cib!==cameraPreviewRequest || !Object.hasOwn(data,'stats'))return;
+  cameraPreviewAck=true;
+  const ready=data.stats && typeof data.stats==='object' && Object.values(data.stats).some(track=>
+    track && typeof track==='object' && (
+      [track._framesDecoded,track._decodeFrames,track.framesDecoded].some(n=>Number.isFinite(n) && n>0) ||
+      (track._type==='video' || /video/i.test(track.type || '')) && Number.isFinite(track.FPS) && track.FPS>0 &&
+        track._frameWidth>0 && track._frameHeight>0));
+  cameraPreviewLoading(!ready);
+});
 function updateCameraPreview() {
   const player=editorPlayer();
   if(!player){$('cameraDialog').close();return;}
@@ -1602,13 +1643,7 @@ function updateCameraPreview() {
   }
   if(!cameraPreviewTimer)cameraPreviewTimer=setTimeout(()=>{
     cameraPreviewTimer=null;
-    if(cameraPreview && editorPlayer()){
-      const css=cameraCss(editorPlayer().camera);
-      if(css!==cameraPreviewCss){
-        cameraPreviewCss=css;
-        cameraPreview.contentWindow?.postMessage({style:css},'https://vdo.ninja');
-      }
-    }
+    probeCameraPreview();
   },50);
 }
 function saveCamera(patch) {
@@ -1637,24 +1672,27 @@ function openCamera(side,slot) {
   cameraPreview.title='Предпросмотр камеры '+player.nick;
   cameraPreview.allow='autoplay';
   cameraPreview.referrerPolicy='no-referrer';
-  cameraPreview.src=cameraViewUrl(player)+'&darkmode&noaudio';
-  $('cameraPreviewBox').dataset.loading='true';
-  $('cameraPreviewBox').parentElement.dataset.loading='true';
+  const url=new URL(cameraViewUrl(player));
+  url.searchParams.set('b64css',btoa(cameraPreviewStyle(player.camera)));
+  url.searchParams.set('darkmode','');url.searchParams.set('noaudio','');
+  cameraPreview.src=url.href;
+  cameraPreviewLoading(true);
   cameraPreview.addEventListener('load',()=>{
     if(cameraPreview===preview && preview.isConnected){
-      cameraPreviewCss='';
-      $('cameraPreviewBox').dataset.loading='false';
-      $('cameraPreviewBox').parentElement.dataset.loading='false';
+      cameraPreviewCss='';cameraPreviewRequest='';cameraPreviewAck=false;
+      cameraPreviewLoading(true);
       updateCameraPreview();
     }
   });
   $('cameraPreviewBox').replaceChildren(cameraPreview);
+  cameraPreviewPoll=setInterval(probeCameraPreview,1000);
   $('cameraDialog').showModal();
   updateCameraPreview();
 }
 $('closeCamera').addEventListener('click',()=>$('cameraDialog').close());
 $('cameraDialog').addEventListener('close',()=>{
   clearTimeout(cameraPreviewTimer);
+  clearInterval(cameraPreviewPoll);
   cameraPreviewTimer=null;
   cameraPreview?.remove();cameraPreview=null;cameraEditor=null;
 });
