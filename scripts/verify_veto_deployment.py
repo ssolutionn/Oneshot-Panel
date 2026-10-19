@@ -45,18 +45,18 @@ def verify(base, root, attempts, chromium=None):
                         const pretty=await short.friendlyCaptainLinks(made,location.origin,'Release QA');
                         if(pretty.shortLinkFallback)throw Error('Short-link API did not save both captain links');
                         const resolved=await short.resolveRoomLink(pretty.links.a,fetch,null);
-                        if(resolved.room.r!==made.room.r||resolved.room.me!=='a'||resolved.room.chooser!==0)throw Error('Short-link room mismatch');
+                        if(resolved.room.r!==made.room.r||resolved.room.me!=='a'||resolved.room.starter!==0)throw Error('Short-link room mismatch');
                         return pretty.links.a;
                     }""")
                     response=page.goto(link,wait_until='domcontentloaded',timeout=20000)
                     assert response and response.status==200,"Pretty captain path did not load"
                     assert "script-src 'self'" in response.headers.get('content-security-policy',''),"Pretty page has no CSP"
                     page.wait_for_selector('#vtRoom:not([hidden])',timeout=15000)
-                    page.wait_for_selector('#vtActions button',timeout=15000)
-                    assert page.locator('#vtActions button').count() == 2, "Assigned captain cannot choose the order"
+                    page.wait_for_selector('.vt-map:not([disabled])',timeout=15000)
+                    assert page.locator('#vtActions button').count() == 0, "Assigned captain unexpectedly chooses order"
                     assert page.locator('#vtCoin').is_hidden(), "Assigned order unexpectedly tosses the coin"
                     assert '#k=' in page.url and '#v=' not in page.url,"Captain address did not stay readable"
-                    print("PASS: public release assets, backup CSP, relay health, encrypted captain links, readable routes and assigned order choice", flush=True)
+                    print("PASS: public release assets, backup CSP, relay health, encrypted captain links, readable routes and assigned first team", flush=True)
                     return
                 except Exception as error:
                     safe=re.sub(r'(https?://[^\s#]+)#[^\s]+',r'\1#[redacted]',str(error))

@@ -5,6 +5,8 @@
 /* Shared layout tokens; the scene and copy formats are owned by core.js. */
 :root {
   --camera-stage:#000;
+  --camera-loading-ink:#9babb5;
+  --camera-preview-image:url('assets/camera/oneshot-preview.png');
   --on-accent:#fff; --success:#239b56; --success-bg:#e7f5ec; --success-ink:#176738;
   --focus:#246bde; --map-base:#3a4544; --map-ink:#fff; --map-shade:#0009;
   --map-ban:#ed1637; --map-pick:#33814a; --map-decider:#59616c;
@@ -132,9 +134,11 @@ h2 { font-size:17px; line-height:1.4; letter-spacing:-.3px; margin-bottom:0; }
 .camera-frame-setting select { max-width:100%; padding:6px 8px; background:var(--field); color:var(--ink); border:1px solid var(--field-line); border-radius:5px; }
 .camera-frame-setting > span { flex-basis:100%; font-size:10px; }
 .camera-dialog { width:min(780px,calc(100% - 24px)); }
-.camera-preview-stage { position:relative; width:100%; aspect-ratio:16/9; overflow:hidden; background:var(--camera-stage); }
+.camera-preview-stage { position:relative; width:100%; aspect-ratio:16/9; overflow:hidden; background:var(--camera-stage) var(--camera-preview-image) center/cover no-repeat; }
 .camera-preview-box { position:absolute; left:var(--camera-left); top:var(--camera-top); width:var(--camera-width); height:var(--camera-height); overflow:hidden; outline:1px solid var(--red); }
 .camera-preview-box iframe { position:absolute; inset:0; width:100%; height:100%; border:0; transform-origin:0 0; }
+.camera-preview-box iframe { background:transparent; }
+.camera-preview-stage[data-loading="true"]::after { content:'Загружаем просмотр…'; display:flex; align-items:flex-end; justify-content:center; padding-bottom:18px; position:absolute; inset:0; z-index:2; background:var(--camera-stage) var(--camera-preview-image) center/cover no-repeat; color:var(--camera-loading-ink); font-size:12px; }
 .camera-preview-box[data-rotation="90"] iframe { inset:auto; left:100%; top:0; width:var(--camera-rotated-width); height:var(--camera-rotated-height); transform:rotate(90deg); }
 .camera-preview-box[data-rotation="180"] iframe { inset:auto; left:100%; top:100%; transform:rotate(180deg); }
 .camera-preview-box[data-rotation="270"] iframe { inset:auto; left:0; top:100%; width:var(--camera-rotated-width); height:var(--camera-rotated-height); transform:rotate(270deg); }
@@ -142,6 +146,11 @@ h2 { font-size:17px; line-height:1.4; letter-spacing:-.3px; margin-bottom:0; }
 .camera-tools label { display:grid; gap:4px; color:var(--muted); font-size:12px; }
 .camera-tools select { padding:7px; background:var(--field); color:var(--ink); border:1px solid var(--field-line); border-radius:5px; }
 .camera-pan { display:flex; flex-wrap:wrap; gap:6px; flex-basis:100%; }
+.camera-zoom { display:flex; flex:1 1 260px; align-items:end; gap:8px; }
+.camera-zoom label { flex:1; min-width:100px; }
+.camera-zoom output { color:var(--ink); font-variant-numeric:tabular-nums; }
+.camera-zoom input { display:block; width:100%; accent-color:var(--red); }
+.api-token { -webkit-text-security:disc; }
 .copy-icon { display:grid; place-items:center; flex-shrink:0; width:30px; height:32px; border:0; border-radius:5px; background:transparent; color:var(--muted); font-size:20px; }
 .copy-icon:hover { background:var(--soft); color:var(--ink); }
 .regen-icon { font-size:17px; } .setid-icon { font-size:15px; }
@@ -321,6 +330,7 @@ body.dock { background:var(--bg); font-size:12px; }
 .lobby { padding-top:14px; }
 .lobby-panel { background:var(--surface); border:1px solid var(--line); border-radius:8px; margin-bottom:12px; overflow:hidden; }
 .lobby-alerts { display:flex; flex-wrap:wrap; gap:8px; }
+.notification-hint { margin:0; padding:0 16px 12px; color:var(--muted); font-size:11px; line-height:1.6; }
 .lobby-form { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,260px) auto; align-items:end; gap:14px; padding:0 16px 12px; }
 .lobby-form label { min-width:0; }
 .lobby-form input,.lobby-delay input,.next-pick select { display:block; width:100%; min-width:0; padding:9px 10px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font-size:12px; }

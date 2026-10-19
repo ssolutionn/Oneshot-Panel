@@ -39,15 +39,28 @@ test('cover and pan use VDO options with numeric CSS, and screen directions surv
   assert.equal(url.searchParams.get('password'),'secret');
   assert.ok(url.searchParams.has('cover') && url.searchParams.has('transparent'));
   assert.equal(atob(url.searchParams.get('b64css')),
-    'video{object-fit:cover!important;object-position:70% 80%!important;}');
+    'video{object-fit:cover!important;object-position:70% 80%!important;scale:1!important;transform-origin:70% 80%!important;}');
   assert.match(cameraCss({rotation:270,panX:20,panY:70}),/30% 20%/);
   assert.match(cameraCss({rotation:180,panX:20,panY:70}),/80% 30%/);
   assert.deepEqual(normalizeCamera({rotation:'90;bad',panX:Infinity,panY:'0;bad'}),
-    {rotation:0,panX:50,panY:50});
+    {rotation:0,panX:50,panY:50,zoom:1});
   assert.deepEqual(normalizeCamera({rotation:90,panX:-50,panY:400}),
-    {rotation:90,panX:0,panY:100});
+    {rotation:90,panX:0,panY:100,zoom:1});
   assert.deepEqual(cameraFrame('__proto__'),{x:312,y:54,width:1296,height:972});
   assert.deepEqual(cameraFrame({toString:null}),{x:312,y:54,width:1296,height:972});
+});
+
+test('zoom is bounded, remains per player, and reaches preview/export/live URLs',()=>{
+  assert.equal(normalizeCamera({zoom:Infinity}).zoom,1);
+  assert.equal(normalizeCamera({zoom:-4}).zoom,1);
+  assert.equal(normalizeCamera({zoom:9}).zoom,3);
+  assert.equal(normalizeCamera({zoom:1.254}).zoom,1.25);
+  const url=new URL(cameraViewUrl({id:'p',room:'r',camera:{zoom:1.5,panX:100}}));
+  const css=atob(url.searchParams.get('b64css'));
+  assert.ok(url.searchParams.has('darkmode'));
+  assert.match(css,/scale:1.5!important/);
+  assert.match(css,/transform-origin:100% 50%/);
+  assert.deepEqual(cameraGeometry({camera:{zoom:3}}),{rotation:0,x:312,y:54,width:1296,height:972});
 });
 
 test('an older panel keeps the previous full-frame and contain behavior through an updated dock',()=>{

@@ -226,7 +226,8 @@ export function cameraFrame(value = DEFAULT_CAMERA_FRAME) {
 export function normalizeCamera(value) {
   const percent = number => Number.isFinite(number) ? Math.max(0,Math.min(100,number)) : 50;
   return {rotation:[0,90,180,270].includes(value?.rotation) ? value.rotation : 0,
-    panX:percent(value?.panX),panY:percent(value?.panY)};
+    panX:percent(value?.panX),panY:percent(value?.panY),
+    zoom:Number.isFinite(value?.zoom) ? Math.round(Math.max(1,Math.min(3,value.zoom))*100)/100 : 1};
 }
 // VDO's supported cover/base64css URL options and style iframe message use
 // this same CSS. Only normalized numbers enter it. Pan follows screen axes
@@ -237,11 +238,11 @@ export function cameraCss(value) {
   if(c.rotation===90)[x,y]=[y,100-x];
   else if(c.rotation===180)[x,y]=[100-x,100-y];
   else if(c.rotation===270)[x,y]=[100-y,x];
-  return 'video{object-fit:cover!important;object-position:'+x+'% '+y+'%!important;}';
+  return 'video{object-fit:cover!important;object-position:'+x+'% '+y+'%!important;scale:'+c.zoom+'!important;transform-origin:'+x+'% '+y+'%!important;}';
 }
 export function cameraViewUrl(player) {
   const c=normalizeCamera(player?.camera);
-  return viewUrl(player)+'&cover'+(c.panX===50 && c.panY===50 ? '' :
+  return viewUrl(player)+'&cover&darkmode'+(c.panX===50 && c.panY===50 && c.zoom===1 ? '' :
     '&b64css='+encodeURIComponent(btoa(cameraCss(c))));
 }
 export function cameraGeometry(player, frame = DEFAULT_CAMERA_FRAME) {

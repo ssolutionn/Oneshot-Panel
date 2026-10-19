@@ -46,9 +46,12 @@ async def run(args):
             if "gid=815739139" in route.request.url else sample_roster()))
         await context.route("**/api/bookmakers?**",lambda route:route.fulfill(
             content_type="application/json",body='{"ok":true,"events":[],"checkedAt":0}'))
+        preview_release=asyncio.Event()
         if not args.real_provider:
-            await context.route("https://vdo.ninja/**",lambda route:route.fulfill(
-                content_type="text/html",body=CAMERA_HTML if "&cover" in route.request.url else FAKE_VDO))
+            async def preview_route(route):
+                if '&cover' in route.request.url: await preview_release.wait()
+                await route.fulfill(content_type='text/html',body=CAMERA_HTML if '&cover' in route.request.url else FAKE_VDO)
+            await context.route("https://vdo.ninja/**",preview_route)
         page=await context.new_page()
         errors,previews=[],[]
         page.on("pageerror",lambda error:errors.append(str(error)))
@@ -62,6 +65,11 @@ async def run(args):
         await expect(page.locator("#cameraFrame")).to_have_value("inner43")
         await page.locator('[data-camera="a"][data-slot="0"]').click()
         await expect(page.locator("#cameraDialog")).to_be_visible()
+        if not args.real_provider:
+            await expect(page.locator('#cameraPreviewBox')).to_have_attribute('data-loading','true')
+            assert await page.locator('#cameraPreviewBox').evaluate("el=>getComputedStyle(el.parentElement,'::after').backgroundColor")=='rgb(0, 0, 0)'
+            assert 'oneshot-preview.png' in await page.locator('#cameraPreviewBox').evaluate("el=>getComputedStyle(el.parentElement,'::after').backgroundImage")
+            preview_release.set()
         if args.real_provider:
             handle=await page.locator("#cameraPreviewBox iframe").element_handle()
             frame=await handle.content_frame()
@@ -77,17 +85,28 @@ async def run(args):
             await expect(frame.locator("#cameraQaMedia")).to_have_css("object-position","40% 50%",timeout=15000)
             await page.click("#cameraRotate")
             await expect(frame.locator("#cameraQaMedia")).to_have_css("object-position","50% 60%",timeout=15000)
+            await page.locator('#cameraZoom').press('End')
+            await expect(frame.locator('#cameraQaMedia')).to_have_css('scale','3',timeout=15000)
+            assert await frame.evaluate("document.body.classList.contains('darktheme')")
             await browser.close()
             print("PASS: current real VDO accepts cover URL and live style messages for camera pan/rotation; controlled media, no player stream",flush=True)
             return
         video=page.frame_locator("#cameraPreviewBox iframe").locator("video")
         await expect(video).to_be_visible()
+        await expect(page.locator('#cameraPreviewBox')).to_have_attribute('data-loading','false')
         await expect(video).to_have_css("object-fit","cover")
         await page.locator('[data-camera-pan="panX:-10"]').click()
         await expect(video).to_have_css("object-position","40% 50%")
         await page.click("#cameraRotate")
         await expect(page.locator("#cameraRotation")).to_have_value("90")
         await expect(video).to_have_css("object-position","50% 60%")
+        await page.locator('#cameraZoom').press('End')
+        await expect(video).to_have_css('scale','3')
+        await page.locator('#cameraZoom').press('Home')
+        await expect(video).to_have_css('scale','1')
+        for _ in range(5): await page.locator('[data-camera-zoom="10"]').click()
+        await expect(video).to_have_css('scale','1.5')
+        await expect(page.locator('#cameraZoomValue')).to_have_text('150%')
         assert len(previews)==1,"Panning/rotation reconnected the video instead of editing its view"
         await page.locator("#cameraDialog").screenshot(path=str(output/"camera-editor.png"))
         await page.set_viewport_size({"width":375,"height":812})
@@ -103,6 +122,7 @@ async def run(args):
         await expect(page.locator("#syncTitle")).to_contain_text("команд из таблицы")
         await page.locator('[data-camera="a"][data-slot="1"]').click()
         await expect(page.locator("#cameraRotation")).to_have_value("90")
+        await expect(page.locator('#cameraZoom')).to_have_value('150')
         await page.click("#cameraApplyObs")
         await expect(page.locator("#toast")).to_contain_text("OBS обновлён")
         transforms=[r["requestData"] for r in obs.requests if r["requestType"]=="SetSceneItemTransform"]
@@ -118,6 +138,9 @@ async def run(args):
         assert item["rot"]==90 and item["pos"]=={"x":1608,"y":54}
         assert source["settings"]["width"]==972 and source["settings"]["height"]==1296
         assert "&b64css=" in source["settings"]["url"]
+        from urllib.parse import parse_qs,urlsplit
+        css=base64.b64decode(parse_qs(urlsplit(source['settings']['url']).query)['b64css'][0]).decode()
+        assert 'scale:1.5!important' in css
         await page.select_option("#cameraFrame","wide")
         await page.reload()
         await expect(page.locator("#cameraFrame")).to_have_value("wide")

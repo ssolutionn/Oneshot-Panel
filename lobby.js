@@ -6,6 +6,7 @@ import {
   nextStart, fillTemplate, DEFAULT_TEMPLATES, scoreLine, mapScores
 } from './faceit.js';
 import { personKey } from './core.js';
+import {notificationPermission,enableNotifications,showNotification} from './notifications.js';
 
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
@@ -78,12 +79,12 @@ function beep() {
   });
 }
 function notifyState() {
-  const supported = 'Notification' in window;
-  const granted = supported && Notification.permission === 'granted';
+  const state=notificationPermission(),supported=state!=='unsupported';
+  const granted = state==='granted';
   $('notifyBtn').textContent = !supported ? 'Уведомления недоступны' :
-    granted ? 'Уведомления включены' : Notification.permission === 'denied' ?
-      'Уведомления запрещены в браузере' : 'Включить уведомления';
-  $('notifyBtn').disabled = !supported || granted || Notification.permission === 'denied';
+    granted ? 'Проверить уведомления' : state==='denied' ?
+      'Настроить уведомления' : 'Включить уведомления';
+  $('notifyBtn').disabled = !supported;
 }
 function badge() {
   $('lobbyBadge').hidden = !lobby.unread || lobby.view === 'lobby';
@@ -100,14 +101,9 @@ function alertAdmins(text, tag, { loud = true } = {}) {
     $('lobbyAlertText').textContent = text;
   }
   $('lobbyAlert').hidden = false;
-  if ('Notification' in window && Notification.permission === 'granted') {
-    try {
-      const note = new Notification('Oneshot · Лобби', {
-        body: text, tag, requireInteraction: true, icon: '/assets/favicon.png'
-      });
-      note.onclick = () => { focus(); window.dispatchEvent(new CustomEvent('oneshot:open-lobby')); note.close(); };
-    } catch { /* some browsers only notify from a service worker */ }
-  }
+  void showNotification('Oneshot · Лобби',text,{tag}).then(shown=>{
+    if(!shown && notificationPermission()==='granted')$('notifyStatus').textContent='Не удалось показать системное уведомление. Нажми «Проверить уведомления»; звуковой сигнал и сообщение в панели работают.';
+  });
   beep();
   if (!loud) return;
   lobby.repeats = 0;
@@ -383,8 +379,15 @@ $('lobbyForm').addEventListener('submit', event => {
 });
 $('notifyBtn').addEventListener('click', async () => {
   unlockAudio();
-  try { await Notification.requestPermission(); } catch { /* old API */ }
-  notifyState();
+  $('notifyBtn').disabled=true;
+  try {
+    const permission=await enableNotifications();
+    if(permission==='granted'){
+      const shown=await showNotification('Oneshot · Проверка','Уведомления включены. Здесь будут концы карт и матчей, а также вызовы капитанов.',{tag:'oneshot-notification-test',requireInteraction:false});
+      $('notifyStatus').textContent=shown ? 'Тестовое уведомление отправлено. Если оно не появилось, проверь настройки уведомлений браузера в системе и режим «Не беспокоить».' : 'Браузер не смог показать уведомление. Проверь разрешение для сайта и системные настройки уведомлений.';
+    }else $('notifyStatus').textContent=permission==='denied' ? 'В настройках этого сайта в браузере разреши «Уведомления», затем нажми кнопку ещё раз.' : 'Разрешение не выдано. Нажми «Включить уведомления» и разреши их в запросе браузера.';
+  }catch{$('notifyStatus').textContent='Не удалось включить уведомления. Проверь разрешение для этого сайта в браузере.';}
+  finally{notifyState();}
 });
 $('soundBtn').addEventListener('click', () => { unlockAudio(); beep(); });
 $('lobbyAck').addEventListener('click', acknowledge);

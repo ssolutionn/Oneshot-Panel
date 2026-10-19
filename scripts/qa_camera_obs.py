@@ -48,7 +48,8 @@ const a={name:'Camera QA A',players:[]},b={name:'Camera QA B',players:[]};
 const cameras=[
  {rotation:0,panX:0,panY:50},{rotation:0,panX:100,panY:50},
  {rotation:90,panX:50,panY:0},{rotation:90,panX:50,panY:100},
- {rotation:180,panX:0,panY:50},{rotation:270,panX:50,panY:0}
+ {rotation:180,panX:0,panY:50},{rotation:270,panX:50,panY:0},
+ {rotation:0,panX:0,panY:50,zoom:1.5},{rotation:0,panX:100,panY:50,zoom:1.5}
 ];
 for(let i=0;i<10;i++)(i<5?a:b).players.push({
  key:'qa'+i,id:'qa'+i,nick:'Player'+i,room:'camera-qa',camera:cameras[i]||{rotation:0,panX:50,panY:50}
@@ -198,10 +199,10 @@ async def run():
         print('CAMERA_TRANSITIONS',json.dumps(transitions),flush=True)
         cut=next(t for t in transitions['transitions'] if t['transitionKind']=='cut_transition')
         await request('SetCurrentSceneTransition',{'transitionName':cut['transitionName']})
-        expected_colors=[(255,0,0),(0,255,0),(255,0,0),(0,0,255),(255,255,0),(255,255,0)]
+        expected_colors=[(255,0,0),(0,255,0),(255,0,0),(0,0,255),(255,255,0),(255,255,0),(255,0,0),(0,0,255)]
         for slot,color in enumerate(expected_colors,1):
             image=await picture(slot,"json-slot-"+str(slot))
-            point=(322,540) if slot in (1,2,5) else (960,64)
+            point=(322,540) if slot in (1,2,5,7,8) else (960,64)
             actual=image.getpixel(point)
             # VP8 YUV and OBS color conversion can shift channel intensity.
             # The independent oracle is the bar's color category and location,
@@ -217,7 +218,7 @@ async def run():
               import {ObsClient,applyMatch} from './obs.js';
               const client=await new ObsClient().connect();
               const players=JSON.parse(fs.readFileSync(process.env.QA_CAMERA_PLAYERS,'utf8'));
-              players[0].camera={rotation:Number(process.env.QA_CAMERA_ROTATION),panX:20,panY:80};
+              players[0].camera={rotation:Number(process.env.QA_CAMERA_ROTATION),panX:20,panY:80,zoom:1.5};
               const proxy={request:(kind,data={})=>{
                 if(kind==='SetInputSettings'&&data.inputSettings?.url?.startsWith('https://vdo.ninja/')){
                   data={...data,inputSettings:{...data.inputSettings,

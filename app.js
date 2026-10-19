@@ -115,7 +115,7 @@ const CAMERA_STORE='oneshot-camera-settings-v1';
 function cameraKey(player) {
   return JSON.stringify([state.source.id,state.source.gid,player.key]);
 }
-let cameraEditor=null,cameraPreview=null,cameraPreviewTimer;
+let cameraEditor=null,cameraPreview=null,cameraPreviewTimer,cameraPreviewCss='';
 function editorPlayer() {
   const player=cameraEditor ? chosen(cameraEditor.side)[cameraEditor.slot] : null;
   return player && cameraKey(player)===cameraEditor.key ? player : null;
@@ -125,17 +125,24 @@ function updateCameraPreview() {
   if(!player){$('cameraDialog').close();return;}
   const config=normalizeCamera(player.camera),rect=cameraFrame(state.cameraFrame);
   $('cameraRotation').value=String(config.rotation);
+  $('cameraZoom').value=String(Math.round(config.zoom*100));
+  $('cameraZoomValue').value=Math.round(config.zoom*100)+'%';
   $('cameraPreviewBox').dataset.rotation=String(config.rotation);
   for(const [name,value] of Object.entries({left:rect.x/1920*100,top:rect.y/1080*100,
     width:rect.width/1920*100,height:rect.height/1080*100,
     'rotated-width':rect.height/rect.width*100,'rotated-height':rect.width/rect.height*100})) {
     $('cameraPreviewBox').style.setProperty('--camera-'+name,value+'%');
   }
-  clearTimeout(cameraPreviewTimer);
-  cameraPreviewTimer=setTimeout(()=>{
-    if(cameraPreview && editorPlayer())cameraPreview.contentWindow?.postMessage(
-      {style:cameraCss(editorPlayer().camera)},'https://vdo.ninja');
-  },100);
+  if(!cameraPreviewTimer)cameraPreviewTimer=setTimeout(()=>{
+    cameraPreviewTimer=null;
+    if(cameraPreview && editorPlayer()){
+      const css=cameraCss(editorPlayer().camera);
+      if(css!==cameraPreviewCss){
+        cameraPreviewCss=css;
+        cameraPreview.contentWindow?.postMessage({style:css},'https://vdo.ninja');
+      }
+    }
+  },50);
 }
 function saveCamera(patch) {
   const player=editorPlayer();
@@ -158,11 +165,22 @@ function openCamera(side,slot) {
   $('cameraHeading').textContent='Кадр: '+getTeam(side).name+' / '+player.nick;
   $('cameraSaveHint').textContent='Предпросмотр без звука. Игрок должен включить свою вебку.';
   cameraPreview=document.createElement('iframe');
+  cameraPreviewCss='';
+  const preview=cameraPreview;
   cameraPreview.title='Предпросмотр камеры '+player.nick;
   cameraPreview.allow='autoplay';
   cameraPreview.referrerPolicy='no-referrer';
   cameraPreview.src=cameraViewUrl(player)+'&noaudio';
-  cameraPreview.addEventListener('load',updateCameraPreview);
+  $('cameraPreviewBox').dataset.loading='true';
+  $('cameraPreviewBox').parentElement.dataset.loading='true';
+  cameraPreview.addEventListener('load',()=>{
+    if(cameraPreview===preview && preview.isConnected){
+      cameraPreviewCss='';
+      $('cameraPreviewBox').dataset.loading='false';
+      $('cameraPreviewBox').parentElement.dataset.loading='false';
+      updateCameraPreview();
+    }
+  });
   $('cameraPreviewBox').replaceChildren(cameraPreview);
   $('cameraDialog').showModal();
   updateCameraPreview();
@@ -170,13 +188,18 @@ function openCamera(side,slot) {
 $('closeCamera').addEventListener('click',()=>$('cameraDialog').close());
 $('cameraDialog').addEventListener('close',()=>{
   clearTimeout(cameraPreviewTimer);
+  cameraPreviewTimer=null;
   cameraPreview?.remove();cameraPreview=null;cameraEditor=null;
 });
 $('cameraRotation').addEventListener('change',()=>saveCamera({rotation:Number($('cameraRotation').value)}));
 $('cameraRotate').addEventListener('click',()=>{
   const player=editorPlayer();if(player)saveCamera({rotation:(normalizeCamera(player.camera).rotation+90)%360});
 });
-$('cameraReset').addEventListener('click',()=>saveCamera({rotation:0,panX:50,panY:50}));
+$('cameraReset').addEventListener('click',()=>saveCamera({rotation:0,panX:50,panY:50,zoom:1}));
+$('cameraZoom').addEventListener('input',()=>saveCamera({zoom:Number($('cameraZoom').value)/100}));
+for(const button of document.querySelectorAll('[data-camera-zoom]'))button.addEventListener('click',()=>{
+  const player=editorPlayer();if(player)saveCamera({zoom:normalizeCamera(player.camera).zoom+Number(button.dataset.cameraZoom)/100});
+});
 for(const button of document.querySelectorAll('[data-camera-pan]')) {
   button.addEventListener('click',()=>{
     const player=editorPlayer();if(!player)return;

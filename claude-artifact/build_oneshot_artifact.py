@@ -41,6 +41,8 @@ def cut(text, start, end, new):
 
 # ---------- CSS ----------
 css = (ROOT / "style.css").read_text(encoding="utf-8")
+preview_data=base64.b64encode((ROOT / 'assets/camera/oneshot-preview.png').read_bytes()).decode()
+css=css.replace("assets/camera/oneshot-preview.png",'data:image/png;base64,'+preview_data)
 # Safe areas belong to the artifact wrapper; avoid depending on CSS formatting.
 css += ("body{padding-left:env(safe-area-inset-left,0px);"
         "padding-right:env(safe-area-inset-right,0px)}"
