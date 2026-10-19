@@ -22,7 +22,10 @@ video{display:block;width:100%;height:100%;object-fit:cover}
 const q=new URLSearchParams(location.search);
 function style(text){const s=document.createElement('style');s.textContent=text;document.head.append(s)}
 if(q.get('b64css'))style(atob(q.get('b64css')));
-addEventListener('message',e=>{if(typeof e.data?.style==='string')style(e.data.style)});
+addEventListener('message',e=>{
+  if(typeof e.data?.style==='string')style(e.data.style);
+  if(e.data?.getStats)parent.postMessage({cib:e.data.cib,stats:{video:{_type:'video',_framesDecoded:1}}},'*');
+});
 </script>"""
 
 
@@ -93,6 +96,44 @@ async def run(args):
               const color=getComputedStyle(el).backgroundColor.match(/[0-9.]+/g)?.map(Number)||[];
               return color.length===4 && color[3]===0;
             })""",timeout=15000)
+            # An empty VDO page, including our test poster, is not a live camera.
+            await expect(page.locator('#cameraPreviewBox')).to_have_attribute('data-loading','true')
+            # Exercise VDO's real stats adapter with local WebRTC video. There
+            # is no player device or external media/signalling dependency.
+            await frame.evaluate("""async () => {
+              const canvas=document.createElement('canvas');canvas.width=640;canvas.height=480;
+              const ctx=canvas.getContext('2d');
+              const draw=()=>{ctx.fillStyle='#2695cb';ctx.fillRect(0,0,640,480)};
+              draw();const timer=setInterval(draw,200),media=canvas.captureStream(5);
+              const sender=new RTCPeerConnection({iceServers:[]}),receiver=new RTCPeerConnection({iceServers:[]});
+              const incoming=new Promise(resolve=>receiver.ontrack=e=>resolve(e.streams[0]));
+              sender.addTrack(media.getVideoTracks()[0],media);
+              const gathered=pc=>pc.iceGatheringState==='complete'?Promise.resolve():new Promise(resolve=>{
+                const listen=()=>{if(pc.iceGatheringState==='complete'){pc.removeEventListener('icegatheringstatechange',listen);resolve()}};
+                pc.addEventListener('icegatheringstatechange',listen);listen();
+              });
+              await sender.setLocalDescription(await sender.createOffer());await gathered(sender);
+              await receiver.setRemoteDescription(sender.localDescription);
+              await receiver.setLocalDescription(await receiver.createAnswer());await gathered(receiver);
+              await sender.setRemoteDescription(receiver.localDescription);
+              const stream=await incoming,v=document.querySelector('#cameraQaMedia');
+              v.muted=true;v.srcObject=stream;v.style.position='fixed';v.style.inset='0';v.style.width='100%';v.style.height='100%';
+              await v.play();
+              const uuid='camera-preview-qa';
+              session.rpcs[uuid]={streamID:new URLSearchParams(location.search).get('view'),stats:{},
+                streamSrc:stream,videoElement:v,getStats:()=>receiver.getStats()};
+              window.__cameraQaLoopback={uuid,sender,receiver,timer,media};
+              processStats(uuid);
+            }""")
+            await expect(page.locator('#cameraPreviewBox')).to_have_attribute('data-loading','false',timeout=20000)
+            await expect(page.locator('#cameraPreviewBox iframe')).to_have_css('opacity','1')
+            print('VDO_DECODED_VIDEO',await frame.evaluate("""() => Object.values(getQuickStats(new URLSearchParams(location.search).get('view'))||{}).filter(s=>s&&typeof s==='object').map(s=>({type:s._type,decoded:s._decodeFrames||s._framesDecoded,fps:s.FPS}))"""),flush=True)
+            await frame.evaluate("""() => {
+              const q=window.__cameraQaLoopback;clearInterval(q.timer);clearTimeout(session.rpcs[q.uuid]?.getStatsTimeout);
+              delete session.rpcs[q.uuid];q.sender.close();q.receiver.close();q.media.getTracks().forEach(t=>t.stop());
+              parent.postMessage({action:'view-connection',value:false,streamID:new URLSearchParams(location.search).get('view')},'*');
+            }""")
+            await expect(page.locator('#cameraPreviewBox iframe')).to_have_css('opacity','0')
             print('VDO_CANVAS',await frame.evaluate("""() => ({darkRequested:new URLSearchParams(location.search).has('darkmode'),
               backgrounds:[document.documentElement,document.body,document.querySelector('#main')].filter(Boolean).map(el=>getComputedStyle(el).backgroundColor)})"""),flush=True)
             await browser.close()
@@ -199,7 +240,7 @@ async def run(args):
 if __name__=="__main__":
     parser=argparse.ArgumentParser()
     parser.add_argument("--url",default="http://127.0.0.1:3000")
-    parser.add_argument("--browser",choices=["chromium","webkit"],default="chromium")
+    parser.add_argument("--browser",choices=["chromium","webkit","firefox"],default="chromium")
     parser.add_argument("--chromium")
     parser.add_argument("--artifacts",default="artifacts/camera")
     parser.add_argument("--real-provider",action="store_true")

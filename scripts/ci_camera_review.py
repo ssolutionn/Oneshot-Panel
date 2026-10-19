@@ -17,7 +17,7 @@ def main():
     evidence.publish()
     setup=[
         ("python_tools",["python3","-m","pip","install","playwright","websockets","pillow"],180),
-        ("browsers",["python3","-m","playwright","install","--with-deps","chromium","webkit"],360),
+        ("browsers",["python3","-m","playwright","install","--with-deps","chromium","webkit","firefox"],360),
         ("obs_install",["bash","-c",'''
 curl --fail --location --retry 2 https://github.com/obsproject/obs-studio/releases/download/32.2.2/OBS-Studio-32.2.2-Ubuntu-24.04-x86_64.deb --output "$RUNNER_TEMP/oneshot-camera-obs.deb"
 sudo apt-get update -qq
@@ -44,6 +44,11 @@ sudo apt-get install -y "$RUNNER_TEMP/oneshot-camera-obs.deb" xvfb libgl1-mesa-d
         commands=[
             ("real_obs",["xvfb-run","-a","-s","-screen 0 1920x1080x24","python3","scripts/qa_camera_obs.py"],240),
             ("real_vdo_api",["python3","scripts/qa_camera.py","--real-provider","--artifacts","artifacts/camera-provider"],120),
+            ("real_vdo_firefox",["python3","scripts/qa_camera.py","--real-provider","--browser","firefox","--artifacts","artifacts/camera-provider-firefox"],150),
+            ("loading_firefox",["python3","scripts/qa_camera_loading.py","--browser","firefox","--artifacts","artifacts/camera-loading-firefox"],120),
+            ("loading_chromium",["python3","scripts/qa_camera_loading.py","--browser","chromium","--artifacts","artifacts/camera-loading-chromium"],120),
+            ("loading_webkit",["python3","scripts/qa_camera_loading.py","--browser","webkit","--artifacts","artifacts/camera-loading-webkit"],120),
+            ("editor_firefox",["python3","scripts/qa_camera.py","--browser","firefox","--artifacts","artifacts/camera-firefox"],180),
             ("editor_chromium",["python3","scripts/qa_camera.py","--artifacts","artifacts/camera-chromium"],180),
             ("editor_webkit",["python3","scripts/qa_camera.py","--browser","webkit","--artifacts","artifacts/camera-webkit"],180),
             ("veto_server_chromium",["python3","scripts/qa_veto_site.py","--server","--pretty-links","--focus-match","--artifacts","artifacts/veto-zoom-chromium"],360),

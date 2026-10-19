@@ -382,7 +382,15 @@ Netlify проверяет локальные фото, докачивает н�
   сдвиг и зум 1–3 задаёт b64css. CSS scale не заменяет transform VDO. darkmode — только preview. Без видео VDO.Ninja прозрачен, и видна карточка.
   CARD остаётся без поворота и вписывается в ту же рамку.
   Подложка assets/camera/oneshot-preview.png — только предпросмотр панели,
-  её нельзя добавлять в OBS. notifications.js/notification-worker.js —
+  её нельзя добавлять в OBS. Iframe preview имеет opacity:0 до ответа VDO
+  getStats с декодированными видеокадрами (либо video FPS + размер).
+  load iframe не означает готовность видео. Проверять source/origin/cib;
+  стиль отправляется до запроса stats и повторяется до подтверждения.
+  В preview скрыт интерфейс VDO, виден только video; disconnect снова
+  закрывает iframe подложкой. Таймер останавливается при закрытии «Кадра».
+  Регрессия белого документа/позднего API — qa_camera_loading.py в Firefox,
+  Chromium и WebKit; реальный API получает локальное WebRTC-видео.
+  notifications.js/notification-worker.js —
   уведомления открытой панели, без кеша/fetch/Push. Клик фокусирует панель.
   «Кадр» хранится в oneshot-camera-settings-v1 по источнику/GID/player.key,
   пресет — oneshot-camera-frame-v1. Матрица сохраняет прежние плитки.
