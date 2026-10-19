@@ -166,10 +166,13 @@
       ]
     },
     "install_playwright": {
-      "status": "running"
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 2.4,
+      "tail": "Collecting playwright\n  Downloading playwright-1.64.0-py3-none-manylinux1_x86_64.whl.metadata (3.3 kB)\nCollecting pyee<15,>=13 (from playwright)\n  Downloading pyee-14.0.0-py3-none-any.whl.metadata (1.8 kB)\nCollecting greenlet<4.0.0,>=3.1.1 (from playwright)\n  Downloading greenlet-3.5.6-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (3.8 kB)\nCollecting typing-extensions (from pyee<15,>=13->playwright)\n  Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)\nDownloading playwright-1.64.0-py3-none-manylinux1_x86_64.whl (48.3 MB)\n   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 48.3/48.3 MB 100.0 MB/s  0:00:00\nDownloading greenlet-3.5.6-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (621 kB)\n   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 621.4/621.4 kB 92.0 MB/s  0:00:00\nDownloading pyee-14.0.0-py3-none-any.whl (15 kB)\nDownloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)\nInstalling collected packages: typing-extensions, greenlet, pyee, playwright\n\nSuccessfully installed greenlet-3.5.6 playwright-1.64.0 pyee-14.0.0 typing-extensions-4.16.0\n"
     }
   },
-  "updated_at": "2026-10-19T13:42:37.225905+00:00",
+  "updated_at": "2026-10-19T13:42:40.973379+00:00",
   "deployment_runs": [
     {
       "id": 39184291213,
