@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python3 -m pip install playwright && python3 -m playwright install --with-deps chromium
+      - run: python3 -m pip install playwright pillow && python3 -m playwright install --with-deps chromium firefox
       - run: python3 scripts/inspect_match_schedule.py
         env:
           GH_TOKEN: ${{ github.token }}

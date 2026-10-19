@@ -103,6 +103,9 @@ try:
         report["missing"] = [m for m in expected if m not in loaded]
         report["passed"] = report["app_matches_source"] and all(report["review_features"].values()) and not report["missing"] and not report["panel"]["error"] and all(c["passed"] for c in report["selection_checks"])
         browser.close()
+    preview = subprocess.run(["python3","scripts/qa_camera_loading.py","--url","https://oneshot-panel.pages.dev/","--browser","firefox","--artifacts","artifacts/public-camera-loading-firefox"],capture_output=True,text=True,timeout=120)
+    report["camera_loading_firefox"] = {"passed":preview.returncode==0,"output":(preview.stdout+preview.stderr)[-4000:]}
+    report["passed"] = report["passed"] and preview.returncode==0
 except Exception as error:
     report["error"] = str(error)
     report["passed"] = False
