@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: ["codex/veto-resilience-review", "claude/gracious-sagan-apztcc"]
-    paths: ["app.js", "core.js", "obs.js", "obs-bridge.js", "live.js", "lobby.js", "notifications.js", "notification-worker.js", "assets/camera/**", "index.html", "style.css", "scripts/qa_camera.py", "scripts/qa_camera_loading.py", "scripts/qa_camera_obs.py", "scripts/qa_notifications.py", "scripts/ci_camera_review.py", "test/camera.test.js", ".github/workflows/camera.yml"]
+    paths: ["app.js", "core.js", "obs.js", "obs-bridge.js", "live.js", "lobby.js", "notifications.js", "notification-worker.js", "assets/camera/**", "index.html", "style.css", "scripts/qa_camera.py", "scripts/qa_camera_loading.py", "scripts/qa_camera_obs.py", "scripts/qa_notifications.py", "scripts/ci_camera_review.py", "scripts/ci_veto_external.py", "test/camera.test.js", ".github/workflows/camera.yml"]
 concurrency:
   group: camera-review-${{ github.ref }}
   cancel-in-progress: true
