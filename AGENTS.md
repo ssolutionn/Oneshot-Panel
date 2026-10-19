@@ -378,8 +378,8 @@ Netlify проверяет локальные фото, докачивает н�
   Галочка includeCards добавляет прямо под камерой источник браузера
   `CARD NN | Команда | Ник` с card.html сайта панели (в артефакте —
   https://oneshot-panel.pages.dev). Выбор не сохраняется в localStorage.
-  Ссылка камеры содержит `&cleanoutput&transparent&cover&darkmode`; числовые
-  сдвиг и зум 1–3 задаёт b64css. CSS scale не заменяет transform VDO. Без видео VDO.Ninja прозрачен, и видна карточка.
+  Ссылка камеры содержит `&cleanoutput&transparent&cover`; числовые
+  сдвиг и зум 1–3 задаёт b64css. CSS scale не заменяет transform VDO. darkmode — только preview. Без видео VDO.Ninja прозрачен, и видна карточка.
   CARD остаётся без поворота и вписывается в ту же рамку.
   Подложка assets/camera/oneshot-preview.png — только предпросмотр панели,
   её нельзя добавлять в OBS. notifications.js/notification-worker.js —

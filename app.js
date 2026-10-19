@@ -170,7 +170,7 @@ function openCamera(side,slot) {
   cameraPreview.title='Предпросмотр камеры '+player.nick;
   cameraPreview.allow='autoplay';
   cameraPreview.referrerPolicy='no-referrer';
-  cameraPreview.src=cameraViewUrl(player)+'&noaudio';
+  cameraPreview.src=cameraViewUrl(player)+'&darkmode&noaudio';
   $('cameraPreviewBox').dataset.loading='true';
   $('cameraPreviewBox').parentElement.dataset.loading='true';
   cameraPreview.addEventListener('load',()=>{

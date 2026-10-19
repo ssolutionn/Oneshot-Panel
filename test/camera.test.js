@@ -39,7 +39,7 @@ test('cover and pan use VDO options with numeric CSS, and screen directions surv
   assert.equal(url.searchParams.get('password'),'secret');
   assert.ok(url.searchParams.has('cover') && url.searchParams.has('transparent'));
   assert.equal(atob(url.searchParams.get('b64css')),
-    'video{object-fit:cover!important;object-position:70% 80%!important;scale:1!important;transform-origin:70% 80%!important;}');
+    'html,body{background:transparent!important;}video{object-fit:cover!important;object-position:70% 80%!important;scale:1!important;transform-origin:70% 80%!important;}');
   assert.match(cameraCss({rotation:270,panX:20,panY:70}),/30% 20%/);
   assert.match(cameraCss({rotation:180,panX:20,panY:70}),/80% 30%/);
   assert.deepEqual(normalizeCamera({rotation:'90;bad',panX:Infinity,panY:'0;bad'}),
@@ -57,7 +57,8 @@ test('zoom is bounded, remains per player, and reaches preview/export/live URLs'
   assert.equal(normalizeCamera({zoom:1.254}).zoom,1.25);
   const url=new URL(cameraViewUrl({id:'p',room:'r',camera:{zoom:1.5,panX:100}}));
   const css=atob(url.searchParams.get('b64css'));
-  assert.ok(url.searchParams.has('darkmode'));
+  assert.equal(url.searchParams.has('darkmode'),false,'OBS keeps its existing transparent output');
+  assert.match(css,/html,body\{background:transparent!important/);
   assert.match(css,/scale:1.5!important/);
   assert.match(css,/transform-origin:100% 50%/);
   assert.deepEqual(cameraGeometry({camera:{zoom:3}}),{rotation:0,x:312,y:54,width:1296,height:972});

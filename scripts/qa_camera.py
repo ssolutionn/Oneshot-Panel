@@ -87,7 +87,14 @@ async def run(args):
             await expect(frame.locator("#cameraQaMedia")).to_have_css("object-position","50% 60%",timeout=15000)
             await page.locator('#cameraZoom').press('End')
             await expect(frame.locator('#cameraQaMedia')).to_have_css('scale','3',timeout=15000)
-            assert await frame.evaluate("document.body.classList.contains('darktheme')")
+            # VDO may omit its theme class in clean/transparent output. The
+            # contract is a transparent canvas, not a provider-internal class.
+            await frame.wait_for_function("""() => [document.documentElement,document.body,document.querySelector('#main')].filter(Boolean).every(el=>{
+              const color=getComputedStyle(el).backgroundColor.match(/[0-9.]+/g)?.map(Number)||[];
+              return color.length===4 && color[3]===0;
+            })""",timeout=15000)
+            print('VDO_CANVAS',await frame.evaluate("""() => ({darkRequested:new URLSearchParams(location.search).has('darkmode'),
+              backgrounds:[document.documentElement,document.body,document.querySelector('#main')].filter(Boolean).map(el=>getComputedStyle(el).backgroundColor)})"""),flush=True)
             await browser.close()
             print("PASS: current real VDO accepts cover URL and live style messages for camera pan/rotation; controlled media, no player stream",flush=True)
             return

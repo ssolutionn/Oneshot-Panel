@@ -995,11 +995,11 @@ function cameraCss(value) {
   if(c.rotation===90)[x,y]=[y,100-x];
   else if(c.rotation===180)[x,y]=[100-x,100-y];
   else if(c.rotation===270)[x,y]=[100-y,x];
-  return 'video{object-fit:cover!important;object-position:'+x+'% '+y+'%!important;scale:'+c.zoom+'!important;transform-origin:'+x+'% '+y+'%!important;}';
+  return 'html,body{background:transparent!important;}video{object-fit:cover!important;object-position:'+x+'% '+y+'%!important;scale:'+c.zoom+'!important;transform-origin:'+x+'% '+y+'%!important;}';
 }
 function cameraViewUrl(player) {
   const c=normalizeCamera(player?.camera);
-  return viewUrl(player)+'&cover&darkmode'+(c.panX===50 && c.panY===50 && c.zoom===1 ? '' :
+  return viewUrl(player)+'&cover'+(c.panX===50 && c.panY===50 && c.zoom===1 ? '' :
     '&b64css='+encodeURIComponent(btoa(cameraCss(c))));
 }
 function cameraGeometry(player, frame = DEFAULT_CAMERA_FRAME) {
@@ -1637,7 +1637,7 @@ function openCamera(side,slot) {
   cameraPreview.title='Предпросмотр камеры '+player.nick;
   cameraPreview.allow='autoplay';
   cameraPreview.referrerPolicy='no-referrer';
-  cameraPreview.src=cameraViewUrl(player)+'&noaudio';
+  cameraPreview.src=cameraViewUrl(player)+'&darkmode&noaudio';
   $('cameraPreviewBox').dataset.loading='true';
   $('cameraPreviewBox').parentElement.dataset.loading='true';
   cameraPreview.addEventListener('load',()=>{
