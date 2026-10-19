@@ -605,10 +605,12 @@ async def run(args):
                 assert not await page.evaluate("document.documentElement.scrollWidth > innerWidth")
             await pages[starter].locator('.vt-map:not([disabled])').first.click()
             await pages[starter].locator('#vtActions .vt-primary').click()
+            # Assigned rooms already show BAN before a move arrives. Wait
+            # for the verified journal, then reload; the stage is no oracle.
             for page in (a,b,s):
-                await expect(page.locator("#vtKicker")).to_contain_text(re.compile("ban|бан", re.I), timeout=wait)
+                await expect(page.locator("#vtLog li")).to_have_count(1, timeout=wait)
             await s.reload()
-            await expect(s.locator("#vtKicker")).to_contain_text(re.compile("ban|бан", re.I), timeout=wait)
+            await expect(s.locator("#vtLog li")).to_have_count(1, timeout=wait)
             assert await s.evaluate("""async () => {
                 const m=await import('/assets/veto-short-links.js');
                 const {room}=await m.resolveRoomLink(location.href);

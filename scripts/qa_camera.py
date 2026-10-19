@@ -185,6 +185,7 @@ async def run(args):
         await expect(dock.locator('#dockObs')).to_contain_text('подключён')
         await page.click('#sendObsBtn')
         await expect(page.locator('#toast')).to_contain_text('OBS обновлён',timeout=20000)
+        await expect(page.locator('#errorBox')).to_be_hidden()
         urls=[r['requestData']['inputSettings'].get('url','') for r in dock_obs.requests
               if r['requestType']=='SetInputSettings']
         assert any('scale:1.5!important' in base64.b64decode(parse_qs(urlsplit(url).query)['b64css'][0]).decode()
