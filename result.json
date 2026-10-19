@@ -1,7 +1,7 @@
 {
-  "source_sha": "4ca57dc07899aab9fa925756314b6f10a7487309",
-  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39165851049",
-  "checked_at": "2026-10-19T00:00:41.907755+03:00",
+  "source_sha": "6f30afc25b4667311ff3e94f135fadfc57a3cd7b",
+  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39184421038",
+  "checked_at": "2026-10-19T04:14:41.583961+03:00",
   "teams": [
     {
       "name": "Nuclear TigeRES",
@@ -70,8 +70,19 @@
   ],
   "matches": [],
   "unresolved": [],
-  "expected_build": "f79f091dd249a629a4cb5f08025fdb6b7e37c7db",
-  "published_build": "f79f091dd249a629a4cb5f08025fdb6b7e37c7db",
+  "expected_build": "8d3d808d359f8daa31f182cb4b1d8d4f822b8084",
+  "published_build": "8d3d808d359f8daa31f182cb4b1d8d4f822b8084",
+  "asset_checks": {
+    "app.js": true,
+    "core.js": true,
+    "live.js": true,
+    "lobby.js": true,
+    "obs-bridge.js": true,
+    "style.css": true,
+    "notifications.js": true,
+    "notification-worker.js": true,
+    "assets/camera/oneshot-preview.png": true
+  },
   "app_matches_source": true,
   "public_status": 200,
   "review_features": {
@@ -79,39 +90,57 @@
     "exportRecovery": true,
     "exportDialog": true,
     "cameraFrame": true,
-    "cameraEditor": true
+    "cameraEditor": true,
+    "cameraZoom": true,
+    "apiKeyNotPassword": true,
+    "notificationHelp": true,
+    "firstPickLabel": true
   },
   "panel": {
     "error": "",
-    "sync": "Обновлено 00:00 МСК",
+    "sync": "Обновлено 04:14 МСК",
     "groups": [],
     "schedule": []
   },
   "selection_checks": [],
   "missing": [],
   "passed": true,
-  "veto_expected": "c304e70d1fdeaaf90c413759abf4a00e1051fbf1",
+  "veto_expected": "430e850e354caa4b9b356ee5b907ebd8a546c8bc",
   "veto_deployment": {
     "name": "Deploy veto to Cloudflare",
-    "head_sha": "c304e70d1fdeaaf90c413759abf4a00e1051fbf1",
+    "head_sha": "430e850e354caa4b9b356ee5b907ebd8a546c8bc",
     "status": "completed",
     "conclusion": "success",
-    "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39165785153"
+    "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39184291213"
   },
   "checks": [
-    {
-      "name": "Panel checks",
-      "status": "in_progress",
-      "conclusion": null,
-      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39165826979",
-      "id": 39165826979
-    },
     {
       "name": "Camera framing and OBS",
       "status": "in_progress",
       "conclusion": null,
-      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39165826926",
-      "id": 39165826926
+      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39184409583",
+      "id": 39184409583
+    },
+    {
+      "name": "Panel checks",
+      "status": "in_progress",
+      "conclusion": null,
+      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39184409592",
+      "id": 39184409592
+    },
+    {
+      "name": "Veto site regression",
+      "status": "in_progress",
+      "conclusion": null,
+      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39184409671",
+      "id": 39184409671
+    },
+    {
+      "name": "Camera framing and OBS",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39183812915",
+      "id": 39183812915
     }
   ]
 }
