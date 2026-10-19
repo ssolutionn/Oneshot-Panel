@@ -80,7 +80,10 @@
       "exit_code": 1,
       "seconds": 5.9,
       "tail": "Traceback (most recent call last):\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/scripts/qa_notifications.py\", line 66, in <module>\n    asyncio.run(run(parser.parse_args()))\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/asyncio/runners.py\", line 195, in run\n    return runner.run(main)\n           ^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/asyncio/runners.py\", line 118, in run\n    return self._loop.run_until_complete(task)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/asyncio/base_events.py\", line 691, in run_until_complete\n    return future.result()\n           ^^^^^^^^^^^^^^^\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/scripts/qa_notifications.py\", line 26, in run\n    await expect(page.locator('#notifyBtn')).to_have_text('Проверить уведомления')\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/async_api/_generated.py\", line 15404, in to_have_text\n    await self._impl_obj.to_have_text(\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_assertions.py\", line 648, in to_have_text\n    await self._expect_impl(\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_assertions.py\", line 128, in _expect_impl\n    _record_soft_or_raise(\n  File \"/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_assertions.py\", line 60, in _record_soft_or_raise\n    raise error\nAssertionError: Locator expected to have text 'Проверить уведомления'\nActual value: Настроить уведомления \nCall log:\n  - Expect \"to_have_text\" locator(\"#notifyBtn\") with timeout 5000ms\n  - waiting for locator(\"#notifyBtn\")\n    14 × locator resolved to <button type=\"button\" id=\"notifyBtn\" class=\"button small\">Настроить уведомления</button>\n       - unexpected value \"Настроить уведомления\"\n\nAria snapshot:\n- button \"Настроить уведомления\"\n"
+    },
+    "panel_chromium": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-10-19T01:03:32.499436+00:00"
+  "updated_at": "2026-10-19T01:03:34.141744+00:00"
 }
