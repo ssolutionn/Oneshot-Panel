@@ -110,7 +110,10 @@
       "exit_code": 0,
       "seconds": 3.9,
       "tail": "PASS: real browser notification API, test button, masked non-password token, click routing, worker failure fallback and denied-permission recovery\n"
+    },
+    "panel_chromium": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-10-19T13:50:07.781268+00:00"
+  "updated_at": "2026-10-19T13:50:09.589458+00:00"
 }
