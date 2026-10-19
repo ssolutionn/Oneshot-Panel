@@ -50,7 +50,10 @@
       "exit_code": 0,
       "seconds": 3.6,
       "tail": "VDO_DECODED_VIDEO [{'type': None, 'decoded': None, 'fps': None}, {'type': 'video', 'decoded': 1, 'fps': nan}]\nVDO_CANVAS {'darkRequested': True, 'backgrounds': ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)']}\nPASS: current real VDO accepts cover URL and live style messages for camera pan/rotation; controlled media, no player stream\n"
+    },
+    "real_vdo_firefox": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-10-19T18:54:38.083008+00:00"
+  "updated_at": "2026-10-19T18:54:39.894721+00:00"
 }
