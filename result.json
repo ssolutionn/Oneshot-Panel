@@ -2,6 +2,85 @@
   "source_sha": "5fd791faa72b405113e161dec0dd245ccdd55ce9",
   "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39262416052",
   "status": "running",
-  "steps": {},
-  "updated_at": "2026-10-19T13:42:27.242888+00:00"
+  "steps": {
+    "deployment_wait": {
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "430e850e354caa4b9b356ee5b907ebd8a546c8bc",
+      "html_url": "https://github.com/ssolutionn/Oneshot-Veto/actions/runs/39184291213",
+      "job_steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate Worker and Pages Functions",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Check Cloudflare credentials",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Deploy Worker and Durable Object migration",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Deploy Pages and API route",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install browser for public verification",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify public assets and relay health",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  },
+  "updated_at": "2026-10-19T13:42:29.993177+00:00"
 }
