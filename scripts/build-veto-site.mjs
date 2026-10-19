@@ -80,7 +80,12 @@ await writeFile(to('_headers'), `/*
 // repository): the files at the root are the site; .assetsignore keeps the
 // config and the README out of it. Pages works too (output directory /).
 await cp(from('server/veto-relay-wrangler.jsonc'), to('wrangler.jsonc'));
-await writeFile(to('.assetsignore'), '.git\n.github/\nscripts/\n.assetsignore\nwrangler.jsonc\nREADME.md\nworker.js\nserver/\nfunctions/\npackage.json\nRELAY.md\n');
+await writeFile(to('.assetsignore'), '.git\n.github/\nscripts/\n.assetsignore\nwrangler.jsonc\nREADME.md\nworker.js\nserver/\nfunctions/\npackage.json\nRELAY.md\nCLAUDE.md\nSECURITY.md\n');
+// Review rules, security policy and update checks for the generated repo.
+await cp(from('server/veto-repo/CLAUDE.md'), to('CLAUDE.md'));
+await cp(from('server/veto-repo/SECURITY.md'), to('SECURITY.md'));
+await cp(from('server/veto-repo/CODEOWNERS'), to('.github/CODEOWNERS'));
+await cp(from('.github/dependabot.yml'), to('.github/dependabot.yml'));
 await cp(from('server/RELAY.md'), to('RELAY.md'));
 await writeFile(to('package.json'), JSON.stringify({private:true,type:'module',engines:{node:'>=22'},scripts:{relay:'node server/veto-relay-node.mjs'}},null,2)+'\n');
 

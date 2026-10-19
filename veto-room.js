@@ -389,7 +389,9 @@ export async function verifyLog(room, log, checked = new Set()) {
 }
 
 // Signs the next move of this captain; throws if it is not their move.
-export async function signMove(room, log, key, kind, value, at = Date.now()) {
+// By default the move is never dated before the previous one: when the other
+// captain's clock runs fast, ours would otherwise be refused as out of order.
+export async function signMove(room, log, key, kind, value, at = Math.max(Date.now(), log.at(-1)?.at ?? 0)) {
   const state = replay(room, log);
   const turn = nextTurn(room, state);
   if (turn.kind !== kind || turn.team !== seat(room)) throw new Error('Сейчас не твой ход.');

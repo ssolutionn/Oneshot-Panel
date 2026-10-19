@@ -356,6 +356,16 @@ test('replay: move times must be real, in order and close together', async () =>
   assert.equal((await verifyLog(s, ok)).length, 2);
 });
 
+test('a captain whose clock runs fast cannot block the other one', async () => {
+  const seat = await seats('BO1');
+  const { a, b, s, ka, kb } = seat;
+  // A's phone is 3 minutes ahead; B moves right after with a correct clock.
+  const ahead = await signMove(a, [], ka, 'commit', 'A'.repeat(43), Date.now() + 3 * 60000);
+  const next = await signMove(b, ahead, kb, 'seed', coinNonce());
+  assert.equal(next[1].at, ahead[0].at);
+  assert.equal((await verifyLog(s, next)).length, 2);
+});
+
 test('clock: five minutes from the order choice, then "over"', () => {
   assert.deepEqual(clock({ startedAt: null }, 0), { started: false, left: 300000, over: false });
   assert.equal(clock({ startedAt: 1000 }, 61000).left, 240000);
