@@ -1,0 +1,47 @@
+name: Claude review
+# AI review of every pull request against REVIEW.md. Critical paths still need
+# a human (CODEOWNERS). Needs the repository secret ANTHROPIC_API_KEY; without
+# it the job is skipped, not failed.
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  review:
+    # Forks never get the key; drafts wait until ready.
+    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+    steps:
+      - if: env.HAS_KEY != 'true'
+        run: echo "::notice::ANTHROPIC_API_KEY is not set; Claude review skipped."
+      - if: env.HAS_KEY == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - if: env.HAS_KEY == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request following REVIEW.md and CLAUDE.md in the repository.
+            1. Classify the PR risk tier (critical / normal / simple) from the paths it changes.
+            2. Report only real problems as inline comments on the exact lines, each with
+               severity P0-P3, a concrete failure scenario and a suggested fix.
+            3. Finish with one summary comment: risk tier, findings count by severity, and
+               "Needs human review" when the tier is critical.
+            Write comments in Russian. Do not comment on style that matches surrounding code.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"

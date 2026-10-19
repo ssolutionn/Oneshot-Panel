@@ -1,0 +1,14 @@
+# Критичные пути требуют ревью владельца (включите "Require review from Code Owners").
+/server/                         @ssolutionn
+/functions/                      @ssolutionn
+/netlify/functions/              @ssolutionn
+/.github/                        @ssolutionn
+/_headers                        @ssolutionn
+/netlify.toml                    @ssolutionn
+/server.js                       @ssolutionn
+/assets/veto-relay-*.js          @ssolutionn
+/assets/veto-short-*.js          @ssolutionn
+/scripts/build-veto-site.mjs     @ssolutionn
+/SECURITY.md                     @ssolutionn
+/REVIEW.md                       @ssolutionn
+/CLAUDE.md                       @ssolutionn

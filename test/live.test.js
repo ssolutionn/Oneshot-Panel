@@ -41,6 +41,11 @@ test('Lobby field: a tournament, match rooms or both', () => {
   assert.equal(parseFaceitTargets('https://www.faceit.com/ru/players/someone'), null);
 });
 
+test('Match links only ever point to https faceit.com', () => {
+  for (const bad of ['javascript:alert(1)', 'data:text/html,x', 'https://faceit.com.evil.example/room', 'http://www.faceit.com/ru', ''])
+    assert.equal(summarizeMatch(raw({ faceit_url: bad })).url, '', bad);
+});
+
 test('Map and match ends are found between two polls', () => {
   const start = summarizeMatch(raw());
   assert.equal(start.url, 'https://www.faceit.com/ru/cs2/room/1-aaaa');
@@ -247,6 +252,10 @@ test('FACEIT proxy forwards only lobby paths, with the caller\'s key', async () 
     assert.equal(calls.at(-1).auth, 'Bearer site-key');
     assert.ok(!(await viaSite.text()).includes('site-key'));
     assert.equal((await site({ 'sec-fetch-site': 'cross-site' })).status, 403);
+    // No browser metadata at all (curl, scripts): the site key stays unspent.
+    assert.equal((await site()).status, 403);
+    assert.equal((await site({ origin: 'https://evil.example' })).status, 403);
+    assert.equal((await site({ origin: 'https://panel.example' })).status === 403, false);
     await site({ authorization: 'Bearer mine', 'sec-fetch-site': 'same-origin' });
     assert.equal(calls.at(-1).auth, 'Bearer mine');
   } finally { globalThis.fetch = original; }

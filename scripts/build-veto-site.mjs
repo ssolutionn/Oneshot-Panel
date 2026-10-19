@@ -69,9 +69,11 @@ await cp(from('scripts/verify_veto_deployment.py'), to('scripts/verify_deploymen
 // Cloudflare Pages headers: the veto needs Google Sheets (the schedule) and
 // VDO.Ninja frames only.
 await writeFile(to('_headers'), `/*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://oneshot-veto.cyberclash.workers.dev; frame-src https://vdo.ninja https://cdn-backup.vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://oneshot-veto.cyberclash.workers.dev; frame-src https://vdo.ninja https://cdn-backup.vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
 `);
 
 // Cloudflare Workers (static assets, the dashboard's default for a Git

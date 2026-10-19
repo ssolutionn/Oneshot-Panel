@@ -6,6 +6,13 @@
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const ALLOWED = new RegExp(`^/(championships/${UUID}(/matches)?|matches/1-${UUID}(/stats)?)$`, 'i');
 
+export function fromThisSite(request) {
+  const site = request.headers.get('sec-fetch-site');
+  if (site) return site === 'same-origin';
+  const origin = request.headers.get('origin');
+  return Boolean(origin) && origin === new URL(request.url).origin;
+}
+
 export async function proxyFaceit(request, serverKey = '') {
   const url = new URL(request.url);
   const path = url.searchParams.get('path') || '';
@@ -15,9 +22,10 @@ export async function proxyFaceit(request, serverKey = '') {
   }
   let key = /^Bearer \S+$/.test(sent) ? sent : '';
   if (!key && String(serverKey || '').trim()) {
-    // Other websites must not spend the site's key through their visitors.
-    const site = request.headers.get('sec-fetch-site');
-    if (site && site !== 'same-origin') {
+    // Other websites and scripts must not spend the site's key. A request
+    // that proves nothing about where it came from (curl, no headers) is
+    // refused too; browsers without Fetch Metadata fall back to Origin.
+    if (!fromThisSite(request)) {
       return Response.json({ error: 'not-allowed', message: 'Ключ сайта доступен только самой панели.' }, { status: 403 });
     }
     key = `Bearer ${String(serverKey).trim()}`;

@@ -57,6 +57,13 @@ export function mapName(guid, entities = []) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+// faceit_url goes into a link; only a real FACEIT address may become one.
+function faceitRoomUrl(value) {
+  try {
+    const url = new URL(String(value || '').replace('{lang}', 'ru'));
+    return url.protocol === 'https:' && /(^|\.)faceit\.com$/.test(url.hostname) ? url.href : '';
+  } catch { return ''; }
+}
 export function summarizeMatch(raw) {
   const factions = Object.keys(raw?.teams || {}).sort();
   const [f1 = 'faction1', f2 = 'faction2'] = factions.length === 2 ? factions : ['faction1', 'faction2'];
@@ -76,7 +83,7 @@ export function summarizeMatch(raw) {
   const rounds = live && !(given[0] === wins[0] && given[1] === wins[1]) ? given : null;
   return {
     id: String(raw?.match_id || ''),
-    url: String(raw?.faceit_url || '').replace('{lang}', 'ru'),
+    url: faceitRoomUrl(raw?.faceit_url),
     status, statusText: STATUS_RU[status] || status.toLowerCase(),
     live, done,
     teams: [factionName(raw, f1), factionName(raw, f2)],

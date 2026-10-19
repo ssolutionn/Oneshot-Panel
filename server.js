@@ -28,8 +28,10 @@ export function createServer({relayStore = new FileRelayStore(process.env.VETO_R
   return http.createServer(async (request, response) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    response.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    response.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(), payment=(), usb=()');
     response.setHeader('Content-Security-Policy',
-      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://open.faceit.com https://oneshot-veto.pages.dev https://oneshot-veto.cyberclash.workers.dev ws://127.0.0.1:* ws://localhost:*; frame-src https://vdo.ninja https://cdn-backup.vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://open.faceit.com https://oneshot-veto.pages.dev https://oneshot-veto.cyberclash.workers.dev ws://127.0.0.1:* ws://localhost:*; frame-src https://vdo.ninja https://cdn-backup.vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
     if (await nodeRelay(request, response, relayStore, shortStore)) return;
     if (!['GET', 'HEAD'].includes(request.method)) {
       response.writeHead(405, { Allow: 'GET, HEAD' });
@@ -56,7 +58,9 @@ export function createServer({relayStore = new FileRelayStore(process.env.VETO_R
         const reply = await proxyFaceit(new Request('http://localhost' + request.url, {
           headers: {
             authorization: request.headers.authorization || '',
-            'sec-fetch-site': request.headers['sec-fetch-site'] || ''
+            'sec-fetch-site': request.headers['sec-fetch-site'] || '',
+            // Local Origin is http://<host>; compare it to the server's own.
+            origin: request.headers.origin === `http://${request.headers.host}` ? 'http://localhost' : ''
           }
         }), process.env.FACEIT_API_KEY);
         const body = Buffer.from(await reply.arrayBuffer());

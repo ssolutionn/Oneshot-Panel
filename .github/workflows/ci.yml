@@ -1,0 +1,35 @@
+name: CI gate
+# Fast checks on every pull request, whatever its base branch: the gate to make
+# required in branch protection. Heavier browser/OBS suites stay in their own
+# workflows.
+on:
+  pull_request:
+  push:
+    branches: ["claude/gracious-sagan-apztcc"]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax of every JS file
+        run: npm run check
+      - name: Unit tests
+        run: npm test
+      - name: Photo preparation tests
+        run: python3 -m unittest discover -s test -p '*_test.py'
+      - name: Generated veto site and Claude artifact build cleanly
+        run: |
+          node scripts/build-veto-site.mjs "$RUNNER_TEMP/dist-veto"
+          python3 claude-artifact/build_oneshot_artifact.py
+          git diff --exit-code -- claude-artifact/oneshot-panel.html
