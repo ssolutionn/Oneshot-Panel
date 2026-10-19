@@ -58,8 +58,11 @@
       "tail": "VDO_DECODED_VIDEO [{'type': None, 'decoded': None, 'fps': None}, {'type': 'video', 'decoded': 1, 'fps': 0}]\nVDO_CANVAS {'darkRequested': True, 'backgrounds': ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)']}\nPASS: current real VDO accepts cover URL and live style messages for camera pan/rotation; controlled media, no player stream\n"
     },
     "loading_firefox": {
-      "status": "running"
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 6.0,
+      "tail": "PASS: firefox white document after load, delayed API, zero decoded frames, video readiness, disconnect/reconnect and cleanup\n"
     }
   },
-  "updated_at": "2026-10-19T13:45:39.648491+00:00"
+  "updated_at": "2026-10-19T13:45:47.217439+00:00"
 }
