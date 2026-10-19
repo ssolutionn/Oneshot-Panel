@@ -96,7 +96,7 @@ async function run(message) {
     }
     if (message.type === 'obs-config') return reply(await adoptObs(message));
     const client = await connectObs();
-    if (message.type === 'apply' || message.type === 'apply-camera') {
+    if (['apply', 'apply-camera', 'apply-camera-zoom'].includes(message.type)) {
       const summary = await applyMatch(client, message.type==='apply' ? {...message.match,legacyCamera:true} : message.match);
       log(`Матч отправлен: ${message.title || 'без названия'}`, 'good');
       return reply({ ok: true, summary });
