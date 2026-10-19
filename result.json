@@ -1,7 +1,7 @@
 {
-  "source_sha": "6f30afc25b4667311ff3e94f135fadfc57a3cd7b",
-  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39184421038",
-  "checked_at": "2026-10-19T04:14:41.583961+03:00",
+  "source_sha": "c59aa9d366097f0ed19dbafca1462d97655fae8a",
+  "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39263105788",
+  "checked_at": "2026-10-19T16:47:47.008557+03:00",
   "teams": [
     {
       "name": "Nuclear TigeRES",
@@ -70,8 +70,8 @@
   ],
   "matches": [],
   "unresolved": [],
-  "expected_build": "8d3d808d359f8daa31f182cb4b1d8d4f822b8084",
-  "published_build": "8d3d808d359f8daa31f182cb4b1d8d4f822b8084",
+  "expected_build": "105450ef1ee7d8a710c01dbc93ad7651f9955b2e",
+  "published_build": "105450ef1ee7d8a710c01dbc93ad7651f9955b2e",
   "asset_checks": {
     "app.js": true,
     "core.js": true,
@@ -98,13 +98,17 @@
   },
   "panel": {
     "error": "",
-    "sync": "Обновлено 04:14 МСК",
+    "sync": "Обновлено 16:47 МСК",
     "groups": [],
     "schedule": []
   },
   "selection_checks": [],
   "missing": [],
   "passed": true,
+  "camera_loading_firefox": {
+    "passed": true,
+    "output": "PASS: firefox white document after load, delayed API, zero decoded frames, video readiness, disconnect/reconnect and cleanup\n"
+  },
   "veto_expected": "430e850e354caa4b9b356ee5b907ebd8a546c8bc",
   "veto_deployment": {
     "name": "Deploy veto to Cloudflare",
@@ -118,29 +122,22 @@
       "name": "Camera framing and OBS",
       "status": "in_progress",
       "conclusion": null,
-      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39184409583",
-      "id": 39184409583
+      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39263095889",
+      "id": 39263095889
     },
     {
       "name": "Panel checks",
       "status": "in_progress",
       "conclusion": null,
-      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39184409592",
-      "id": 39184409592
-    },
-    {
-      "name": "Veto site regression",
-      "status": "in_progress",
-      "conclusion": null,
-      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39184409671",
-      "id": 39184409671
+      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39263095911",
+      "id": 39263095911
     },
     {
       "name": "Camera framing and OBS",
-      "status": "completed",
-      "conclusion": "success",
-      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39183812915",
-      "id": 39183812915
+      "status": "in_progress",
+      "conclusion": null,
+      "html_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/39262454127",
+      "id": 39262454127
     }
   ]
 }
