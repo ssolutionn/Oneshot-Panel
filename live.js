@@ -2,7 +2,7 @@
 // match to OBS (directly or through the OBS dock), copying the JSON, webcam
 // status from VDO.Ninja and the live veto overlay. app.js keeps working
 // without this file (the Claude artifact has none of it).
-import { buildObs, DEFAULT_CARD_BASE } from './core.js';
+import { buildObs, DEFAULT_CARD_BASE, normalizeCamera } from './core.js';
 import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto } from './obs.js';
 import { VdoLink, CamWatch, bridgeSecrets, newBridgeCode, normalizeCode, VDO_CONNECT_TIMEOUT, VDO_CONNECT_MAX_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
 import { mountQrReader, parseObsQr, parsePairingQr } from './assets/obs-qr.js';
@@ -183,7 +183,7 @@ async function obsCommand(message, timeout = 30000) {
   if (settings.mode === 'direct') {
     const client = await new ObsClient(settings.url, settings.password).connect();
     try {
-      if (message.type === 'apply' || message.type === 'apply-camera') return { ok: true, summary: await applyMatch(client, message.match) };
+      if (['apply', 'apply-camera', 'apply-camera-zoom'].includes(message.type)) return { ok: true, summary: await applyMatch(client, message.match) };
       if (message.type === 'veto') { await emitVeto(client, message.state); return { ok: true }; }
       return { ok: true, obs: `OBS подключён${client.version ? ` · WebSocket ${client.version}` : ''}` };
     } finally { client.close(); }
@@ -205,7 +205,7 @@ async function obsCommand(message, timeout = 30000) {
       clearTimeout(timer);
       clearInterval(resend);
       bridge.waiting.delete(id);
-      reply.ok ? resolve(reply) : reject(new Error(reply.error==='Неизвестная команда.' && message.type==='apply-camera' ?
+      reply.ok ? resolve(reply) : reject(new Error(reply.error==='Неизвестная команда.' && ['apply-camera','apply-camera-zoom'].includes(message.type) ?
         'Окно Oneshot у обсервера устарело. В OBS нажми по нему правой кнопкой → Обновить, затем повтори отправку.' :
         reply.error || 'OBS не принял команду.'));
     });
@@ -416,7 +416,8 @@ $('sendObsBtn').addEventListener('click', async () => {
   button.disabled = true;
   obsBadge('Отправляем в OBS…', 'wait');
   try {
-    const { summary } = await obsCommand({ type: 'apply-camera', ...payload });
+    const type = payload.match.players.some(p=>normalizeCamera(p.camera).zoom!==1) ? 'apply-camera-zoom' : 'apply-camera';
+    const { summary } = await obsCommand({ type, ...payload });
     delete button.dataset.attention;
     button.title = '';
     panel.toast(`OBS обновлён: ${summary.slots} камер${summary.cards ? `, ${summary.cards} карточек` : ''}.`);

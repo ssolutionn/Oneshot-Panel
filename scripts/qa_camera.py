@@ -164,7 +164,7 @@ async def run(args):
           let link;
           link=new m.VdoLink(await m.bridgeSecrets(code),'dock',message=>{
             window.__legacyCommands.push(message.type);
-            link.send({type:'result',id:message.id,ok:message.type==='hello',
+            link.send({type:'result',id:message.id,ok:['hello','apply-camera'].includes(message.type),
               obs:'OBS ready',error:message.type==='hello'?'':'Неизвестная команда.'});
           });
           window.__legacyLink=link;
@@ -174,9 +174,22 @@ async def run(args):
         before=len(obs.requests)
         await page.click("#sendObsBtn")
         await expect(page.locator("#errorBox")).to_contain_text("Окно Oneshot у обсервера устарело",timeout=20000)
-        assert "apply-camera" in await old_dock.evaluate("window.__legacyCommands")
+        assert "apply-camera-zoom" in await old_dock.evaluate("window.__legacyCommands")
         assert len(obs.requests)==before,"An incompatible dock must not partially modify cameras"
+        await old_dock.evaluate("""code=>localStorage.setItem('oneshot-obs-bridge',JSON.stringify({code,url:'ws://127.0.0.1:4455',password:'pw'}))""",code)
         await old_dock.close()
+        dock=await context.new_page()
+        dock_obs=MockObs()
+        await dock.route_web_socket(OBS_URL,dock_obs.handler)
+        await dock.goto(args.url.rstrip('/')+'/obs-bridge.html')
+        await expect(dock.locator('#dockObs')).to_contain_text('подключён')
+        await page.click('#sendObsBtn')
+        await expect(page.locator('#toast')).to_contain_text('OBS обновлён',timeout=20000)
+        urls=[r['requestData']['inputSettings'].get('url','') for r in dock_obs.requests
+              if r['requestType']=='SetInputSettings']
+        assert any('scale:1.5!important' in base64.b64decode(parse_qs(urlsplit(url).query)['b64css'][0]).decode()
+                   for url in urls if 'b64css=' in url),'Updated dock lost zoom'
+        await dock.close()
         assert not errors,errors
         await browser.close()
         print("PASS: "+args.browser+" camera cover/pan/rotation preview, one connection, player persistence across slots/reload, JSON/live parity, mobile, frame setting and outdated-dock rejection",flush=True)
