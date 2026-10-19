@@ -332,9 +332,12 @@
       "exit_code": 0,
       "seconds": 26.7,
       "tail": "PASS: spectator cannot forge a move or fake the opponent being online\nPASS: a re-signed move is not taken back: the opponent keeps the first and sees a warning\nPASS: two tabs of one captain confirm together: one move counts, no conflict; standby takes over\nveto recovery: 3 scenarios passed\n"
+    },
+    "public_server_overlay": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-10-19T13:44:53.320709+00:00",
+  "updated_at": "2026-10-19T13:44:54.841420+00:00",
   "deployment_runs": [
     {
       "id": 39184291213,
