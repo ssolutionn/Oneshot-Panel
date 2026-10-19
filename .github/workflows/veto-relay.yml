@@ -43,7 +43,7 @@ jobs:
           python3 scripts/qa_veto_site.py --url http://127.0.0.1:3000 --browser chromium --artifacts artifacts/vdo
           python3 scripts/qa_veto_resilience.py --url http://127.0.0.1:3000 --browser chromium
           python3 scripts/qa_veto_resilience.py --url http://127.0.0.1:3000 --browser webkit
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: veto-relay-validation

@@ -34,7 +34,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VETO_EXTERNAL_MODE: ${{ inputs.mode || contains(github.event.head_commit.message, '[panel-review]') && 'review' || contains(github.event.head_commit.message, '[short-links]') && 'short' || contains(github.event.head_commit.message, '[vdo-recovery]') && 'recovery' || contains(github.event.head_commit.message, '[full-veto]') && 'all' || 'public' }}
         run: python3 scripts/ci_veto_external.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: veto-external-verification

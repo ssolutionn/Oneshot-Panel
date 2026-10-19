@@ -184,14 +184,14 @@ jobs:
           PY
       - name: Upload browser screenshots and sample OBS export
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: panel-browser-qa
           path: artifacts/
           if-no-files-found: ignore
       - name: Upload ready-to-publish static site
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: oneshot-panel-site
           path: public/
