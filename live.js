@@ -6,12 +6,13 @@ import { buildObs, DEFAULT_CARD_BASE } from './core.js';
 import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto } from './obs.js';
 import { VdoLink, CamWatch, bridgeSecrets, newBridgeCode, normalizeCode, VDO_CONNECT_TIMEOUT, VDO_CONNECT_MAX_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
 import { mountQrReader, parseObsQr, parsePairingQr } from './assets/obs-qr.js';
-import { createRoom, captainMessage, spectatorMessage, nextTurn, clock, formatClock, resultText } from './veto-room.js';
+import { createRoom, restartRoom, captainMessage, spectatorMessage, nextTurn, clock, formatClock, resultText } from './veto-room.js';
 import { RoomWatch, adminRoom, roomToPanel, roomMoves } from './veto-watch.js';
 import { ServerDisplayLink } from './assets/veto-relay-links.js';
 import { checkRelay } from './assets/veto-relay-client.js';
 import { relayEndpoint } from './assets/veto-relay-protocol.js';
 import {DEFAULT_TOURNAMENT,friendlyCaptainLinks,resolveRoomLink} from './assets/veto-short-links.js';
+import {showNotification} from './notifications.js';
 
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
@@ -54,6 +55,7 @@ for (const [view, tab] of views) {
     showView(views[next][0], true);
   });
 }
+window.addEventListener('oneshot:notification-open',event=>showView(event.detail==='veto'?'veto':'lobby',true));
 const startView = location.hash.slice(1) || read(VIEW_STORE);
 showView(views.some(v => v[0] === startView) ? startView : 'prep');
 
@@ -740,7 +742,7 @@ function cvStatus(text, kind = '') {
 }
 function captainVeto(s) {
   for (const [team, name] of [s.a?.name, s.b?.name].entries()) {
-    $('cvStart').options[team + 1].textContent = `${name || (team ? 'Вторая команда' : 'Первая команда')} выбирают порядок`;
+    $('cvStart').options[team + 1].textContent = `${name || (team ? 'Вторая команда' : 'Первая команда')} — первый пик`;
   }
   if (!cv.touched && s.veto?.format) $('cvFormat').value = s.veto.format;
   const match = cvMatch(s);
@@ -882,9 +884,7 @@ function roomCall(team, at) {
   const name = watch.live.room.t[team];
   watch.ringing.set(id, { name, at: Date.now() });
   callBeep();
-  if ('Notification' in window && Notification.permission === 'granted') {
-    try { new Notification('Oneshot · Вето', { body: `Капитан ${name} зовёт админа`, tag: 'oneshot-veto-call' }); } catch { /* the banner is enough */ }
-  }
+  void showNotification('Oneshot · Вето',`Капитан ${name} зовёт админа`,{tag:'oneshot-veto-call',section:'veto'});
   paintWatch();
 }
 $('cvAlertOk').addEventListener('click', () => {
@@ -931,7 +931,7 @@ function paintWatch() {
   for (const team of [0, 1]) {
     const card = $('cvTeam' + team);
     card.dataset.online = online[team] ? 'yes' : 'no';
-    card.classList.toggle('is-turn', turn.team === team && state.chooser !== null);
+    card.classList.toggle('is-turn', turn.team === team && (state.first !== null || state.chooser !== null));
     setText(card.querySelector('b'), names[team]);
     setText(card.querySelector('span'), online[team] ? 'online' : 'offline');
   }
@@ -940,7 +940,7 @@ function paintWatch() {
   setText($('cvLiveState'), done ? 'вето готово' : online.every(Boolean) ? 'оба капитана здесь' :
     online.some(Boolean) ? `здесь ${names[online.indexOf(true)]}` : 'капитанов нет');
   let stage;
-  if (state.chooser === null) {
+  if (state.first === null && state.chooser === null) {
     stage = state.commit !== null || online.every(Boolean) ? 'Капитаны бросают монетку…' :
       `Ждём капитанов: ${names.filter((_, team) => !online[team]).join(' и ')}.`;
   } else if (turn.kind === 'order') stage = room.chooser == null ? `Монетку выиграли ${names[state.coin]} — выбирают, кто банит первым.` : `Админ назначил ${names[state.chooser]} выбирать, кто банит первым.`;
@@ -1012,7 +1012,7 @@ $('cvRestart').addEventListener('click', async () => {
   try {
     const site = new URL(watch.adminLink);
     if (room.relay) await checkRelay(room.relay);
-    let made = await createRoom(site.origin + site.pathname, room.t, room.f, room.m ?? 5, room.relay || '', room.chooser ?? null);
+    let made = await restartRoom(site.origin + site.pathname, room);
     made=await friendlyCaptainLinks(made,site.href,cv.made?.tournament||$('cvTournament').value);
     const s = panel.snapshot();
     cvSave({ ...made,match: JSON.stringify(room.t), at: Date.now() });

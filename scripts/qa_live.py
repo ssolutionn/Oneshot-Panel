@@ -318,7 +318,7 @@ async def run(args):
         scene = [it["sourceName"] for it in obs.scenes["Игрок 6"]]
         assert scene[0].startswith("CARD 06 | HYPERSPIRIT | ") and scene[1].startswith("CAM 06 | HYPERSPIRIT | "), scene
         camera = obs.inputs[scene[1]]
-        assert camera["url"].endswith("&cleanoutput&transparent&cover") and camera["width"] == 1296
+        assert camera["url"].endswith("&cleanoutput&transparent&cover&darkmode") and camera["width"] == 1296
         assert obs.inputs[scene[0]]["url"].startswith(base + "/card.html?team=HYPERSPIRIT")
         obs.block_next = True
         await page.click("#sendObsBtn")
@@ -556,11 +556,20 @@ async def run(args):
               close() {}
               static get permission() { return 'granted'; }
               static requestPermission() { return Promise.resolve('granted'); }
-            };""")
+            };
+            Object.defineProperty(navigator,'serviceWorker',{value:{
+              addEventListener(){},
+              register:async()=>({active:{state:'activated'},showNotification:async(title,options)=>window.__notes.push({title,...options})})
+            }});""")
         await lobby.route("https://open.faceit.com/**", faceit)
         await lobby.goto(base + "/#lobby")
         await expect(lobby.locator("#lobbyView")).to_be_visible()
-        await expect(lobby.locator("#notifyBtn")).to_have_text("Уведомления включены")
+        await expect(lobby.locator("#notifyBtn")).to_have_text("Проверить уведомления")
+        await lobby.click('#notifyBtn')
+        await expect(lobby.locator('#notifyStatus')).to_contain_text('Тестовое уведомление отправлено')
+        assert (await lobby.evaluate('window.__notes'))[0]['tag']=='oneshot-notification-test'
+        await lobby.evaluate('window.__notes=[]')
+        assert await lobby.locator('#faceitKey').get_attribute('type')=='text'
         await lobby.fill("#faceitUrl", f"https://www.faceit.com/ru/championship/{CHAMP}/CyberClash")
         await lobby.fill("#faceitKey", "qa-key")
         await lobby.click("#lobbyStart")

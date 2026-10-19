@@ -47,7 +47,7 @@ const WORDS = {
     serverWait:'Connecting to our server…',vdoConnection:'Connection: VDO.Ninja',
     reconnect:'Reconnect',reconnecting:'Reconnecting…',
     title: 'Map veto', createHeading: "New captains' veto",
-    createNote: 'The site makes a personal link for each captain, a spectator link and an admin link. By default the captains toss a fair coin; you can instead assign a team to choose the veto order.',
+    createNote: 'The site makes a personal link for each captain, a spectator link and an admin link. By default the captains toss a fair coin; you can instead assign the first pick (first ban in BO1).',
     settings: 'Veto settings', match: 'Match from the schedule', loadingSchedule: 'Loading the schedule…',
     pickMatch: 'Pick a match — the teams fill in', noMatches: 'No upcoming matches in the schedule',
     scheduleFailed: 'The schedule did not load — type the teams below', today: 'today', tomorrow: 'tomorrow', noDate: 'No date',
@@ -64,8 +64,8 @@ const WORDS = {
     footAdmin: 'Admin view: you watch and get the HLTV text. Keep this link to yourselves.',
     footCaptain: name => `You are the captain of ${name}. This link is yours only — do not forward it.`,
     itsYou: "that's you", online: 'online', offline: 'offline',
-    startChoice: 'Who chooses the veto order', coinDefault: 'Coin toss (default)',
-    assignedChoice: name => `${name} choose the veto order`, assignedYou: 'You choose the veto order',
+    startChoice: 'First pick (first ban in BO1)', coinDefault: 'Coin toss (default)',
+    assignedFirst: name => `${name} — first pick`, assignedChoice: name => `${name} choose the veto order`, assignedYou: 'You choose the veto order',
     logAssignedOrder: (name, first) => `${name} chose the order: ${first} ban first`,
     coin: 'Coin', tossing: 'Tossing…', waitCaptains: 'Waiting for the captains', waitCaptain: name => `Waiting for captain ${name}`,
     coinHint: 'Both captains toss the coin once they open their links: each adds a random part, so nobody knows the result in advance — not the captains, not the admin.',
@@ -111,7 +111,7 @@ const WORDS = {
     serverWait:'Подключаемся к нашему серверу…',vdoConnection:'Связь: VDO.Ninja',
     reconnect:'Переподключить связь',reconnecting:'Переподключаем…',
     title: 'Вето карт', createHeading: 'Новое вето для капитанов',
-    createNote: 'Сайт сделает личную ссылку каждому капитану, ссылку зрителей и ссылку админа. По умолчанию капитаны бросают честную монетку; вместо неё можно назначить команду, которая выбирает порядок вето.',
+    createNote: 'Сайт сделает личную ссылку каждому капитану, ссылку зрителей и ссылку админа. По умолчанию капитаны бросают честную монетку; вместо неё можно сразу назначить команду на первый пик (в BO1 — первый бан).',
     settings: 'Настройки вето', match: 'Матч из расписания', loadingSchedule: 'Загружаем расписание…',
     pickMatch: 'Выбери матч — команды подставятся сами', noMatches: 'В расписании нет предстоящих матчей',
     scheduleFailed: 'Расписание не загрузилось — впиши команды ниже', today: 'сегодня', tomorrow: 'завтра', noDate: 'Без даты',
@@ -128,8 +128,8 @@ const WORDS = {
     footAdmin: 'Вид админа: смотришь и получаешь текст для HLTV. Эту ссылку держите у себя.',
     footCaptain: name => `Ты капитан ${name}. Эта ссылка только для тебя — не пересылай её.`,
     itsYou: 'это ты', online: 'online', offline: 'offline',
-    startChoice: 'Кто выбирает порядок вето', coinDefault: 'Монетка (по умолчанию)',
-    assignedChoice: name => `${name} выбирают порядок вето`, assignedYou: 'Вы выбираете порядок вето',
+    startChoice: 'Первый пик (в BO1 — первый бан)', coinDefault: 'Монетка (по умолчанию)',
+    assignedFirst: name => `${name} — первый пик`, assignedChoice: name => `${name} выбирают порядок вето`, assignedYou: 'Вы выбираете порядок вето',
     logAssignedOrder: (name, first) => `${name} выбрали порядок: первыми банят ${first}`,
     coin: 'Монетка', tossing: 'Подбрасываем…', waitCaptains: 'Ждём капитанов', waitCaptain: name => `Ждём капитана ${name}`,
     coinHint: 'Монетку бросают оба капитана, когда откроют свои ссылки: каждый добавляет свою случайную часть, поэтому результат заранее не знает никто — ни капитаны, ни админ.',
@@ -238,7 +238,7 @@ function showLinks(made) {
   $('vtWatch').href = links.o;
   $('vtLinks').hidden = false;
   $('vtMade').textContent = [made.restored ? t('made', new Date(made.at).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-GB', { hour: '2-digit', minute: '2-digit' })) : '',
-    room.chooser == null ? t('coinDefault') : t('assignedChoice', room.t[room.chooser]),
+    room.starter != null ? t('assignedFirst', room.t[room.starter]) : room.chooser == null ? t('coinDefault') : t('assignedChoice', room.t[room.chooser]),
     made.shortLinkFallback ? t('shortFallback') : ''].filter(Boolean).join(' ');
 }
 relabel.add(() => { if (shownLinks) showLinks(shownLinks); });
@@ -303,7 +303,7 @@ async function setupCreate() {
   applyWords();
   const choiceOptions = () => {
     for (const [team, id] of ['vtTeamA', 'vtTeamB'].entries()) {
-      $('vtStart').options[team + 1].textContent = t('assignedChoice', $(id).value.trim() || `Team ${team + 1}`);
+      $('vtStart').options[team + 1].textContent = t('assignedFirst', $(id).value.trim() || `Team ${team + 1}`);
     }
   };
   for (const id of ['vtTeamA', 'vtTeamB']) $(id).addEventListener('input', choiceOptions);
@@ -329,7 +329,7 @@ async function setupCreate() {
       store(LAST_KEY, made);
       const prefill = new URLSearchParams(location.hash.slice(1));
       if (prefill.has('new')) {
-        for (const [name,value] of Object.entries({a:made.room.t[0],b:made.room.t[1],f:made.room.f,m:made.room.m,start:made.room.chooser ?? 'coin',via:relay?'server':'vdo'})) prefill.set(name,String(value));
+        for (const [name,value] of Object.entries({a:made.room.t[0],b:made.room.t[1],f:made.room.f,m:made.room.m,start:made.room.starter ?? 'coin',via:relay?'server':'vdo'})) prefill.set(name,String(value));
         history.replaceState(null,'',location.pathname+location.search+'#'+prefill);
       }
       showLinks(made);
@@ -360,15 +360,15 @@ async function setupCreate() {
     const last = store(LAST_KEY);
     const room = last?.room;
     const fresh = Date.now() - (Number(last?.at) || 0) < RESTORE_FOR;
-    if (fresh && room && Array.isArray(room.t) && last.links?.a && last.links?.b && last.links?.s && last.links?.o &&
+    if (fresh && room && room.chooser == null && Array.isArray(room.t) && last.links?.a && last.links?.b && last.links?.s && last.links?.o &&
         (!asked || (asked[0] === room.t[0] && asked[1] === room.t[1] && asked[2] === room.f && (!params.has('via') || Boolean(room.relay) === (params.get('via') === 'server')) &&
           (!params.has('tournament') || params.get('tournament') === (last.tournament||DEFAULT_TOURNAMENT)) &&
-          (!params.has('start') || params.get('start') === String(room.chooser ?? 'coin'))))) {
+          (!params.has('start') || params.get('start') === String(room.starter ?? 'coin'))))) {
       $('vtTeamA').value = room.t[0];
       $('vtTeamB').value = room.t[1];
       $('vtFormat').value = room.f;
       $('vtTimer').value = String(room.m ?? 5);
-      $('vtStart').value = String(room.chooser ?? 'coin');
+      $('vtStart').value = String(room.starter ?? 'coin');
       $('vtTransport').value = room.relay ? 'server' : 'vdo';
       $('vtTournament').value = last.tournament||DEFAULT_TOURNAMENT;
       showLinks({ ...last, restored: true });
@@ -992,7 +992,7 @@ async function enterRoom(room) {
     setText($('vtPrompt'), prompt);
     setText($('vtHint'), hint);
     $('vtActions').replaceChildren(...actions);
-    $('vtCoin').hidden = room.chooser != null || (coin === 'shown' && turn.kind !== 'order');
+    $('vtCoin').hidden = room.starter != null || room.chooser != null || (coin === 'shown' && turn.kind !== 'order');
 
     const choosing = mine && coin === 'shown' && (turn.kind === 'ban' || turn.kind === 'pick');
     const order = new Map(state.actions.map((a, i) => [a.map, i + 1]));

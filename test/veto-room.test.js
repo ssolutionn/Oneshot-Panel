@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createRoom, decodeLink, encodeLink, roomSecrets, captainKey, acceptKey, fingerprint, publicPoint,
+  createRoom, restartRoom, decodeLink, encodeLink, roomSecrets, captainKey, acceptKey, fingerprint, publicPoint,
   signMove, verifyLog, replay, nextTurn, mergeLog, clock, formatClock, mapBoard, resultText,
   captainMessage, spectatorMessage, signRoomMessage, verifyRoomMessage, coinCommit, coinNonce
 } from '../veto-room.js';
@@ -9,8 +9,16 @@ import {
 const BASE = 'https://oneshot-panel.pages.dev/veto.html';
 const b64 = bytes => Buffer.from(bytes).toString('base64url');
 
-async function seats(format = 'BO3', chooser = null) {
-  const { links, room } = await createRoom(BASE, ['UPGRADE', 'Lavked'], format, 5, '', chooser);
+async function seats(format = 'BO3', starter = null, legacyChooser = null) {
+  const { links, room } = await createRoom(BASE, ['UPGRADE', 'Lavked'], format, 5, '', starter);
+  if (legacyChooser !== null) {
+    for (const [seat, link] of Object.entries(links)) {
+      const old = decodeLink(new URL(link).hash);
+      old.v = 3; old.chooser = legacyChooser; delete old.starter;
+      links[seat] = encodeLink(BASE, old);
+    }
+    room.v = 3; room.chooser = legacyChooser; delete room.starter;
+  }
   const a = decodeLink(new URL(links.a).hash), b = decodeLink(new URL(links.b).hash);
   const s = decodeLink(new URL(links.s).hash);
   const ka = await captainKey(a), kb = await captainKey(b);
@@ -91,9 +99,9 @@ test('timer: in the link, 5 minutes by default, 0 for none', async () => {
   assert.equal(clock({ startedAt: 0 }, 150000, 3).left, 30000);
 });
 
-test('assigned order choice skips the coin, belongs only to the selected captain and starts the clock on choice', async () => {
+test('legacy v3 assigned order choice skips the coin, belongs only to the selected captain and starts the clock on choice', async () => {
   for (const chooser of [0, 1]) {
-    const ctx = await seats('BO3', chooser);
+    const ctx = await seats('BO3', null, chooser);
     const { a, b, s, ka, kb } = ctx;
     assert.equal(s.chooser, chooser);
     assert.equal(replay(s, []).coin, null, 'an assignment is not a coin result');
@@ -121,34 +129,83 @@ test('assigned order choice skips the coin, belongs only to the selected captain
   }
 });
 
+test('assigned starter immediately bans, has the first pick, propagates signed moves and restarts with the same mode', async () => {
+  for (const format of ['BO1', 'BO2', 'BO3', 'BO5']) for (const starter of [0, 1]) {
+    const {a,b,s,ka,kb,links} = await seats(format, starter);
+    assert.equal(s.v, 4);
+    assert.equal(s.starter, starter);
+    assert.equal(encodeLink(BASE, s), links.s);
+    assert.deepEqual(nextTurn(s, replay(s, [])), {kind:'ban',team:format === 'BO2' ? 1-starter : starter});
+    assert.equal(replay(s, []).coin, null);
+    assert.equal(clock(replay(s, [])).started, false);
+    const caps = [a,b], keys = [ka,kb], firstBan = format === 'BO2' ? 1-starter : starter;
+    await assert.rejects(signMove(caps[1-firstBan], [], keys[1-firstBan], 'ban', 'Ancient'), /не твой/);
+    await assert.rejects(signMove(caps[starter], [], keys[starter], 'order', '0'), /не твой/);
+    await assert.rejects(signMove(a, [], ka, 'commit', 'A'.repeat(43)), /не твой/);
+    let log = [], firstPick = null;
+    while (nextTurn(s, replay(s, log)).kind !== 'done') {
+      const state = replay(s, log), turn = nextTurn(s, state);
+      if (turn.kind === 'pick' && firstPick === null) firstPick = turn.team;
+      const value = turn.kind === 'side' ? 'CT' : mapBoard(s, state).find(m => m.status === 'open').map;
+      log = await signMove(caps[turn.team], log, keys[turn.team], turn.kind, value);
+    }
+    assert.equal(log[0].k, 'ban');
+    assert.equal(replay(s, log).startedAt, log[0].at);
+    assert.equal((await verifyLog(s, log)).length, log.length);
+    if (format !== 'BO1') assert.equal(firstPick, starter);
+    assert.match(captainMessage(s, 0, 'LINK', 'ru'), /на первый пик/);
+    const restarted = await restartRoom(BASE, s);
+    assert.notEqual(restarted.room.r, s.r);
+    assert.equal(decodeLink(new URL(restarted.links.a).hash).starter, starter);
+    const bytes = Buffer.from(new URL(links.s).hash.slice(3), 'base64url');
+    bytes[2] = 3;
+    assert.equal(decodeLink('#v=' + b64(bytes)), null);
+  }
+});
+
+test('restarting a legacy v3 assignment preserves the right to choose order', async () => {
+  const {s} = await seats('BO3', null, 1);
+  const made = await restartRoom(BASE, s);
+  const restored = decodeLink(new URL(made.links.a).hash);
+  assert.equal(restored.v, 3);
+  assert.equal(restored.starter, undefined);
+  assert.equal(restored.chooser, 1);
+  assert.deepEqual(nextTurn(restored, replay(restored, [])), {kind:'order',team:1});
+});
+
 test('new room signatures bind the format, timer, teams and start setting even when verification is cached', async () => {
   const {a,s,ka} = await seats();
   const log = await signMove(a, [], ka, 'commit', await coinCommit(a, coinNonce()));
   const checked = new Set();
   assert.equal((await verifyLog(s, log, checked)).length, 1);
-  for (const change of [{f:'BO1'}, {m:0}, {t:['Other','Lavked']}, {chooser:1}, {v:2}]) {
+  for (const change of [{f:'BO1'}, {m:0}, {t:['Other','Lavked']}, {starter:1}, {v:2}]) {
     assert.equal((await verifyLog({...s, ...change}, log, checked)).length, 0, JSON.stringify(change));
   }
   assert.equal(await verifyRoomMessage({...s, m:0}, await signRoomMessage(a, ka, {t:'log',log,p:a.p})), false);
 });
 
-test('previous version 2 links and signatures still play their original coin sequence', async () => {
-  const ctx = await seats();
-  for (const room of [ctx.a,ctx.b,ctx.s]) { room.v=2; delete room.chooser; }
-  const link = encodeLink(BASE, ctx.a);
-  const restored = decodeLink(new URL(link).hash);
-  assert.equal(restored.v, 2);
-  assert.equal(restored.chooser, undefined);
-  assert.equal(encodeLink(BASE, restored), link);
-  const log = await tossCoin(ctx, 1);
-  assert.equal((await verifyLog(ctx.s, log)).length, 3);
-  assert.equal(replay(ctx.s, log).coin, 1);
+test('previous version 2 and 3 coin links keep their original signatures and sequence', async () => {
+  for (const version of [2,3]) {
+    const ctx = await seats();
+    for (const room of [ctx.a,ctx.b,ctx.s]) {
+      room.v=version; delete room.starter;
+      if(version===3) room.chooser=null;
+    }
+    const link = encodeLink(BASE, ctx.a);
+    const restored = decodeLink(new URL(link).hash);
+    assert.equal(restored.v, version);
+    assert.equal(restored.chooser, version===3 ? null : undefined);
+    assert.equal(encodeLink(BASE, restored), link);
+    const log = await tossCoin(ctx, 1);
+    assert.equal((await verifyLog(ctx.s, log)).length, 3);
+    assert.equal(replay(ctx.s, log).coin, 1);
+  }
 });
 
 test('captain key: a damaged secret or a foreign key is refused', async () => {
   const { links, a, s } = await seats();
   const bytes = Buffer.from(new URL(links.a).hash.slice(3), 'base64url');
-  bytes[33] ^= 1; // v3: version, flags, start mode, room and two fingerprints
+  bytes[33] ^= 1; // v3/v4: version, flags, start mode, room and two fingerprints
   const broken = decodeLink('#v=' + b64(bytes));
   await assert.rejects(captainKey(broken), /не подходит/);
   const other = await seats();

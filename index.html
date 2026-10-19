@@ -215,7 +215,7 @@
             <option value="5" selected>5 минут</option><option value="3">3 минуты</option><option value="7">7 минут</option>
             <option value="10">10 минут</option><option value="15">15 минут</option><option value="0">Без таймера</option>
           </select></label>
-          <label>Кто выбирает порядок вето<select id="cvStart"><option value="coin" selected>Монетка (по умолчанию)</option><option value="0">Первая команда</option><option value="1">Вторая команда</option></select></label>
+          <label>Первый пик (в BO1 — первый бан)<select id="cvStart"><option value="coin" selected>Монетка (по умолчанию)</option><option value="0">Первая команда</option><option value="1">Вторая команда</option></select></label>
           <label>Связь при создании комнаты<select id="cvTransport"><option value="vdo" selected>VDO.Ninja</option><option value="server">Наш сервер</option></select></label>
           <label>Сообщения капитанам<select id="cvLang"><option value="en" selected>English</option><option value="ru">Русский</option></select></label>
           <button id="cvCreate" class="button primary" type="button">Создать ссылки</button>
@@ -253,15 +253,16 @@
         <div class="panel-heading">
           <div><span class="eyebrow">FACEIT LOBBY</span><h2 id="lobbyHeading">Лобби турнира</h2></div>
           <div class="lobby-alerts">
-            <button id="notifyBtn" class="button small" type="button">Включить уведомления</button>
+            <button id="notifyBtn" class="button small" type="button" disabled>Включить уведомления</button>
             <button id="soundBtn" class="button small" type="button">Проверить звук</button>
           </div>
         </div>
-        <form id="lobbyForm" class="lobby-form">
+        <p id="notifyStatus" class="notification-hint" role="status">Уведомления приходят на этот компьютер, пока панель открыта. Окно можно свернуть.</p>
+        <form id="lobbyForm" class="lobby-form" autocomplete="off">
           <label class="lobby-url"><span class="mini-label">Ссылка на турнир или комнату матча FACEIT</span>
             <input id="faceitUrl" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="faceit.com/…/championship/… или …/room/1-… (можно несколько)" required></label>
           <label class="lobby-key"><span class="mini-label">API-ключ FACEIT (client side)</span>
-            <input id="faceitKey" type="password" autocomplete="off" spellcheck="false" placeholder="Не нужен, если ключ задан на сайте"></label>
+            <input id="faceitKey" class="api-token" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="Не нужен, если ключ задан на сайте"></label>
           <button id="lobbyStart" class="button primary" type="submit">Следить</button>
         </form>
         <p id="lobbyStatus" class="lobby-status" role="status">Вставь ссылку на турнир и ключ — панель будет проверять матчи каждые 20 секунд.</p>
@@ -571,6 +572,11 @@
     <div class="camera-tools">
       <label>Поворот<select id="cameraRotation"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></label>
       <button id="cameraRotate" class="button" type="button">Повернуть ↻ 90°</button>
+      <div class="camera-zoom">
+        <button class="button" type="button" data-camera-zoom="-10" aria-label="Отдалить камеру">−</button>
+        <label for="cameraZoom">Приблизить <output id="cameraZoomValue" for="cameraZoom">100%</output><input id="cameraZoom" type="range" min="100" max="300" step="5" value="100"></label>
+        <button class="button" type="button" data-camera-zoom="10" aria-label="Приблизить камеру">+</button>
+      </div>
       <div class="camera-pan" aria-label="Область показа камеры">
         <button class="button" type="button" data-camera-pan="panX:-10" aria-label="Показать область левее">← Левее</button>
         <button class="button" type="button" data-camera-pan="panY:-10" aria-label="Показать область выше">↑ Выше</button>
