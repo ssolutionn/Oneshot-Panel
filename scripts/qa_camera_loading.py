@@ -53,7 +53,7 @@ async def run(args):
         await context.route('**/api/bookmakers?**',lambda r:r.fulfill(content_type='application/json',body='{"ok":true,"events":[]}'))
         count=[]
         async def provider(route):
-            count.append(route.request.url)
+            if '&cover' in route.request.url: count.append(route.request.url)
             await route.fulfill(content_type='text/html',body=PROVIDER)
         await context.route('https://vdo.ninja/**',provider)
         page=await context.new_page()
@@ -87,12 +87,23 @@ async def run(args):
         # Neither a video element nor a connection/other-frame message is a decoded frame.
         await frame.evaluate('()=>window.__video(0)')
         current=await frame.evaluate('()=>window.__requests.at(-1)')
-        assert await page.evaluate("""cib => {
-          const f=document.querySelector('#cameraPreviewBox iframe');
-          for(const [source,origin] of [[window,'https://vdo.ninja'],[f.contentWindow,'https://other.example']])
-            dispatchEvent(new MessageEvent('message',{source,origin,data:{stats:{video:{_framesDecoded:5}},cib}}));
-          return document.querySelector('#cameraPreviewBox').dataset.loading;
-        }""",current)=='true'
+        # A real second VDO iframe has the right origin but the wrong source.
+        # Native postMessage also works in Firefox's isolated automation world.
+        await page.evaluate("""() => {
+          window.__foreignLoading=null;
+          addEventListener('message',event=>{
+            if(event.data?.qaForeign)window.__foreignLoading=document.querySelector('#cameraPreviewBox').dataset.loading;
+          });
+          const f=document.createElement('iframe');f.id='qaForeignPreview';f.hidden=true;
+          f.src='https://vdo.ninja/?foreign-preview-qa';document.body.append(f);
+        }""")
+        foreign=await (await page.locator('#qaForeignPreview').element_handle()).content_frame()
+        await foreign.wait_for_selector('#providerWhite',state='attached')
+        await foreign.wait_for_load_state('load')
+        await foreign.evaluate("cib=>parent.postMessage({qaForeign:true,cib,stats:{video:{_framesDecoded:5}}},'*')",current)
+        await page.wait_for_function('()=>window.__foreignLoading!==null')
+        assert await page.evaluate('window.__foreignLoading')=='true'
+        await page.locator('#qaForeignPreview').evaluate('el=>el.remove()')
         await expect(iframe).to_have_css('opacity','0')
         await frame.evaluate('()=>window.__video(12)')
         await expect(page.locator('#cameraPreviewBox')).to_have_attribute('data-loading','false')
