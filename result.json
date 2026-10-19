@@ -80,7 +80,10 @@
       "exit_code": 0,
       "seconds": 7.2,
       "tail": "PASS: firefox camera cover/pan/rotation preview, one connection, player persistence across slots/reload, JSON/live parity, mobile, frame setting and outdated-dock rejection\n"
+    },
+    "editor_chromium": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-10-19T13:46:22.478592+00:00"
+  "updated_at": "2026-10-19T13:46:24.700653+00:00"
 }
