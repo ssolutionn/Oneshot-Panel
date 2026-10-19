@@ -30,7 +30,12 @@ def git(*args, **kwargs):
     return subprocess.run(["git", *args], cwd=ROOT, check=True, capture_output=True, **kwargs).stdout.decode().strip()
 
 
-def publish():
+def _run_id(url):
+    value = str(url or "").rstrip("/").rsplit("/", 1)[-1]
+    return int(value) if value.isdigit() else 0
+
+
+def _publish():
     """Append a small results-only commit; source branches and the index stay intact."""
     REPORT["updated_at"] = datetime.now(timezone.utc).isoformat()
     payload = json.dumps(REPORT, ensure_ascii=False, indent=2) + "\n"
@@ -40,7 +45,13 @@ def publish():
     parent = []
     if remote:
         git("fetch", "--no-tags", "origin", RESULT_REF)
-        parent = ["-p", git("rev-parse", "FETCH_HEAD")]
+        previous = git("rev-parse", "FETCH_HEAD")
+        parent = ["-p", previous]
+        # A cancelled older run may finish writing after its replacement.
+        # Preserve the newer run's evidence on the shared status branch.
+        current = json.loads(git("show", previous + ":result.json"))
+        if _run_id(current.get("run_url")) > _run_id(REPORT.get("run_url")):
+            return
     index = OUT / "results-index"
     index.unlink(missing_ok=True)
     settings = dict(os.environ, GIT_INDEX_FILE=str(index),
@@ -55,6 +66,18 @@ def publish():
     commit = git("commit-tree", tree, *parent, "-m",
                  f"Veto external verification {os.environ.get('GITHUB_RUN_ID')}: {REPORT['status']}", env=settings)
     git("push", "origin", f"{commit}:{RESULT_REF}")
+
+
+def publish():
+    # Concurrent writers can advance the status ref between fetch and push.
+    # Re-read its parent and retry normally; never force-push evidence away.
+    for attempt in range(4):
+        try:
+            return _publish()
+        except subprocess.CalledProcessError:
+            if attempt == 3:
+                raise
+            time.sleep(1)
 
 
 def step(name, command, timeout):
