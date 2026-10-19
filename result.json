@@ -320,9 +320,12 @@
           }
         }
       ]
+    },
+    "public_server_matches": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-10-19T13:43:14.855578+00:00",
+  "updated_at": "2026-10-19T13:43:16.638267+00:00",
   "deployment_runs": [
     {
       "id": 39184291213,
