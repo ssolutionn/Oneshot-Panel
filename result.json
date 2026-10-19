@@ -116,7 +116,10 @@
       "exit_code": 0,
       "seconds": 29.4,
       "tail": "PASS: load rosters, schedule and OBS template\nPASS: all seven local map images load without broken icons\nPASS: schedule fills time, stage and teams\nPASS: separate player URLs, bold nicknames and headings\nPASS: keyboard-accessible output tabs\nPASS: replacement survives refresh\nPASS: schedule outage retains selected match\nPASS: roster outage retains substitutions and marks stale data\nPASS: browser download: cards default off, enabled, disabled again; ten cameras\nPASS: JSON: native save, refused dialog fallback, cancellation and silent-download recovery\nPASS: missing metadata blocks JSON while links remain available\nPASS: exact HLTV example, sides, completion, undo and redo\nPASS: reload restores match, substitutions and veto\nPASS: row inserted above the match keeps the veto after refresh\nPASS: denied clipboard shows exact requested text\nPASS: player link regenerated on the right of the row, kept, reverted; «Игроку» copies the PUSH line\nPASS: swap keeps the veto; changed matchup resets it; same-team match is blocked\nPASS: invalid source gives visible error and preserves data\nPASS: 375px mobile layout has no page overflow\nPASS: source change ignores late old data\nPASS: corrupt storage and denied persistence remain usable\nPASS: missing template blocks export; refresh retries\nPASS: a hanging OBS template times out; refresh can load it again\nPASS: HTML and script payloads render as text\nPASS: schedule sheet for another day is flagged\nPASS: organizer schedule by date; logos on team cards\nPASS: corrected schedule time refreshes and reloads without losing veto or manual edits\nPASS: night mode follows the system; toggle persists, swaps the logo\nPASS: player card: photo, alias, logo fallback, long nick, 480×270 tile\n29 browser scenarios passed; Sheets responses: synthetic fixtures\n"
+    },
+    "panel_webkit": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-10-19T13:54:06.979042+00:00"
+  "updated_at": "2026-10-19T13:54:08.818003+00:00"
 }
