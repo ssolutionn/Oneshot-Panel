@@ -58,8 +58,11 @@ try:
             time.sleep(5)
         if report["published_build"] != expected_build:
             raise RuntimeError("The panel host has not yet published the expected commit")
-        app = page.goto("https://oneshot-panel.pages.dev/app.js", wait_until="domcontentloaded", timeout=30000)
-        report["app_matches_source"] = hashlib.sha256(app.body()).digest() == hashlib.sha256(Path("app.js").read_bytes()).digest()
+        report["asset_checks"] = {}
+        for file in ("app.js", "core.js", "live.js", "lobby.js", "style.css", "notifications.js", "notification-worker.js", "assets/camera/oneshot-preview.png"):
+            asset = page.goto("https://oneshot-panel.pages.dev/"+file, wait_until="domcontentloaded", timeout=30000)
+            report["asset_checks"][file] = asset.status == 200 and hashlib.sha256(asset.body()).digest() == hashlib.sha256(Path(file).read_bytes()).digest()
+        report["app_matches_source"] = all(report["asset_checks"].values())
         response = page.goto("https://oneshot-panel.pages.dev/", wait_until="domcontentloaded", timeout=45000)
         report["public_status"] = response.status
         page.wait_for_function("() => window.oneshotPanel && document.querySelector('#syncTitle').textContent.includes('команд из таблицы')", timeout=45000)
@@ -68,7 +71,11 @@ try:
           exportRecovery:!!document.querySelector('#exportRecovery'),
           exportDialog:!!document.querySelector('#exportText'),
           cameraFrame:document.querySelector('#cameraFrame')?.value==='inner43',
-          cameraEditor:!!document.querySelector('#cameraPreviewBox') && !!document.querySelector('#cameraApplyObs')
+          cameraEditor:!!document.querySelector('#cameraPreviewBox') && !!document.querySelector('#cameraApplyObs'),
+          cameraZoom:document.querySelector('#cameraZoom')?.max==='300',
+          apiKeyNotPassword:document.querySelector('#faceitKey')?.type==='text',
+          notificationHelp:!!document.querySelector('#notifyStatus'),
+          firstPickLabel:document.querySelector('#cvStart')?.parentElement.textContent.includes('Первый пик')
         })""")
         page.click("#refreshBtn")
         page.wait_for_function("() => !document.querySelector('#refreshBtn').disabled", timeout=45000)
