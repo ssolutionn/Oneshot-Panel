@@ -318,7 +318,7 @@ async def run(args):
         scene = [it["sourceName"] for it in obs.scenes["Игрок 6"]]
         assert scene[0].startswith("CARD 06 | HYPERSPIRIT | ") and scene[1].startswith("CAM 06 | HYPERSPIRIT | "), scene
         camera = obs.inputs[scene[1]]
-        assert camera["url"].endswith("&cleanoutput&transparent&cover") and camera["width"] == 1296
+        assert camera["url"].endswith("&cleanoutput&transparent&cover") and camera["width"] == 1320
         assert obs.inputs[scene[0]]["url"].startswith(base + "/card.html?team=HYPERSPIRIT")
         obs.block_next = True
         await page.click("#sendObsBtn")

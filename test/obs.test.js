@@ -145,7 +145,7 @@ test('Sending a match updates cameras and puts cards right under them', async ()
       assert.equal(obs.state.inputs.get(camera).settings.css, 'keep');
       assert.equal(obs.state.inputs.get(card).settings.url, cardUrl(p, 'https://panel.example'));
       for (const it of obs.state.scenes.get(`Игрок ${p.slot}`).slice(2)) {
-        assert.equal(it.transform.boundsWidth, 1296);
+        assert.equal(it.transform.boundsWidth, 1320);
         assert.equal(it.transform.boundsType, 'OBS_BOUNDS_SCALE_INNER');
       }
     }

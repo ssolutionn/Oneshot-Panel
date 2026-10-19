@@ -218,11 +218,11 @@ test('OBS repairs cameras and remaps references without mutating template', () =
     const browser = byId.get(item.source_uuid);
     refs.add(item.source_uuid);
     assert.equal(browser.settings.url, cameraViewUrl(players[i]));
-    assert.equal(browser.settings.width, 1296);
-    assert.equal(browser.settings.height, 972);
+    assert.equal(browser.settings.width, 1320);
+    assert.equal(browser.settings.height, 1008);
     assert.equal(item.rot, 0);
-    assert.deepEqual(item.pos, { x: 312, y: 54 });
-    assert.deepEqual(item.bounds, { x: 1296, y: 972 });
+    assert.deepEqual(item.pos, { x: 300, y: 36 });
+    assert.deepEqual(item.bounds, { x: 1320, y: 1008 });
     assert.equal(item.bounds_type, 2);
     for (const key of ['crop_left', 'crop_right', 'crop_top', 'crop_bottom']) {
       assert.equal(item[key], 0);
@@ -252,8 +252,8 @@ test('OBS omits all player cards by default and when disabled', () => {
       const cameras = scene.settings.items.filter(it => it.name.startsWith('CAM '));
       assert.equal(cameras.length, 1);
       assert.ok(!scene.settings.items.some(it => it.name.startsWith('CARD ')));
-      assert.equal(byId.get(cameras[0].source_uuid).settings.width, 1296);
-      assert.equal(byId.get(cameras[0].source_uuid).settings.height, 972);
+      assert.equal(byId.get(cameras[0].source_uuid).settings.width, 1320);
+      assert.equal(byId.get(cameras[0].source_uuid).settings.height, 1008);
       for (const item of scene.settings.items) assert.ok(byId.has(item.source_uuid));
     }
     assert.ok(result.sources.some(s => s.name === 'Матрица'));
@@ -282,8 +282,8 @@ test('Player card sits under each camera and opens the card page', () => {
     assert.equal(source.id, 'browser_source');
     assert.equal(source.name, item.name);
     assert.equal(item.visible, true);
-    assert.deepEqual(item.bounds, { x: 1296, y: 972 });
-    assert.deepEqual(item.pos, { x: 312, y: 54 });
+    assert.deepEqual(item.bounds, { x: 1320, y: 1008 });
+    assert.deepEqual(item.pos, { x: 300, y: 36 });
     assert.equal(new Set(scene.settings.items.map(it => it.id)).size, names.length);
     assert.deepEqual(source.settings, {
       url: cardUrl(players[i], 'https://panel.example'), width: 1920, height: 1080

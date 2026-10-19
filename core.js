@@ -216,7 +216,8 @@ export function directorUrl(team) {
 }
 export const DEFAULT_CAMERA_FRAME = 'inner43';
 export const CAMERA_FRAMES = {
-  inner43: { x:312, y:54, width:1296, height:972 },
+  // Key kept for saved settings: fields 300 px left/right and 36 px top/bottom.
+  inner43: { x:300, y:36, width:1320, height:1008 },
   full43: { x:240, y:0, width:1440, height:1080 },
   wide: { x:0, y:0, width:1920, height:1080 }
 };

@@ -137,7 +137,7 @@ async def run():
                     assert reply["d"]["requestStatus"]["result"],reply
                     return reply["d"].get("responseData",{})
 
-        async def picture(slot,label,expected=(312,54,1608,1026)):
+        async def picture(slot,label,expected=(300,36,1620,1044)):
             await request("SetCurrentProgramScene",{"sceneName":"Игрок "+str(slot)})
             camera_name=next(p['name'] for p in data['document']['sources'] if p['name'].startswith(f'CAM {slot:02} '))
             print('CAMERA_ACTIVITY',slot,await request('GetSourceActive',{'sourceName':camera_name}),flush=True)
@@ -235,7 +235,7 @@ async def run():
                 stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.STDOUT)
             output,_=await command.communicate()
             assert command.returncode==0,output.decode()
-        for frame,rotation,bounds in [("inner43",270,(312,54,1608,1026)),
+        for frame,rotation,bounds in [("inner43",270,(300,36,1620,1044)),
                                      ("full43",180,(240,0,1680,1080)),("wide",90,(0,0,1920,1080))]:
             await live(frame,rotation)
             await picture(1,"live-"+frame,bounds)

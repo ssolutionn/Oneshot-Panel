@@ -632,7 +632,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
       </div>
       <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
       <label class="camera-frame-setting">Рамка вебок
-        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 4:3</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option></select>
+        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option></select>
         <span>Заполнение с обрезкой краёв. «Кадр» под ником — поворот и положение игрока.</span>
       </label>
       <div class="export-meta">
@@ -974,7 +974,8 @@ function directorUrl(team) {
 }
 const DEFAULT_CAMERA_FRAME = 'inner43';
 const CAMERA_FRAMES = {
-  inner43: { x:312, y:54, width:1296, height:972 },
+  // Key kept for saved settings: fields 300 px left/right and 36 px top/bottom.
+  inner43: { x:300, y:36, width:1320, height:1008 },
   full43: { x:240, y:0, width:1440, height:1080 },
   wide: { x:0, y:0, width:1920, height:1080 }
 };
