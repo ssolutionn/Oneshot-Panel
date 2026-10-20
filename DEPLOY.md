@@ -152,6 +152,25 @@ HTTPS Netlify выпустит сам после того, как записи �
 7. Чтобы не тратить сборки на чужие ветки: Settings → Builds → Branch
    control → Preview branches: None (или только нужные).
 
+### Свой адрес на турнир
+
+Пока панель не умеет `/e/<турнир>/` (docs/ARCHITECTURE.md), турнир получает
+свой адрес той же сборки: ветка с его именем → `https://<ветка>.<project>.pages.dev`.
+У каждого адреса своё хранилище браузера: режим ЛАН, команды, фото, кадры
+камер и настройки OBS одного турнира не смешиваются с другим.
+
+| Адрес | Ветка | Турнир |
+| --- | --- | --- |
+| `oneshot-panel.pages.dev` | `claude/gracious-sagan-apztcc` | CyberClash (таблицы) |
+| `reu.oneshot-panel.pages.dev` | `reu` | ЛАН РЭУ им. Плеханова |
+
+- Ветка турнира — тот же коммит, что и основная: выкладка = один пуш в обе,
+  `git push origin <commit>:claude/gracious-sagan-apztcc <commit>:reu`.
+  Своих правок в ветке турнира нет.
+- Если в Branch control превью выключены, ветку турнира надо добавить
+  в Preview branches → Custom branches, иначе адрес не появится.
+- Турнир закончился — ветку удалить; ссылки на старый адрес перестанут работать.
+
 Cloudflare открывает `card.html`, `obs-bridge.html`, `veto.html` и `overlay.html`
 и без `.html` (перенаправляет `/card.html?…` на `/card?…`); ссылки с
 `.html` в OBS продолжают работать.
