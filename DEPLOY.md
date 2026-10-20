@@ -15,7 +15,7 @@ assets/players/; браузер карточки загружает их уже 
 
 ```
 index.html  app.js  core.js  theme.js  style.css  card.html  card.js  card.css
-live.js  obs.js  vdo.js  lobby.js  faceit.js  obs-bridge.html  obs-bridge.js  veto.html  veto.js  veto.css  veto-room.js  veto-watch.js  bookmakers.js  bookies.js  assets/
+live.js  obs.js  vdo.js  lobby.js  faceit.js  obs-bridge.html  obs-bridge.js  veto.html  veto.js  veto.css  veto-room.js  veto-watch.js  bookmakers.js  bookies.js  lan.js  assets/
 ```
 
 - Репозиторий: https://github.com/ssolutionn/Oneshot-Panel,
@@ -47,7 +47,7 @@ sudo mkdir -p /var/www/oneshot-panel
 cd /opt/oneshot-panel
 sudo python3 scripts/fetch_player_photos.py --allow-missing
 sudo cp index.html app.js core.js theme.js style.css card.html card.js card.css \
-  live.js obs.js vdo.js lobby.js faceit.js obs-bridge.html obs-bridge.js veto.html veto.js veto.css veto-room.js veto-watch.js bookmakers.js bookies.js /var/www/oneshot-panel/
+  live.js obs.js vdo.js lobby.js faceit.js obs-bridge.html obs-bridge.js veto.html veto.js veto.css veto-room.js veto-watch.js bookmakers.js bookies.js lan.js /var/www/oneshot-panel/
 sudo cp -R assets /var/www/oneshot-panel/
 ```
 
@@ -89,7 +89,7 @@ sudo certbot --nginx -d panel.oneshot.su   # HTTPS от Let's Encrypt
 cd /opt/oneshot-panel && sudo git pull
 sudo python3 scripts/fetch_player_photos.py --allow-missing
 sudo cp index.html app.js core.js theme.js style.css card.html card.js card.css \
-  live.js obs.js vdo.js lobby.js faceit.js obs-bridge.html obs-bridge.js veto.html veto.js veto.css veto-room.js veto-watch.js bookmakers.js bookies.js /var/www/oneshot-panel/
+  live.js obs.js vdo.js lobby.js faceit.js obs-bridge.html obs-bridge.js veto.html veto.js veto.css veto-room.js veto-watch.js bookmakers.js bookies.js lan.js /var/www/oneshot-panel/
 sudo cp -R assets /var/www/oneshot-panel/
 ```
 

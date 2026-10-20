@@ -235,6 +235,20 @@ dialog input { display:block; width:100%; min-width:0; margin-top:7px; padding:1
 dialog p.muted { font-size:11px; overflow-wrap:anywhere; }
 .dialog-actions { display:flex; justify-content:space-between; gap:12px; margin-top:20px; }
 dialog textarea { margin:0; width:100%; }
+.lan-switch { display:flex!important; align-items:center; gap:10px; }
+.lan-switch input { width:auto; margin:0; }
+.lan-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.lan-row label { margin:8px 0; }
+.lan-dialog textarea { min-height:140px; margin-top:7px; white-space:pre-wrap; }
+.lan-seats-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:18px; }
+.lan-seats-head h3 { margin:0; font-size:13px; }
+.lan-seats { list-style:none; margin:8px 0 0; padding:0; display:grid; gap:6px; }
+.lan-seats li { display:grid; grid-template-columns:28px 1fr auto; align-items:center; gap:10px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--field); }
+.lan-seats li.muted { display:block; color:var(--muted); font-size:11px; }
+.lan-seats b { font-size:12px; }
+.lan-seats code { font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; overflow-wrap:anywhere; color:var(--ink); }
+.seat-id { color:var(--ink); }
+@media (max-width:520px) { .lan-row { grid-template-columns:1fr; } }
 /* Webcam status (VDO.Ninja) */
 .cam-summary { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 10px; padding:9px 14px; border:1px solid var(--line); border-radius:8px; background:var(--surface); }
 .cam-summary .check { font-size:11px; cursor:pointer; }

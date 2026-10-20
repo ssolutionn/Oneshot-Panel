@@ -282,6 +282,80 @@ export function applyStreamIds(teams, saved) {
   }));
   return { teams: result, saved: kept };
 }
+// LAN: no sheets, and a camera belongs to a seat (one PC), not to a player.
+// Seat streams are fixed for the whole event: <prefix>a1…a5 for the first
+// team's seats, <prefix>b1…b5 for the second's; the room is the prefix.
+// Teams are typed by hand, one per line: «Команда: ник1, ник2, …». The
+// first five nicks play, the rest are substitutes.
+export const LAN_SEATS = 5;
+export function lanConfig(value) {
+  const v = value && typeof value === 'object' ? value : {};
+  const prefix = typeof v.prefix === 'string' && /^[a-z0-9]{2,12}$/.test(v.prefix) ? v.prefix : '';
+  const password = typeof v.password === 'string' ? line(v.password).slice(0, 40) : '';
+  const text = typeof v.text === 'string' ? v.text.slice(0, 20000) : '';
+  return { on: v.on === true && Boolean(prefix), prefix, password, text };
+}
+export function parseLanRoster(text) {
+  const teams = [], skipped = [], names = new Set();
+  String(text ?? '').split(/\r?\n/).forEach((raw, index) => {
+    const row = line(raw);
+    if (!row || row.startsWith('#')) return;
+    const at = row.indexOf(':');
+    const name = at > 0 ? line(row.slice(0, at)) : '';
+    const nicks = at > 0 ? row.slice(at + 1).split(',').map(line).filter(Boolean) : [];
+    if (!name || !nicks.length) {
+      skipped.push(`строка ${index + 1}: нужно «Команда: ник1, ник2, …»`);
+      return;
+    }
+    if (name.length > 60 || names.has(name.toLowerCase())) {
+      skipped.push(`строка ${index + 1}: ${name.length > 60 ? 'слишком длинное название' : `команда ${name} уже есть`}`);
+      return;
+    }
+    names.add(name.toLowerCase());
+    const seen = new Set(), players = [];
+    for (const nick of nicks) {
+      if (nick.length > 40 || seen.has(nick.toLowerCase())) {
+        skipped.push(`${name}: ${nick.length > 40 ? 'слишком длинный ник' : `ник ${nick} повторяется`}`);
+        continue;
+      }
+      seen.add(nick.toLowerCase());
+      players.push({
+        key: JSON.stringify(['lan', name, nick]), slot: '', nick, id: '', room: '', password: '',
+        role: players.length < LAN_SEATS ? 'Основной' : 'Запасной', sourceRow: index + 1
+      });
+    }
+    teams.push({ name, room: '', password: '', players, sourceRow: index + 1 });
+  });
+  teams.skipped = skipped;
+  if (!teams.length) throw new Error('Добавь команды в окне «ЛАН»: одна строка — «Команда: ник1, ник2, …».');
+  return teams;
+}
+export function lanSeatId(prefix, side, index) {
+  return vdoId(`${prefix}${side}${index + 1}`);
+}
+// The team as it sits this match: players picked for its seats get that
+// seat's stream; everyone else has none.
+export function seatTeam(team, side, keys, lan) {
+  if (!team) return team;
+  const room = lan.prefix, password = lan.password || '';
+  return {
+    ...team, room, password,
+    players: team.players.map(p => {
+      const i = keys.indexOf(p.key);
+      return i >= 0 && i < LAN_SEATS ?
+        { ...p, id: lanSeatId(room, side, i), room, password, seat: `${side.toUpperCase()}${i + 1}` } :
+        { ...p, id: '', room, password, seat: '' };
+    })
+  };
+}
+// The ten links to open once on the seats' PCs.
+export function lanSeatLinks(lan) {
+  return ['a', 'b'].flatMap(side => Array.from({ length: LAN_SEATS }, (_, i) => {
+    const seat = { room: lan.prefix, password: lan.password || '', id: lanSeatId(lan.prefix, side, i) };
+    return { seat: `${side.toUpperCase()}${i + 1}`, id: seat.id, push: pushUrl(seat), view: viewUrl(seat) };
+  }));
+}
+
 // The card page lives on the panel's own site; the artifact has no site of
 // its own, so its JSON points at the public panel.
 export const DEFAULT_CARD_BASE = 'https://oneshot-panel.pages.dev';

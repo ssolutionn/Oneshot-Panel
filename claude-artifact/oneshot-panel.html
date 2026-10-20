@@ -306,6 +306,20 @@ dialog input { display:block; width:100%; min-width:0; margin-top:7px; padding:1
 dialog p.muted { font-size:11px; overflow-wrap:anywhere; }
 .dialog-actions { display:flex; justify-content:space-between; gap:12px; margin-top:20px; }
 dialog textarea { margin:0; width:100%; }
+.lan-switch { display:flex!important; align-items:center; gap:10px; }
+.lan-switch input { width:auto; margin:0; }
+.lan-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.lan-row label { margin:8px 0; }
+.lan-dialog textarea { min-height:140px; margin-top:7px; white-space:pre-wrap; }
+.lan-seats-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:18px; }
+.lan-seats-head h3 { margin:0; font-size:13px; }
+.lan-seats { list-style:none; margin:8px 0 0; padding:0; display:grid; gap:6px; }
+.lan-seats li { display:grid; grid-template-columns:28px 1fr auto; align-items:center; gap:10px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--field); }
+.lan-seats li.muted { display:block; color:var(--muted); font-size:11px; }
+.lan-seats b { font-size:12px; }
+.lan-seats code { font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; overflow-wrap:anywhere; color:var(--ink); }
+.seat-id { color:var(--ink); }
+@media (max-width:520px) { .lan-row { grid-template-columns:1fr; } }
 /* Webcam status (VDO.Ninja) */
 .cam-summary { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 10px; padding:9px 14px; border:1px solid var(--line); border-radius:8px; background:var(--surface); }
 .cam-summary .check { font-size:11px; cursor:pointer; }
@@ -586,6 +600,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
     
     <div class="nav-tools">
       <button id="refreshBtn" class="nav-button" type="button" title="Обновить данные">↻ Обновить</button>
+      
       <button id="settingsBtn" class="nav-button" type="button">Источник данных</button>
     </div>
   </nav>
@@ -1040,6 +1055,80 @@ function applyStreamIds(teams, saved) {
   }));
   return { teams: result, saved: kept };
 }
+// LAN: no sheets, and a camera belongs to a seat (one PC), not to a player.
+// Seat streams are fixed for the whole event: <prefix>a1…a5 for the first
+// team's seats, <prefix>b1…b5 for the second's; the room is the prefix.
+// Teams are typed by hand, one per line: «Команда: ник1, ник2, …». The
+// first five nicks play, the rest are substitutes.
+const LAN_SEATS = 5;
+function lanConfig(value) {
+  const v = value && typeof value === 'object' ? value : {};
+  const prefix = typeof v.prefix === 'string' && /^[a-z0-9]{2,12}$/.test(v.prefix) ? v.prefix : '';
+  const password = typeof v.password === 'string' ? line(v.password).slice(0, 40) : '';
+  const text = typeof v.text === 'string' ? v.text.slice(0, 20000) : '';
+  return { on: v.on === true && Boolean(prefix), prefix, password, text };
+}
+function parseLanRoster(text) {
+  const teams = [], skipped = [], names = new Set();
+  String(text ?? '').split(/\r?\n/).forEach((raw, index) => {
+    const row = line(raw);
+    if (!row || row.startsWith('#')) return;
+    const at = row.indexOf(':');
+    const name = at > 0 ? line(row.slice(0, at)) : '';
+    const nicks = at > 0 ? row.slice(at + 1).split(',').map(line).filter(Boolean) : [];
+    if (!name || !nicks.length) {
+      skipped.push(`строка ${index + 1}: нужно «Команда: ник1, ник2, …»`);
+      return;
+    }
+    if (name.length > 60 || names.has(name.toLowerCase())) {
+      skipped.push(`строка ${index + 1}: ${name.length > 60 ? 'слишком длинное название' : `команда ${name} уже есть`}`);
+      return;
+    }
+    names.add(name.toLowerCase());
+    const seen = new Set(), players = [];
+    for (const nick of nicks) {
+      if (nick.length > 40 || seen.has(nick.toLowerCase())) {
+        skipped.push(`${name}: ${nick.length > 40 ? 'слишком длинный ник' : `ник ${nick} повторяется`}`);
+        continue;
+      }
+      seen.add(nick.toLowerCase());
+      players.push({
+        key: JSON.stringify(['lan', name, nick]), slot: '', nick, id: '', room: '', password: '',
+        role: players.length < LAN_SEATS ? 'Основной' : 'Запасной', sourceRow: index + 1
+      });
+    }
+    teams.push({ name, room: '', password: '', players, sourceRow: index + 1 });
+  });
+  teams.skipped = skipped;
+  if (!teams.length) throw new Error('Добавь команды в окне «ЛАН»: одна строка — «Команда: ник1, ник2, …».');
+  return teams;
+}
+function lanSeatId(prefix, side, index) {
+  return vdoId(`${prefix}${side}${index + 1}`);
+}
+// The team as it sits this match: players picked for its seats get that
+// seat's stream; everyone else has none.
+function seatTeam(team, side, keys, lan) {
+  if (!team) return team;
+  const room = lan.prefix, password = lan.password || '';
+  return {
+    ...team, room, password,
+    players: team.players.map(p => {
+      const i = keys.indexOf(p.key);
+      return i >= 0 && i < LAN_SEATS ?
+        { ...p, id: lanSeatId(room, side, i), room, password, seat: `${side.toUpperCase()}${i + 1}` } :
+        { ...p, id: '', room, password, seat: '' };
+    })
+  };
+}
+// The ten links to open once on the seats' PCs.
+function lanSeatLinks(lan) {
+  return ['a', 'b'].flatMap(side => Array.from({ length: LAN_SEATS }, (_, i) => {
+    const seat = { room: lan.prefix, password: lan.password || '', id: lanSeatId(lan.prefix, side, i) };
+    return { seat: `${side.toUpperCase()}${i + 1}`, id: seat.id, push: pushUrl(seat), view: viewUrl(seat) };
+  }));
+}
+
 // The card page lives on the panel's own site; the artifact has no site of
 // its own, so its JSON points at the public panel.
 const DEFAULT_CARD_BASE = 'https://oneshot-panel.pages.dev';
@@ -1519,11 +1608,18 @@ if (savedSource &&
 }
 // New stream IDs made with ↻ next to a player (core.applyStreamIds).
 state.streamIds = readStorage('oneshot-stream-ids') || {};
+// LAN mode (lan.js edits it): teams typed by hand, cameras fixed per seat.
+const LAN_STORE = 'oneshot-lan-v1';
+state.lan = lanConfig(readStorage(LAN_STORE));
+// A saved match belongs to the data source it was picked from.
+function sourceTag() {
+  return state.lan.on ? JSON.stringify(['lan', state.lan.prefix]) : JSON.stringify(state.source);
+}
 const savedMatch = readStorage('oneshot-webcam-match-v1');
 const savedCameraFrame=readStorage('oneshot-camera-frame-v1');
 if(typeof savedCameraFrame==='string' && Object.hasOwn(CAMERA_FRAMES,savedCameraFrame))state.cameraFrame=savedCameraFrame;
 $('cameraFrame').value=state.cameraFrame;
-if (savedMatch && savedMatch.source === JSON.stringify(state.source)) {
+if (savedMatch && savedMatch.source === sourceTag()) {
   for (const key of ['a', 'b', 'matchKey']) {
     if (typeof savedMatch[key] === 'string') state[key] = savedMatch[key];
   }
@@ -1554,7 +1650,7 @@ $('matchStage').value =
 
 function persist() {
   writeStorage('oneshot-webcam-match-v1', {
-    source: JSON.stringify(state.source),
+    source: sourceTag(),
     a: state.a, b: state.b, keysA: state.keysA, keysB: state.keysB,
     matchKey: state.matchKey, time: $('matchTime').value,
     stage: $('matchStage').value, tab: state.tab, veto: state.veto
@@ -1582,6 +1678,8 @@ function applyIds() {
 }
 const CAMERA_STORE='oneshot-camera-settings-v1';
 function cameraKey(player) {
+  // On a LAN the framing belongs to the seat's webcam, whoever sits there.
+  if(state.lan.on)return JSON.stringify(['lan',player.id]);
   return JSON.stringify([state.source.id,state.source.gid,player.key]);
 }
 let cameraEditor=null,cameraPreview=null,cameraPreviewTimer,cameraPreviewPoll,cameraPreviewCss='',cameraPreviewAck=false,cameraPreviewRequest='',cameraPreviewSequence=0;
@@ -1763,7 +1861,11 @@ function unregenerate(side, slot) {
   document.dispatchEvent(new CustomEvent('oneshot:stream-id', { detail: { nick: player.nick } }));
 }
 function getTeam(side) {
-  return state.teams.find(t => t.name === state[side]);
+  const team = state.teams.find(t => t.name === state[side]);
+  if (!state.lan.on || !team) return team;
+  const seated = seatTeam(team, side, state[side === 'a' ? 'keysA' : 'keysB'], state.lan);
+  return { ...seated, players: seated.players.map(p => p.id ?
+    { ...p, camera: normalizeCamera(state.cameras[cameraKey(p)]) } : p) };
 }
 function chosen(side) {
   return selectedPlayers(getTeam(side),
@@ -1795,10 +1897,30 @@ function notify() {
   if(cameraEditor && !editorPlayer())$('cameraDialog').close();
   document.dispatchEvent(new CustomEvent('oneshot:change'));
 }
-window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next) };
+window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next),
+  lan: () => ({ ...state.lan }), setLan };
+// lan.js: switching LAN on or off, or another prefix, is a new data source;
+// edited teams keep the match, lineups and veto where they still fit.
+function setLan(value) {
+  const next = lanConfig(value);
+  const sameSource = next.on === state.lan.on && next.prefix === state.lan.prefix;
+  state.lan = next;
+  const stored = writeStorage(LAN_STORE, next);
+  if (!sameSource) {
+    state.teams = [];
+    state.a = state.b = state.matchKey = '';
+    state.keysA = [];
+    state.keysB = [];
+    resetVeto();
+  }
+  updateSourceLinks();
+  refresh();
+  return stored;
+}
 // The header opens the organizer's sheet (the schedule source), not the
 // roster sheet: the panel is public and the rosters are ours to edit.
 function updateSourceLinks() {
+  $('sidebarSource').hidden = state.lan.on;
   const { scheduleId, scheduleGid, id, gid } = state.source;
   $('sidebarSource').href = `https://docs.google.com/spreadsheets/d/${
     scheduleGid ? scheduleId || id : id}/edit#gid=${scheduleGid || gid}`;
@@ -2105,6 +2227,7 @@ function render() {
               >${escapeHtml(p.nick + roleSuffix(p))}</option>`).join('')}
             </select>
             <span class="player-subline">${player ?
+              (player.seat ? `<b class="seat-id">Место ${player.seat}</b> · ` : '') +
               (player.sheetId ? `<b class="new-id">${player.manualId ? 'Свой ID' : 'Новый ID'}</b> <button type="button" class="link-button"
                 data-unregen="${side}" data-slot="${i}"
                 title="Вернуть ID из таблицы (${escapeHtml(player.sheetId)})">вернуть</button> · ` : '') +
@@ -2112,7 +2235,7 @@ function render() {
               'Место не заполнено'}</span>
             <button class="link-button camera-adjust" type="button" id="camera-${side}-${i}" data-camera="${side}" data-slot="${i}" ${!player ? 'disabled' : ''}>Кадр${player?.camera?.rotation ? ' · '+player.camera.rotation+'°' : ''}</button>
           </div>
-          <button class="copy-icon regen-icon${state.regenAsk === `${side}${i}` ? ' asking' : ''}"
+          ${state.lan.on ? '' : `<button class="copy-icon regen-icon${state.regenAsk === `${side}${i}` ? ' asking' : ''}"
             id="regen-${side}-${i}" type="button" data-regen="${side}" data-slot="${i}"
             aria-label="${state.regenAsk === `${side}${i}` ?
               `Нажми ещё раз: новая ссылка для ${player ? escapeHtml(player.nick) : ''}` :
@@ -2122,10 +2245,10 @@ function render() {
             >${state.regenAsk === `${side}${i}` ? '✓?' : '↻'}</button>
           <button class="copy-icon setid-icon" type="button" data-setid="${side}" data-slot="${i}"
             aria-label="Указать ID потока вручную ${player ? escapeHtml(player.nick) : ''}"
-            title="Указать ID вручную (игрок зашёл по другой ссылке)" ${!player ? 'disabled' : ''}>✎</button>
+            title="Указать ID вручную (игрок зашёл по другой ссылке)" ${!player ? 'disabled' : ''}>✎</button>`}
           <button class="give-button" type="button" data-give="${side}" data-slot="${i}"
             aria-label="Скопировать ссылку игроку ${player ? escapeHtml(player.nick) : ''}"
-            title="Скопировать PUSH-ссылку, чтобы отдать игроку" ${!player ? 'disabled' : ''}>Игроку</button>
+            title="${state.lan.on ? 'Скопировать PUSH-ссылку места' : 'Скопировать PUSH-ссылку, чтобы отдать игроку'}" ${!player ? 'disabled' : ''}>${state.lan.on ? 'Ссылка места' : 'Игроку'}</button>
           <button class="copy-icon" data-view="${side}" data-slot="${i}"
             aria-label="Скопировать VIEW ${player ? escapeHtml(player.nick) : ''}"
             title="Копировать VIEW" ${!player ? 'disabled' : ''}>⧉</button>

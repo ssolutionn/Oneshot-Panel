@@ -46,6 +46,17 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   `obsDialog` — секция вкладки «OBS» с единственной формой подключения
   (`closeObs` — «← К подготовке»);
   оформление формы и подсказок — `assets/obs-connection.css`.
+- `lan.js` — только сайт: окно «ЛАН» (`lanBtn`, `lanDialog`). Режим без
+  таблиц для LAN-турниров: команды вписываются строками «Команда: ник1, ник2, …»
+  (первые пять играют, остальные запасные; `parseLanRoster`), вебка принадлежит
+  месту, а не игроку. Поток места — `<префикс>a1…a5` (места первой команды
+  панели) и `<префикс>b1…b5` (второй), комната = префикс, пароль комнаты
+  необязателен (`lanSeatLinks` — 10 PUSH-ссылок для компов). Данные держит
+  `app.js` (`window.oneshotPanel.lan()/setLan()`, localStorage `oneshot-lan-v1`):
+  в режиме ЛАН `getTeam` «сажает» команду (`seatTeam`), выбранные игроки получают
+  поток своего места, кадр камеры хранится по месту (`cameraKey` = ['lan', id]),
+  кнопки ↻/✎ скрыты, Google Sheets не запрашивается. Выбор матча сохраняется
+  отдельно для каждого префикса. Проверка — `scripts/qa_lan.py`, `test/lan.test.js`.
 - `assets/obs-qr.js` — только сайт: локальное чтение QR камерой/из файла,
   парсер native `obsws://host:port/password`, QR связи телефона с доком.
   QR только заполняет ручные поля; локальный адрес — 127.0.0.1 с портом из QR.
@@ -458,6 +469,8 @@ Netlify проверяет локальные фото, докачивает н�
   obsRemoteBox obsMore playerVeto captainVeto cvFormat cvTimer cvLang cvCreate
   cvStatus cvSite cvLinks cvNameA cvNameB cvMsgA cvMsgB cvMsgS cvMsgO cvOpen bookies bookiesCheck bookiesTable
   bookiesStatus bookiesCopy bookiesCsv
+  lanBtn lanDialog lanForm closeLan lanOn lanPrefix lanPassword lanTeams lanError
+  lanSeats lanCopySeats lanNewPrefix
   obsDirectFields obsUrl obsPassword obsTestResult testObs
   saveObs notifyBtn soundBtn lobbyForm faceitUrl faceitKey lobbyStart
   lobbyStatus lobbyError lobbyAlert lobbyAlertText lobbyAck lobbyMatches

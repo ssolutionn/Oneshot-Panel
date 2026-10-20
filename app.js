@@ -5,7 +5,8 @@ import {
   newStreamId, applyStreamIds, playerLine, vdoId,
   observerText, playerText, buildObs, safeFilename, validateMetadata,
   CAMERA_FRAMES, DEFAULT_CAMERA_FRAME, cameraFrame, normalizeCamera, cameraCss, cameraViewUrl,
-  MAP_POOL, VETO_RULES, validateVeto, appendVeto, vetoText
+  MAP_POOL, VETO_RULES, validateVeto, appendVeto, vetoText,
+  lanConfig, parseLanRoster, seatTeam
 } from './core.js';
 
 const $ = id => document.getElementById(id);
@@ -50,11 +51,18 @@ if (savedSource &&
 }
 // New stream IDs made with ↻ next to a player (core.applyStreamIds).
 state.streamIds = readStorage('oneshot-stream-ids') || {};
+// LAN mode (lan.js edits it): teams typed by hand, cameras fixed per seat.
+const LAN_STORE = 'oneshot-lan-v1';
+state.lan = lanConfig(readStorage(LAN_STORE));
+// A saved match belongs to the data source it was picked from.
+function sourceTag() {
+  return state.lan.on ? JSON.stringify(['lan', state.lan.prefix]) : JSON.stringify(state.source);
+}
 const savedMatch = readStorage('oneshot-webcam-match-v1');
 const savedCameraFrame=readStorage('oneshot-camera-frame-v1');
 if(typeof savedCameraFrame==='string' && Object.hasOwn(CAMERA_FRAMES,savedCameraFrame))state.cameraFrame=savedCameraFrame;
 $('cameraFrame').value=state.cameraFrame;
-if (savedMatch && savedMatch.source === JSON.stringify(state.source)) {
+if (savedMatch && savedMatch.source === sourceTag()) {
   for (const key of ['a', 'b', 'matchKey']) {
     if (typeof savedMatch[key] === 'string') state[key] = savedMatch[key];
   }
@@ -85,7 +93,7 @@ $('matchStage').value =
 
 function persist() {
   writeStorage('oneshot-webcam-match-v1', {
-    source: JSON.stringify(state.source),
+    source: sourceTag(),
     a: state.a, b: state.b, keysA: state.keysA, keysB: state.keysB,
     matchKey: state.matchKey, time: $('matchTime').value,
     stage: $('matchStage').value, tab: state.tab, veto: state.veto
@@ -113,6 +121,8 @@ function applyIds() {
 }
 const CAMERA_STORE='oneshot-camera-settings-v1';
 function cameraKey(player) {
+  // On a LAN the framing belongs to the seat's webcam, whoever sits there.
+  if(state.lan.on)return JSON.stringify(['lan',player.id]);
   return JSON.stringify([state.source.id,state.source.gid,player.key]);
 }
 let cameraEditor=null,cameraPreview=null,cameraPreviewTimer,cameraPreviewPoll,cameraPreviewCss='',cameraPreviewAck=false,cameraPreviewRequest='',cameraPreviewSequence=0;
@@ -294,7 +304,11 @@ function unregenerate(side, slot) {
   document.dispatchEvent(new CustomEvent('oneshot:stream-id', { detail: { nick: player.nick } }));
 }
 function getTeam(side) {
-  return state.teams.find(t => t.name === state[side]);
+  const team = state.teams.find(t => t.name === state[side]);
+  if (!state.lan.on || !team) return team;
+  const seated = seatTeam(team, side, state[side === 'a' ? 'keysA' : 'keysB'], state.lan);
+  return { ...seated, players: seated.players.map(p => p.id ?
+    { ...p, camera: normalizeCamera(state.cameras[cameraKey(p)]) } : p) };
 }
 function chosen(side) {
   return selectedPlayers(getTeam(side),
@@ -326,10 +340,30 @@ function notify() {
   if(cameraEditor && !editorPlayer())$('cameraDialog').close();
   document.dispatchEvent(new CustomEvent('oneshot:change'));
 }
-window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next) };
+window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next),
+  lan: () => ({ ...state.lan }), setLan };
+// lan.js: switching LAN on or off, or another prefix, is a new data source;
+// edited teams keep the match, lineups and veto where they still fit.
+function setLan(value) {
+  const next = lanConfig(value);
+  const sameSource = next.on === state.lan.on && next.prefix === state.lan.prefix;
+  state.lan = next;
+  const stored = writeStorage(LAN_STORE, next);
+  if (!sameSource) {
+    state.teams = [];
+    state.a = state.b = state.matchKey = '';
+    state.keysA = [];
+    state.keysB = [];
+    resetVeto();
+  }
+  updateSourceLinks();
+  refresh();
+  return stored;
+}
 // The header opens the organizer's sheet (the schedule source), not the
 // roster sheet: the panel is public and the rosters are ours to edit.
 function updateSourceLinks() {
+  $('sidebarSource').hidden = state.lan.on;
   const { scheduleId, scheduleGid, id, gid } = state.source;
   $('sidebarSource').href = `https://docs.google.com/spreadsheets/d/${
     scheduleGid ? scheduleId || id : id}/edit#gid=${scheduleGid || gid}`;
@@ -414,7 +448,11 @@ async function refresh() {
     // group stage; it may be missing or empty without failing the schedule.
     const organizer = source.scheduleGid === DEFAULT_SOURCE.scheduleGid &&
       (source.scheduleId || source.id) === DEFAULT_SOURCE.scheduleId;
-    const [roster, schedule, playoffs] = await Promise.allSettled([
+    // LAN: the teams typed in «ЛАН», no sheets and no schedule.
+    const lan = state.lan.on;
+    const [roster, schedule, playoffs] = lan ? [
+      { status: 'fulfilled', value: null }, { status: 'fulfilled', value: [] }, { status: 'fulfilled', value: [] }
+    ] : await Promise.allSettled([
       sheetRows(source, source.gid, 'A1:L2000', signal),
       source.scheduleGid ?
         // Header row as labels: the organizer's columns are found by name.
@@ -429,7 +467,7 @@ async function refresh() {
     }
     if (request !== refreshId) return;
     if (roster.status !== 'fulfilled') throw roster.reason;
-    state.sheetTeams = parseTeams(roster.value);
+    state.sheetTeams = lan ? parseLanRoster(state.lan.text) : parseTeams(roster.value);
     const skipped = state.sheetTeams.skipped || [];
     applyIds();
     const teams = state.teams;
@@ -453,7 +491,9 @@ async function refresh() {
     state.lastSync = new Date();
     state.stale = false;
     render();
-    $('syncTitle').textContent = `${teams.length} команд из таблицы`;
+    const word = teams.length % 10 === 1 && teams.length % 100 !== 11 ? 'команда' :
+      [2, 3, 4].includes(teams.length % 10) && ![12, 13, 14].includes(teams.length % 100) ? 'команды' : 'команд';
+    $('syncTitle').textContent = lan ? `${teams.length} ${word} на ЛАН` : `${teams.length} команд из таблицы`;
     $('syncDot').className = 'good';
     $('syncTime').textContent =
       'Обновлено ' + state.lastSync.toLocaleTimeString('ru-RU', {
@@ -468,14 +508,14 @@ async function refresh() {
     } else if (state.scheduleDay && state.scheduleDay !== mskToday()) {
       showError(`Расписание в таблице на ${state.scheduleDay}, а сегодня ${mskToday()} по МСК. Если для нового дня завели новый лист, укажи его GID в «Источник данных».`);
     } else if (skipped.length) {
-      showError(`В составах пропущены строки (поправь в таблице): ${skipped.slice(0, 3).join('; ')}${skipped.length > 3 ? ` и ещё ${skipped.length - 3}` : ''}.`);
+      showError(`В составах пропущены строки (поправь ${lan ? 'в окне «ЛАН»' : 'в таблице'}): ${skipped.slice(0, 3).join('; ')}${skipped.length > 3 ? ` и ещё ${skipped.length - 3}` : ''}.`);
     }
   } catch (error) {
     if (request !== refreshId) return;
     state.stale = true;
     $('syncDot').className = 'stale';
     $('syncTitle').textContent = state.teams.length ?
-      'Данные требуют обновления' : 'Нет связи с таблицей';
+      'Данные требуют обновления' : state.lan.on ? 'Нет команд для ЛАН' : 'Нет связи с таблицей';
     showError(
       (signal.reason?.name === 'TimeoutError' ?
         'Google Sheets долго отвечает. Попробуй обновить ещё раз.' :
@@ -484,7 +524,8 @@ async function refresh() {
     );
     if (!state.teams.length) {
       $('teamGrid').innerHTML =
-        '<div class="empty-panel">Не удалось загрузить составы. Проверь источник и доступ на просмотр по ссылке, затем обнови данные.</div>';
+        (state.lan.on ? '<div class="empty-panel">Открой «ЛАН» и впиши команды: одна строка — «Команда: ник1, ник2, …».</div>' :
+        '<div class="empty-panel">Не удалось загрузить составы. Проверь источник и доступ на просмотр по ссылке, затем обнови данные.</div>');
     }
     renderOutput();
     renderVeto();
@@ -593,6 +634,7 @@ function render() {
               >${escapeHtml(p.nick + roleSuffix(p))}</option>`).join('')}
             </select>
             <span class="player-subline">${player ?
+              (player.seat ? `<b class="seat-id">Место ${player.seat}</b> · ` : '') +
               (player.sheetId ? `<b class="new-id">${player.manualId ? 'Свой ID' : 'Новый ID'}</b> <button type="button" class="link-button"
                 data-unregen="${side}" data-slot="${i}"
                 title="Вернуть ID из таблицы (${escapeHtml(player.sheetId)})">вернуть</button> · ` : '') +
@@ -600,7 +642,7 @@ function render() {
               'Место не заполнено'}</span>
             <button class="link-button camera-adjust" type="button" id="camera-${side}-${i}" data-camera="${side}" data-slot="${i}" ${!player ? 'disabled' : ''}>Кадр${player?.camera?.rotation ? ' · '+player.camera.rotation+'°' : ''}</button>
           </div>
-          <button class="copy-icon regen-icon${state.regenAsk === `${side}${i}` ? ' asking' : ''}"
+          ${state.lan.on ? '' : `<button class="copy-icon regen-icon${state.regenAsk === `${side}${i}` ? ' asking' : ''}"
             id="regen-${side}-${i}" type="button" data-regen="${side}" data-slot="${i}"
             aria-label="${state.regenAsk === `${side}${i}` ?
               `Нажми ещё раз: новая ссылка для ${player ? escapeHtml(player.nick) : ''}` :
@@ -610,10 +652,10 @@ function render() {
             >${state.regenAsk === `${side}${i}` ? '✓?' : '↻'}</button>
           <button class="copy-icon setid-icon" type="button" data-setid="${side}" data-slot="${i}"
             aria-label="Указать ID потока вручную ${player ? escapeHtml(player.nick) : ''}"
-            title="Указать ID вручную (игрок зашёл по другой ссылке)" ${!player ? 'disabled' : ''}>✎</button>
+            title="Указать ID вручную (игрок зашёл по другой ссылке)" ${!player ? 'disabled' : ''}>✎</button>`}
           <button class="give-button" type="button" data-give="${side}" data-slot="${i}"
             aria-label="Скопировать ссылку игроку ${player ? escapeHtml(player.nick) : ''}"
-            title="Скопировать PUSH-ссылку, чтобы отдать игроку" ${!player ? 'disabled' : ''}>Игроку</button>
+            title="${state.lan.on ? 'Скопировать PUSH-ссылку места' : 'Скопировать PUSH-ссылку, чтобы отдать игроку'}" ${!player ? 'disabled' : ''}>${state.lan.on ? 'Ссылка места' : 'Игроку'}</button>
           <button class="copy-icon" data-view="${side}" data-slot="${i}"
             aria-label="Скопировать VIEW ${player ? escapeHtml(player.nick) : ''}"
             title="Копировать VIEW" ${!player ? 'disabled' : ''}>⧉</button>

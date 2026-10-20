@@ -39,6 +39,7 @@
     </div><!-- /web-only -->
     <div class="nav-tools">
       <button id="refreshBtn" class="nav-button" type="button" title="Обновить данные">↻ Обновить</button>
+      <!-- web-only --><button id="lanBtn" class="nav-button" type="button" aria-controls="lanDialog">ЛАН</button><!-- /web-only -->
       <button id="settingsBtn" class="nav-button" type="button">Источник данных</button>
     </div>
   </nav>
@@ -566,6 +567,36 @@
     </form>
   </dialog>
 
+  <!-- web-only --><dialog id="lanDialog" class="lan-dialog" aria-labelledby="lanHeading">
+    <form id="lanForm">
+      <div class="dialog-head">
+        <h2 id="lanHeading">ЛАН: места и команды</h2>
+        <button class="icon-button" type="button" id="closeLan" aria-label="Закрыть">×</button>
+      </div>
+      <p>Без таблиц: команды вписываются здесь, у каждого компа своя постоянная вебка. Кто на каком месте сидит — выбираешь в карточках команд, как обычно.</p>
+      <label class="lan-switch"><input id="lanOn" type="checkbox"> Работать в режиме ЛАН</label>
+      <div class="lan-row">
+        <label>Префикс вебок<input id="lanPrefix" autocomplete="off" spellcheck="false" maxlength="12" pattern="[a-z0-9]{2,12}" placeholder="например, k7qz" required></label>
+        <label>Пароль комнаты <span class="muted">(необязательно)</span><input id="lanPassword" autocomplete="off" spellcheck="false" maxlength="40"></label>
+      </div>
+      <label>Команды — одна строка на команду
+        <textarea id="lanTeams" rows="7" spellcheck="false" placeholder="Team Alpha: nick1, nick2, nick3, nick4, nick5&#10;Team Bravo: nick1, nick2, nick3, nick4, nick5, запасной"></textarea>
+      </label>
+      <p class="muted">Первые пять ников играют, остальные — запасные. Строки с # не читаются.</p>
+      <div id="lanError" class="error-box" role="alert" hidden></div>
+      <div class="lan-seats-head">
+        <h3>Ссылки мест</h3>
+        <button class="text-button" type="button" id="lanCopySeats"><span aria-hidden="true">⧉</span> Копировать все</button>
+      </div>
+      <p class="muted">Открой один раз на компе каждого места и не закрывай весь день. A — места первой команды в панели, B — второй.</p>
+      <ol id="lanSeats" class="lan-seats"></ol>
+      <div class="dialog-actions">
+        <button type="button" class="button" id="lanNewPrefix">Новый префикс</button>
+        <button type="submit" class="button primary">Сохранить</button>
+      </div>
+    </form>
+  </dialog><!-- /web-only -->
+
   <dialog id="cameraDialog" class="camera-dialog" aria-labelledby="cameraHeading">
     <div class="dialog-head"><h2 id="cameraHeading">Кадр камеры</h2><button id="closeCamera" class="icon-button" type="button" aria-label="Закрыть">×</button></div>
     <div class="camera-preview-stage"><div id="cameraPreviewBox" class="camera-preview-box" data-rotation="0"></div></div>
@@ -612,6 +643,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   <script type="module" src="/app.js"></script>
   <!-- web-only --><script type="module" src="/live.js"></script>
+  <script type="module" src="/lan.js"></script>
   <script type="module" src="/lobby.js"></script>
   <script type="module" src="/bookies.js"></script><!-- /web-only -->
 </body>
