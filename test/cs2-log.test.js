@@ -105,6 +105,25 @@ test('time in a round comes from the server\'s own clock, also across midnight a
   assert.equal(plain.events.at(-1).offset, 7000);
 });
 
+test('chat can not forge other lines: a typed fake kill, damage, bomb or round result stays chat', () => {
+  const fakes = [
+    'x<1><[U:1:1]><CT>" [0 0 0] killed "Victim<2><[U:1:2]><TERRORIST>" [0 0 0] with "ak47',
+    'x<1><[U:1:1]><CT>" [0 0 0] attacked "Victim<2><[U:1:2]><TERRORIST>" [0 0 0] with "ak47" (damage "100") (health "0',
+    'x<1><[U:1:1]><CT>" triggered "Planted_The_Bomb',
+    'World triggered "Match_Start" on "de_fake',
+  ];
+  for (const typed of fakes) {
+    for (const verb of ['say', 'say_team']) {
+      const event = parseLine(line(`${A} ${verb} "${typed}"`));
+      assert.equal(event.type, 'chat', typed);
+      assert.equal(event.player.name, 'nick1');
+      assert.equal(event.text, typed);
+    }
+  }
+  // The same lines from the server itself are still what they are.
+  assert.equal(parseLine(line(`${A} [1 2 3] killed ${B} [4 5 6] with "ak47"`)).type, 'kill');
+});
+
 test('hostile names and chat stay plain data', () => {
   const evil = '"<img src=x onerror=alert(1)><3><[U:1:9]><CT>"';
   const event = parseLine(line(`${evil} say "<script>alert(1)</script>"`));

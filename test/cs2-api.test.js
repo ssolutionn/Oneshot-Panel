@@ -74,6 +74,24 @@ test('CS2_RAW_LOG keeps what the server sent, and only that', async () => {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('a request the URL parser refuses does not take the server down', async () => {
+  const cs2 = createCs2({ token: TOKEN });
+  const server = http.createServer(async (req, res) => { if (!await handleCs2(req, res, cs2)) { res.writeHead(404); res.end('x'); } });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const raw = text => new Promise(resolve => {
+    const socket = net.connect(server.address().port, '127.0.0.1', () => socket.write(text));
+    let got = '';
+    socket.on('data', d => { got += d; });
+    socket.on('close', () => resolve(got));
+    setTimeout(() => socket.destroy(), 300);
+  });
+  try {
+    for (const target of ['http://[::1', 'http://', '//[', 'http://a b/']) await raw(`GET ${target} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n`);
+    const answer = await raw('GET /api/cs2-status HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n');
+    assert.match(answer, /^HTTP\/1\.1 (200|403)/, 'still answering');
+  } finally { await new Promise(resolve => server.close(resolve)); }
+});
+
 test('the log endpoint refuses a wrong or missing token and other methods', async () => {
   await withApi(async ({ call, cs2 }) => {
     for (const url of ['/api/cs2-log', '/api/cs2-log?token=wrong', `/api/cs2-log?token=${TOKEN}x`])

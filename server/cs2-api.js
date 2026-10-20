@@ -94,7 +94,10 @@ function sameSiteWrite(req) {
 
 // Returns true when the request was for this tab's API (and has been answered).
 export async function handleCs2(req, res, cs2) {
-  const url = new URL(req.url, 'http://localhost');
+  // A request line the URL parser refuses must be answered, not thrown: an
+  // unhandled rejection here would take the whole panel down.
+  let url;
+  try { url = new URL(req.url, 'http://localhost'); } catch { return false; }
   if (!url.pathname.startsWith('/api/cs2-')) return false;
   try {
     if (url.pathname === '/api/cs2-log') {

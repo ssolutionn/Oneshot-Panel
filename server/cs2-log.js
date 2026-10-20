@@ -26,6 +26,12 @@ export function parseLine(raw) {
   const { clock, rest } = timeOf(line);
   const base = { clock };
   let m;
+  // Chat first: what a player types after «say» is theirs, and must never be read as another
+  // kind of line (a typed «…" killed "…» would otherwise forge a kill in the journal).
+  if ((m = /^"(.+?)" (say|say_team) "(.*)"\s*$/.exec(rest))) {
+    const player = parsePlayer(m[1]);
+    if (player) return { ...base, type: 'chat', player, team: m[2] === 'say_team', text: m[3] };
+  }
   // "A" [x y z] killed "B" [x y z] with "ak47" (headshot penetrated)
   if ((m = /^"(.+?)" \[[^\]]*\] killed "(.+?)" \[[^\]]*\] with "([^"]*)"(.*)$/.exec(rest))) {
     const killer = parsePlayer(m[1]), victim = parsePlayer(m[2]);
@@ -38,10 +44,6 @@ export function parseLine(raw) {
       return { ...base, type: 'damage', attacker, victim, weapon: m[3], damage: Number(KEYED(m[4], 'damage')) || 0,
         health: Number(KEYED(m[4], 'health')), hitgroup: KEYED(m[4], 'hitgroup') || '' };
     }
-  }
-  if ((m = /^"(.+?)" (say|say_team) "(.*)"\s*$/.exec(rest))) {
-    const player = parsePlayer(m[1]);
-    if (player) return { ...base, type: 'chat', player, team: m[2] === 'say_team', text: m[3] };
   }
   if ((m = /^"(.+?)" triggered "(Planted_The_Bomb|Defused_The_Bomb|Begin_Bomb_Defuse_With_Kit|Begin_Bomb_Defuse_Without_Kit|Dropped_The_Bomb|Got_The_Bomb)"/.exec(rest))) {
     const player = parsePlayer(m[1]);
