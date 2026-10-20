@@ -1,6 +1,7 @@
 import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto, loopbackObsUrl } from './obs.js';
 import { VdoLink, bridgeSecrets, normalizeCode, newBridgeCode } from './vdo.js';
 import { mountQrReader, parseObsQr, localObsUrl, pairingUrl, drawQr } from './assets/obs-qr.js';
+import { ChunkAssembler } from './lan-event.js';
 
 // The OBS dock: receives sealed commands from the panel over VDO.Ninja and
 // runs them against this computer's obs-websocket.
@@ -65,6 +66,21 @@ async function adoptObs({ url, password }) {
   return { ok: true, obs: $('dockObs').textContent };
 }
 
+// LAN cards (a page with the photo inside) arrive in parts and wait here,
+// named by their content; a match then only refers to them.
+const cards = new ChunkAssembler();
+function matchWithCards(match) {
+  if (!match || typeof match !== 'object' || !match.cardRefs) return match;
+  const { cardRefs, ...rest } = match, cardDocs = {};
+  if (typeof cardRefs !== 'object') throw Object.assign(new Error('Неверные карточки.'), { cards: 'missing' });
+  for (const [key, named] of Object.entries(cardRefs)) {
+    const url = typeof named === 'string' ? cards.get(named) : null;
+    if (!url) throw Object.assign(new Error('Карточки не дошли до окна Oneshot: отправляю их ещё раз.'), { cards: 'missing' });
+    cardDocs[key] = url;
+  }
+  return { ...rest, cardDocs };
+}
+
 // Commands run one at a time (two admins, or a retry, must not interleave
 // renames in OBS), and a repeated id gets the same result without running
 // again: the panel resends until it hears back.
@@ -95,9 +111,18 @@ async function run(message) {
       return reply({ ok: !!obs, obs: $('dockObs').textContent });
     }
     if (message.type === 'obs-config') return reply(await adoptObs(message));
+    if (message.type === 'cards-have') {
+      const keys = Array.isArray(message.keys) ? message.keys.slice(0, 40) : [];
+      return reply({ ok: true, have: keys.filter(key => typeof key === 'string' && cards.has(key)) });
+    }
+    if (message.type === 'blob') {
+      cards.add(message.key, message.index, message.count, message.data);
+      return reply({ ok: true });
+    }
     const client = await connectObs();
     if (['apply', 'apply-camera', 'apply-camera-zoom'].includes(message.type)) {
-      const summary = await applyMatch(client, message.type==='apply' ? {...message.match,legacyCamera:true} : message.match);
+      const match = matchWithCards(message.match);
+      const summary = await applyMatch(client, message.type==='apply' ? {...match,legacyCamera:true} : match);
       log(`Матч отправлен: ${message.title || 'без названия'}`, 'good');
       return reply({ ok: true, summary });
     }
@@ -108,7 +133,7 @@ async function run(message) {
     reply({ ok: false, error: 'Неизвестная команда.' });
   } catch (error) {
     log(error.message, 'bad');
-    reply({ ok: false, error: error.message });
+    reply({ ok: false, error: error.message, ...(error.cards ? { cards: error.cards } : {}) });
   }
 }
 

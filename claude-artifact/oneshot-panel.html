@@ -319,6 +319,10 @@ dialog textarea { margin:0; width:100%; }
 .lan-seats b { font-size:12px; }
 .lan-seats code { font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; overflow-wrap:anywhere; color:var(--ink); }
 .seat-id { color:var(--ink); }
+.lan-preview { display:block; width:100%; max-width:640px; aspect-ratio:16/9; border:1px solid var(--line); border-radius:6px; margin:6px 0; background:#000; }
+.lan-import-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:8px 0; }
+.lan-import-log { list-style:none; margin:6px 0 0; padding:0; display:grid; gap:3px; font-size:11px; color:var(--muted); }
+.lan-import-log li.bad { color:var(--warn-ink); }
 @media (max-width:520px) { .lan-row { grid-template-columns:1fr; } }
 /* Webcam status (VDO.Ninja) */
 .cam-summary { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 10px; padding:9px 14px; border:1px solid var(--line); border-radius:8px; background:var(--surface); }
@@ -1144,6 +1148,8 @@ function personKey(value) {
   return line(value).normalize('NFKC').toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, '');
 }
+// One card per player of a match: the key of a ready-made card page (LAN).
+const cardKey = (team, nick) => personKey(team) + '|' + personKey(nick);
 // card.js and scripts/build_match_packages.mjs pick the same files.
 // A file name from the catalogs never leaves its assets folder.
 const assetFile = file =>
@@ -1251,7 +1257,7 @@ function sceneUuid() {
 }
 function buildObs(template, a, b, ka, kb,
                          uuidFn = sceneUuid,
-                         { cardBase = DEFAULT_CARD_BASE, includeCards = false, cameraFrame: frame = DEFAULT_CAMERA_FRAME } = {}) {
+                         { cardBase = DEFAULT_CARD_BASE, includeCards = false, cameraFrame: frame = DEFAULT_CAMERA_FRAME, cardDocs = {} } = {}) {
   const error = validateMatch(a, b, ka, kb);
   if (error) throw new Error(error);
   if (!Array.isArray(template?.sources)) {
@@ -1304,7 +1310,7 @@ function buildObs(template, a, b, ka, kb,
       // VDO.Ninja has no video (not connected yet, or dropped).
       Object.assign(cardSource, {
         uuid: uuidFn(), name: `CARD ${slot} | ${p.team} | ${p.nick}`,
-        settings: { url: cardUrl(p, cardBase), width: 1920, height: 1080 },
+        settings: { url: cardDocs?.[cardKey(p.team, p.nick)] || cardUrl(p, cardBase), width: 1920, height: 1080 },
         muted: true
       });
       d.sources.push(cardSource);
@@ -1898,7 +1904,16 @@ function notify() {
   document.dispatchEvent(new CustomEvent('oneshot:change'));
 }
 window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next),
-  lan: () => ({ ...state.lan }), setLan };
+  lan: () => ({ ...state.lan }), setLan,
+  // lan.js registers the maker of self-contained cards (photos inside).
+  setCardDocs: provider => { cardDocsProvider = provider; }, cardDocs: () => cardDocsNow() };
+let cardDocsProvider = null;
+// LAN cards with their photos inside, for the players of the current match.
+function cardDocsNow() {
+  if (!state.lan.on || !$('includeCards').checked || !cardDocsProvider) return {};
+  return cardDocsProvider(['a', 'b'].flatMap(side =>
+    chosen(side).filter(Boolean).map(p => ({ team: getTeam(side).name, nick: p.nick }))));
+}
 // lan.js: switching LAN on or off, or another prefix, is a new data source;
 // edited teams keep the match, lineups and veto where they still fit.
 function setLan(value) {
@@ -1926,8 +1941,10 @@ function updateSourceLinks() {
     scheduleGid ? scheduleId || id : id}/edit#gid=${scheduleGid || gid}`;
 }
 function reconcileKeys(team, keys) {
-  if (!keys.length) return defaultLineup(team);
   const available = new Set(team?.players.map(p => p.key));
+  // Nobody of the saved lineup is left (a roster retyped for another event,
+  // every nick replaced): start from the default five, not from five empty seats.
+  if (!keys.length || !keys.some(key => available.has(key))) return defaultLineup(team);
   return keys.map(key => available.has(key) ? key : '');
 }
 function syncScheduledSelection() {

@@ -13,6 +13,7 @@ import { checkRelay } from './assets/veto-relay-client.js';
 import { relayEndpoint } from './assets/veto-relay-protocol.js';
 import {DEFAULT_TOURNAMENT,friendlyCaptainLinks,resolveRoomLink} from './assets/veto-short-links.js';
 import {showNotification} from './notifications.js';
+import { splitChunks, docKey } from './lan-event.js';
 
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
@@ -67,13 +68,13 @@ function matchPayload() {
     ...s.playersA.map(p => ({ ...p, team: s.a.name })),
     ...s.playersB.map(p => ({ ...p, team: s.b.name }))
   ].map((p, i) => ({ slot: i + 1, team: p.team, nick: p.nick, id: p.id, room: p.room, password: p.password || '', camera:p.camera }));
-  return { title: `${s.a.name} vs ${s.b.name}`, match: { players, includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame } };
+  return { title: `${s.a.name} vs ${s.b.name}`, match: { players, includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame, cardDocs: panel.cardDocs() } };
 }
 function obsJson() {
   const s = panel.snapshot();
   if (!s.template) throw new Error(s.templateError || 'Шаблон OBS ещё загружается.');
   return JSON.stringify(buildObs(s.template, s.a, s.b, s.keysA, s.keysB, undefined,
-    { includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame }), null, 2) + '\n';
+    { includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame, cardDocs: panel.cardDocs() }), null, 2) + '\n';
 }
 
 // ---------- OBS link ----------
@@ -190,6 +191,34 @@ async function obsCommand(message, timeout = 30000) {
   }
   const link = await ensureBridge();
   if (!link) throw new Error('Настройки подключения изменились. Повтори команду.');
+  if (!Object.keys(message.match?.cardDocs || {}).length) return bridgeCall(link, message, timeout);
+  // Cards with photos inside go to the dock first, in parts; the match itself
+  // then only names them. A dock that lost them (reloaded) gets them again.
+  try { return await bridgeCall(link, await shipCards(link, message, false), timeout); }
+  catch (error) {
+    if (error.cards !== 'missing') throw error;
+    return bridgeCall(link, await shipCards(link, message, true), timeout);
+  }
+}
+async function shipCards(link, message, force) {
+  const { cardDocs, ...match } = message.match;
+  const refs = {}, urls = new Map();
+  for (const [key, url] of Object.entries(cardDocs)) {
+    const named = await docKey(key, url);
+    refs[key] = named;
+    urls.set(named, url);
+  }
+  const have = force ? [] : (await bridgeCall(link, { type: 'cards-have', keys: [...urls.keys()] }, 20000)).have || [];
+  const jobs = [...urls].filter(([named]) => !have.includes(named)).flatMap(([named, url]) => {
+    const parts = splitChunks(url);
+    return parts.map((data, index) => () => bridgeCall(link, { type: 'blob', key: named, index, count: parts.length, data }, 60000));
+  });
+  // A few parts at a time: each waits for the dock's answer and is resent until it comes.
+  const queue = [...jobs];
+  await Promise.all(Array.from({ length: 4 }, async () => { for (let job = queue.shift(); job; job = queue.shift()) await job(); }));
+  return { ...message, match: { ...match, cardRefs: refs } };
+}
+function bridgeCall(link, message, timeout) {
   const id = crypto.randomUUID();
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -205,9 +234,9 @@ async function obsCommand(message, timeout = 30000) {
       clearTimeout(timer);
       clearInterval(resend);
       bridge.waiting.delete(id);
-      reply.ok ? resolve(reply) : reject(new Error(reply.error==='Неизвестная команда.' && ['apply-camera','apply-camera-zoom'].includes(message.type) ?
+      reply.ok ? resolve(reply) : reject(Object.assign(new Error(reply.error==='Неизвестная команда.' && ['apply-camera','apply-camera-zoom','cards-have','blob'].includes(message.type) ?
         'Окно Oneshot у обсервера устарело. В OBS нажми по нему правой кнопкой → Обновить, затем повтори отправку.' :
-        reply.error || 'OBS не принял команду.'));
+        reply.error || 'OBS не принял команду.'), { cards: reply.cards }));
     });
     const stop = () => clearInterval(resend);
     setTimeout(stop, timeout);

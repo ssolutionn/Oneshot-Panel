@@ -57,6 +57,27 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   поток своего места, кадр камеры хранится по месту (`cameraKey` = ['lan', id]),
   кнопки ↻/✎ скрыты, Google Sheets не запрашивается. Выбор матча сохраняется
   отдельно для каждого префикса. Проверка — `scripts/qa_lan.py`, `test/lan.test.js`.
+  Фото и лого: кнопки «Выбрать ZIP / папку» в окне «ЛАН» принимают папку с Drive
+  (папка команды → `ник.png` и `logo.png`). `lan-event.js` — без DOM (тесты
+  `test/lan-event.test.js`): `readZip` (stored/deflate через DecompressionStream,
+  без ZIP64), `collectTeams`, хранение `oneshot-lan-assets-v1` в localStorage (только
+  небольшие data:image/png|webp|jpeg), `eventCardHtml` — карточка ОДНОЙ страницей с
+  фото внутри (`data:text/html`, имя и ник только как текст, картинки только из
+  data:), `cardDocs`, порции для дока (`splitChunks`, `ChunkAssembler`, `docKey`).
+  `lan-images.js` — только браузер: обрезка по прозрачности, масштаб, WebP (фото ≤ ~110 КБ,
+  логотип PNG) и превью на canvas (`drawCardPreview`): на canvas, а не в iframe/blob,
+  потому что CSP панели (`img-src 'self'`, `frame-src`) не меняется.
+  `app.js` не импортирует эти файлы (его собирает артефакт Claude): карточки подключает
+  провайдер `window.oneshotPanel.setCardDocs` (регистрирует `lan.js`); в режиме ЛАН при
+  включённых карточках `buildObs`/`slotPlan` получают `cardDocs` ({cardKey: data:URL}).
+  Окно Oneshot (`obs-bridge.js`): сообщения `cards-have {keys}` → `{have}` и
+  `blob {key, index, count, data}` (карточка по 32 КБ, собирает `ChunkAssembler`, кэш 40
+  карточек в памяти); `apply*` несёт `match.cardRefs` вместо самих карточек, а если дока
+  успели перезагрузить — отвечает `cards: 'missing'`, и панель шлёт карточки заново.
+  `reconcileKeys`: если из сохранённого состава никого не осталось (ники переписаны) —
+  состав по умолчанию, а не пять пустых мест.
+  `scripts/import_event_folder.py <папка> [--write]` — тот же импорт из командной строки
+  (в `assets/players` как `"source":"local"` и `assets/teams`), для публикации фото на сайте.
 - `assets/obs-qr.js` — только сайт: локальное чтение QR камерой/из файла,
   парсер native `obsws://host:port/password`, QR связи телефона с доком.
   QR только заполняет ручные поля; локальный адрес — 127.0.0.1 с портом из QR.
@@ -470,7 +491,8 @@ Netlify проверяет локальные фото, докачивает н�
   cvStatus cvSite cvLinks cvNameA cvNameB cvMsgA cvMsgB cvMsgS cvMsgO cvOpen bookies bookiesCheck bookiesTable
   bookiesStatus bookiesCopy bookiesCsv
   lanBtn lanDialog lanForm closeLan lanOn lanPrefix lanPassword lanTeams lanError
-  lanSeats lanCopySeats lanNewPrefix
+  lanSeats lanCopySeats lanNewPrefix lanPickZip lanPickFolder lanZip lanFolder
+  lanPreviewCard lanClearAssets lanCardPreview lanImportStatus lanImportLog
   obsDirectFields obsUrl obsPassword obsTestResult testObs
   saveObs notifyBtn soundBtn lobbyForm faceitUrl faceitKey lobbyStart
   lobbyStatus lobbyError lobbyAlert lobbyAlertText lobbyAck lobbyMatches

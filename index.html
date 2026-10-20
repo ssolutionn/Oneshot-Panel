@@ -585,6 +585,21 @@
       <p class="muted">Первые пять ников играют, остальные — запасные. Строки с # не читаются.</p>
       <div id="lanError" class="error-box" role="alert" hidden></div>
       <div class="lan-seats-head">
+        <h3>Фото и лого</h3>
+      </div>
+      <p class="muted">Папка на Drive: внутри папки каждой команды — фото игроков (имя файла = ник, PNG с прозрачным фоном, как из «Скопировать объект» на iPhone) и <b>logo.png</b>. Скачай папку с Drive ZIP-ом и выбери его тут или выбери саму папку. Фото обрезаются по человеку и сжимаются сами.</p>
+      <div class="lan-import-actions">
+        <button type="button" class="button" id="lanPickZip">Выбрать ZIP</button>
+        <button type="button" class="button" id="lanPickFolder">Выбрать папку</button>
+        <button type="button" class="text-button" id="lanPreviewCard">Посмотреть карточки</button>
+        <button type="button" class="text-button" id="lanClearAssets">Убрать все фото</button>
+      </div>
+      <input type="file" id="lanZip" accept=".zip,application/zip,application/x-zip-compressed" hidden>
+      <input type="file" id="lanFolder" webkitdirectory multiple hidden>
+      <canvas id="lanCardPreview" class="lan-preview" width="640" height="360" role="img" aria-label="Как карточка будет выглядеть в OBS" hidden></canvas>
+      <p class="muted" id="lanImportStatus" role="status" aria-live="polite"></p>
+      <ul id="lanImportLog" class="lan-import-log"></ul>
+      <div class="lan-seats-head">
         <h3>Ссылки мест</h3>
         <button class="text-button" type="button" id="lanCopySeats"><span aria-hidden="true">⧉</span> Копировать все</button>
       </div>

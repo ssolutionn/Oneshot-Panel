@@ -341,7 +341,16 @@ function notify() {
   document.dispatchEvent(new CustomEvent('oneshot:change'));
 }
 window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next),
-  lan: () => ({ ...state.lan }), setLan };
+  lan: () => ({ ...state.lan }), setLan,
+  // lan.js registers the maker of self-contained cards (photos inside).
+  setCardDocs: provider => { cardDocsProvider = provider; }, cardDocs: () => cardDocsNow() };
+let cardDocsProvider = null;
+// LAN cards with their photos inside, for the players of the current match.
+function cardDocsNow() {
+  if (!state.lan.on || !$('includeCards').checked || !cardDocsProvider) return {};
+  return cardDocsProvider(['a', 'b'].flatMap(side =>
+    chosen(side).filter(Boolean).map(p => ({ team: getTeam(side).name, nick: p.nick }))));
+}
 // lan.js: switching LAN on or off, or another prefix, is a new data source;
 // edited teams keep the match, lineups and veto where they still fit.
 function setLan(value) {
@@ -383,8 +392,10 @@ async function sheetRows(source, gid, range, signal, id = source.id, headers = '
   return decodeGviz(await response.text());
 }
 function reconcileKeys(team, keys) {
-  if (!keys.length) return defaultLineup(team);
   const available = new Set(team?.players.map(p => p.key));
+  // Nobody of the saved lineup is left (a roster retyped for another event,
+  // every nick replaced): start from the default five, not from five empty seats.
+  if (!keys.length || !keys.some(key => available.has(key))) return defaultLineup(team);
   return keys.map(key => available.has(key) ? key : '');
 }
 function syncScheduledSelection() {
@@ -1020,7 +1031,7 @@ function exportObsFile() {
   const filename = safeFilename(state.a, state.b, $('matchTime').value, $('matchStage').value);
   const data = buildObs(state.template, getTeam('a'), getTeam('b'), state.keysA, state.keysB, undefined, {
     includeCards: $('includeCards').checked,
-    cameraFrame:state.cameraFrame,
+    cameraFrame:state.cameraFrame, cardDocs: cardDocsNow(),
     ...(/^https?:$/.test(location.protocol) ? { cardBase: location.origin } : {})
   });
   return { filename, text: JSON.stringify(data, null, 2) + '\n' };

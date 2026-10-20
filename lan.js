@@ -1,7 +1,11 @@
 // LAN mode (site only): teams typed by hand, one fixed webcam per seat.
 // app.js keeps the data (window.oneshotPanel.lan / setLan); this file is the
 // «ЛАН» dialog with the ten seat links to open on the PCs.
-import { lanConfig, parseLanRoster, lanSeatLinks } from './core.js';
+import { lanConfig, parseLanRoster, lanSeatLinks, personKey, cardKey } from './core.js';
+import {
+  readZip, collectTeams, rosterLine, readAssets, writeAssets, photoOf, logoOf, cardDocs
+} from './lan-event.js';
+import { processImage, drawCardPreview } from './lan-images.js';
 
 const $ = id => document.getElementById(id);
 const panel = () => window.oneshotPanel;
@@ -43,6 +47,125 @@ function renderSeats() {
   $('lanCopySeats').disabled = !value.prefix;
 }
 
+// ---------- photos and logos from a Drive folder ----------
+const logLine = (text, bad) => {
+  const item = document.createElement('li');
+  item.textContent = text;
+  if (bad) item.className = 'bad';
+  $('lanImportLog').append(item);
+};
+function assetsNote() {
+  const assets = readAssets();
+  const photos = Object.keys(assets.photos).length, logos = Object.keys(assets.logos).length;
+  $('lanImportStatus').textContent = photos || logos ?
+    `Сохранено в этом браузере: ${photos} фото, ${logos} лого. Карточки в OBS возьмут их отсюда.` :
+    'Фото ещё не загружены: карточки будут без фото (с названием команды и ником).';
+}
+// Lines of the teams box: a team's line is replaced, a new team is appended.
+function mergeRosterLines(imported) {
+  const lines = $('lanTeams').value.split(/\r?\n/);
+  for (const [name, line] of imported) {
+    const at = lines.findIndex(l => personKey(l.slice(0, Math.max(0, l.indexOf(':')))) === personKey(name) && l.includes(':'));
+    if (at >= 0) lines[at] = line;
+    else lines.push(line);
+  }
+  $('lanTeams').value = lines.filter((l, i) => l.trim() || i < lines.length - 1).join('\n').replace(/^\n+/, '');
+}
+let importing = false;
+async function importFiles(files) {
+  if (importing) return;
+  importing = true;
+  $('lanImportLog').replaceChildren();
+  for (const id of ['lanPickZip', 'lanPickFolder', 'lanClearAssets']) $(id).disabled = true;
+  try {
+    const { teams, problems } = collectTeams(files);
+    if (!teams.length) throw new Error('В выбранном нет папок команд с картинками (PNG, JPG, WEBP).');
+    const jobs = teams.flatMap(team => [
+      ...[...team.players].map(([nick, file]) => ({ team, kind: 'photo', nick, file })),
+      ...(team.logo ? [{ team, kind: 'logo', file: team.logo }] : [])
+    ]);
+    const assets = readAssets();
+    for (const team of teams) {
+      // A team imported again replaces its earlier photos.
+      for (const key of Object.keys(assets.photos)) if (key.startsWith(personKey(team.name) + '|')) delete assets.photos[key];
+      delete assets.logos[personKey(team.name)];
+    }
+    let done = 0;
+    const failed = [], warned = [];
+    const queue = [...jobs];
+    const worker = async () => {
+      for (let job = queue.shift(); job; job = queue.shift()) {
+        const label = `${job.team.name} / ${job.kind === 'logo' ? 'лого' : job.nick}`;
+        try {
+          const { url, warning } = await processImage(await job.file.blob(), job.kind);
+          if (job.kind === 'logo') assets.logos[personKey(job.team.name)] = url;
+          else assets.photos[cardKey(job.team.name, job.nick)] = url;
+          if (warning) warned.push(`${label}: ${warning}`);
+        } catch (error) { failed.push(`${label}: ${error.message} — будет карточка без ${job.kind === 'logo' ? 'лого' : 'фото'}`); }
+        $('lanImportStatus').textContent = `Обрабатываем ${++done} из ${jobs.length}…`;
+      }
+    };
+    await Promise.all([worker(), worker()]);
+    const stored = writeAssets(assets);
+    if (!stored) throw new Error('Браузеру не хватило места для фото: убери лишние фото или лого и повтори.');
+    mergeRosterLines(teams.filter(t => t.players.size).map(t => [t.name, `${t.name}: ${rosterLine(t)}`]));
+    for (const team of teams) if (!team.logo) warned.push(`${team.name}: нет logo.png — вместо лого будет только название`);
+    for (const text of [...problems, ...failed, ...warned]) logLine(text, true);
+    for (const team of teams) logLine(`${team.name}: ${team.players.size} фото${team.logo ? ', лого ✓' : ''}`);
+    assetsNote();
+    showError('');
+  } catch (error) {
+    showError(error.message);
+    assetsNote();
+  } finally {
+    importing = false;
+    for (const id of ['lanPickZip', 'lanPickFolder', 'lanClearAssets']) $(id).disabled = false;
+  }
+}
+// OBS gets every card as one page with its photo inside.
+panel().setCardDocs(players => cardDocs(players, readAssets()));
+$('lanPickZip').addEventListener('click', () => $('lanZip').click());
+$('lanPickFolder').addEventListener('click', () => $('lanFolder').click());
+$('lanZip').addEventListener('change', async () => {
+  const file = $('lanZip').files[0];
+  $('lanZip').value = '';
+  if (!file) return;
+  try {
+    $('lanImportStatus').textContent = 'Открываем архив…';
+    const entries = await readZip(await file.arrayBuffer());
+    await importFiles(entries);
+  } catch (error) { showError(error.message); assetsNote(); }
+});
+$('lanFolder').addEventListener('change', async () => {
+  const files = [...$('lanFolder').files].map(file => ({
+    path: file.webkitRelativePath || file.name, size: file.size, blob: async () => file
+  }));
+  $('lanFolder').value = '';
+  if (files.length) await importFiles(files);
+});
+$('lanClearAssets').addEventListener('click', () => {
+  if (!window.confirm('Убрать все загруженные фото и лого из этого браузера?')) return;
+  writeAssets({});
+  $('lanImportLog').replaceChildren();
+  assetsNote();
+});
+// Every click shows the next player of the list as a card.
+let previewAt = -1;
+$('lanPreviewCard').addEventListener('click', async () => {
+  let teams;
+  try { teams = parseLanRoster($('lanTeams').value); } catch (error) { return showError(error.message); }
+  showError('');
+  const everyone = teams.flatMap(team => team.players.map(player => ({ team, player })));
+  previewAt = (previewAt + 1) % everyone.length;
+  const { team, player } = everyone[previewAt], assets = readAssets();
+  const photo = photoOf(assets, team.name, player.nick), logo = logoOf(assets, team.name);
+  $('lanCardPreview').hidden = false;
+  try {
+    await drawCardPreview($('lanCardPreview'), { team: team.name, nick: player.nick, photo, logo });
+    $('lanImportStatus').textContent = `${previewAt + 1} из ${everyone.length}: ${player.nick} (${team.name}) — ${photo ? 'фото есть' : 'фото нет'}, ${logo ? 'лого есть' : 'лого нет'}. Нажми ещё раз — следующий.`;
+  } catch (error) { showError('Не удалось нарисовать карточку: ' + error.message); }
+});
+
 $('lanBtn').addEventListener('click', () => {
   const current = panel().lan();
   $('lanOn').checked = current.on;
@@ -50,6 +173,8 @@ $('lanBtn').addEventListener('click', () => {
   $('lanPassword').value = current.password;
   $('lanTeams').value = current.text;
   showError('');
+  $('lanImportLog').replaceChildren();
+  assetsNote();
   renderSeats();
   $('lanDialog').showModal();
 });
