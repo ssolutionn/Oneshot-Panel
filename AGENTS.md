@@ -78,6 +78,20 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   состав по умолчанию, а не пять пустых мест.
   `scripts/import_event_folder.py <папка> [--write]` — тот же импорт из командной строки
   (в `assets/players` как `"source":"local"` и `assets/teams`), для публикации фото на сайте.
+- «Сервер» (`cs2.js`, вкладка `serverNavBtn`/`serverView`, только сайт): судейский журнал
+  CS2-сервера, который работает на том же компьютере, что и панель (`CS2_JOURNAL=1 npm start`).
+  Вкладка скрыта, пока `/api/cs2-status` не ответит (на хостинге её нет). Бэкенд — `server/`:
+  `cs2-log.js` (чистый разбор строк лога CS2: kill/damage/chat/bomb/round/score/team, класс
+  `Journal`: номер раунда = CT+T+1 по счёту, время в раунде — по часам лога, `describe`,
+  `roundText`; поле `text` у чата — сообщение игрока, описание события — `line`),
+  `cs2-rcon.js` (Source RCON без зависимостей; наружу только `say` через `sayCommand`),
+  `cs2-api.js` (`handleCs2`: `POST /api/cs2-log?token=` — лог, всегда с токеном;
+  остальное только с этого компьютера: loopback + Host localhost (против DNS rebinding);
+  запись `/api/cs2-say` — только JSON и same-origin; `CS2_ALLOW_REMOTE=1` пускает чужих,
+  но с токеном). `server.js` включает его лишь с `CS2_JOURNAL=1` (`createServer({cs2})`);
+  токен — `CS2_LOG_TOKEN` или `.cs2-data/token`. Всё, что пришло из игры (ники, чат), в
+  интерфейсе — только `textContent`. Тесты — `test/cs2-log.test.js`, `test/cs2-api.test.js`
+  (поддельный RCON на TCP), браузер — `scripts/qa_cs2.py` (сам поднимает сервер).
 - `assets/obs-qr.js` — только сайт: локальное чтение QR камерой/из файла,
   парсер native `obsws://host:port/password`, QR связи телефона с доком.
   QR только заполняет ручные поля; локальный адрес — 127.0.0.1 с портом из QR.
@@ -493,6 +507,9 @@ Netlify проверяет локальные фото, докачивает н�
   lanBtn lanDialog lanForm closeLan lanOn lanPrefix lanPassword lanTeams lanError
   lanSeats lanCopySeats lanNewPrefix lanPickZip lanPickFolder lanZip lanFolder
   lanPreviewCard lanClearAssets lanCardPreview lanImportStatus lanImportLog
+  serverNavBtn serverDot serverView serverHeading serverSetup serverCopyRound serverStatus
+  serverRounds serverShowKill serverShowDamage serverShowChat serverShowBomb serverShowOther
+  serverLog serverSayForm serverSay
   obsDirectFields obsUrl obsPassword obsTestResult testObs
   saveObs notifyBtn soundBtn lobbyForm faceitUrl faceitKey lobbyStart
   lobbyStatus lobbyError lobbyAlert lobbyAlertText lobbyAck lobbyMatches

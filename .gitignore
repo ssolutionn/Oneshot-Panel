@@ -11,3 +11,4 @@ work/
 dist-veto/
 .veto-relay-data/
 .wrangler/
+.cs2-data/

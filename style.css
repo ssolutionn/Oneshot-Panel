@@ -248,6 +248,28 @@ dialog textarea { margin:0; width:100%; }
 .lan-seats b { font-size:12px; }
 .lan-seats code { font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; overflow-wrap:anywhere; color:var(--ink); }
 .seat-id { color:var(--ink); }
+:root { --cs2-ct:#246bde; --cs2-t:#b45f06; }
+@media (prefers-color-scheme:dark) { :root:not([data-mode=light]):not([data-theme=light]) { --cs2-ct:#7fb2f0; --cs2-t:#f0a95e; } }
+:root[data-theme=dark]:not([data-mode=light]), :root[data-mode=dark] { --cs2-ct:#7fb2f0; --cs2-t:#f0a95e; }
+.cs2-status { margin:6px 0 10px; font-size:13px; line-height:1.6; }
+.cs2-status b { font-variant-numeric:tabular-nums; }
+.cs2-rounds { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+.cs2-rounds button { min-width:40px; padding:5px 9px; border:1px solid var(--btn-line); border-radius:6px; background:transparent; color:var(--ink); font-size:12px; font-variant-numeric:tabular-nums; cursor:pointer; }
+.cs2-rounds button[aria-pressed=true] { background:var(--strong); color:var(--on-strong); border-color:var(--strong); }
+.cs2-filters { display:flex; flex-wrap:wrap; gap:6px 16px; margin:6px 0 10px; font-size:12px; }
+.cs2-filters label { display:flex; align-items:center; gap:6px; }
+.cs2-log { list-style:none; margin:0; padding:0; max-height:55dvh; overflow-y:auto; border:1px solid var(--line); border-radius:6px; background:var(--field); font-size:12.5px; line-height:1.55; }
+.cs2-log li { display:grid; grid-template-columns:48px 1fr; gap:8px; padding:4px 10px; border-bottom:1px solid var(--divider); overflow-wrap:anywhere; }
+.cs2-log li:last-child { border-bottom:0; }
+.cs2-log time { color:var(--muted); font-variant-numeric:tabular-nums; }
+.cs2-log li.empty { display:block; color:var(--muted); }
+.cs2-log .ev-kill { font-weight:600; }
+.cs2-log .ev-damage, .cs2-log .ev-presence { color:var(--muted); }
+.cs2-log .ev-result { background:var(--surface-2); font-weight:600; }
+.cs2-log .side-ct { color:var(--cs2-ct); }
+.cs2-log .side-t { color:var(--cs2-t); }
+.cs2-say { display:flex; gap:8px; margin-top:10px; }
+.cs2-say input { flex:1; min-width:0; padding:10px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font-size:12px; }
 .lan-preview { display:block; width:100%; max-width:640px; aspect-ratio:16/9; border:1px solid var(--line); border-radius:6px; margin:6px 0; background:#000; }
 .lan-import-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:8px 0; }
 .lan-import-log { list-style:none; margin:6px 0 0; padding:0; display:grid; gap:3px; font-size:11px; color:var(--muted); }

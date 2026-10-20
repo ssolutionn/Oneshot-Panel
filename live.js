@@ -29,7 +29,7 @@ const cardBase = () => /^https?:$/.test(location.protocol) ? location.origin : D
 
 // ---------- tabs ----------
 const views = [['prep', 'viewPrep', 'prepView'], ['veto', 'vetoNavBtn', 'vetoView'], ['lobby', 'viewLobby', 'lobbyView'],
-  ['obs', 'obsNavBtn', 'obsView'], ['bookies', 'bookiesNavBtn', 'bookiesView']];
+  ['obs', 'obsNavBtn', 'obsView'], ['bookies', 'bookiesNavBtn', 'bookiesView'], ['server', 'serverNavBtn', 'serverView']];
 // On the site the panel's veto has a tab of its own, under the captains' room
 // (the Claude artifact keeps it on the one page).
 $('cvLive').after($('veto'));
@@ -50,10 +50,12 @@ for (const [view, tab] of views) {
   $(tab).addEventListener('keydown', event => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    const index = views.findIndex(v => v[0] === view);
-    const next = event.key === 'Home' ? 0 : event.key === 'End' ? views.length - 1 :
-      (index + (event.key === 'ArrowRight' ? 1 : views.length - 1)) % views.length;
-    showView(views[next][0], true);
+    // The «Сервер» tab is hidden unless a CS2 journal answers on this computer.
+    const shown = views.filter(v => !$(v[1]).hidden);
+    const index = shown.findIndex(v => v[0] === view);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? shown.length - 1 :
+      (index + (event.key === 'ArrowRight' ? 1 : shown.length - 1)) % shown.length;
+    showView(shown[next][0], true);
   });
 }
 window.addEventListener('oneshot:notification-open',event=>showView(event.detail==='veto'?'veto':'lobby',true));

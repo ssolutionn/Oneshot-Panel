@@ -76,6 +76,8 @@ jobs:
           asyncio.run(veto["run"](args))
           lan = runpy.run_path("scripts/qa_lan.py", run_name="lan_qa")
           asyncio.run(lan["run"](args))
+          cs2 = runpy.run_path("scripts/qa_cs2.py", run_name="cs2_qa")
+          asyncio.run(cs2["run"](args))
           PY
       - name: Verify the published site
         # Production follows only this branch; same-repo pull requests get a preview.

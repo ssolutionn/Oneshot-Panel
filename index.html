@@ -36,6 +36,7 @@
       <button id="viewLobby" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="lobbyView" tabindex="-1">Лобби<span id="lobbyBadge" class="tab-badge" hidden></span></button>
       <button id="obsNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="obsView" tabindex="-1">OBS<i id="obsTabDot" class="obs-tab-dot" aria-hidden="true"></i></button>
       <button id="bookiesNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="bookiesView" tabindex="-1">Букмекеры</button>
+      <button id="serverNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="serverView" tabindex="-1" hidden>Сервер<i id="serverDot" class="obs-tab-dot" aria-hidden="true"></i></button>
     </div><!-- /web-only -->
     <div class="nav-tools">
       <button id="refreshBtn" class="nav-button" type="button" title="Обновить данные">↻ Обновить</button>
@@ -312,6 +313,31 @@
           <button id="copyJournal" class="button small" type="button">Копировать журнал</button>
         </div>
         <ol id="lobbyLog" class="lobby-log"></ol>
+      </section>
+    </div><!-- /web-only -->
+    <!-- web-only --><div id="serverView" class="lobby cs2" role="tabpanel" aria-labelledby="serverNavBtn" hidden>
+      <section class="lobby-panel" aria-labelledby="serverHeading">
+        <div class="panel-heading">
+          <div><span class="eyebrow">CS2 SERVER</span><h2 id="serverHeading">Судейский журнал</h2></div>
+          <div class="bookies-actions">
+            <button id="serverSetup" class="button small" type="button" title="Скопировать три команды для консоли сервера CS2">Как подключить</button>
+            <button id="serverCopyRound" class="button small" type="button" title="Весь выбранный раунд текстом: для чата, когда команды спорят">Скопировать раунд</button>
+          </div>
+        </div>
+        <p id="serverStatus" class="cs2-status" role="status"></p>
+        <div id="serverRounds" class="cs2-rounds" role="group" aria-label="Раунды"></div>
+        <div class="cs2-filters" role="group" aria-label="Что показывать">
+          <label><input type="checkbox" id="serverShowKill" checked> Фраги</label>
+          <label><input type="checkbox" id="serverShowDamage" checked> Урон</label>
+          <label><input type="checkbox" id="serverShowChat" checked> Чат</label>
+          <label><input type="checkbox" id="serverShowBomb" checked> Бомба</label>
+          <label><input type="checkbox" id="serverShowOther"> Остальное</label>
+        </div>
+        <ol id="serverLog" class="cs2-log"></ol>
+        <form id="serverSayForm" class="cs2-say" autocomplete="off">
+          <input id="serverSay" maxlength="180" placeholder="Сообщение в чат сервера (его увидят все игроки)" aria-label="Сообщение в чат сервера">
+          <button class="button primary" type="submit">Отправить</button>
+        </form>
       </section>
     </div><!-- /web-only -->
     <!-- web-only --><div id="bookiesView" class="lobby" role="tabpanel" aria-labelledby="bookiesNavBtn" hidden>
@@ -659,6 +685,7 @@
   <script type="module" src="/app.js"></script>
   <!-- web-only --><script type="module" src="/live.js"></script>
   <script type="module" src="/lan.js"></script>
+  <script type="module" src="/cs2.js"></script>
   <script type="module" src="/lobby.js"></script>
   <script type="module" src="/bookies.js"></script><!-- /web-only -->
 </body>

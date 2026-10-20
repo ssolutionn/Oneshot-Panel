@@ -7,13 +7,14 @@ import { proxyFaceit } from './netlify/functions/faceit.mjs';
 import { nodeRelay } from './server/veto-relay-node.mjs';
 import { FileRelayStore } from './server/veto-relay-file.js';
 import {shortIdValid,shortPathValid} from './assets/veto-short-protocol.js';
+import { createCs2, handleCs2, loadToken } from './server/cs2-api.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicFiles = new Set([
   'index.html', 'app.js', 'core.js', 'style.css', 'theme.js',
   'card.html', 'card.js', 'card.css', 'live.js', 'obs.js', 'vdo.js',
   'lobby.js', 'faceit.js', 'notifications.js', 'notification-worker.js', 'obs-bridge.html', 'obs-bridge.js',
-  'veto.html', 'veto.js', 'veto.css', 'veto-room.js', 'veto-watch.js', 'bookmakers.js', 'bookies.js', 'lan.js', 'lan-event.js', 'lan-images.js'
+  'veto.html', 'veto.js', 'veto.css', 'veto-room.js', 'veto-watch.js', 'bookmakers.js', 'bookies.js', 'lan.js', 'lan-event.js', 'lan-images.js', 'cs2.js'
 ]);
 const mime = {
   '.html': 'text/html; charset=utf-8',
@@ -23,7 +24,9 @@ const mime = {
   '.json': 'application/json; charset=utf-8',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml'
 };
-export function createServer({relayStore = new FileRelayStore(process.env.VETO_RELAY_DIR || path.join(root, '.veto-relay-data')),
+// cs2: the referee's journal of a CS2 server on this computer (server/cs2-api.js);
+// off unless given, so tests and plain static hosting never open it.
+export function createServer({cs2 = null, relayStore = new FileRelayStore(process.env.VETO_RELAY_DIR || path.join(root, '.veto-relay-data')),
   shortStore = new FileRelayStore(path.join(process.env.VETO_RELAY_DIR || path.join(root, '.veto-relay-data'),'links'),shortIdValid)} = {}) {
   return http.createServer(async (request, response) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -32,6 +35,7 @@ export function createServer({relayStore = new FileRelayStore(process.env.VETO_R
     response.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(), payment=(), usb=()');
     response.setHeader('Content-Security-Policy',
       "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://open.faceit.com https://oneshot-veto.pages.dev https://oneshot-veto.cyberclash.workers.dev ws://127.0.0.1:* ws://localhost:*; frame-src https://vdo.ninja https://cdn-backup.vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
+    if (cs2 && await handleCs2(request, response, cs2)) return;
     if (await nodeRelay(request, response, relayStore, shortStore)) return;
     if (!['GET', 'HEAD'].includes(request.method)) {
       response.writeHead(405, { Allow: 'GET, HEAD' });
@@ -104,6 +108,15 @@ if (process.argv[1] &&
     path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const host = process.env.HOST || '127.0.0.1';
   const port = Number(process.env.PORT || 3000);
-  createServer().listen(port, host, () =>
-    console.log(`Oneshot Panel listening on ${host}:${port}`));
+  // CS2_JOURNAL=1: take the log of a CS2 server on this computer (logaddress_add_http).
+  const cs2 = process.env.CS2_JOURNAL === '1' ?
+    createCs2({ token: loadToken({ dir: path.join(root, '.cs2-data') }), port,
+      rawLog: process.env.CS2_RAW_LOG === '1' ? path.join(root, '.cs2-data', 'raw.log') : '' }) : null;
+  createServer({ cs2 }).listen(port, host, () => {
+    console.log(`Oneshot Panel listening on ${host}:${port}`);
+    if (!cs2) return;
+    console.log('\nCS2: журнал сервера включён. Выполни на сервере CS2 (консоль или RCON):');
+    for (const command of [`logaddress_add_http "http://127.0.0.1:${port}/api/cs2-log?token=${cs2.token}"`, 'mp_logdetail 3', 'log on']) console.log('  ' + command);
+    console.log(cs2.rconConfig.password ? '  (RCON: сообщения на сервер включены)' : '  (RCON выключен: задай CS2_RCON_PASSWORD, чтобы писать в чат сервера)');
+  });
 }

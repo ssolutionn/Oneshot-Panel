@@ -11,7 +11,7 @@ else
 fi
 rm -rf public
 mkdir public
-cp index.html app.js core.js theme.js style.css card.html card.js card.css live.js obs.js vdo.js lobby.js faceit.js notifications.js notification-worker.js obs-bridge.html obs-bridge.js veto.html veto.js veto.css veto-room.js veto-watch.js bookmakers.js bookies.js lan.js lan-event.js lan-images.js public/
+cp index.html app.js core.js theme.js style.css card.html card.js card.css live.js obs.js vdo.js lobby.js faceit.js notifications.js notification-worker.js obs-bridge.html obs-bridge.js veto.html veto.js veto.css veto-room.js veto-watch.js bookmakers.js bookies.js lan.js lan-event.js lan-images.js cs2.js public/
 cp -R assets public/
 # Cloudflare Pages takes the security headers from public/_headers; Netlify from netlify.toml.
 if [ -n "$CF_PAGES" ]; then cp _headers public/; fi
