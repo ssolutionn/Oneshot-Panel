@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import zlib from 'node:zlib';
 import {
-  readZip, collectTeams, rosterLine, normalizeAssets, readAssets, writeAssets, photoOf, logoOf,
+  readZip, collectTeams, rosterLine, normalizeAssets, readAssets, writeAssets, AssetStore, photoOf, logoOf,
   eventCardHtml, eventCardUrl, cardDocs, paletteFrom, DEFAULT_COLORS, splitChunks, ChunkAssembler, docKey, CHUNK, ASSETS_STORE
 } from '../lan-event.js';
 import { parseLanRoster, defaultLineup, seatTeam, lanConfig, buildObs, cardKey } from '../core.js';
@@ -95,6 +95,32 @@ test('assets: only small data: images are kept, in the browser store and back', 
   storage.set(ASSETS_STORE, '{broken');
   assert.deepEqual(readAssets(shim), { v: 1, photos: {}, logos: {} });
   assert.equal(writeAssets({}, { setItem() { throw new Error('quota'); } }), false);
+});
+
+test('assets: an event\'s photos go to IndexedDB, older localStorage photos move there once', async () => {
+  const storage = new Map();
+  const shim = { getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v), removeItem: k => storage.delete(k) };
+  writeAssets({ photos: { [cardKey('Team', 'Nick')]: PNG } }, shim);
+  let kept = null, full = false;
+  const db = { get: async () => kept, put: async value => { if (full) throw new Error('quota'); kept = structuredClone(value); } };
+  const store = new AssetStore({ db, storage: shim });
+  assert.equal(photoOf(await store.load(), 'Team', 'Nick'), PNG);
+  assert.equal(photoOf(kept, 'Team', 'Nick'), PNG, 'moved to IndexedDB');
+  assert.equal(storage.has(ASSETS_STORE), false, 'and gone from localStorage');
+  // More than localStorage could take is fine in IndexedDB.
+  const many = Object.fromEntries(Array.from({ length: 80 }, (_, i) => [`t|p${i}`, PNG.replace('AAAA', 'A'.repeat(100000))]));
+  assert.equal(await store.save({ photos: many }), true);
+  assert.equal(Object.keys(new AssetStore({ db, storage: shim }).assets.photos).length, 0, 'nothing until loaded');
+  assert.equal(Object.keys((await new AssetStore({ db, storage: shim }).load()).photos).length, 80);
+  // No room: false, and the photos kept before stay.
+  full = true;
+  assert.equal(await store.save({}), false);
+  assert.equal(Object.keys(store.assets.photos).length, 80);
+  // No IndexedDB (a private window): localStorage, as before.
+  const plain = new AssetStore({ db: { get: async () => { throw new Error('blocked'); } }, storage: shim });
+  await plain.load();
+  assert.equal(await plain.save({ logos: { team: WEBP } }), true);
+  assert.equal(logoOf(readAssets(shim), 'Team'), WEBP);
 });
 
 test('card page: nick and team are text, images only from data: URLs, nothing else gets in', () => {

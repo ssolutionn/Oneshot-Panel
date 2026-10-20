@@ -28,9 +28,11 @@ const shown = event => {
   return $(`serverShow${kind || 'Other'}`).checked;
 };
 
+// A round is a game (every map, every match restarted after live rounds) and its number.
+const sameRound = (a, b) => a.game === b.game && a.round === b.round;
 function render() {
   const { status } = state;
-  const followed = state.round === 'auto' ? status?.round ?? 0 : state.round;
+  const followed = state.round === 'auto' ? { game: status?.game ?? 0, round: status?.round ?? 0 } : state.round;
   // Status line
   const line = $('serverStatus');
   if (!state.online) {
@@ -46,13 +48,18 @@ function render() {
       ...(status.over ? [document.createTextNode(' · игра окончена')] : []));
   }
   $('serverDot').dataset.kind = state.online ? (status?.lines ? 'good' : 'wait') : 'bad';
-  // Round chips: warm-up, the last 30 rounds
-  const rounds = [...new Set(state.events.map(e => e.round))].sort((a, b) => a - b).slice(-30);
-  const chips = rounds.map(n => {
-    const button = Object.assign(document.createElement('button'), { type: 'button', textContent: n === 0 ? 'Разм.' : String(n) });
-    button.setAttribute('aria-pressed', String(state.round !== 'auto' && state.round === n));
-    button.addEventListener('click', () => { state.round = n; render(); });
-    return button;
+  // Round chips: warm-up, the last 30 rounds; each earlier game is headed by its map
+  const rounds = [];
+  for (const e of state.events) if (!rounds.some(r => sameRound(r, e))) rounds.push({ game: e.game, round: e.round });
+  rounds.sort((a, b) => a.game - b.game || a.round - b.round).splice(0, Math.max(0, rounds.length - 30));
+  const games = new Set(rounds.map(r => r.game));
+  const chips = rounds.flatMap((r, i) => {
+    const button = Object.assign(document.createElement('button'), { type: 'button', textContent: r.round === 0 ? 'Разм.' : String(r.round) });
+    button.setAttribute('aria-pressed', String(state.round !== 'auto' && sameRound(state.round, r)));
+    button.addEventListener('click', () => { state.round = r; render(); });
+    if (games.size < 2 || rounds[i - 1]?.game === r.game) return [button];
+    const map = state.events.findLast(e => e.game === r.game && e.map)?.map;
+    return [span(map || 'игра', 'muted'), button];
   });
   const live = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Идущий' });
   live.setAttribute('aria-pressed', String(state.round === 'auto'));
@@ -61,7 +68,7 @@ function render() {
   // The log of the chosen round
   const list = $('serverLog');
   const atEnd = list.scrollTop + list.clientHeight >= list.scrollHeight - 30;
-  const rows = state.events.filter(e => e.round === followed && shown(e)).map(e => {
+  const rows = state.events.filter(e => sameRound(e, followed) && shown(e)).map(e => {
     const item = document.createElement('li');
     item.className = `ev-${e.type === 'round_result' || e.type === 'game_over' || e.type === 'match_start' ? 'result' : e.type}`;
     const time = Object.assign(document.createElement('time'), { textContent: e.type === 'round_result' || e.type === 'game_over' ? '' : clock(e.offset) });
@@ -80,6 +87,9 @@ function render() {
   if (atEnd) list.scrollTop = list.scrollHeight;
 }
 
+// Redrawn only when something changed: a list rebuilt every poll would drop
+// the referee's text selection.
+let drawn = '';
 async function poll() {
   if (state.busy) return;
   state.busy = true;
@@ -91,7 +101,11 @@ async function poll() {
     for (const event of events) { state.events.push(event); state.seq = Math.max(state.seq, event.seq); }
     if (state.events.length > KEEP) state.events.splice(0, state.events.length - KEEP);
   } catch { state.online = false; }
-  finally { state.busy = false; render(); }
+  finally {
+    state.busy = false;
+    const now = JSON.stringify([state.online, state.status, state.seq]);
+    if (now !== drawn) { drawn = now; render(); }
+  }
 }
 
 async function start() {
@@ -113,9 +127,9 @@ $('serverSetup').addEventListener('click', async () => {
   } catch { panel().toast('Не удалось получить команды: панель сервера не отвечает.'); }
 });
 $('serverCopyRound').addEventListener('click', async () => {
-  const n = state.round === 'auto' ? state.status?.round ?? 0 : state.round;
+  const { game, round: n } = state.round === 'auto' ? { game: state.status?.game ?? 0, round: state.status?.round ?? 0 } : state.round;
   try {
-    const text = await (await api(`/api/cs2-round?n=${n}`)).text();
+    const text = await (await api(`/api/cs2-round?n=${n}&g=${game}`)).text();
     if (!text) return panel().toast('В этом раунде ещё ничего нет.');
     await panel().copy(text);
     panel().toast(`Раунд ${n} скопирован.`);

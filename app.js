@@ -112,10 +112,13 @@ function escapeHtml(value) {
   })[c]);
 }
 function applyIds() {
-  const applied = applyStreamIds(state.sheetTeams, state.streamIds);
+  // A LAN seat's stream is fixed: the new IDs saved for the sheet players stay
+  // untouched (pruning them against LAN keys would lose them for good).
+  const applied = state.lan.on ? { teams: state.sheetTeams } : applyStreamIds(state.sheetTeams, state.streamIds);
   state.teams = applied.teams.map(team=>({...team,players:team.players.map(player=>({
     ...player,camera:normalizeCamera(state.cameras[cameraKey(player)])
   }))}));
+  if (state.lan.on) return;
   state.streamIds = applied.saved;
   writeStorage('oneshot-stream-ids', state.streamIds);
 }
@@ -355,7 +358,8 @@ function cardDocsNow() {
 // edited teams keep the match, lineups and veto where they still fit.
 function setLan(value) {
   const next = lanConfig(value);
-  const sameSource = next.on === state.lan.on && next.prefix === state.lan.prefix;
+  // With LAN off the prefix is only kept for later: the sheets match stays.
+  const sameSource = next.on === state.lan.on && (!next.on || next.prefix === state.lan.prefix);
   state.lan = next;
   const stored = writeStorage(LAN_STORE, next);
   if (!sameSource) {
@@ -395,7 +399,8 @@ function reconcileKeys(team, keys) {
   const available = new Set(team?.players.map(p => p.key));
   // Nobody of the saved lineup is left (a roster retyped for another event,
   // every nick replaced): start from the default five, not from five empty seats.
-  if (!keys.length || !keys.some(key => available.has(key))) return defaultLineup(team);
+  // Seats the operator emptied on purpose stay empty.
+  if (!keys.length || team && keys.some(Boolean) && !keys.some(key => available.has(key))) return defaultLineup(team);
   return keys.map(key => available.has(key) ? key : '');
 }
 function syncScheduledSelection() {

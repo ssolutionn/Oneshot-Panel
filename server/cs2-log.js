@@ -14,8 +14,10 @@ export function parsePlayer(text) {
   if (!match) return null;
   return { name: match[1], userid: Number(match[2]), steam: match[3], side: SIDE[match[4]] || '' };
 }
+// «L 10/20/2026 - 18:31:05: …» (log file, UDP) or, from CS2's logaddress_add_http,
+// «10/20/2026 - 18:31:05.123 - …».
 const timeOf = line => {
-  const match = /^L (\d\d)\/(\d\d)\/(\d{4}) - (\d\d):(\d\d):(\d\d)(?:\.\d+)?: /.exec(line);
+  const match = /^(?:L )?(\d\d)\/(\d\d)\/(\d{4}) - (\d\d):(\d\d):(\d\d)(?:\.\d+)?(?:: | - )/.exec(line);
   return match ? { clock: `${match[4]}:${match[5]}:${match[6]}`, rest: line.slice(match[0].length) } : { clock: '', rest: line.replace(/^L /, '') };
 };
 
@@ -28,9 +30,10 @@ export function parseLine(raw) {
   let m;
   // Chat first: what a player types after «say» is theirs, and must never be read as another
   // kind of line (a typed «…" killed "…» would otherwise forge a kill in the journal).
-  if ((m = /^"(.+?)" (say|say_team) "(.*)"\s*$/.exec(rest))) {
-    const player = parsePlayer(m[1]);
-    if (player) return { ...base, type: 'chat', player, team: m[2] === 'say_team', text: m[3] };
+  // The speaker ends at the first «<id><steam><team>" say»: a name holding «" say "»
+  // must not make the line fall through to the other patterns.
+  if ((m = /^"(.*?<\d+><[^>]*><[^>]*>)" (say|say_team) "(.*)"\s*$/.exec(rest))) {
+    return { ...base, type: 'chat', player: parsePlayer(m[1]), team: m[2] === 'say_team', text: m[3] };
   }
   // "A" [x y z] killed "B" [x y z] with "ak47" (headshot penetrated)
   if ((m = /^"(.+?)" \[[^\]]*\] killed "(.+?)" \[[^\]]*\] with "([^"]*)"(.*)$/.exec(rest))) {
@@ -57,7 +60,8 @@ export function parseLine(raw) {
   if ((m = /^Team "(CT|TERRORIST)" triggered "([^"]+)" \(CT "(\d+)"\) \(T "(\d+)"\)/.exec(rest))) {
     return { ...base, type: 'round_result', winner: SIDE[m[1]], reason: m[2], ct: Number(m[3]), t: Number(m[4]) };
   }
-  if ((m = /^Game Over: \S+\s+(\S+) score (\d+):(\d+)/.exec(rest))) return { ...base, type: 'game_over', map: m[1], ct: Number(m[2]), t: Number(m[3]) };
+  // «Game Over: competitive mg_active de_mirage score 13:10 …»; the map group may be empty.
+  if ((m = /^Game Over: .*?(\S+) score (\d+):(\d+)/.exec(rest))) return { ...base, type: 'game_over', map: m[1], ct: Number(m[2]), t: Number(m[3]) };
   if ((m = /^(?:Loading|Started) map "([^"]+)"/.exec(rest))) return { ...base, type: 'map', map: m[1] };
   if ((m = /^Team playing "(CT|TERRORIST)": (.+)$/.exec(rest))) return { ...base, type: 'team', side: SIDE[m[1]], name: m[2].trim() };
   if ((m = /^"(.+?)" (connected|entered the game|disconnected|switched from team <([^>]*)> to <([^>]*)>)/.exec(rest))) {
@@ -95,13 +99,15 @@ export function describe(event) {
 // The journal: events in order, each with its round and the time since the
 // round began. Round numbers follow the score (CT + T + 1), so they are the
 // official ones even across the half-time side swap; before «Match_Start» it is
-// warm-up (round 0).
+// warm-up (round 0). Every map, and a match started again after live rounds, is
+// a new game: its rounds count from 1 again, so events carry the game as well.
 export class Journal {
   constructor(limit = MAX_EVENTS, now = () => Date.now()) {
     Object.assign(this, { limit, now });
     this.events = [];
     this.seq = 0;
     this.lines = 0;
+    this.game = 0;
     this.reset();
     this.lastAt = 0;
   }
@@ -125,8 +131,9 @@ export class Journal {
   apply(event) {
     const at = this.now();
     switch (event.type) {
-      case 'map': this.reset(); this.map = event.map; break;
+      case 'map': this.game++; this.reset(); this.map = event.map; break;
       case 'match_start': case 'restart':
+        if (event.type === 'match_start' && this.live && (this.round || this.ct + this.t)) this.game++;
         if (event.type === 'match_start' || !this.live) { this.live = event.type === 'match_start'; this.ct = this.t = 0; this.round = 0; this.over = false; if (event.map) this.map = event.map; }
         break;
       case 'team': this.teams[event.side] = event.name; break;
@@ -144,7 +151,7 @@ export class Journal {
     const now = secondsOf(event.clock);
     const offset = !this.startedAt ? 0 : now !== null && this.startedClock !== null ?
       ((now - this.startedClock + 86400) % 86400) * 1000 : Math.max(0, at - this.startedAt);
-    const stored = { ...event, seq: ++this.seq, at, round: this.round, offset };
+    const stored = { ...event, seq: ++this.seq, at, game: this.game, round: this.round, offset };
     stored.line = describe(stored); // the whole event in words; a chat event keeps its own `text`
     this.events.push(stored);
     if (this.events.length > this.limit) this.events.splice(0, this.events.length - this.limit);
@@ -155,14 +162,15 @@ export class Journal {
     return first < 0 ? [] : this.events.slice(first, first + limit);
   }
   status() {
-    return { map: this.map, ct: this.ct, t: this.t, round: this.round, live: this.live, over: this.over, teams: { ...this.teams },
+    return { map: this.map, ct: this.ct, t: this.t, game: this.game, round: this.round, live: this.live, over: this.over, teams: { ...this.teams },
       lines: this.lines, lastAt: this.lastAt, seq: this.seq };
   }
-  // A round as plain text, to paste into a chat when teams argue.
-  roundText(round) {
-    const rows = this.events.filter(event => event.round === round && !['round_end'].includes(event.type));
+  // A round of a game (the current one by default) as plain text, to paste into a chat when teams argue.
+  roundText(round, game = this.game) {
+    const rows = this.events.filter(event => event.game === game && event.round === round && !['round_end'].includes(event.type));
     if (!rows.length) return '';
+    const map = this.events.findLast(event => event.game === game && event.map)?.map || (game === this.game ? this.map : '');
     const clock = ms => `${String(Math.floor(ms / 60000)).padStart(1, '0')}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
-    return `Раунд ${round}${this.map ? ' · ' + this.map : ''}\n` + rows.map(event => `[${clock(event.offset)}] ${event.line}`).join('\n');
+    return `Раунд ${round}${map ? ' · ' + map : ''}\n` + rows.map(event => `[${clock(event.offset)}] ${event.line}`).join('\n');
   }
 }

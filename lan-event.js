@@ -120,6 +120,54 @@ export function readAssets(storage = globalThis.localStorage) {
 export function writeAssets(assets, storage = globalThis.localStorage) {
   try { storage.setItem(ASSETS_STORE, JSON.stringify(normalizeAssets(assets))); return true; } catch { return false; }
 }
+// The photos of a whole event do not fit localStorage (~5 M characters per
+// site): they live in IndexedDB, and `assets` is the copy the cards read
+// synchronously. The first load moves what older versions kept in localStorage.
+export function indexedAssets(factory = globalThis.indexedDB) {
+  const open = () => new Promise((resolve, reject) => {
+    const request = factory.open('oneshot-lan', 1);
+    request.onupgradeneeded = () => request.result.createObjectStore('assets');
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  const run = (mode, action) => open().then(db => new Promise((resolve, reject) => {
+    const transaction = db.transaction('assets', mode), request = action(transaction.objectStore('assets'));
+    transaction.oncomplete = () => { db.close(); resolve(request.result); };
+    transaction.onerror = transaction.onabort = () => { db.close(); reject(transaction.error || new Error('IndexedDB')); };
+  }));
+  return { get: () => run('readonly', store => store.get(ASSETS_STORE)), put: value => run('readwrite', store => store.put(value, ASSETS_STORE)) };
+}
+const anyAssets = assets => Object.keys(assets.photos).length + Object.keys(assets.logos).length > 0;
+export class AssetStore {
+  constructor({ db = null, storage = globalThis.localStorage } = {}) {
+    Object.assign(this, { db, storage, assets: normalizeAssets(null) });
+  }
+  async load() {
+    const legacy = readAssets(this.storage);
+    try {
+      if (!this.db) throw new Error('no IndexedDB');
+      const kept = await this.db.get();
+      if (!kept) {
+        this.assets = legacy;
+        if (anyAssets(legacy)) await this.save(legacy);
+        return this.assets;
+      }
+      this.assets = normalizeAssets(kept);
+      try { this.storage.removeItem(ASSETS_STORE); } catch { /* fine */ }
+    } catch { this.db = null; this.assets = legacy; } // private mode and the like: localStorage as before
+    return this.assets;
+  }
+  // false: the browser had no room; what was kept before stays.
+  async save(value) {
+    const assets = normalizeAssets(value);
+    if (this.db) {
+      try { await this.db.put(assets); } catch { return false; }
+      try { this.storage.removeItem(ASSETS_STORE); } catch { /* fine */ }
+    } else if (!writeAssets(assets, this.storage)) return false;
+    this.assets = assets;
+    return true;
+  }
+}
 export const photoOf = (assets, team, nick) => assets.photos[cardKey(team, nick)] || '';
 export const logoOf = (assets, team) => assets.logos[personKey(team)] || '';
 

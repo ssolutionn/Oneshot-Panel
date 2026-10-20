@@ -118,7 +118,8 @@ export async function handleCs2(req, res, cs2) {
       return send(res, 200, { status: cs2.journal.status(), events: cs2.journal.since(since) }), true;
     }
     if (req.method === 'GET' && url.pathname === '/api/cs2-round') {
-      return send(res, 200, cs2.journal.roundText(Number(url.searchParams.get('n')) || 0), 'text/plain; charset=utf-8'), true;
+      const game = url.searchParams.get('g');
+      return send(res, 200, cs2.journal.roundText(Number(url.searchParams.get('n')) || 0, game === null ? undefined : Number(game) || 0), 'text/plain; charset=utf-8'), true;
     }
     if (req.method === 'GET' && url.pathname === '/api/cs2-setup') {
       const base = `http://127.0.0.1:${cs2.port}`;

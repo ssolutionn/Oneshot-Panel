@@ -124,6 +124,51 @@ test('chat can not forge other lines: a typed fake kill, damage, bomb or round r
   assert.equal(parseLine(line(`${A} [1 2 3] killed ${B} [4 5 6] with "ak47"`)).type, 'kill');
 });
 
+test('CS2\'s HTTP log lines (no «L », milliseconds, « - ») parse like the log file\'s', () => {
+  const http = text => `10/20/2026 - 18:31:05.123 - ${text}`;
+  const kill = parseLine(http(`${A} [1 2 3] killed ${B} [4 5 6] with "ak47" (headshot)`));
+  assert.deepEqual([kill.type, kill.clock, kill.killer.name, kill.headshot], ['kill', '18:31:05', 'nick1', true]);
+  assert.equal(parseLine(http('World triggered "Round_Start"')).type, 'round_start');
+  assert.equal(parseLine(http(`${A} say "gg"`)).text, 'gg');
+});
+
+test('Game Over with a map group, and without one', () => {
+  for (const text of ['Game Over: competitive mg_active de_mirage score 13:10 after 40 min', 'Game Over: competitive  de_mirage score 13:10 after 40 min',
+    'Game Over: competitive default workshop/123/de_mirage score 13:10 after 40 min']) {
+    const over = parseLine(line(text));
+    assert.deepEqual([over.type, over.map.endsWith('de_mirage'), over.ct, over.t], ['game_over', true, 13, 10], text);
+  }
+});
+
+test('a name holding « say » does not let the chat after it pass for a kill', () => {
+  const evil = '"Evil" say "x<2><[U:1:1]><CT>"';
+  const typed = 'A<9><[U:1:9]><CT>" [0 0 0] killed "V<3><[U:1:2]><TERRORIST>" [0 0 0] with "ak47';
+  const event = parseLine(line(`${evil} say "${typed}"`));
+  assert.equal(event.type, 'chat');
+  assert.equal(event.player.userid, 2);
+  assert.equal(event.text, typed);
+});
+
+test('every map is a game of its own: its rounds do not mix with the last map\'s', () => {
+  const journal = new Journal(100, () => 1000);
+  const play = (map, said) => journal.push([`Loading map "${map}"`, `World triggered "Match_Start" on "${map}"`, 'World triggered "Round_Start"',
+    `${A} say "${said}"`].map(text => line(text)).join('\n'));
+  play('de_mirage', 'on mirage');
+  const first = journal.status().game;
+  play('de_inferno', 'on inferno');
+  assert.equal(journal.status().game, first + 1);
+  assert.match(journal.roundText(1), /^Раунд 1 · de_inferno\n/);
+  assert.doesNotMatch(journal.roundText(1), /on mirage/);
+  assert.match(journal.roundText(1, first), /^Раунд 1 · de_mirage\n[^]*on mirage/);
+  assert.doesNotMatch(journal.roundText(1, first), /on inferno/);
+  // Warm-up restarts before going live stay in one game; a match started again after live rounds is a new one.
+  const game = journal.status().game;
+  journal.push(line('World triggered "Match_Start" on "de_inferno"'));
+  assert.equal(journal.status().game, game + 1);
+  journal.push(line('World triggered "Match_Start" on "de_inferno"'));
+  assert.equal(journal.status().game, game + 1, 'no live round yet: the same game');
+});
+
 test('hostile names and chat stay plain data', () => {
   const evil = '"<img src=x onerror=alert(1)><3><[U:1:9]><CT>"';
   const event = parseLine(line(`${evil} say "<script>alert(1)</script>"`));

@@ -3,8 +3,9 @@
 // «ЛАН» dialog with the ten seat links to open on the PCs.
 import { lanConfig, parseLanRoster, lanSeatLinks, personKey, cardKey } from './core.js';
 import { showView } from './live.js';
+import { DEFAULT_TOURNAMENT } from './assets/veto-short-links.js';
 import {
-  readZip, collectTeams, rosterLine, readAssets, writeAssets, photoOf, logoOf, cardDocs, paletteFrom, DEFAULT_COLORS
+  readZip, collectTeams, rosterLine, AssetStore, indexedAssets, photoOf, logoOf, cardDocs, paletteFrom, DEFAULT_COLORS
 } from './lan-event.js';
 import { processImage, drawCardPreview } from './lan-images.js';
 
@@ -40,8 +41,12 @@ function applyEvent() {
   $('viewLobby').hidden = $('bookiesNavBtn').hidden = config.on;
   if (config.on && (!$('lobbyView').hidden || !$('bookiesView').hidden)) showView('prep');
   $('footerNote').textContent = config.on ? `Веб-панель${config.event.name ? ' · ' + config.event.name : ''} · ЛАН` : 'Веб-панель CyberClash · данные из Google Sheets';
+  // Only a name that came from here (or the default) is replaced: one typed by
+  // hand in the captains' block survives reloads.
   const tournament = $('cvTournament');
-  const next = config.on && config.event.name ? config.event.name : (tournament.value === appliedName ? 'CyberClash' : tournament.value);
+  const wanted = config.on && config.event.name ? config.event.name : DEFAULT_TOURNAMENT;
+  const auto = ['', DEFAULT_TOURNAMENT, config.event.name, appliedName].includes(tournament.value);
+  const next = auto ? wanted : tournament.value;
   if (tournament.value !== next) {
     tournament.value = next;
     tournament.dispatchEvent(new Event('change'));
@@ -81,8 +86,11 @@ const logLine = (text, bad) => {
   if (bad) item.className = 'bad';
   $('lanImportLog').append(item);
 };
+const store = new AssetStore({ db: globalThis.indexedDB ? indexedAssets() : null });
+const loaded = store.load().then(() => { if ($('lanDialog').open) assetsNote(); });
+const readAssets = () => structuredClone(store.assets);
 function assetsNote() {
-  const assets = readAssets();
+  const assets = store.assets;
   const photos = Object.keys(assets.photos).length, logos = Object.keys(assets.logos).length;
   $('lanImportStatus').textContent = photos || logos ?
     `Сохранено в этом браузере: ${photos} фото, ${logos} лого. Карточки в OBS возьмут их отсюда.` :
@@ -102,6 +110,7 @@ let importing = false;
 async function importFiles(files) {
   if (importing) return;
   importing = true;
+  await loaded; // the photos kept before, not an empty set, are the base
   $('lanImportLog').replaceChildren();
   for (const id of ['lanPickZip', 'lanPickFolder', 'lanClearAssets']) $(id).disabled = true;
   try {
@@ -133,7 +142,7 @@ async function importFiles(files) {
       }
     };
     await Promise.all([worker(), worker()]);
-    const stored = writeAssets(assets);
+    const stored = await store.save(assets);
     if (!stored) throw new Error('Браузеру не хватило места для фото: убери лишние фото или лого и повтори.');
     mergeRosterLines(teams.filter(t => t.players.size).map(t => [t.name, `${t.name}: ${rosterLine(t)}`]));
     for (const team of teams) if (!team.logo) warned.push(`${team.name}: нет logo.png — вместо лого будет только название`);
@@ -150,7 +159,7 @@ async function importFiles(files) {
   }
 }
 // OBS gets every card as one page with its photo inside.
-panel().setCardDocs(players => cardDocs(players, readAssets(), paletteFrom(panel().lan().event)));
+panel().setCardDocs(players => cardDocs(players, store.assets, paletteFrom(panel().lan().event)));
 $('lanPickZip').addEventListener('click', () => $('lanZip').click());
 $('lanPickFolder').addEventListener('click', () => $('lanFolder').click());
 $('lanZip').addEventListener('change', async () => {
@@ -170,9 +179,9 @@ $('lanFolder').addEventListener('change', async () => {
   $('lanFolder').value = '';
   if (files.length) await importFiles(files);
 });
-$('lanClearAssets').addEventListener('click', () => {
+$('lanClearAssets').addEventListener('click', async () => {
   if (!window.confirm('Убрать все загруженные фото и лого из этого браузера?')) return;
-  writeAssets({});
+  await store.save({});
   $('lanImportLog').replaceChildren();
   assetsNote();
 });
@@ -184,7 +193,7 @@ $('lanPreviewCard').addEventListener('click', async () => {
   showError('');
   const everyone = teams.flatMap(team => team.players.map(player => ({ team, player })));
   previewAt = (previewAt + 1) % everyone.length;
-  const { team, player } = everyone[previewAt], assets = readAssets();
+  const { team, player } = everyone[previewAt], assets = store.assets;
   const photo = photoOf(assets, team.name, player.nick), logo = logoOf(assets, team.name);
   $('lanCardPreview').hidden = false;
   try {

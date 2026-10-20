@@ -25,7 +25,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Photo preparation regression checks
-        run: python3 -m unittest discover -s test -p '*_test.py'
+        run: |
+          python3 -m pip install pillow  # the LAN photo import (test/import_event_test.py, qa_lan.py)
+          python3 -m unittest discover -s test -p '*_test.py'
       - name: Prepare the published static site
         env:
           COMMIT_REF: ${{ github.sha }}

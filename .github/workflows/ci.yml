@@ -22,12 +22,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Syntax of every JS file
         run: npm run check
       - name: Unit tests
         run: npm test
       - name: Photo preparation tests
-        run: python3 -m unittest discover -s test -p '*_test.py'
+        run: |
+          python3 -m pip install pillow  # the LAN photo import (test/import_event_test.py)
+          python3 -m unittest discover -s test -p '*_test.py'
       - name: Generated veto site and Claude artifact build cleanly
         run: |
           node scripts/build-veto-site.mjs "$RUNNER_TEMP/dist-veto"

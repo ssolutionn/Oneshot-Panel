@@ -60,7 +60,9 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   Фото и лого: кнопки «Выбрать ZIP / папку» в окне «ЛАН» принимают папку с Drive
   (папка команды → `ник.png` и `logo.png`). `lan-event.js` — без DOM (тесты
   `test/lan-event.test.js`): `readZip` (stored/deflate через DecompressionStream,
-  без ZIP64), `collectTeams`, хранение `oneshot-lan-assets-v1` в localStorage (только
+  без ZIP64), `collectTeams`, хранение `AssetStore`: IndexedDB `oneshot-lan` (фото события
+  в localStorage не помещаются; ключ `oneshot-lan-assets-v1` в localStorage — только старое,
+  переносится при первой загрузке, и запасной путь без IndexedDB; только
   небольшие data:image/png|webp|jpeg), `eventCardHtml` — карточка ОДНОЙ страницей с
   фото внутри (`data:text/html`, имя и ник только как текст, картинки только из
   data:), `cardDocs`, порции для дока (`splitChunks`, `ChunkAssembler`, `docKey`).
@@ -87,7 +89,9 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   CS2-сервера, который работает на том же компьютере, что и панель (`CS2_JOURNAL=1 npm start`).
   Вкладка скрыта, пока `/api/cs2-status` не ответит (на хостинге её нет). Бэкенд — `server/`:
   `cs2-log.js` (чистый разбор строк лога CS2: kill/damage/chat/bomb/round/score/team, класс
-  `Journal`: номер раунда = CT+T+1 по счёту, время в раунде — по часам лога, `describe`,
+  `Journal`: номер раунда = CT+T+1 по счёту, каждая карта (и матч, перезапущенный после
+  live-раундов) — новая `game`, раунд = (game, round); время в раунде — по часам лога
+  (строки `L …: ` и HTTP-формат CS2 `… - HH:MM:SS.mmm - `), `describe`,
   `roundText`; поле `text` у чата — сообщение игрока, описание события — `line`),
   `cs2-rcon.js` (Source RCON без зависимостей; наружу только `say` через `sayCommand`),
   `cs2-api.js` (`handleCs2`: `POST /api/cs2-log?token=` — лог, всегда с токеном;

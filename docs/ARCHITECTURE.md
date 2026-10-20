@@ -197,7 +197,7 @@ CloudStore и вход людей:
 |---|---|---|
 | Выбранный матч, составы, вето панели | событие | `oneshot-webcam-match-v1`, `webcam-desk-source` |
 | Новые/ручные ID потоков, «Кадр» камер, пресет рамки | событие | `oneshot-stream-ids`, `oneshot-camera-settings-v1`, `oneshot-camera-frame-v1`, `oneshot-watch-cams` |
-| Режим ЛАН, команды, фото | событие | `oneshot-lan-v1`, `oneshot-lan-assets-v1` (станут частью пакета события) |
+| Режим ЛАН, команды, фото | событие | `oneshot-lan-v1`, IndexedDB `oneshot-lan` (станут частью пакета события) |
 | Вето капитанов, лобби, букмекеры | событие | `oneshot-captain-veto`, `oneshot-veto-watch`, `oneshot-lobby`, `oneshot-lobby-log`, `oneshot-bookies` |
 | Подключение к OBS, код дока | **оператор** (у каждого свой компьютер) | `oneshot-obs`, `oneshot-obs-bridge` |
 | Тема, вкладка, уведомления | **оператор** | `oneshot-theme`, `oneshot-view`, `oneshot-notification-*` |

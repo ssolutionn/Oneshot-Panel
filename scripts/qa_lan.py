@@ -21,6 +21,7 @@ from playwright.async_api import async_playwright, expect
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from qa_live import FAKE_VDO, OBS_URL, MockObs  # noqa: E402
+from qa_browser import gviz, sample_roster  # noqa: E402
 
 CODE = "ABCD-EFGH-JKMN-PQRS"
 
@@ -139,8 +140,15 @@ async def run(args):
         assert "Bravo: нет logo.png" in log and "Team Alpha: 5 фото, лого ✓" in log, log
         teams = await page.input_value("#lanTeams")
         assert "Team Alpha: n1, n2, n3, n4, n5" in teams and "Bravo: b1, b2, b3, b4, b5" in teams and "Team Alpha: nick1" not in teams, teams
-        stored = await page.evaluate("JSON.parse(localStorage.getItem('oneshot-lan-assets-v1'))")
+        # A whole event's photos do not fit localStorage: they are in IndexedDB.
+        stored = await page.evaluate("""() => new Promise((resolve, reject) => {
+          const open = indexedDB.open('oneshot-lan', 1);
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => { const get = open.result.transaction('assets').objectStore('assets').get('oneshot-lan-assets-v1');
+            get.onsuccess = () => resolve(get.result); get.onerror = () => reject(get.error); };
+        })""")
         assert len(stored["photos"]) == 10 and len(stored["logos"]) == 1, stored
+        assert await page.evaluate("localStorage.getItem('oneshot-lan-assets-v1')") is None
         sizes = [len(v) for v in [*stored["photos"].values(), *stored["logos"].values()]]
         assert max(sizes) < 120000, sizes   # a card page stays small enough for the dock
         assert all(v.startswith("data:image/") for v in [*stored["photos"].values(), *stored["logos"].values()])
@@ -247,9 +255,74 @@ async def run(args):
         await expect(page.locator("#sidebarSource")).to_be_visible()
         await expect(page.locator("#syncTitle")).not_to_contain_text("ЛАН")
         assert not errors, errors
+        await sheets_and_lan(browser, args, out)
         await browser.close()
     print("PASS: LAN mode: dialog and seat links, seating and substitutes, observer text, OBS JSON, "
           "event profile, reload, framing per seat, 375 px, back to sheets")
+
+
+async def sheets_and_lan(browser, args, out):
+    """The same browser runs the sheets tournament and the LAN: neither may wipe the other's state."""
+    ctx = await browser.new_context(viewport={"width": 1400, "height": 1000})
+    schedule = gviz([["", "16:00", "6yuBoJlbl", "HYPERSPIRIT", "B"]])
+    roster = sample_roster()
+
+    async def sheets(route):
+        await route.fulfill(content_type="application/javascript", body=schedule if "gid=815739139" in route.request.url else roster)
+    await ctx.route("https://docs.google.com/**/gviz/**", sheets)
+    await ctx.route("https://vdo.ninja/**", lambda route: route.fulfill(content_type="text/html", body=FAKE_VDO))
+    page = await ctx.new_page()
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    await page.goto(args.url)
+    await expect(page.locator(".player-row")).to_have_count(10)
+    # A leaked link replaced (↻) and a veto ban in a sheets match.
+    await page.click("#regen-a-0")
+    await page.click("#regen-a-0")
+    await expect(page.locator(".player-row").nth(0)).to_contain_text("Новый ID")
+    if await page.locator("#copyDialog").is_visible():  # no clipboard here: the message is shown to copy
+        await page.click("#closeCopy")
+    await page.click("#vetoNavBtn")
+    await page.click('[data-map="Anubis"]')
+    await expect(page.locator('[data-map="Anubis"]')).to_be_disabled()
+    await page.click("#viewPrep")
+    # The ЛАН dialog saved with LAN off (only the event's name filled) changes nothing here.
+    await page.click("#lanBtn")
+    assert await page.input_value("#lanPrefix")
+    await page.fill("#lanEventName", "ЛАН РЭУ")
+    await page.click("#lanForm button[type=submit]")
+    await expect(page.locator("#lanDialog")).to_be_hidden()
+    await expect(page.locator('[data-map="Anubis"]')).to_be_disabled()
+    await expect(page.locator(".player-row").nth(0)).to_contain_text("Новый ID")
+    # LAN on and off again: the new stream ID of the sheets player is still there.
+    await page.click("#lanBtn")
+    await page.check("#lanOn")
+    await page.fill("#lanTeams", TEAMS)
+    await page.click("#lanForm button[type=submit]")
+    await expect(page.locator("#syncTitle")).to_have_text("2 команды на ЛАН")
+    # A tournament name typed by hand in the captains' block survives a reload.
+    await expect(page.locator("#cvTournament")).to_have_value("ЛАН РЭУ")
+    await page.click("#vetoNavBtn")
+    await page.fill("#cvTournament", "ЛАН РЭУ Финал")
+    await page.dispatch_event("#cvTournament", "change")
+    await page.reload()
+    await expect(page.locator("#syncTitle")).to_have_text("2 команды на ЛАН")
+    await expect(page.locator("#cvTournament")).to_have_value("ЛАН РЭУ Финал")
+    await page.click("#viewPrep")
+    await page.click("#lanBtn")
+    await page.uncheck("#lanOn")
+    await page.click("#lanForm button[type=submit]")
+    await expect(page.locator(".player-row").nth(0)).to_contain_text("Новый ID")
+    # Seats emptied on purpose stay empty after a reload.
+    for slot in range(5):
+        await page.select_option(f'[data-player="a"][data-slot="{slot}"]', value="")
+    await page.reload()
+    await expect(page.locator(".player-row")).to_have_count(10)
+    for slot in range(5):
+        assert await page.input_value(f'[data-player="a"][data-slot="{slot}"]') == "", slot
+    assert not errors, errors
+    await page.screenshot(path=str(out / "lan-sheets-kept.png"))
+    await ctx.close()
 
 
 if __name__ == "__main__":

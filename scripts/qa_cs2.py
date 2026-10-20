@@ -89,9 +89,11 @@ def start_panel(port, **env):
     raise SystemExit("the panel server did not start")
 
 
-def post_log(port, lines, token=TOKEN):
+def post_log(port, lines, token=TOKEN, http=False):
+    # http: the form CS2's logaddress_add_http sends («MM/DD/YYYY - HH:MM:SS.mmm - …», no «L »)
+    stamp = (lambda i: f"10/20/2026 - 18:32:{i % 60:02d}.250 - ") if http else (lambda i: f"L 10/20/2026 - 18:31:{i % 60:02d}: ")
     request = urllib.request.Request(f"http://127.0.0.1:{port}/api/cs2-log?token={token}", data="\n".join(
-        f"L 10/20/2026 - 18:31:{i % 60:02d}: {line}" for i, line in enumerate(lines)).encode(), method="POST")
+        stamp(i) + line for i, line in enumerate(lines)).encode(), method="POST")
     return urllib.request.urlopen(request, timeout=5).status
 
 
@@ -187,6 +189,21 @@ async def run(args):
             await expect(page.locator("#serverStatus")).to_contain_text("1 : 1", timeout=8000)
             await expect(page.locator("#serverStatus")).to_contain_text("раунд 3")
             await expect(log).to_contain_text("nick1: gl hf")
+            # The next map, in CS2's own HTTP form: round 1 again, the last map's round 1 apart.
+            post_log(panel_port, ['Loading map "de_inferno"', 'World triggered "Match_Start" on "de_inferno"', 'World triggered "Round_Start"',
+                                  f'{A} say "inferno now"'], http=True)
+            await expect(page.locator("#serverStatus")).to_contain_text("de_inferno", timeout=8000)
+            await expect(page.locator("#serverStatus")).to_contain_text("0 : 0")
+            await expect(log).to_contain_text("nick1: inferno now")
+            await expect(log).not_to_contain_text("ready?")
+            await expect(page.locator("#serverRounds")).to_contain_text("de_mirage")
+            await page.click("#serverCopyRound")
+            await expect(page.locator("#toast")).to_contain_text("Раунд 1 скопирован")
+            text = await page.evaluate("navigator.clipboard.readText()")
+            assert text.startswith("Раунд 1 · de_inferno\n") and "inferno now" in text and "ak47" not in text, text
+            await page.locator("#serverRounds button", has_text="1").first.click()
+            await expect(log).to_contain_text("nick1 убил nick2 · ak47")
+            await page.locator("#serverRounds button", has_text="Идущий").click()
             # 375 px: no sideways scroll
             await page.set_viewport_size({"width": 375, "height": 800})
             assert not await page.evaluate("document.documentElement.scrollWidth > innerWidth")

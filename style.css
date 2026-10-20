@@ -256,6 +256,7 @@ dialog textarea { margin:0; width:100%; }
 .cs2-rounds { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
 .cs2-rounds button { min-width:40px; padding:5px 9px; border:1px solid var(--btn-line); border-radius:6px; background:transparent; color:var(--ink); font-size:12px; font-variant-numeric:tabular-nums; cursor:pointer; }
 .cs2-rounds button[aria-pressed=true] { background:var(--strong); color:var(--on-strong); border-color:var(--strong); }
+.cs2-rounds > span { align-self:center; margin-left:6px; color:var(--muted); font-size:12px; }
 .cs2-filters { display:flex; flex-wrap:wrap; gap:6px 16px; margin:6px 0 10px; font-size:12px; }
 .cs2-filters label { display:flex; align-items:center; gap:6px; }
 .cs2-log { list-style:none; margin:0; padding:0; max-height:55dvh; overflow-y:auto; border:1px solid var(--line); border-radius:6px; background:var(--field); font-size:12.5px; line-height:1.55; }
