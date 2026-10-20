@@ -93,19 +93,19 @@ jobs:
           shutil.rmtree(root / "OBS_LOCAL")
           PY
       - name: Upload self-contained OBS collections
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: CyberClash-${{ env.MATCH_DAY }}-2026-OBS
           path: work/match-package/OBS_READY/
           if-no-files-found: error
       - name: Upload ready broadcast package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: CyberClash-${{ env.MATCH_DAY }}-2026
           path: work/match-package/
           if-no-files-found: error
       - name: Upload lightweight match previews
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: CyberClash-match-previews
           path: |
@@ -114,7 +114,7 @@ jobs:
           if-no-files-found: error
       - name: Keep verified photos for the publishing job
         if: github.event_name == 'push' && github.ref == 'refs/heads/codex/matchday-player-packages'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: verified-player-photos
           path: |

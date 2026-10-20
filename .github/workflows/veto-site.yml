@@ -45,7 +45,7 @@ jobs:
       - name: Slow signalling and stalled HTTP recovery
         if: matrix.vdo == 'fake'
         run: python3 scripts/qa_veto_resilience.py --url http://127.0.0.1:3000 --browser ${{ matrix.browser }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: veto-site-${{ matrix.browser }}-${{ matrix.vdo }}

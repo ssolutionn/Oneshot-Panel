@@ -43,7 +43,7 @@ jobs:
         run: |
           node server.js > /tmp/oneshot-server.log 2>&1 &
           xvfb-run -a -s "-screen 0 1920x1080x24" python3 scripts/qa_obs_runtime.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: obs-runtime-qa-${{ matrix.browser }}-${{ matrix.transport }}
