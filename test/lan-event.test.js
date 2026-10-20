@@ -143,6 +143,10 @@ test('OBS: a ready card page replaces the card address; players without one keep
   const items = [{ inputKind: 'browser_source', sourceName: 'Камера', sceneItemId: 1, sceneItemIndex: 0 }];
   const plan = slotPlan(items, { slot: 1, team: 'Team Alpha', nick: 'n1', id: 'k7qza1', room: 'k7qz' }, { includeCards: true, cardDocs: docs });
   assert.equal(plan.card.settings.url, 'data:text/html;charset=utf-8,READY');
+  // Only a data: page counts as a ready card; another address in its place is ignored.
+  const hostile = slotPlan(items, { slot: 1, team: 'Team Alpha', nick: 'n1', id: 'k7qza1', room: 'k7qz' },
+    { includeCards: true, cardBase: 'https://p.example', cardDocs: { [cardKey('Team Alpha', 'n1')]: 'file:///etc/passwd' } });
+  assert.match(hostile.card.settings.url, /^https:\/\/p\.example\/card\.html/);
   const other = slotPlan(items, { slot: 2, team: 'Team Alpha', nick: 'n2', id: 'k7qza2', room: 'k7qz' }, { includeCards: true, cardBase: 'https://p.example', cardDocs: docs });
   assert.match(other.card.settings.url, /^https:\/\/p\.example\/card\.html/);
 });

@@ -373,6 +373,11 @@ export function personKey(value) {
 }
 // One card per player of a match: the key of a ready-made card page (LAN).
 export const cardKey = (team, nick) => personKey(team) + '|' + personKey(nick);
+// A ready card is only ever a data: page; anything else in its place is ignored.
+export const readyCard = (docs, key) => {
+  const doc = docs?.[key];
+  return typeof doc === 'string' && doc.startsWith('data:text/html;charset=utf-8,') ? doc : '';
+};
 // card.js and scripts/build_match_packages.mjs pick the same files.
 // A file name from the catalogs never leaves its assets folder.
 const assetFile = file =>
@@ -533,7 +538,7 @@ export function buildObs(template, a, b, ka, kb,
       // VDO.Ninja has no video (not connected yet, or dropped).
       Object.assign(cardSource, {
         uuid: uuidFn(), name: `CARD ${slot} | ${p.team} | ${p.nick}`,
-        settings: { url: cardDocs?.[cardKey(p.team, p.nick)] || cardUrl(p, cardBase), width: 1920, height: 1080 },
+        settings: { url: readyCard(cardDocs, cardKey(p.team, p.nick)) || cardUrl(p, cardBase), width: 1920, height: 1080 },
         muted: true
       });
       d.sources.push(cardSource);

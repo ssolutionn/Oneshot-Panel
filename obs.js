@@ -1,7 +1,7 @@
 // obs-websocket v5 (built into OBS 28+) and the steps that point an already
 // imported Oneshot collection at a new match. No DOM: the panel, the OBS dock
 // (obs-bridge.html) and the tests share it.
-import { viewUrl, cameraViewUrl, cameraGeometry, cameraFrame, DEFAULT_CAMERA_FRAME, cardUrl, cardKey, DEFAULT_CARD_BASE } from './core.js';
+import { viewUrl, cameraViewUrl, cameraGeometry, cameraFrame, DEFAULT_CAMERA_FRAME, cardUrl, cardKey, readyCard, DEFAULT_CARD_BASE } from './core.js';
 
 export const OBS_DEFAULT_URL = 'ws://127.0.0.1:4455';
 export const VETO_EVENT = 'oneshot-veto';
@@ -139,7 +139,7 @@ export function slotPlan(sceneItems, player, { includeCards = false, cardBase = 
     },
     card: includeCards ? {
       item: card || null, name: `CARD ${slot} | ${player.team} | ${player.nick}`,
-      settings: { url: cardDocs?.[cardKey(player.team, player.nick)] || cardUrl(player, cardBase), width:1920,height:1080 },
+      settings: { url: readyCard(cardDocs, cardKey(player.team, player.nick)) || cardUrl(player, cardBase), width:1920,height:1080 },
       transform:{...FIT,positionX:rect.x,positionY:rect.y,boundsWidth:rect.width,boundsHeight:rect.height}
     } : null,
     hideCard: !includeCards && card ? card : null

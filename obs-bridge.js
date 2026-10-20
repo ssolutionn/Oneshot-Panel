@@ -70,8 +70,10 @@ async function adoptObs({ url, password }) {
 // named by their content; a match then only refers to them.
 const cards = new ChunkAssembler();
 function matchWithCards(match) {
-  if (!match || typeof match !== 'object' || !match.cardRefs) return match;
-  const { cardRefs, ...rest } = match, cardDocs = {};
+  if (!match || typeof match !== 'object') return match;
+  // Cards come only from parts the dock put together itself, never ready-made in the command.
+  const { cardRefs, cardDocs: _sent, ...rest } = match, cardDocs = {};
+  if (!cardRefs) return rest;
   if (typeof cardRefs !== 'object') throw Object.assign(new Error('Неверные карточки.'), { cards: 'missing' });
   for (const [key, named] of Object.entries(cardRefs)) {
     const url = typeof named === 'string' ? cards.get(named) : null;
