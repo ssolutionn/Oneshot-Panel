@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
-  lanConfig, parseLanRoster, lanSeatId, seatTeam, lanSeatLinks, LAN_SEATS,
+  lanConfig, eventProfile, parseLanRoster, lanSeatId, seatTeam, lanSeatLinks, LAN_SEATS,
   defaultLineup, validateMatch, selectedPlayers, buildObs, observerText, directorUrl
 } from '../core.js';
 
@@ -14,7 +14,7 @@ Bravo: b1, b2, b3, b4, b5`;
 
 test('LAN config: needs a short lowercase prefix to switch on', () => {
   assert.deepEqual(lanConfig({ on: true, prefix: 'k7qz', password: ' pw ', text: 'x' }),
-    { on: true, prefix: 'k7qz', password: 'pw', text: 'x' });
+    { on: true, prefix: 'k7qz', password: 'pw', text: 'x', event: { name: '', accent: '', deep: '', black: '' } });
   for (const prefix of ['', 'K7QZ', 'a', 'has space', 'x'.repeat(13), 'a-b'])
     assert.equal(lanConfig({ on: true, prefix }).on, false, prefix);
   assert.equal(lanConfig(null).on, false);
@@ -85,4 +85,14 @@ test('LAN seat links: ten links to type on the PCs, password included when set',
   assert.equal(links[0].push, 'https://vdo.ninja/?room=k7qz&broadcast&do&push=k7qza1');
   const locked = lanSeatLinks(lanConfig({ on: true, prefix: 'k7qz', password: 'p w' }));
   assert.equal(locked[9].push, 'https://vdo.ninja/?room=k7qz&password=p%20w&broadcast&do&push=k7qzb5');
+});
+
+test('event profile: a name and three hex colours, nothing else gets through', () => {
+  assert.deepEqual(eventProfile({ name: '  Winter\nLAN  ', accent: '#FF0066', deep: '#102030', black: 'red' }),
+    { name: 'Winter LAN', accent: '#ff0066', deep: '#102030', black: '' });
+  assert.deepEqual(eventProfile({ name: 'x'.repeat(100), accent: 'url(javascript:1)', deep: '#12345', black: '#1234567' }),
+    { name: 'x'.repeat(60), accent: '', deep: '', black: '' });
+  assert.deepEqual(eventProfile(null), { name: '', accent: '', deep: '', black: '' });
+  assert.deepEqual(eventProfile({ name: 5, accent: 7 }), { name: '', accent: '', deep: '', black: '' });
+  assert.equal(lanConfig({ on: true, prefix: 'ab', event: { name: 'Cup' } }).event.name, 'Cup');
 });

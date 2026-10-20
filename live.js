@@ -14,6 +14,8 @@ import { relayEndpoint } from './assets/veto-relay-protocol.js';
 import {DEFAULT_TOURNAMENT,friendlyCaptainLinks,resolveRoomLink} from './assets/veto-short-links.js';
 import {showNotification} from './notifications.js';
 import { splitChunks, docKey } from './lan-event.js';
+// The tournament name the captains' links start with: the LAN event's own when there is one.
+const tournamentDefault = () => { const lan = window.oneshotPanel.lan(); return lan.on && lan.event.name ? lan.event.name : DEFAULT_TOURNAMENT; };
 
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
@@ -713,7 +715,7 @@ function onChange() {
 function playerVetoLink(s) {
   const params = new URLSearchParams({ a: s.a?.name || '', b: s.b?.name || '', f: $('cvFormat').value, m: $('cvTimer').value });
   params.set('via', $('cvTransport').value === 'server' ? 'server' : 'vdo');
-  params.set('tournament',$('cvTournament').value.trim()||DEFAULT_TOURNAMENT);
+  params.set('tournament',$('cvTournament').value.trim()||tournamentDefault());
   params.set('start', $('cvStart').value);
   $('playerVeto').href = vetoSite() + '#new&' + params;
 }
@@ -744,7 +746,7 @@ function vetoSite() {
 const cv = { touched: false, made: null };
 {
   const saved = read(CV_STORE) || {};
-  $('cvTournament').value=typeof saved.tournament==='string'?saved.tournament.slice(0,60):DEFAULT_TOURNAMENT;
+  $('cvTournament').value=typeof saved.tournament==='string'?saved.tournament.slice(0,60):tournamentDefault();
   $('cvSite').value = typeof saved.site === 'string' ? saved.site : '';
   if (['0', '3', '5', '7', '10', '15'].includes(String(saved.timer))) $('cvTimer').value = String(saved.timer);
   if (['en', 'ru'].includes(saved.lang)) $('cvLang').value = saved.lang;
@@ -752,7 +754,7 @@ const cv = { touched: false, made: null };
 }
 const cvMatch = s => s.a?.name && s.b?.name ? JSON.stringify([s.a.name, s.b.name]) : '';
 function cvSave(last = read(CV_STORE)?.last) {
-  write(CV_STORE, { tournament:$('cvTournament').value.trim()||DEFAULT_TOURNAMENT,timer: $('cvTimer').value, lang: $('cvLang').value, site: $('cvSite').value.trim(), transport: $('cvTransport').value, last });
+  write(CV_STORE, { tournament:$('cvTournament').value.trim()||tournamentDefault(),timer: $('cvTimer').value, lang: $('cvLang').value, site: $('cvSite').value.trim(), transport: $('cvTransport').value, last });
 }
 function cvShow(made) {
   cv.made = made;

@@ -342,6 +342,9 @@ dialog textarea { margin:0; width:100%; }
 .cs2-say { display:flex; gap:8px; margin-top:10px; }
 .cs2-say input { flex:1; min-width:0; padding:10px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font-size:12px; }
 .lan-preview { display:block; width:100%; max-width:640px; aspect-ratio:16/9; border:1px solid var(--line); border-radius:6px; margin:6px 0; background:#000; }
+.lan-colors { display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 18px; margin:0 0 6px; }
+.lan-colors label { margin:8px 0; }
+.lan-colors input[type=color] { width:56px; height:36px; padding:2px; cursor:pointer; }
 .lan-import-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:8px 0; }
 .lan-import-log { list-style:none; margin:6px 0 0; padding:0; display:grid; gap:3px; font-size:11px; color:var(--muted); }
 .lan-import-log li.bad { color:var(--warn-ink); }
@@ -750,7 +753,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
 
     <footer>
       Oneshot Panel
-      <span>Веб-панель CyberClash · данные из Google Sheets</span>
+      <span id="footerNote">Веб-панель CyberClash · данные из Google Sheets</span>
       <a href="https://vdo.ninja/" target="_blank" rel="noreferrer">VDO.Ninja</a>
     </footer>
   </main>
@@ -1088,12 +1091,23 @@ function applyStreamIds(teams, saved) {
 // Teams are typed by hand, one per line: «Команда: ник1, ник2, …». The
 // first five nicks play, the rest are substitutes.
 const LAN_SEATS = 5;
+// The event's own look: a name (captain links, texts) and three colours for the
+// cards; empty = the CyberClash defaults of the card page.
+const HEX6 = /^#[0-9a-f]{6}$/i;
+function eventProfile(value) {
+  const v = value && typeof value === 'object' ? value : {};
+  const color = x => typeof x === 'string' && HEX6.test(x) ? x.toLowerCase() : '';
+  return {
+    name: typeof v.name === 'string' ? line(v.name).slice(0, 60) : '',
+    accent: color(v.accent), deep: color(v.deep), black: color(v.black)
+  };
+}
 function lanConfig(value) {
   const v = value && typeof value === 'object' ? value : {};
   const prefix = typeof v.prefix === 'string' && /^[a-z0-9]{2,12}$/.test(v.prefix) ? v.prefix : '';
   const password = typeof v.password === 'string' ? line(v.password).slice(0, 40) : '';
   const text = typeof v.text === 'string' ? v.text.slice(0, 20000) : '';
-  return { on: v.on === true && Boolean(prefix), prefix, password, text };
+  return { on: v.on === true && Boolean(prefix), prefix, password, text, event: eventProfile(v.event) };
 }
 function parseLanRoster(text) {
   const teams = [], skipped = [], names = new Set();

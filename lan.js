@@ -2,8 +2,9 @@
 // app.js keeps the data (window.oneshotPanel.lan / setLan); this file is the
 // «ЛАН» dialog with the ten seat links to open on the PCs.
 import { lanConfig, parseLanRoster, lanSeatLinks, personKey, cardKey } from './core.js';
+import { showView } from './live.js';
 import {
-  readZip, collectTeams, rosterLine, readAssets, writeAssets, photoOf, logoOf, cardDocs
+  readZip, collectTeams, rosterLine, readAssets, writeAssets, photoOf, logoOf, cardDocs, paletteFrom, DEFAULT_COLORS
 } from './lan-event.js';
 import { processImage, drawCardPreview } from './lan-images.js';
 
@@ -15,11 +16,37 @@ function newPrefix() {
   const letters = 'abcdefghjkmnpqrstuvwxyz23456789';
   return Array.from(crypto.getRandomValues(new Uint8Array(4)), b => letters[b % letters.length]).join('');
 }
+// A colour left at its default is not stored: the card then keeps the defaults.
+const COLOR_FIELDS = [['accent', 'lanColorAccent'], ['deep', 'lanColorDeep'], ['black', 'lanColorBlack']];
 function form() {
   return lanConfig({
     on: $('lanOn').checked, prefix: $('lanPrefix').value.trim(),
-    password: $('lanPassword').value, text: $('lanTeams').value
+    password: $('lanPassword').value, text: $('lanTeams').value,
+    event: {
+      name: $('lanEventName').value,
+      ...Object.fromEntries(COLOR_FIELDS.map(([key, id]) => [key, $(id).value.toLowerCase() === DEFAULT_COLORS[key] ? '' : $(id).value]))
+    }
   });
+}
+function fillEvent(event) {
+  $('lanEventName').value = event.name;
+  for (const [key, id] of COLOR_FIELDS) $(id).value = event[key] || DEFAULT_COLORS[key];
+}
+// The event's look on the panel: no FACEIT lobby or bookmakers on a LAN, the
+// tournament name in the captains' links, the footer line.
+let appliedName = '';
+function applyEvent() {
+  const config = panel().lan();
+  $('viewLobby').hidden = $('bookiesNavBtn').hidden = config.on;
+  if (config.on && (!$('lobbyView').hidden || !$('bookiesView').hidden)) showView('prep');
+  $('footerNote').textContent = config.on ? `Веб-панель${config.event.name ? ' · ' + config.event.name : ''} · ЛАН` : 'Веб-панель CyberClash · данные из Google Sheets';
+  const tournament = $('cvTournament');
+  const next = config.on && config.event.name ? config.event.name : (tournament.value === appliedName ? 'CyberClash' : tournament.value);
+  if (tournament.value !== next) {
+    tournament.value = next;
+    tournament.dispatchEvent(new Event('change'));
+  }
+  appliedName = config.on ? config.event.name : '';
 }
 function showError(text) {
   $('lanError').textContent = text;
@@ -123,7 +150,7 @@ async function importFiles(files) {
   }
 }
 // OBS gets every card as one page with its photo inside.
-panel().setCardDocs(players => cardDocs(players, readAssets()));
+panel().setCardDocs(players => cardDocs(players, readAssets(), paletteFrom(panel().lan().event)));
 $('lanPickZip').addEventListener('click', () => $('lanZip').click());
 $('lanPickFolder').addEventListener('click', () => $('lanFolder').click());
 $('lanZip').addEventListener('change', async () => {
@@ -161,7 +188,7 @@ $('lanPreviewCard').addEventListener('click', async () => {
   const photo = photoOf(assets, team.name, player.nick), logo = logoOf(assets, team.name);
   $('lanCardPreview').hidden = false;
   try {
-    await drawCardPreview($('lanCardPreview'), { team: team.name, nick: player.nick, photo, logo });
+    await drawCardPreview($('lanCardPreview'), { team: team.name, nick: player.nick, photo, logo, colors: paletteFrom(form().event) });
     $('lanImportStatus').textContent = `${previewAt + 1} из ${everyone.length}: ${player.nick} (${team.name}) — ${photo ? 'фото есть' : 'фото нет'}, ${logo ? 'лого есть' : 'лого нет'}. Нажми ещё раз — следующий.`;
   } catch (error) { showError('Не удалось нарисовать карточку: ' + error.message); }
 });
@@ -172,6 +199,7 @@ $('lanBtn').addEventListener('click', () => {
   $('lanPrefix').value = current.prefix || newPrefix();
   $('lanPassword').value = current.password;
   $('lanTeams').value = current.text;
+  fillEvent(current.event);
   showError('');
   $('lanImportLog').replaceChildren();
   assetsNote();
@@ -179,6 +207,7 @@ $('lanBtn').addEventListener('click', () => {
   $('lanDialog').showModal();
 });
 $('closeLan').addEventListener('click', () => $('lanDialog').close());
+$('lanColorsReset').addEventListener('click', () => fillEvent({ ...form().event, accent: '', deep: '', black: '' }));
 // Only what VDO.Ninja keeps in a stream ID, in lower case.
 $('lanPrefix').addEventListener('input', () => {
   const clean = $('lanPrefix').value.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -205,6 +234,9 @@ $('lanForm').addEventListener('submit', event => {
   showError('');
   $('lanDialog').close();
   const stored = panel().setLan(value);
+  applyEvent();
   panel().toast(!stored ? 'Сохранено до перезагрузки: браузер не разрешил запомнить настройки.' :
     value.on ? 'ЛАН: команды обновлены. Рассадку выбери в карточках команд.' : 'Режим ЛАН выключен: составы снова из таблицы.');
 });
+
+applyEvent();

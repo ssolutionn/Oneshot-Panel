@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import zlib from 'node:zlib';
 import {
   readZip, collectTeams, rosterLine, normalizeAssets, readAssets, writeAssets, photoOf, logoOf,
-  eventCardHtml, eventCardUrl, cardDocs, splitChunks, ChunkAssembler, docKey, CHUNK, ASSETS_STORE
+  eventCardHtml, eventCardUrl, cardDocs, paletteFrom, DEFAULT_COLORS, splitChunks, ChunkAssembler, docKey, CHUNK, ASSETS_STORE
 } from '../lan-event.js';
 import { parseLanRoster, defaultLineup, seatTeam, lanConfig, buildObs, cardKey } from '../core.js';
 import { slotPlan } from '../obs.js';
@@ -177,4 +177,21 @@ test('dock parts: a card is split, rebuilt in any order, and only a real card pa
   for (let i = 0; i < 45; i++) many.add('k' + i, 0, 1, 'data:text/html;charset=utf-8,x');
   assert.equal(many.has('k0'), false);
   assert.equal(many.has('k44'), true);
+});
+
+test('palette: three chosen colours become the five of a card; none chosen changes nothing', () => {
+  assert.deepEqual(paletteFrom({}), {});
+  assert.deepEqual(paletteFrom({ accent: 'nope', deep: '', black: '#12' }), {});
+  const palette = paletteFrom({ accent: '#ff0066', deep: '#101010', black: '#000000' });
+  assert.deepEqual([palette.accent, palette.cyan, palette.deep, palette.black], ['#ff0066', '#ff0066', '#101010', '#000000']);
+  assert.match(palette.teal, /^#[0-9a-f]{6}$/);
+  assert.notEqual(palette.teal, '#ff0066');
+  // Only the accent chosen: the rest of the card keeps its defaults, the teal follows the accent.
+  const accentOnly = paletteFrom({ accent: '#ff0066' });
+  assert.deepEqual(Object.keys(accentOnly).sort(), ['accent', 'cyan', 'teal']);
+  const html = text => decodeURIComponent(text.slice(text.indexOf(',') + 1));
+  const [url] = Object.values(cardDocs([{ team: 'T', nick: 'n' }], normalizeAssets({}), palette));
+  assert.ok(html(url).includes('--accent:#ff0066') && html(url).includes('--black:#000000'));
+  const [plain] = Object.values(cardDocs([{ team: 'T', nick: 'n' }], normalizeAssets({})));
+  assert.ok(html(plain).includes(`--accent:${DEFAULT_COLORS.accent}`));
 });

@@ -209,16 +209,47 @@ async def run(args):
         await dock.close()
         await page.screenshot(path=str(out / "lan-dock-sent.png"))
 
+        # ---- the event's own look ----
+        await expect(page.locator("#viewLobby")).to_be_hidden()
+        await expect(page.locator("#bookiesNavBtn")).to_be_hidden()
+        await page.click("#lanBtn")
+        await page.fill("#lanEventName", "Winter LAN")
+        await page.fill("#lanColorAccent", "#ff0066")
+        await page.click("#lanForm button[type=submit]")
+        await expect(page.locator("#lanDialog")).to_be_hidden()
+        await expect(page.locator("#footerNote")).to_have_text("Веб-панель · Winter LAN · ЛАН")
+        await expect(page.locator("#cvTournament")).to_have_value("Winter LAN")
+        await page.fill("#matchStage", "Финал")
+        async with page.expect_download() as info:
+            await page.click("#downloadBtn")
+        look = json.loads((await (await info.value).path()).read_text())
+        card = unquote(next(s["settings"]["url"] for s in look["sources"] if s["name"].startswith("CARD 01 ")))
+        assert "--accent:#ff0066" in card and "--black:#031b24" in card, card[:400]
+        # Arrow keys skip the hidden tabs.
+        await page.focus("#vetoNavBtn")
+        await page.keyboard.press("ArrowRight")
+        await expect(page.locator("#obsView")).to_be_visible()
+        await page.keyboard.press("ArrowRight")
+        await expect(page.locator("#prepView")).to_be_visible()
+        # The colours go back to the defaults with one click.
+        await page.click("#lanBtn")
+        await page.click("#lanColorsReset")
+        assert await page.input_value("#lanColorAccent") == "#00d3ef"
+        await page.click("#lanForm button[type=submit]")
+
         # Switched off: the sheets are the source again.
         await page.click("#lanBtn")
         await page.uncheck("#lanOn")
         await page.click("#lanForm button[type=submit]")
+        await expect(page.locator("#viewLobby")).to_be_visible()
+        await expect(page.locator("#bookiesNavBtn")).to_be_visible()
+        await expect(page.locator("#footerNote")).to_contain_text("CyberClash")
         await expect(page.locator("#sidebarSource")).to_be_visible()
         await expect(page.locator("#syncTitle")).not_to_contain_text("ЛАН")
         assert not errors, errors
         await browser.close()
     print("PASS: LAN mode: dialog and seat links, seating and substitutes, observer text, OBS JSON, "
-          "reload, framing per seat, 375 px, back to sheets")
+          "event profile, reload, framing per seat, 375 px, back to sheets")
 
 
 if __name__ == "__main__":

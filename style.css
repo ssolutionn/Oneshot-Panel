@@ -271,6 +271,9 @@ dialog textarea { margin:0; width:100%; }
 .cs2-say { display:flex; gap:8px; margin-top:10px; }
 .cs2-say input { flex:1; min-width:0; padding:10px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font-size:12px; }
 .lan-preview { display:block; width:100%; max-width:640px; aspect-ratio:16/9; border:1px solid var(--line); border-radius:6px; margin:6px 0; background:#000; }
+.lan-colors { display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 18px; margin:0 0 6px; }
+.lan-colors label { margin:8px 0; }
+.lan-colors input[type=color] { width:56px; height:36px; padding:2px; cursor:pointer; }
 .lan-import-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:8px 0; }
 .lan-import-log { list-style:none; margin:6px 0 0; padding:0; display:grid; gap:3px; font-size:11px; color:var(--muted); }
 .lan-import-log li.bad { color:var(--warn-ink); }

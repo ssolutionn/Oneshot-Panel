@@ -70,6 +70,11 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   `app.js` не импортирует эти файлы (его собирает артефакт Claude): карточки подключает
   провайдер `window.oneshotPanel.setCardDocs` (регистрирует `lan.js`); в режиме ЛАН при
   включённых карточках `buildObs`/`slotPlan` получают `cardDocs` ({cardKey: data:URL}).
+  Профиль события (`core.eventProfile`, поле `event` в `lanConfig`): название ≤ 60 и три цвета
+  `#rrggbb` (`accent`, `deep`, `black`); `lan-event.paletteFrom` делает из них пять цветов карточки
+  (пусто = прежние). `lan.js applyEvent()`: в режиме ЛАН скрыты `viewLobby` и `bookiesNavBtn`
+  (стрелки вкладок их пропускают), в `cvTournament` — название события (`live.js tournamentDefault`),
+  подпись `footerNote`.
   Окно Oneshot (`obs-bridge.js`): сообщения `cards-have {keys}` → `{have}` и
   `blob {key, index, count, data}` (карточка по 32 КБ, собирает `ChunkAssembler`, кэш 40
   карточек в памяти); `apply*` несёт `match.cardRefs` вместо самих карточек, а если дока
@@ -507,6 +512,7 @@ Netlify проверяет локальные фото, докачивает н�
   lanBtn lanDialog lanForm closeLan lanOn lanPrefix lanPassword lanTeams lanError
   lanSeats lanCopySeats lanNewPrefix lanPickZip lanPickFolder lanZip lanFolder
   lanPreviewCard lanClearAssets lanCardPreview lanImportStatus lanImportLog
+  lanEventName lanColorAccent lanColorDeep lanColorBlack lanColorsReset footerNote
   serverNavBtn serverDot serverView serverHeading serverSetup serverCopyRound serverStatus
   serverRounds serverShowKill serverShowDamage serverShowChat serverShowBomb serverShowOther
   serverLog serverSayForm serverSay

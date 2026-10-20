@@ -561,7 +561,7 @@
 
     <footer>
       Oneshot Panel
-      <span>Веб-панель CyberClash · данные из Google Sheets</span>
+      <span id="footerNote">Веб-панель CyberClash · данные из Google Sheets</span>
       <a href="https://vdo.ninja/" target="_blank" rel="noreferrer">VDO.Ninja</a>
     </footer>
   </main>
@@ -601,6 +601,7 @@
       </div>
       <p>Без таблиц: команды вписываются здесь, у каждого компа своя постоянная вебка. Кто на каком месте сидит — выбираешь в карточках команд, как обычно.</p>
       <label class="lan-switch"><input id="lanOn" type="checkbox"> Работать в режиме ЛАН</label>
+      <p class="muted">В режиме ЛАН скрыты вкладки «Лобби» (FACEIT) и «Букмекеры», а вместо таблицы — команды отсюда.</p>
       <div class="lan-row">
         <label>Префикс вебок<input id="lanPrefix" autocomplete="off" spellcheck="false" maxlength="12" pattern="[a-z0-9]{2,12}" placeholder="например, k7qz" required></label>
         <label>Пароль комнаты <span class="muted">(необязательно)</span><input id="lanPassword" autocomplete="off" spellcheck="false" maxlength="40"></label>
@@ -610,6 +611,17 @@
       </label>
       <p class="muted">Первые пять ников играют, остальные — запасные. Строки с # не читаются.</p>
       <div id="lanError" class="error-box" role="alert" hidden></div>
+      <div class="lan-seats-head">
+        <h3>Турнир</h3>
+      </div>
+      <label>Название <span class="muted">(попадёт в ссылки капитанов: /название_команда)</span><input id="lanEventName" maxlength="60" autocomplete="off" placeholder="например, Winter LAN"></label>
+      <div class="lan-colors">
+        <label>Акцент<input id="lanColorAccent" type="color" value="#00d3ef"></label>
+        <label>Фон<input id="lanColorDeep" type="color" value="#043746"></label>
+        <label>Тёмный<input id="lanColorBlack" type="color" value="#031b24"></label>
+        <button type="button" class="text-button" id="lanColorsReset">Цвета по умолчанию</button>
+      </div>
+      <p class="muted">Цвета карточек игроков в OBS. Логотип события и фон придут вместе с дизайном; пока карточка — название команды, фото и ник.</p>
       <div class="lan-seats-head">
         <h3>Фото и лого</h3>
       </div>

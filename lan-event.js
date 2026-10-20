@@ -127,6 +127,20 @@ export const logoOf = (assets, team) => assets.logos[personKey(team)] || '';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const HEX = /^#[0-9a-f]{6}$/i;
 export const DEFAULT_COLORS = { accent: '#00d3ef', deep: '#043746', black: '#031b24', cyan: '#00bedf', teal: '#087f91' };
+const channels = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+const blend = (a, b, p) => '#' + channels(a).map((x, i) => Math.round(x + (channels(b)[i] - x) * p).toString(16).padStart(2, '0')).join('');
+// Three chosen colours (an event profile) → the five the card uses; none chosen → {} (defaults).
+// The glow takes the accent; the base of the gradient is the deep colour lifted toward the accent.
+export function paletteFrom(profile) {
+  const pick = key => HEX.test(profile?.[key] || '') ? profile[key] : '';
+  const accent = pick('accent'), deep = pick('deep'), black = pick('black');
+  const palette = {};
+  if (accent) { palette.accent = accent; palette.cyan = accent; }
+  if (deep) palette.deep = deep;
+  if (black) palette.black = black;
+  if (accent || deep) palette.teal = blend(deep || DEFAULT_COLORS.deep, accent || DEFAULT_COLORS.accent, 0.35);
+  return palette;
+}
 export function eventCardHtml({ team = '', nick = '', photo = '', logo = '', colors = {} } = {}) {
   const c = Object.fromEntries(Object.entries(DEFAULT_COLORS).map(([k, v]) => [k, HEX.test(colors?.[k] || '') ? colors[k] : v]));
   const image = value => DATA_IMAGE.test(value || '') ? value : '';

@@ -288,12 +288,23 @@ export function applyStreamIds(teams, saved) {
 // Teams are typed by hand, one per line: «Команда: ник1, ник2, …». The
 // first five nicks play, the rest are substitutes.
 export const LAN_SEATS = 5;
+// The event's own look: a name (captain links, texts) and three colours for the
+// cards; empty = the CyberClash defaults of the card page.
+const HEX6 = /^#[0-9a-f]{6}$/i;
+export function eventProfile(value) {
+  const v = value && typeof value === 'object' ? value : {};
+  const color = x => typeof x === 'string' && HEX6.test(x) ? x.toLowerCase() : '';
+  return {
+    name: typeof v.name === 'string' ? line(v.name).slice(0, 60) : '',
+    accent: color(v.accent), deep: color(v.deep), black: color(v.black)
+  };
+}
 export function lanConfig(value) {
   const v = value && typeof value === 'object' ? value : {};
   const prefix = typeof v.prefix === 'string' && /^[a-z0-9]{2,12}$/.test(v.prefix) ? v.prefix : '';
   const password = typeof v.password === 'string' ? line(v.password).slice(0, 40) : '';
   const text = typeof v.text === 'string' ? v.text.slice(0, 20000) : '';
-  return { on: v.on === true && Boolean(prefix), prefix, password, text };
+  return { on: v.on === true && Boolean(prefix), prefix, password, text, event: eventProfile(v.event) };
 }
 export function parseLanRoster(text) {
   const teams = [], skipped = [], names = new Set();
