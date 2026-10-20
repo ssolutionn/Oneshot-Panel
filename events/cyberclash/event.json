@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "slug": "cyberclash",
+  "name": "CyberClash",
+  "short": "CC",
+  "kind": "sheets",
+  "language": "ru",
+  "brand": {
+    "logo": "assets/card/cyberclash-logo.png",
+    "backdrop": "assets/veto-backdrop.jpg",
+    "font": { "display": "assets/fonts/Oswald-Variable.ttf", "text": "system" },
+    "colors": {
+      "accent": "#00d3ef", "deep": "#043746", "black": "#031b24", "ink": "#ffffff", "muted": "#9fc6cf",
+      "ban": "#ed1637", "pick": "#2fbf71", "decider": "#f2c14e", "ct": "#7fb2f0", "t": "#f0a95e"
+    }
+  },
+  "modules": { "cameras": true, "veto": true, "obs": true, "server": false, "lobby": true, "bookmakers": true },
+  "source": {
+    "type": "sheets",
+    "roster": { "id": "1e__ijBjufD19SWBkSJL177vmmfMh2tdykYQHAS06S8I", "gid": "1315978454" },
+    "schedule": { "id": "1GtwcpVnyxY1YOs6ZTrXwJr5mjZqI0QxjLSKjimn9G2o", "gid": "815739139", "playoffsGid": "1212769715" }
+  },
+  "veto": { "pool": ["Ancient", "Anubis", "Cache", "Dust2", "Inferno", "Mirage", "Nuke"], "format": "BO3", "timerMinutes": 5, "tournament": "CyberClash" },
+  "cameras": { "frame": "inner43" },
+  "lobby": { "faceit": true },
+  "bookmakers": { "match": ["CyberClash"] }
+}

@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "slug": "new-tournament",
+  "name": "Новый турнир",
+  "kind": "sheets",
+  "language": "ru",
+  "source": {
+    "type": "sheets",
+    "roster": { "id": "ВСТАВЬ_ID_ТАБЛИЦЫ_СОСТАВОВ_20+_ЗНАКОВ", "gid": "0" },
+    "schedule": { "id": "ВСТАВЬ_ID_ТАБЛИЦЫ_РАСПИСАНИЯ_20+_ЗНАКОВ", "gid": "0" }
+  },
+  "modules": { "cameras": true, "veto": true, "obs": true, "lobby": false, "bookmakers": false }
+}

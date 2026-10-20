@@ -1,0 +1,8 @@
+{
+  "v": 1,
+  "slug": "new-lan",
+  "name": "Новый ЛАН",
+  "kind": "manual",
+  "language": "ru",
+  "modules": { "cameras": true, "veto": true, "obs": true, "server": true, "lobby": false, "bookmakers": false }
+}
