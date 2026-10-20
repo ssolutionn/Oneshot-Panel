@@ -259,8 +259,10 @@ async def run(args):
         await page.locator("#obsView .obs-manual-step > summary", has_text="Каждый матч: отправь камеры").click()
         await expect(guide).to_contain_text("Поменял игрока, ID или порядок")
         # Tabs: Подготовка · Вето · Лобби · OBS · Букмекеры.
-        tabs = await page.locator(".view-tabs [role=tab]").evaluate_all("els => els.map(el => el.id)")
+        tabs = await page.locator(".view-tabs [role=tab]").evaluate_all("els => els.filter(el => !el.hidden).map(el => el.id)")
         assert tabs == ["viewPrep", "vetoNavBtn", "viewLobby", "obsNavBtn", "bookiesNavBtn"], tabs
+        # «Сервер» exists only next to a CS2 journal (qa_cs2.py); here, like on the hosted site, it is hidden.
+        await expect(page.locator("#serverNavBtn")).to_be_hidden()
         await page.focus("#obsNavBtn")
         await page.keyboard.press("ArrowLeft")
         await expect(page.locator("#lobbyView")).to_be_visible()
