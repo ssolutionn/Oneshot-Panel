@@ -23,7 +23,7 @@ jobs:
           - { browser: webkit, vdo: fake }
           - { browser: chromium, vdo: real }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: actions/setup-node@v4

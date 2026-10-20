@@ -24,7 +24,7 @@ jobs:
       - if: env.HAS_KEY != 'true'
         run: echo "::notice::ANTHROPIC_API_KEY is not set; Claude review skipped."
       - if: env.HAS_KEY == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           persist-credentials: false
