@@ -64,8 +64,11 @@
       "tail": "PASS: firefox white document after load, delayed API, zero decoded frames, video readiness, disconnect/reconnect and cleanup\n"
     },
     "loading_chromium": {
-      "status": "running"
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 4.4,
+      "tail": "PASS: chromium white document after load, delayed API, zero decoded frames, video readiness, disconnect/reconnect and cleanup\n"
     }
   },
-  "updated_at": "2026-10-20T22:56:47.857772+00:00"
+  "updated_at": "2026-10-20T22:56:54.266378+00:00"
 }
