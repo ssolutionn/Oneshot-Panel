@@ -23,6 +23,7 @@
       <span class="brand-sub">panel</span>
     </a>
     <div class="header-actions">
+      <button id="wizardBtn" class="nav-button" type="button" title="Быстрый запуск и чеклист">⚡ Мастер запуска</button>
       <a id="sidebarSource" class="source-link" target="_blank" rel="noreferrer" title="Открыть таблицу организатора">
         <i id="syncDot" aria-hidden="true"></i><span>Таблица турнира</span><span class="external-mark" aria-hidden="true">↗</span>
       </a>
@@ -692,6 +693,39 @@
   </dialog>
 
   
+
+  <!-- web-only --><dialog id="wizardDialog" class="lan-dialog" aria-labelledby="wizardHeading">
+    <div class="dialog-head">
+      <h2 id="wizardHeading">⚡ Эфирный мастер и чеклист</h2>
+      <button class="icon-button" type="button" id="closeWizard" aria-label="Закрыть">×</button>
+    </div>
+    <p>Быстрая проверка готовности к трансляции и выбор режима:</p>
+    <div class="lan-seats-head">
+      <h3>1. Режим работы</h3>
+    </div>
+    <div class="lan-import-actions" style="margin-bottom:16px;">
+      <button type="button" class="button primary" id="wizardOnlineBtn">🌐 Онлайн по Google Sheets</button>
+      <button type="button" class="button" id="wizardLanBtn">🏟 LAN-турнир на площадке</button>
+    </div>
+    <div class="lan-seats-head">
+      <h3>2. Чек-лист эфира</h3>
+    </div>
+    <ul id="wizardChecklist" style="list-style:none; padding:0; line-height:1.8; font-size:13px;">
+      <li id="chkTable">⏳ Составы из таблицы: проверка…</li>
+      <li id="chkObs">⏳ OBS WebSocket: проверка…</li>
+      <li id="chkMatch">⏳ Выбран матч для эфира: нет</li>
+    </ul>
+    <div class="lan-seats-head">
+      <h3>3. Открыть на телефоне / планшете</h3>
+    </div>
+    <p class="muted">Адрес в локальной сети для телефона или планшета:</p>
+    <div style="text-align:center; margin:10px 0;">
+      <input id="wizardLocalUrl" readonly style="width:100%; padding:8px; font-size:12px; text-align:center; background:var(--field); color:var(--ink); border:1px solid var(--field-line); border-radius:4px;">
+    </div>
+    <div class="dialog-actions">
+      <button type="button" class="button primary" id="closeWizardOk">Всё готово, к эфиру!</button>
+    </div>
+  </dialog><!-- /web-only -->
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   <script type="module" src="/app.js"></script>

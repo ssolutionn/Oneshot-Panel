@@ -1004,9 +1004,30 @@ function paintWatch() {
     $('cvMoves').dataset.key = movesKey;
     $('cvMoves').replaceChildren(...moves);
   }
-  const s = panel.snapshot();
-  const synced = roomToPanel(room, state, [s.a?.name, s.b?.name]);
-  const sameTeams = roomToPanel(room, { ...state, first: state.first ?? 0 }, [s.a?.name, s.b?.name]);
+// ---------- Wizard & Checklist ----------
+$('wizardBtn')?.addEventListener('click', () => {
+  $('wizardLocalUrl').value = location.origin + '/';
+  const snapshot = panel.snapshot();
+  $('chkTable').textContent = snapshot.teams?.length ? '✓ Составы из таблицы: загружены' : '❌ Составы из таблицы: нет данных';
+  $('chkObs').textContent = obsSettings().configured ? '✓ OBS WebSocket: настроен' : '⚠️ OBS WebSocket: не настроен';
+  $('chkMatch').textContent = snapshot.matchKey ? '✓ Выбран матч для эфира: выбран' : '⚠️ Выбран матч для эфира: не выбран (выбери на подготовке)';
+  $('wizardDialog').showModal();
+});
+$('closeWizard')?.addEventListener('click', () => $('wizardDialog').close());
+$('closeWizardOk')?.addEventListener('click', () => $('wizardDialog').close());
+$('wizardOnlineBtn')?.addEventListener('click', () => {
+  const lanCheckbox = document.getElementById('lanOn');
+  if (lanCheckbox && lanCheckbox.checked) {
+    lanCheckbox.checked = false;
+    lanCheckbox.dispatchEvent(new Event('change'));
+  }
+  panel.toast('Включен онлайн-режим по Google Sheets.');
+  $('wizardDialog').close();
+});
+$('wizardLanBtn')?.addEventListener('click', () => {
+  $('wizardDialog').close();
+  $('lanDialog').showModal();
+});
   setText($('cvSyncNote'), !$('cvSync').checked ? 'Ходы не переносятся: вето панели ведётся вручную.' :
     !sameTeams ? `В панели выбран другой матч — ходы ${names[0]} vs ${names[1]} не переносятся. Выбери этот матч в «Подготовке».` :
     !synced ? 'Ходы появятся в вето панели, как только победитель монетки выберет порядок.' :
