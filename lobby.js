@@ -6,7 +6,7 @@ import {
   nextStart, fillTemplate, DEFAULT_TEMPLATES, scoreLine, mapScores
 } from './faceit.js';
 import { personKey } from './core.js';
-import {notificationPermission,enableNotifications,showNotification} from './notifications.js';
+import {notificationPermission,enableNotifications,showNotification,setFlashingTitle} from './notifications.js';
 
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
@@ -113,11 +113,10 @@ function alertAdmins(text, tag, { loud = true } = {}) {
     beep();
   }, REPEAT);
   clearInterval(lobby.flashTimer);
-  let on = false;
-  lobby.flashTimer = setInterval(() => {
-    on = !on;
-    document.title = on ? `● ${text}` : title;
-  }, 1000);
+  // The tab title blinks through the shared flasher (notifications.js): the
+  // veto room's «Call admin» may ring at the same time, they must not fight.
+  setFlashingTitle('lobby', text);
+  lobby.flashTimer = null;
 }
 function hush() { clearInterval(lobby.repeatTimer); }
 window.addEventListener('focus', hush);
@@ -127,8 +126,7 @@ function acknowledge() {
   lobby.unread = 0;
   badge();
   clearInterval(lobby.repeatTimer);
-  clearInterval(lobby.flashTimer);
-  document.title = title;
+  setFlashingTitle('lobby', '');
   $('lobbyAlert').hidden = true;
 }
 

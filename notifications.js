@@ -3,6 +3,37 @@
 let workerPromise;
 const permission = () => typeof Notification==='undefined' ? 'unsupported' : Notification.permission;
 const sectionOf = value => value==='veto' ? 'veto' : 'lobby';
+
+const activeTitles = new Map();
+let baseTitle = typeof document !== 'undefined' ? document.title : 'Oneshot Panel';
+let titleTimer = null;
+let titleOn = false;
+
+export function setFlashingTitle(key, text) {
+  if (typeof document === 'undefined') return;
+  if (!text) activeTitles.delete(key);
+  else activeTitles.set(key, text);
+  if (activeTitles.size && !titleTimer) {
+    titleTimer = setInterval(() => {
+      if (!activeTitles.size) {
+        clearInterval(titleTimer);
+        titleTimer = null;
+        document.title = baseTitle;
+        return;
+      }
+      titleOn = !titleOn;
+      // When several alarms ring at once (a map ended and a captain calls),
+      // the tab shows them in turn instead of overwriting each other.
+      const texts = [...activeTitles.values()];
+      const current = texts[Math.floor(Date.now() / 1000) % texts.length];
+      document.title = titleOn ? current : baseTitle;
+    }, 1000);
+  } else if (!activeTitles.size && titleTimer) {
+    clearInterval(titleTimer);
+    titleTimer = null;
+    document.title = baseTitle;
+  }
+}
 async function bounded(task) {
   let timer;
   try{return await Promise.race([task,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Notification API timeout')),8000);})]);}

@@ -31,6 +31,17 @@ test('Winline real public binary packets: winner, total, handicap and match scop
   assert.throws(() => winlineSnapshot(changed, markets), /изменился/);
   assert.throws(() => winlineSnapshot(raw, new Map()), /Неизвестный рынок/);
 });
+
+test('A snapshot holding the CyberClash championship but no parseable event is a feed error, not an empty line', () => {
+  // If the event record no longer parses as tag 3, the snapshot still walks
+  // cleanly and matches nothing. parseFeed's contract forbids answering
+  // «CyberClash в линии нет» for that — it must look like a broken feed.
+  const markets = winlineDictionary(gunzipSync(dictionary));
+  const raw = gunzipSync(line);
+  const shifted = Buffer.from(raw);
+  shifted[raw.indexOf(3, 19)] = 1; // the event's own record becomes an ignorable tag 1
+  assert.throws(() => winlineSnapshot(shifted, markets), /изменился/);
+});
 class Socket extends EventTarget {
   commands=[]; closed=false;
   accept() {}

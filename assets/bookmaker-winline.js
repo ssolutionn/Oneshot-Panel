@@ -42,7 +42,7 @@ export function winlineSnapshot(bytes, markets) {
   const r = new Reader(bytes), events = [];
   if (r.u16() !== 3) throw new Error('Неизвестный снимок Winline.');
   r.take(16);
-  let championship = null, event = null;
+  let championship = null, event = null, cyberSeen = false;
   while (r.offset < bytes.length) {
     const tag = r.u8();
     if (tag === 1) {
@@ -52,6 +52,7 @@ export function winlineSnapshot(bytes, markets) {
       const name = r.text();
       r.u32(); r.u32(); r.u32(); r.u8(); r.u32(); r.u32();
       championship = {id, sport, name}; event = null;
+      if (sport === 205 && cyber(name)) cyberSeen = true;
     } else if (tag === 3) {
       const id = r.u32(); r.u32(); r.u32(); r.u8(); r.u8();
       const liveOffered = !!r.u8(); r.u8(); r.u16(); r.text();
@@ -89,6 +90,10 @@ export function winlineSnapshot(bytes, markets) {
       throw new Error('Формат снимка Winline изменился.');
     }
   }
+  // The CyberClash championship was in the snapshot but no event survived tag 3:
+  // its field layout changed (a name now parses as garbage, not as our match).
+  // That is a feed error, never a proven «в линии нет» (parseFeed's contract).
+  if (cyberSeen && !events.length) throw new Error('Формат снимка Winline изменился.');
   return events;
 }
 async function inflate(input) {
