@@ -205,6 +205,20 @@ function renderMatches() {
       'В турнире пока нет текущих и ближайших матчей.' : 'Матчи появятся после подключения турнира.'}</div>`;
     return;
   }
+  // Трансляция первого живого матча для OBS-оверлея /assets/match-overlay/score.html
+  if (live.length > 0) {
+    const cur = live[0];
+    const maps = cur.picks.length ? cur.picks : cur.maps.map((_, i) => `Карта ${i + 1}`);
+    const activeMap = maps[cur.liveMap - 1] || 'Карта ' + (cur.liveMap || 1);
+    localStorage.setItem('oneshot_sb_t1', cur.teams[0]);
+    localStorage.setItem('oneshot_sb_t2', cur.teams[1]);
+    localStorage.setItem('oneshot_sb_s1', cur.score[0]);
+    localStorage.setItem('oneshot_sb_s2', cur.score[1]);
+    localStorage.setItem('oneshot_sb_map', activeMap.replace(/^de_/, ''));
+    localStorage.setItem('oneshot_sb_rounds', cur.rounds ? `${cur.rounds[0]} : ${cur.rounds[1]}` : '0 : 0');
+    localStorage.setItem('oneshot_sb_format', cur.bestOf ? `BO${cur.bestOf}` : 'BO3');
+  }
+
   $('lobbyMatches').innerHTML = shown.map(m => {
     const pause = lobby.pauses.get(m.id);
     const maps = m.picks.length ? m.picks : m.maps.map((_, i) => `Карта ${i + 1}`);
