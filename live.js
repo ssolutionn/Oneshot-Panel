@@ -15,7 +15,18 @@ import {DEFAULT_TOURNAMENT,friendlyCaptainLinks,resolveRoomLink} from './assets/
 import {showNotification,setFlashingTitle} from './notifications.js';
 import { splitChunks, docKey } from './lan-event.js';
 // The tournament name the captains' links start with: the LAN event's own when there is one.
-const tournamentDefault = () => { const lan = window.oneshotPanel.lan(); return lan.on && lan.event.name ? lan.event.name : DEFAULT_TOURNAMENT; };
+// ---------- Multi-tournament Hub ----------
+const EVENT_STORE = 'oneshot-active-event';
+const activeEvent = localStorage.getItem(EVENT_STORE) || 'cyberclash';
+if ($('eventSelector')) {
+  $('eventSelector').value = activeEvent;
+  $('eventSelector').addEventListener('change', event => {
+    const slug = event.target.value;
+    localStorage.setItem(EVENT_STORE, slug);
+    panel.toast(`Турнир переключен на ${slug.toUpperCase()}. Перезагружаем…`);
+    setTimeout(() => location.reload(), 800);
+  });
+}
 
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
