@@ -4,5 +4,8 @@
   "name": "Новый ЛАН",
   "kind": "manual",
   "language": "ru",
-  "modules": { "cameras": true, "veto": true, "obs": true, "server": true, "lobby": false, "bookmakers": false }
+  "modules": {
+    "teams": true, "matches": true, "cameras": true, "veto": true, "seats": true,
+    "server": true, "obs": true, "settings": true, "lobby": false, "bookmakers": false
+  }
 }

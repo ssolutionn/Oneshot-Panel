@@ -46,6 +46,20 @@ async function bitmapOf(dataUrl) {
   const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
   return createImageBitmap(new Blob([bytes], { type: dataUrl.slice(5, dataUrl.indexOf(';')) }));
 }
+// A small picture of a logo (whole, centred) or a photo (head and shoulders:
+// the cut-out fills the width from the top), for the editor's slots.
+export async function drawThumb(canvas, dataUrl, mode = 'contain') {
+  const g = canvas.getContext('2d');
+  g.clearRect(0, 0, canvas.width, canvas.height);
+  const bitmap = await bitmapOf(dataUrl).catch(() => null);
+  if (!bitmap) return false;
+  const k = mode === 'head' ? canvas.width / bitmap.width : Math.min(canvas.width / bitmap.width, canvas.height / bitmap.height);
+  const w = bitmap.width * k, h = bitmap.height * k;
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(bitmap, (canvas.width - w) / 2, mode === 'head' ? 0 : (canvas.height - h) / 2, w, h);
+  bitmap.close?.();
+  return true;
+}
 // The card the way OBS will show it (same 1920×1080 geometry as the card page),
 // drawn on a canvas for a quick look at the crop, the logo and the nick.
 export async function drawCardPreview(canvas, { team, nick, photo, logo, colors }) {

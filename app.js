@@ -6,7 +6,7 @@ import {
   observerText, playerText, buildObs, safeFilename, validateMetadata,
   CAMERA_FRAMES, DEFAULT_CAMERA_FRAME, cameraFrame, normalizeCamera, cameraCss, cameraViewUrl,
   MAP_POOL, VETO_RULES, validateVeto, appendVeto, vetoText,
-  lanConfig, parseLanRoster, seatTeam
+  lanConfig, lanTeams, lanSchedule, newLanPrefix, seatTeam
 } from './core.js';
 
 const $ = id => document.getElementById(id);
@@ -51,9 +51,17 @@ if (savedSource &&
 }
 // New stream IDs made with ↻ next to a player (core.applyStreamIds).
 state.streamIds = readStorage('oneshot-stream-ids') || {};
-// LAN mode (lan.js edits it): teams typed by hand, cameras fixed per seat.
+// LAN mode (lan.js edits it): the event's own teams, cameras fixed per seat.
+// The address decides (event.js, events/<slug>/event.json): an event without
+// sheets (kind manual) is always LAN, any other never is.
 const LAN_STORE = 'oneshot-lan-v1';
+const EVENT_LAN = globalThis.oneshotEvent?.kind === 'manual';
 state.lan = lanConfig(readStorage(LAN_STORE));
+if (EVENT_LAN !== state.lan.on) {
+  state.lan = lanConfig({ ...state.lan, on: EVENT_LAN,
+    prefix: state.lan.prefix || newLanPrefix(crypto.getRandomValues(new Uint8Array(4))) });
+  writeStorage(LAN_STORE, state.lan);
+}
 // A saved match belongs to the data source it was picked from.
 function sourceTag() {
   return state.lan.on ? JSON.stringify(['lan', state.lan.prefix]) : JSON.stringify(state.source);
@@ -352,14 +360,19 @@ let cardDocsProvider = null;
 function cardDocsNow() {
   if (!state.lan.on || !$('includeCards').checked || !cardDocsProvider) return {};
   return cardDocsProvider(['a', 'b'].flatMap(side =>
-    chosen(side).filter(Boolean).map(p => ({ team: getTeam(side).name, nick: p.nick }))));
+    chosen(side).filter(Boolean).map(p => ({ team: getTeam(side).name, nick: p.nick, teamId: getTeam(side).teamId, playerId: p.playerId }))));
 }
-// lan.js: switching LAN on or off, or another prefix, is a new data source;
-// edited teams keep the match, lineups and veto where they still fit.
+// lan.js: another prefix is a new data source; edited teams keep the match,
+// lineups and veto where they still fit, and a renamed team stays chosen.
 function setLan(value) {
-  const next = lanConfig(value);
+  const next = lanConfig({ ...value, on: EVENT_LAN });
   // With LAN off the prefix is only kept for later: the sheets match stays.
   const sameSource = next.on === state.lan.on && (!next.on || next.prefix === state.lan.prefix);
+  for (const side of ['a', 'b']) {
+    const id = state.lan.teams.find(t => t.name === state[side])?.id;
+    const renamed = next.teams.find(t => t.id === id)?.name;
+    if (renamed) state[side] = renamed;
+  }
   state.lan = next;
   const stored = writeStorage(LAN_STORE, next);
   if (!sameSource) {
@@ -464,7 +477,7 @@ async function refresh() {
     // group stage; it may be missing or empty without failing the schedule.
     const organizer = source.scheduleGid === DEFAULT_SOURCE.scheduleGid &&
       (source.scheduleId || source.id) === DEFAULT_SOURCE.scheduleId;
-    // LAN: the teams typed in «ЛАН», no sheets and no schedule.
+    // LAN: the event's own teams and matches, no sheets.
     const lan = state.lan.on;
     const [roster, schedule, playoffs] = lan ? [
       { status: 'fulfilled', value: null }, { status: 'fulfilled', value: [] }, { status: 'fulfilled', value: [] }
@@ -483,12 +496,12 @@ async function refresh() {
     }
     if (request !== refreshId) return;
     if (roster.status !== 'fulfilled') throw roster.reason;
-    state.sheetTeams = lan ? parseLanRoster(state.lan.text) : parseTeams(roster.value);
+    state.sheetTeams = lan ? lanTeams(state.lan) : parseTeams(roster.value);
     const skipped = state.sheetTeams.skipped || [];
     applyIds();
     const teams = state.teams;
     const names = teams.map(t => t.name);
-    state.schedule = upcoming(schedule.status === 'fulfilled' ?
+    state.schedule = lan ? lanSchedule(state.lan) : upcoming(schedule.status === 'fulfilled' ?
       parseSchedule(schedule.value) : state.schedule, names);
 
     const pair = state.a + '\n' + state.b;
@@ -509,9 +522,9 @@ async function refresh() {
     render();
     const word = teams.length % 10 === 1 && teams.length % 100 !== 11 ? 'команда' :
       [2, 3, 4].includes(teams.length % 10) && ![12, 13, 14].includes(teams.length % 100) ? 'команды' : 'команд';
-    $('syncTitle').textContent = lan ? `${teams.length} ${word} на ЛАН` : `${teams.length} команд из таблицы`;
+    $('syncTitle').textContent = lan ? `${teams.length} ${word} · ЛАН` : `${teams.length} команд из таблицы`;
     $('syncDot').className = 'good';
-    $('syncTime').textContent =
+    $('syncTime').textContent = lan ? 'команды и матчи — во вкладках «Команды» и «Матчи»' :
       'Обновлено ' + state.lastSync.toLocaleTimeString('ru-RU', {
         timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit'
       }) + ' МСК';
@@ -524,7 +537,7 @@ async function refresh() {
     } else if (state.scheduleDay && state.scheduleDay !== mskToday()) {
       showError(`Расписание в таблице на ${state.scheduleDay}, а сегодня ${mskToday()} по МСК. Если для нового дня завели новый лист, укажи его GID в «Источник данных».`);
     } else if (skipped.length) {
-      showError(`В составах пропущены строки (поправь ${lan ? 'в окне «ЛАН»' : 'в таблице'}): ${skipped.slice(0, 3).join('; ')}${skipped.length > 3 ? ` и ещё ${skipped.length - 3}` : ''}.`);
+      showError(`В составах пропущены строки (поправь ${lan ? 'во вкладке «Команды»' : 'в таблице'}): ${skipped.slice(0, 3).join('; ')}${skipped.length > 3 ? ` и ещё ${skipped.length - 3}` : ''}.`);
     }
   } catch (error) {
     if (request !== refreshId) return;
@@ -540,7 +553,7 @@ async function refresh() {
     );
     if (!state.teams.length) {
       $('teamGrid').innerHTML =
-        (state.lan.on ? '<div class="empty-panel">Открой «ЛАН» и впиши команды: одна строка — «Команда: ник1, ник2, …».</div>' :
+        (state.lan.on ? '<div class="empty-panel">Добавь команды во вкладке «Команды»: название, логотип и игроков прямо в карточке.</div>' :
         '<div class="empty-panel">Не удалось загрузить составы. Проверь источник и доступ на просмотр по ссылке, затем обнови данные.</div>');
     }
     renderOutput();
@@ -584,7 +597,7 @@ async function loadLogos() {
   } catch { /* No logos: cards keep the A/B badge. */ }
 }
 function renderScheduleDay() {
-  $('scheduleLabel').textContent = 'Матч по расписанию' +
+  $('scheduleLabel').textContent = state.lan.on ? 'Матч из вкладки «Матчи»' : 'Матч по расписанию' +
     (state.scheduleDay ? ` · ${state.scheduleDay}` : '');
 }
 // Images come from veto.oneshot.su; if a file is missing, show no broken icon.
@@ -622,7 +635,7 @@ function render() {
     const eligible = lineupCandidates(team);
     return `<article class="team-card">
       <div class="card-top">
-        ${state.logos[team.name] ?
+        ${state.lan.on ? `<div class="team-letter" data-lan-logo="${escapeHtml(team.teamId)}">${index ? 'B' : 'A'}</div>` : state.logos[team.name] ?
           `<span class="team-logo"><img src="${escapeHtml(state.logos[team.name])}"
             alt="" width="34" height="34"></span>` :
           `<div class="team-letter">${index ? 'B' : 'A'}</div>`}
@@ -682,7 +695,7 @@ function render() {
           ${validatePlayers(chosen(side)) ? 'disabled' : ''}><span aria-hidden="true">⧉</span> Копировать ссылки команды</button>
         <div class="card-bottom">
           <button class="text-button roster-action" data-reset="${side}"
-            title="Восстановить порядок из таблицы" aria-label="Восстановить порядок ${escapeHtml(team.name)}">↻</button>
+            title="${state.lan.on ? 'Первые пять из состава команды' : 'Восстановить порядок из таблицы'}" aria-label="Восстановить порядок ${escapeHtml(team.name)}">↻</button>
           <a class="text-button roster-action" target="_blank" rel="noreferrer"
             title="Открыть комнату директора" aria-label="Директор ${escapeHtml(team.name)}"
             href="${escapeHtml(directorUrl(team))}">↗</a>
@@ -1006,6 +1019,8 @@ $('matchSelect').addEventListener('change', () => {
     state.keysB = defaultLineup(getTeam('b'));
     $('matchTime').value = match.time;
     $('matchStage').value = match.stage;
+    // An event's match says its format; a veto already begun keeps its own.
+    if (match.format && VETO_RULES[match.format] && !state.veto.actions.length) state.veto.format = match.format;
   }
   render();
 });

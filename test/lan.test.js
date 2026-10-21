@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   lanConfig, eventProfile, parseLanRoster, lanSeatId, seatTeam, lanSeatLinks, LAN_SEATS,
+  lanTeams, lanSchedule, lanId, newLanPrefix, LAN_LIMITS,
   defaultLineup, validateMatch, selectedPlayers, buildObs, observerText, directorUrl
 } from '../core.js';
 
@@ -13,8 +14,8 @@ const ROSTER = `Team Alpha: nick1, nick2, nick3, nick4, nick5, sub1
 Bravo: b1, b2, b3, b4, b5`;
 
 test('LAN config: needs a short lowercase prefix to switch on', () => {
-  assert.deepEqual(lanConfig({ on: true, prefix: 'k7qz', password: ' pw ', text: 'x' }),
-    { on: true, prefix: 'k7qz', password: 'pw', text: 'x', event: { name: '', accent: '', deep: '', black: '' } });
+  assert.deepEqual(lanConfig({ on: true, prefix: 'k7qz', password: ' pw ', teams: [] }),
+    { on: true, prefix: 'k7qz', password: 'pw', teams: [], matches: [], event: { name: '', accent: '', deep: '', black: '' } });
   for (const prefix of ['', 'K7QZ', 'a', 'has space', 'x'.repeat(13), 'a-b'])
     assert.equal(lanConfig({ on: true, prefix }).on, false, prefix);
   assert.equal(lanConfig(null).on, false);
@@ -95,4 +96,69 @@ test('event profile: a name and three hex colours, nothing else gets through', (
   assert.deepEqual(eventProfile(null), { name: '', accent: '', deep: '', black: '' });
   assert.deepEqual(eventProfile({ name: 5, accent: 7 }), { name: '', accent: '', deep: '', black: '' });
   assert.equal(lanConfig({ on: true, prefix: 'ab', event: { name: 'Cup' } }).event.name, 'Cup');
+});
+
+test('event teams: ids stay, names and nicks are cleaned, broken entries dropped', () => {
+  const lan = lanConfig({ on: true, prefix: 'k7qz', teams: [
+    { id: 't1', name: '  Alpha\nTeam ', players: [{ id: 'p1', nick: ' a1 ' }, { id: 'p1', nick: 'dup id' }, { id: 'BAD', nick: 'x' }, { id: 'p2', nick: 5 }] },
+    { id: 't1', name: 'same id' }, { id: '../x', name: 'bad id' }, 'junk', null,
+    { id: 't2', name: 'x'.repeat(80), players: Array.from({ length: 20 }, (_, i) => ({ id: `q${i}`, nick: `n${i}` })) }
+  ] });
+  assert.deepEqual(lan.teams.map(t => t.id), ['t1', 't2']);
+  assert.equal(lan.teams[0].name, 'Alpha Team');
+  assert.deepEqual(lan.teams[0].players, [{ id: 'p1', nick: 'a1' }, { id: 'p2', nick: '' }]);
+  assert.equal(lan.teams[1].name.length, 60);
+  assert.equal(lan.teams[1].players.length, LAN_LIMITS.players);
+  // The panel's teams: an empty nick is not ready yet; keys are ids, so a rename keeps lineups.
+  const [alpha, beta] = lanTeams(lan);
+  assert.deepEqual(alpha.players.map(p => [p.nick, p.key, p.playerId]), [['a1', '["lan","t1","p1"]', 'p1']]);
+  assert.equal(alpha.teamId, 't1');
+  assert.deepEqual(beta.players.slice(4, 6).map(p => p.role), ['Основной', 'Запасной']);
+  const renamed = lanTeams(lanConfig({ ...lan, teams: [{ ...lan.teams[0], name: 'Renamed' }] }));
+  assert.equal(renamed[0].players[0].key, alpha.players[0].key);
+});
+
+test('event teams: nameless teams wait, a repeated name or nick is skipped and told', () => {
+  const teams = lanTeams(lanConfig({ on: true, prefix: 'ab', teams: [
+    { id: 'a', name: '', players: [{ id: 'a1', nick: 'x' }] },
+    { id: 'b', name: 'Alpha', players: [{ id: 'b1', nick: 'one' }, { id: 'b2', nick: 'ONE' }] },
+    { id: 'c', name: 'alpha', players: [] }
+  ] }));
+  assert.deepEqual(teams.map(t => t.name), ['Alpha']);
+  assert.deepEqual(teams[0].players.map(p => p.nick), ['one']);
+  assert.deepEqual(teams.skipped, ['Alpha: ник ONE повторяется', 'команда alpha уже есть']);
+  assert.throws(() => lanTeams(lanConfig({ on: true, prefix: 'ab' })), /вкладке «Команды»/);
+});
+
+test('the old text roster becomes teams once, with ids', () => {
+  const lan = lanConfig({ on: true, prefix: 'k7qz', text: ROSTER });
+  assert.deepEqual(lan.teams.map(t => [t.id, t.name, t.players.map(p => p.id).join(' ')]), [
+    ['t1', 'Team Alpha', 't1p1 t1p2 t1p3 t1p4 t1p5 t1p6'], ['t2', 'Bravo', 't2p1 t2p2 t2p3 t2p4 t2p5']]);
+  assert.equal('text' in lan, false);
+  // Saved again as teams, the text is gone for good: teams win.
+  assert.deepEqual(lanConfig({ ...lan, text: 'Other: x' }).teams.map(t => t.name), ['Team Alpha', 'Bravo']);
+  assert.deepEqual(lanConfig({ on: true, prefix: 'ab', text: '# nothing' }).teams, []);
+});
+
+test('event matches: teams by id, a match waits for both teams, its format and time are checked', () => {
+  const teams = [{ id: 't1', name: 'Alpha', players: [] }, { id: 't2', name: 'Bravo', players: [] }];
+  const lan = lanConfig({ on: true, prefix: 'ab', teams, matches: [
+    { id: 'm1', time: '12:00', stage: 'Полуфинал 1', a: 't1', b: 't2', format: 'BO1' },
+    { id: 'm2', time: '25:00', stage: 'Финал', a: 't1', b: 't1', format: 'BO7' },
+    { id: 'm3', a: 'gone', b: 't2' }, { id: 'm1', stage: 'same id' }, { id: 'B A D' }
+  ] });
+  assert.deepEqual(lan.matches, [
+    { id: 'm1', time: '12:00', stage: 'Полуфинал 1', a: 't1', b: 't2', format: 'BO1' },
+    { id: 'm2', time: '', stage: 'Финал', a: 't1', b: '', format: 'BO3' },
+    { id: 'm3', time: '', stage: '', a: '', b: 't2', format: 'BO3' }]);
+  assert.deepEqual(lanSchedule(lan), [{ date: '', time: '12:00', team1: 'Alpha', team2: 'Bravo', stage: 'Полуфинал 1',
+    format: 'BO1', matchId: 'm1', key: '["lan-match","m1"]' }]);
+});
+
+test('new ids and prefixes: short, from the given bytes, never taken', () => {
+  assert.match(lanId([1, 2, 3, 4, 5, 6]), /^x[a-z2-9]{6}$/);
+  const id = lanId([1, 2, 3, 4, 5, 6]);
+  assert.notEqual(lanId([1, 2, 3, 4, 5, 6], [id]), id);
+  assert.match(newLanPrefix([200, 3, 9, 17]), /^[a-z2-9]{4}$/);
+  assert.equal(lanConfig({ on: true, prefix: newLanPrefix([0, 0]) }).on, true);
 });

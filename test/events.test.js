@@ -16,7 +16,7 @@ test('the CyberClash manifest is valid and every default is filled in', () => {
   const { event, errors } = validateEvent(cyberclash());
   assert.deepEqual(errors, []);
   assert.equal(event.v, EVENT_VERSION);
-  assert.deepEqual(enabledModules(event), ['cameras', 'veto', 'obs', 'lobby', 'bookmakers']);
+  assert.deepEqual(enabledModules(event), ['cameras', 'veto', 'lobby', 'obs', 'bookmakers']);
   assert.deepEqual(brandWarnings(event), []);
   // A bare event gets every default.
   const bare = loadEvent({ slug: 'bare', name: 'Bare', kind: 'manual' });
@@ -60,15 +60,19 @@ test('contract: pool, timers, frame and files of the manifest exist in the code'
 
 test('contract: every module the manifest can switch on has a tab in the panel', () => {
   const html = read('index.html');
-  const tabs = { cameras: 'viewPrep', veto: 'vetoNavBtn', obs: 'obsNavBtn', server: 'serverNavBtn', lobby: 'viewLobby', bookmakers: 'bookiesNavBtn' };
+  const tabs = { teams: 'teamsNavBtn', matches: 'matchesNavBtn', cameras: 'viewPrep', veto: 'vetoNavBtn', lobby: 'viewLobby',
+    server: 'serverNavBtn', seats: 'seatsNavBtn', obs: 'obsNavBtn', bookmakers: 'bookiesNavBtn', settings: 'eventNavBtn' };
   assert.deepEqual(Object.keys(tabs).sort(), MODULES.map(m => m.id).sort());
   for (const [module, id] of Object.entries(tabs)) assert.ok(html.includes(`id="${id}"`), `${module}: no #${id} in index.html`);
+  // The tabs stand on the page in the order of MODULES.
+  const order = MODULES.map(m => html.indexOf(`id="${tabs[m.id]}"`));
+  assert.deepEqual(order, [...order].sort((a, b) => a - b));
 });
 
 test('templates: LAN and blank are ready as they are; the sheets one waits for real sheet IDs', () => {
   assert.deepEqual(validateEvent(json('events/_templates/lan.json')).errors, []);
   assert.deepEqual(validateEvent(json('events/_templates/blank.json')).errors, []);
-  assert.deepEqual(enabledModules(loadEvent(json('events/_templates/lan.json'))), ['cameras', 'veto', 'obs', 'server']);
+  assert.deepEqual(enabledModules(loadEvent(json('events/_templates/lan.json'))), ['teams', 'matches', 'cameras', 'veto', 'server', 'seats', 'obs', 'settings']);
   const sheets = json('events/_templates/sheets-tournament.json');
   const { errors } = validateEvent(sheets);
   assert.deepEqual(errors.map(e => e.split(':')[0]), ['source.roster', 'source.schedule']);
@@ -161,4 +165,28 @@ test('brand readability: contrast is measured, bad brands get a warning, not a b
   assert.match(warnings, /ink на black/);
   assert.match(warnings, /ban и pick совпадают/);
   assert.deepEqual(brandWarnings(loadEvent(base())), []);
+});
+
+test('an address is an event: the slug asked for, a branch with an event folder, else CyberClash', async () => {
+  const { eventSlug, eventScript, DEFAULT_EVENT } = await import('../events/event-script.js');
+  const exists = name => fs.existsSync(new URL(`../events/${name}/event.json`, import.meta.url));
+  assert.equal(eventSlug({ branch: 'reu', exists }), 'reu');
+  assert.equal(eventSlug({ branch: 'claude/gracious-sagan-apztcc', exists }), DEFAULT_EVENT);
+  assert.equal(eventSlug({ branch: '_templates', exists }), DEFAULT_EVENT);
+  assert.equal(eventSlug({ branch: 'no-such-event', exists }), DEFAULT_EVENT);
+  assert.equal(eventSlug({ slug: 'reu', branch: 'x', exists }), 'reu');
+  assert.throws(() => eventSlug({ slug: '../etc', exists }), /Нет события/);
+  assert.throws(() => eventSlug({ slug: 'nope', exists }), /Нет события/);
+  // The page gets what it shows, and nothing of the sheets.
+  const reu = eventScript(json('events/reu/event.json'));
+  assert.match(reu, /^window\.oneshotEvent=Object\.freeze\(\{"slug":"reu","name":"ЛАН РЭУ им\. Плеханова"/);
+  assert.match(reu, /dataset\.kind="manual"/);
+  const cc = eventScript(cyberclash());
+  assert.match(cc, /dataset\.kind="sheets"/);
+  assert.doesNotMatch(cc, /1e__ijBjufD19|source|operators/);
+  // Every event folder is a valid event that names its own folder.
+  for (const slug of fs.readdirSync(new URL('../events/', import.meta.url)).filter(name => exists(name))) {
+    assert.equal(loadEvent(json(`events/${slug}/event.json`)).slug, slug, slug);
+  }
+  assert.deepEqual(enabledModules(loadEvent(json('events/reu/event.json'))), ['teams', 'matches', 'cameras', 'veto', 'server', 'seats', 'obs', 'settings']);
 });

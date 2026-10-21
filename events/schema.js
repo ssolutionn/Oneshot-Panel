@@ -15,14 +15,20 @@ export const FORMATS = ['BO1', 'BO2', 'BO3', 'BO5'];
 export const FRAMES = ['inner43', 'full43', 'wide'];
 export const COLOR_KEYS = ['accent', 'deep', 'black', 'ink', 'muted', 'ban', 'pick', 'decider', 'ct', 't'];
 
-// The panel's tabs. `default` is what an event gets when it does not say.
+// The panel's tabs, in their order on the page. `default` is what an event gets
+// when it does not say. teams/matches/seats/settings are the event's own data,
+// edited on the panel (a LAN without sheets); cameras is «Эфир» there.
 export const MODULES = [
+  { id: 'teams', label: 'Команды', default: false },
+  { id: 'matches', label: 'Матчи', default: false },
   { id: 'cameras', label: 'Подготовка', default: true },
   { id: 'veto', label: 'Вето', default: true },
-  { id: 'obs', label: 'OBS', default: true },
-  { id: 'server', label: 'Сервер', default: false },
   { id: 'lobby', label: 'Лобби', default: false },
-  { id: 'bookmakers', label: 'Букмекеры', default: false }
+  { id: 'server', label: 'Сервер', default: false },
+  { id: 'seats', label: 'Компы', default: false },
+  { id: 'obs', label: 'OBS', default: true },
+  { id: 'bookmakers', label: 'Букмекеры', default: false },
+  { id: 'settings', label: 'Событие', default: false }
 ];
 
 // The look an event has when it brings none of its own (the CyberClash look,

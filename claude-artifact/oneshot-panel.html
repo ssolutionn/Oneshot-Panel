@@ -306,18 +306,6 @@ dialog input { display:block; width:100%; min-width:0; margin-top:7px; padding:1
 dialog p.muted { font-size:11px; overflow-wrap:anywhere; }
 .dialog-actions { display:flex; justify-content:space-between; gap:12px; margin-top:20px; }
 dialog textarea { margin:0; width:100%; }
-.lan-switch { display:flex!important; align-items:center; gap:10px; }
-.lan-switch input { width:auto; margin:0; }
-.lan-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.lan-row label { margin:8px 0; }
-.lan-dialog textarea { min-height:140px; margin-top:7px; white-space:pre-wrap; }
-.lan-seats-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:18px; }
-.lan-seats-head h3 { margin:0; font-size:13px; }
-.lan-seats { list-style:none; margin:8px 0 0; padding:0; display:grid; gap:6px; }
-.lan-seats li { display:grid; grid-template-columns:28px 1fr auto; align-items:center; gap:10px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--field); }
-.lan-seats li.muted { display:block; color:var(--muted); font-size:11px; }
-.lan-seats b { font-size:12px; }
-.lan-seats code { font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; overflow-wrap:anywhere; color:var(--ink); }
 .seat-id { color:var(--ink); }
 :root { --cs2-ct:#246bde; --cs2-t:#b45f06; }
 @media (prefers-color-scheme:dark) { :root:not([data-mode=light]):not([data-theme=light]) { --cs2-ct:#7fb2f0; --cs2-t:#f0a95e; } }
@@ -346,10 +334,8 @@ dialog textarea { margin:0; width:100%; }
 .lan-colors { display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 18px; margin:0 0 6px; }
 .lan-colors label { margin:8px 0; }
 .lan-colors input[type=color] { width:56px; height:36px; padding:2px; cursor:pointer; }
-.lan-import-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:8px 0; }
 .lan-import-log { list-style:none; margin:6px 0 0; padding:0; display:grid; gap:3px; font-size:11px; color:var(--muted); }
 .lan-import-log li.bad { color:var(--warn-ink); }
-@media (max-width:520px) { .lan-row { grid-template-columns:1fr; } }
 /* Webcam status (VDO.Ninja) */
 .cam-summary { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 10px; padding:9px 14px; border:1px solid var(--line); border-radius:8px; background:var(--surface); }
 .cam-summary .check { font-size:11px; cursor:pointer; }
@@ -609,6 +595,119 @@ body.dock { background:var(--bg); font-size:12px; }
 #bookiesHistoryTable th:first-child { width:28%; white-space:normal; overflow-wrap:anywhere; }
 #bookiesHistoryTable td { overflow-wrap:anywhere; }
 #bookiesHistoryStatus { line-height:1.6; }
+/* ---------- the event panel (lan.js): an address whose event has no sheets ---------- */
+/* event.js sets data-kind before the first paint: no sheets tools, no other event's tabs */
+:root[data-kind=manual] #viewLobby,:root[data-kind=manual] #bookiesNavBtn,:root[data-kind=manual] #sidebarSource,
+:root[data-kind=manual] #refreshBtn,:root[data-kind=manual] #settingsBtn { display:none; }
+:root[data-kind=manual]:not([data-tabs=ready]) .event-tab[hidden],:root[data-kind=manual]:not([data-tabs=ready]) #serverNavBtn[hidden] { display:flex; }
+.view-tabs { min-width:0; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; }
+.view-tabs::-webkit-scrollbar { display:none; }
+.event-title { margin-right:auto; padding-left:20px; border-left:1px solid var(--line); font-size:15px; font-weight:700; letter-spacing:-.2px; color:var(--header-ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.event-view { padding-top:14px; }
+.event-panel { background:var(--surface); border:1px solid var(--line); border-radius:8px; margin-bottom:12px; padding:0 16px 16px; }
+.event-panel .panel-heading { padding:17px 0 12px; flex-wrap:wrap; }
+.event-panel > p.muted { font-size:12px; line-height:1.6; margin:0 0 12px; max-width:860px; }
+.event-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.event-status { min-height:1em; margin:0 0 10px; font-size:12px; color:var(--success-ink); }
+.event-status.bad { color:var(--warn-ink); }
+.event-status:empty { display:none; }
+.event-guide { margin-top:14px; padding:10px 14px; border:1px dashed var(--line); border-radius:6px; background:var(--surface-2); font-size:12px; line-height:1.7; }
+.event-guide summary { cursor:pointer; font-weight:600; }
+.event-guide ol { margin:8px 0 0; padding-left:20px; }
+.event-guide code,.seat-link { font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; overflow-wrap:anywhere; }
+div.event-guide { border-style:solid; margin:0 0 14px; }
+.event-field { display:block; max-width:520px; font-size:12px; margin-bottom:12px; }
+.event-field input,.seat-settings input { display:block; width:100%; margin-top:6px; padding:9px 10px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font-size:13px; }
+.event-look { display:grid; gap:6px; }
+.event-steps { margin:0; padding-left:20px; font-size:12.5px; line-height:1.9; }
+.text-button.danger { color:var(--red); margin-top:10px; }
+/* «Команды» */
+.lt-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; }
+.lt-card { display:flex; flex-direction:column; min-width:0; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); }
+.lt-card.dup { border-color:var(--warn-line); }
+.lt-head { display:flex; align-items:center; gap:12px; padding:12px; border-bottom:1px solid var(--divider); }
+.lt-name { flex:1; min-width:0; padding:6px 8px; border:1px solid transparent; border-radius:5px; background:transparent; color:var(--ink); font-size:18px; font-weight:800; letter-spacing:-.3px; }
+.lt-name:hover,.lt-nick:hover { border-color:var(--line); }
+.lt-name:focus,.lt-nick:focus { border-color:var(--field-line); background:var(--field); outline:none; }
+.lt-warn { margin:0; padding:8px 12px; font-size:11px; color:var(--warn-ink); background:var(--warn); }
+.lt-players { list-style:none; margin:0; padding:6px 8px; display:grid; gap:2px; }
+.lt-player { display:grid; grid-template-columns:auto minmax(0,1fr) auto auto; align-items:center; gap:8px; padding:3px 4px; border-radius:6px; }
+.lt-player:hover { background:var(--hover); }
+.lt-nick { width:100%; min-width:0; padding:6px 8px; border:1px solid transparent; border-radius:5px; background:transparent; color:var(--ink); font-size:13px; font-weight:600; }
+.lt-name::placeholder,.lt-nick::placeholder { color:var(--muted); opacity:.55; font-weight:500; }
+.lt-card-btn,.lt-player .lt-remove { opacity:0; transition:opacity .12s; }
+.lt-player:hover .lt-card-btn,.lt-player:focus-within .lt-card-btn,.lt-player:hover .lt-remove,.lt-player:focus-within .lt-remove { opacity:1; }
+@media(hover:none) { .lt-card-btn,.lt-player .lt-remove { opacity:1; } }
+.lt-subs { padding:8px 6px 2px; font-size:9px; font-weight:700; letter-spacing:1.4px; text-transform:uppercase; color:var(--muted); }
+.lt-card-btn { font-size:10px; min-height:28px; padding:4px 6px; }
+.lt-player .lt-remove,.lt-head .lt-remove { min-width:28px; min-height:28px; font-size:20px; }
+.lt-foot { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 12px 10px; margin-top:auto; font-size:11px; }
+.lt-slot-wrap { position:relative; flex-shrink:0; display:inline-grid; }
+.lt-slot { position:relative; display:grid; place-items:center; padding:0; border:1px dashed var(--btn-line); border-radius:8px; background:var(--soft); color:var(--muted); cursor:pointer; overflow:hidden; }
+.lt-slot canvas { display:block; width:100%; height:100%; }
+.lt-slot .lt-slot-empty { position:absolute; inset:0; display:grid; place-items:center; font-size:10px; font-weight:600; pointer-events:none; }
+.lt-slot.filled { border-style:solid; background:var(--logo-plate); }
+.lt-slot.filled .lt-slot-empty { display:none; }
+.lt-slot.drop,.lt-slot:hover { border-color:var(--red); color:var(--ink); }
+.lt-logo { width:88px; height:88px; }
+.lt-photo { width:56px; height:56px; border-radius:50%; }
+.lt-clear { position:absolute; top:-6px; right:-6px; display:none; width:20px; height:20px; padding:0; border:1px solid var(--line); border-radius:50%; background:var(--surface); color:var(--muted); font-size:13px; line-height:1; cursor:pointer; }
+.lt-slot-wrap.filled:hover .lt-clear,.lt-slot-wrap.filled:focus-within .lt-clear { display:grid; place-items:center; }
+.lt-empty { grid-column:1/-1; padding:28px 16px; text-align:center; border:1px dashed var(--line); border-radius:8px; list-style:none; }
+.lt-empty p { margin:0 0 6px; font-size:13px; }
+.lt-card-dialog { width:min(1000px,calc(100vw - 32px)); }
+.lt-card-dialog .lan-preview { max-width:none; }
+.team-card .team-letter.has-logo { clip-path:none; background:var(--logo-plate); border-radius:10px; width:46px; height:46px; margin:0; }
+.team-letter.has-logo canvas { width:40px; height:40px; }
+/* «Матчи» */
+.em-list { list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+.em-row { display:grid; grid-template-columns:24px 104px minmax(120px,1fr) minmax(0,2fr) 80px auto auto; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-left:4px solid var(--btn-line); border-radius:8px; background:var(--surface-2); }
+.em-row.live { border-left-color:var(--success); }
+.em-index { font-size:12px; font-weight:700; color:var(--muted); }
+.em-row input,.em-row select { min-width:0; width:100%; padding:8px 9px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font-size:12px; }
+.em-teams { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:8px; min-width:0; }
+.em-vs { font-size:10px; font-weight:700; color:var(--muted); }
+.em-live { font-size:11px; font-weight:700; color:var(--success-ink); white-space:nowrap; }
+/* «Компы» */
+.seat-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.seat-column { display:grid; gap:6px; min-width:0; }
+.seat-column h3 { margin:0 0 2px; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.seat-card { display:grid; grid-template-columns:30px 10px minmax(0,1fr) auto; grid-template-areas:'seat dot who copy' 'link link link link'; align-items:center; gap:4px 8px; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--field); }
+.seat-name { grid-area:seat; font-size:13px; }
+.seat-dot { grid-area:dot; width:9px; height:9px; border-radius:50%; background:var(--btn-line); }
+.seat-card[data-seat-cam=live] .seat-dot { background:var(--success); }
+.seat-card[data-seat-cam=off] .seat-dot { background:var(--red); }
+.seat-card[data-seat-cam=wait] .seat-dot { background:var(--warn-line); }
+.seat-who { grid-area:who; font-size:12px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.seat-card .copy-icon { grid-area:copy; }
+.seat-link { grid-area:link; color:var(--muted); font-size:10px; }
+.seat-settings { display:grid; grid-template-columns:minmax(0,180px) minmax(0,240px) auto; align-items:end; gap:12px; margin-top:14px; font-size:12px; }
+#seatsNote { margin-top:8px; font-size:11px; }
+@media(max-width:900px) {
+  .em-row { grid-template-columns:24px 96px minmax(0,1fr) 76px; }
+  .em-teams { grid-column:2/-1; grid-row:2; }
+  .em-row > .button,.em-row > .em-live { grid-column:2/4; grid-row:3; justify-self:start; }
+  .em-row > .lt-remove { grid-column:4; grid-row:3; justify-self:end; }
+}
+@media(max-width:680px) {
+  .event-title { display:none; }
+  .event-panel { padding:0 12px 12px; }
+  .lt-grid { grid-template-columns:minmax(0,1fr); }
+  .lt-player { grid-template-columns:auto minmax(0,1fr) auto; }
+  .lt-card-btn { display:none; }
+  .seat-grid { grid-template-columns:minmax(0,1fr); }
+  .seat-settings { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+  .seat-settings .text-button { grid-column:1/-1; justify-self:start; }
+  .em-row { grid-template-columns:20px minmax(0,1fr) 70px; }
+  .em-row .em-stage { grid-column:2/-1; grid-row:2; }
+  .em-teams { grid-column:1/-1; grid-row:3; }
+  .em-row > .button,.em-row > .em-live { grid-column:1/3; grid-row:4; }
+  .em-row > .lt-remove { grid-column:3; grid-row:4; }
+}
+#serverGuide { margin:0 16px 16px; }
+.event-look .lan-colors label { display:flex; align-items:center; gap:8px; font-size:12px; }
+.event-look p.muted,.event-panel .event-guide + p.muted { font-size:12px; line-height:1.6; margin:0; }
+.seat-settings .text-button { justify-self:start; }
 body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}.toast{bottom:calc(24px + env(safe-area-inset-bottom,0px))}footer{padding-bottom:max(20px,env(safe-area-inset-bottom,0px))}#pasteArea{min-height:140px}.artifact-download-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.download-note{color:var(--warn-ink)!important;background:var(--warn);border:1px solid var(--warn-line);border-radius:4px;padding:8px 10px;line-height:1.6}@media(max-width:800px){.artifact-download-actions .button{flex:1}.artifact-download-actions{grid-column:1/-1}}.dialog-section{border-top:1px solid var(--line);margin-top:22px}
 </style>
 <a class="skip-link" href="#webcams">К составам команд</a>
@@ -619,6 +718,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
       <img class="logo-night" src="data:image/png;base64,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" alt="Oneshot" width="359" height="96">
       <span class="brand-sub">panel</span>
     </a>
+    <span id="eventTitle" class="event-title" hidden></span>
     <div class="header-actions">
       <a id="sidebarSource" class="source-link" target="_blank" rel="noreferrer" title="Открыть таблицу организатора">
         <i id="syncDot" aria-hidden="true"></i><span>Таблица турнира</span><span class="external-mark" aria-hidden="true">↗</span>
@@ -630,7 +730,6 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
     
     <div class="nav-tools">
       <button id="refreshBtn" class="nav-button" type="button" title="Обновить данные">↻ Обновить</button>
-      
       <button id="settingsBtn" class="nav-button" type="button">Источник данных</button>
     </div>
   </nav>
@@ -746,6 +845,10 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
 
     </div>
 
+    
+    
+    
+    
     
     
     
@@ -1103,12 +1206,93 @@ function eventProfile(value) {
     accent: color(v.accent), deep: color(v.deep), black: color(v.black)
   };
 }
+// The event's data, edited on the panel. Teams and players keep a stable id, so
+// a renamed team keeps its logo, photos and lineups. Older versions kept the
+// teams as text («Команда: ник1, ник2, …»); that text becomes teams once.
+const LAN_ID = /^[a-z0-9]{1,16}$/;
+const LAN_LIMITS = Object.freeze({ teams: 32, players: 12, matches: 40 });
+const MATCH_FORMATS = ['BO1', 'BO2', 'BO3', 'BO5'];
+function lanTeamsOf(value) {
+  const ids = new Set();
+  const fresh = id => typeof id === 'string' && LAN_ID.test(id) && !ids.has(id) && Boolean(ids.add(id));
+  return (Array.isArray(value) ? value : []).filter(t => t && typeof t === 'object' && fresh(t.id))
+    .slice(0, LAN_LIMITS.teams).map(t => ({
+      id: t.id, name: typeof t.name === 'string' ? line(t.name).slice(0, 60) : '',
+      players: (Array.isArray(t.players) ? t.players : []).filter(p => p && typeof p === 'object' && fresh(p.id))
+        .slice(0, LAN_LIMITS.players).map(p => ({ id: p.id, nick: typeof p.nick === 'string' ? line(p.nick).slice(0, 40) : '' }))
+    }));
+}
+function lanMatchesOf(value, teams) {
+  const teamIds = new Set(teams.map(t => t.id)), ids = new Set();
+  return (Array.isArray(value) ? value : []).filter(m => m && typeof m === 'object' &&
+    typeof m.id === 'string' && LAN_ID.test(m.id) && !ids.has(m.id) && Boolean(ids.add(m.id)))
+    .slice(0, LAN_LIMITS.matches).map(m => ({
+      id: m.id,
+      time: typeof m.time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(m.time) ? m.time : '',
+      stage: typeof m.stage === 'string' ? line(m.stage).slice(0, 100) : '',
+      a: teamIds.has(m.a) ? m.a : '', b: teamIds.has(m.b) && m.b !== m.a ? m.b : '',
+      format: MATCH_FORMATS.includes(m.format) ? m.format : 'BO3'
+    }));
+}
+// The old text roster as teams, with ids t1, t1p1… (nothing typed: none).
+function teamsFromText(text) {
+  try {
+    return parseLanRoster(text).map((team, i) => ({
+      id: `t${i + 1}`, name: team.name, players: team.players.map((p, j) => ({ id: `t${i + 1}p${j + 1}`, nick: p.nick }))
+    }));
+  } catch { return []; }
+}
 function lanConfig(value) {
   const v = value && typeof value === 'object' ? value : {};
   const prefix = typeof v.prefix === 'string' && /^[a-z0-9]{2,12}$/.test(v.prefix) ? v.prefix : '';
   const password = typeof v.password === 'string' ? line(v.password).slice(0, 40) : '';
-  const text = typeof v.text === 'string' ? v.text.slice(0, 20000) : '';
-  return { on: v.on === true && Boolean(prefix), prefix, password, text, event: eventProfile(v.event) };
+  const teams = Array.isArray(v.teams) ? lanTeamsOf(v.teams) : lanTeamsOf(teamsFromText(typeof v.text === 'string' ? v.text.slice(0, 20000) : ''));
+  return { on: v.on === true && Boolean(prefix), prefix, password, teams, matches: lanMatchesOf(v.matches, teams), event: eventProfile(v.event) };
+}
+// A new id for a team, player or match; random bytes from the caller.
+function lanId(bytes, taken = []) {
+  const letters = 'abcdefghjkmnpqrstuvwxyz23456789';
+  const id = 'x' + Array.from(bytes, b => letters[b % letters.length]).join('').slice(0, 10);
+  return taken.includes(id) ? id + taken.length.toString(36) : id;
+}
+// Short and easy to type by hand on a seat's PC: no 0/o, 1/l/i look-alikes.
+function newLanPrefix(bytes) {
+  const letters = 'abcdefghjkmnpqrstuvwxyz23456789';
+  return Array.from(bytes, b => letters[b % letters.length]).join('').slice(0, 12).padEnd(2, 'a');
+}
+// The teams as the panel uses them (like parseTeams for the sheets): a team
+// without a name and a player without a nick are not ready yet; a name already
+// taken is skipped. Keys use the ids, so renaming changes no lineup.
+function lanTeams(lan) {
+  const teams = [], skipped = [], names = new Set();
+  for (const team of lan.teams) {
+    if (!team.name) continue;
+    if (names.has(team.name.toLowerCase())) { skipped.push(`команда ${team.name} уже есть`); continue; }
+    names.add(team.name.toLowerCase());
+    const nicks = new Set(), players = [];
+    for (const p of team.players) {
+      if (!p.nick) continue;
+      if (nicks.has(p.nick.toLowerCase())) { skipped.push(`${team.name}: ник ${p.nick} повторяется`); continue; }
+      nicks.add(p.nick.toLowerCase());
+      players.push({
+        key: JSON.stringify(['lan', team.id, p.id]), playerId: p.id, slot: '', nick: p.nick, id: '', room: '', password: '',
+        role: players.length < LAN_SEATS ? 'Основной' : 'Запасной'
+      });
+    }
+    teams.push({ name: team.name, teamId: team.id, room: '', password: '', players });
+  }
+  teams.skipped = skipped;
+  if (!teams.length) throw new Error('Добавь команды во вкладке «Команды».');
+  return teams;
+}
+// The event's matches in the shape of the sheets schedule (the match picker
+// takes both); a match waits until both of its teams are chosen.
+function lanSchedule(lan) {
+  const name = Object.fromEntries(lan.teams.map(t => [t.id, t.name]));
+  return lan.matches.filter(m => name[m.a] && name[m.b]).map(m => ({
+    date: '', time: m.time, team1: name[m.a], team2: name[m.b], stage: m.stage, format: m.format,
+    matchId: m.id, key: JSON.stringify(['lan-match', m.id])
+  }));
 }
 function parseLanRoster(text) {
   const teams = [], skipped = [], names = new Set();
@@ -1657,9 +1841,17 @@ if (savedSource &&
 }
 // New stream IDs made with ↻ next to a player (core.applyStreamIds).
 state.streamIds = readStorage('oneshot-stream-ids') || {};
-// LAN mode (lan.js edits it): teams typed by hand, cameras fixed per seat.
+// LAN mode (lan.js edits it): the event's own teams, cameras fixed per seat.
+// The address decides (event.js, events/<slug>/event.json): an event without
+// sheets (kind manual) is always LAN, any other never is.
 const LAN_STORE = 'oneshot-lan-v1';
+const EVENT_LAN = globalThis.oneshotEvent?.kind === 'manual';
 state.lan = lanConfig(readStorage(LAN_STORE));
+if (EVENT_LAN !== state.lan.on) {
+  state.lan = lanConfig({ ...state.lan, on: EVENT_LAN,
+    prefix: state.lan.prefix || newLanPrefix(crypto.getRandomValues(new Uint8Array(4))) });
+  writeStorage(LAN_STORE, state.lan);
+}
 // A saved match belongs to the data source it was picked from.
 function sourceTag() {
   return state.lan.on ? JSON.stringify(['lan', state.lan.prefix]) : JSON.stringify(state.source);
@@ -1958,14 +2150,19 @@ let cardDocsProvider = null;
 function cardDocsNow() {
   if (!state.lan.on || !$('includeCards').checked || !cardDocsProvider) return {};
   return cardDocsProvider(['a', 'b'].flatMap(side =>
-    chosen(side).filter(Boolean).map(p => ({ team: getTeam(side).name, nick: p.nick }))));
+    chosen(side).filter(Boolean).map(p => ({ team: getTeam(side).name, nick: p.nick, teamId: getTeam(side).teamId, playerId: p.playerId }))));
 }
-// lan.js: switching LAN on or off, or another prefix, is a new data source;
-// edited teams keep the match, lineups and veto where they still fit.
+// lan.js: another prefix is a new data source; edited teams keep the match,
+// lineups and veto where they still fit, and a renamed team stays chosen.
 function setLan(value) {
-  const next = lanConfig(value);
+  const next = lanConfig({ ...value, on: EVENT_LAN });
   // With LAN off the prefix is only kept for later: the sheets match stays.
   const sameSource = next.on === state.lan.on && (!next.on || next.prefix === state.lan.prefix);
+  for (const side of ['a', 'b']) {
+    const id = state.lan.teams.find(t => t.name === state[side])?.id;
+    const renamed = next.teams.find(t => t.id === id)?.name;
+    if (renamed) state[side] = renamed;
+  }
   state.lan = next;
   const stored = writeStorage(LAN_STORE, next);
   if (!sameSource) {
@@ -2226,7 +2423,7 @@ async function loadLogos() {
   } catch { /* No logos: cards keep the A/B badge. */ }
 }
 function renderScheduleDay() {
-  $('scheduleLabel').textContent = 'Матч по расписанию' +
+  $('scheduleLabel').textContent = state.lan.on ? 'Матч из вкладки «Матчи»' : 'Матч по расписанию' +
     (state.scheduleDay ? ` · ${state.scheduleDay}` : '');
 }
 // Images come from veto.oneshot.su; if a file is missing, show no broken icon.
@@ -2264,7 +2461,7 @@ function render() {
     const eligible = lineupCandidates(team);
     return `<article class="team-card">
       <div class="card-top">
-        ${state.logos[team.name] ?
+        ${state.lan.on ? `<div class="team-letter" data-lan-logo="${escapeHtml(team.teamId)}">${index ? 'B' : 'A'}</div>` : state.logos[team.name] ?
           `<span class="team-logo"><img src="${escapeHtml(state.logos[team.name])}"
             alt="" width="34" height="34"></span>` :
           `<div class="team-letter">${index ? 'B' : 'A'}</div>`}
@@ -2324,7 +2521,7 @@ function render() {
           ${validatePlayers(chosen(side)) ? 'disabled' : ''}><span aria-hidden="true">⧉</span> Копировать ссылки команды</button>
         <div class="card-bottom">
           <button class="text-button roster-action" data-reset="${side}"
-            title="Восстановить порядок из таблицы" aria-label="Восстановить порядок ${escapeHtml(team.name)}">↻</button>
+            title="${state.lan.on ? 'Первые пять из состава команды' : 'Восстановить порядок из таблицы'}" aria-label="Восстановить порядок ${escapeHtml(team.name)}">↻</button>
           <a class="text-button roster-action" target="_blank" rel="noreferrer"
             title="Открыть комнату директора" aria-label="Директор ${escapeHtml(team.name)}"
             href="${escapeHtml(directorUrl(team))}">↗</a>
@@ -2657,6 +2854,8 @@ $('matchSelect').addEventListener('change', () => {
     state.keysB = defaultLineup(getTeam('b'));
     $('matchTime').value = match.time;
     $('matchStage').value = match.stage;
+    // An event's match says its format; a veto already begun keeps its own.
+    if (match.format && VETO_RULES[match.format] && !state.veto.actions.length) state.veto.format = match.format;
   }
   render();
 });

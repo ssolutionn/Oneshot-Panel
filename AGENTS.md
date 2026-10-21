@@ -46,48 +46,65 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   `obsDialog` — секция вкладки «OBS» с единственной формой подключения
   (`closeObs` — «← К подготовке»);
   оформление формы и подсказок — `assets/obs-connection.css`.
-- `lan.js` — только сайт: окно «ЛАН» (`lanBtn`, `lanDialog`). Режим без
-  таблиц для LAN-турниров: команды вписываются строками «Команда: ник1, ник2, …»
-  (первые пять играют, остальные запасные; `parseLanRoster`), вебка принадлежит
-  месту, а не игроку. Поток места — `<префикс>a1…a5` (места первой команды
-  панели) и `<префикс>b1…b5` (второй), комната = префикс, пароль комнаты
-  необязателен (`lanSeatLinks` — 10 PUSH-ссылок для компов). Данные держит
-  `app.js` (`window.oneshotPanel.lan()/setLan()`, localStorage `oneshot-lan-v1`):
-  в режиме ЛАН `getTeam` «сажает» команду (`seatTeam`), выбранные игроки получают
-  поток своего места, кадр камеры хранится по месту (`cameraKey` = ['lan', id]),
-  кнопки ↻/✎ скрыты, Google Sheets не запрашивается. Выбор матча сохраняется
-  отдельно для каждого префикса. Проверка — `scripts/qa_lan.py`, `test/lan.test.js`.
-  Фото и лого: кнопки «Выбрать ZIP / папку» в окне «ЛАН» принимают папку с Drive
-  (папка команды → `ник.png` и `logo.png`). `lan-event.js` — без DOM (тесты
-  `test/lan-event.test.js`): `readZip` (stored/deflate через DecompressionStream,
-  без ZIP64), `collectTeams`, хранение `AssetStore`: IndexedDB `oneshot-lan` (фото события
-  в localStorage не помещаются; ключ `oneshot-lan-assets-v1` в localStorage — только старое,
-  переносится при первой загрузке, и запасной путь без IndexedDB; только
-  небольшие data:image/png|webp|jpeg), `eventCardHtml` — карточка ОДНОЙ страницей с
-  фото внутри (`data:text/html`, имя и ник только как текст, картинки только из
-  data:), `cardDocs`, порции для дока (`splitChunks`, `ChunkAssembler`, `docKey`).
+- Событие адреса: `event.js` (классический скрипт в `<head>` после theme.js) задаёт
+  `window.oneshotEvent` и `data-kind`/`data-event` на `<html>` до первой отрисовки. Его пишет
+  `events/event-script.js` (`eventScript`, `eventSlug`): сборка — `node scripts/event-config.mjs >
+  public/event.js` (EVENT или ветка Pages с папкой `events/<ветка>/`, иначе cyberclash), локально —
+  `server.js` по `EVENT` (`eventFile`). В event.js нет таблиц и секретов. `kind: manual` (ЛАН) —
+  панель события; любое другое — прежняя панель, LAN выключен даже если в хранилище он включён.
+  Вкладки по модулям манифеста (`live.js` `MODULE_TABS`, порядок — `MODULES` в
+  events/schema.js, тест сверяет порядок на странице): teams `teamsNavBtn`, matches `matchesNavBtn`,
+  cameras `viewPrep` (в ЛАН — «Эфир»), veto, lobby, server, seats `seatsNavBtn`, obs, bookmakers,
+  settings `eventNavBtn`. До запуска JS CSS по `data-kind=manual` прячет таблицы/лобби/БК и
+  показывает вкладки события (`data-tabs=ready` после live.js).
+- `lan.js` — только сайт, только событие `kind: manual`: вкладки «Команды» (`ltGrid`, карточка
+  на команду: название и ники — поля прямо в карточке, лого/фото — квадраты `[data-slot-kind]`:
+  клик, перетаскивание, Ctrl+V; рисуются на canvas `drawThumb`, CSP не меняется; «Папка с Drive»
+  / «ZIP»; «Карточка» — превью OBS в `ltCardDialog`), «Матчи» (`lmList`, `em-*`: время, стадия,
+  команды по id, формат; «2 полуфинала + финал»; «▶ В эфир» выбирает матч в `matchSelect` и
+  открывает «Эфир»), «Компы» (`seatGrid`: 10 мест, кто сидит, статус вебки из `data-cam` строк
+  «Эфира», ссылки; `seatsPrefix`/`seatsPassword`, смена — с подтверждением), «Событие» (`evName`,
+  цвета `evAccent/evDeep/evBlack` с превью `evPreview`, файл события `evExport`/`evImport`
+  — `{format:'oneshot-event', v:1, lan, assets}`, в нём пароль комнаты; `evClear`). Правки — в
+  `draft`, в app.js через `setLan` (во время набора с задержкой; поля не перерисовываются, пока в
+  них пишут). Тексты людей — только как текст (`el()`), картинки — только data:image.
+  Данные (`core.lanConfig`, localStorage `oneshot-lan-v1`): `teams [{id, name, players [{id, nick}]}]`
+  (id `[a-z0-9]{1,16}`, новые — `lanId`), `matches [{id, time, stage, a, b, format}]`, префикс,
+  пароль, `event` (название и три цвета). Старый текст «Команда: ник1, …» (`text`) один раз
+  становится командами с id t1, t1p1…; фото по имени (`personKey`/`cardKey`) переносятся на id.
+  `lanTeams` (для app.js: ключ игрока `['lan', teamId, playerId]` — переименование не сбивает
+  составы; без названия/ника — не готово; повтор — пропуск с объяснением), `lanSchedule` (матчи
+  с обеими командами — в форме расписания, ключ `['lan-match', id]`, `format` ставит формат вето).
+  Вебка принадлежит месту: поток `<префикс>a1…a5` / `b1…b5`, комната = префикс (`lanSeatLinks`),
+  `seatTeam` сажает выбранных, `cameraKey` = ['lan', id], ↻/✎ скрыты, ID потоков таблицы не трогаются.
+  Фото и лого: `lan-event.js` — без DOM (тесты `test/lan-event.test.js`): `readZip`
+  (stored/deflate через DecompressionStream, без ZIP64), `collectTeams`, хранение `AssetStore`:
+  IndexedDB `oneshot-lan` по id команды/игрока (фото события в localStorage не помещаются;
+  `oneshot-lan-assets-v1` в localStorage — только старое, переносится, и запасной путь без
+  IndexedDB; только небольшие data:image/png|webp|jpeg), `eventCardHtml` — карточка ОДНОЙ
+  страницей с фото внутри (`data:text/html`, имя и ник только как текст, картинки только из
+  data:), `cardDocs` (фото по `playerId`/`teamId`, иначе по имени), порции для дока
+  (`splitChunks`, `ChunkAssembler`, `docKey`), `paletteFrom`.
   `lan-images.js` — только браузер: обрезка по прозрачности, масштаб, WebP (фото ≤ ~110 КБ,
-  логотип PNG) и превью на canvas (`drawCardPreview`): на canvas, а не в iframe/blob,
-  потому что CSP панели (`img-src 'self'`, `frame-src`) не меняется.
+  логотип PNG), превью карточки на canvas (`drawCardPreview`) и миниатюры (`drawThumb`).
   `app.js` не импортирует эти файлы (его собирает артефакт Claude): карточки подключает
   провайдер `window.oneshotPanel.setCardDocs` (регистрирует `lan.js`); в режиме ЛАН при
   включённых карточках `buildObs`/`slotPlan` получают `cardDocs` ({cardKey: data:URL}).
-  Профиль события (`core.eventProfile`, поле `event` в `lanConfig`): название ≤ 60 и три цвета
-  `#rrggbb` (`accent`, `deep`, `black`); `lan-event.paletteFrom` делает из них пять цветов карточки
-  (пусто = прежние). `lan.js applyEvent()`: в режиме ЛАН скрыты `viewLobby` и `bookiesNavBtn`
-  (стрелки вкладок их пропускают), в `cvTournament` — название события (`live.js tournamentDefault`),
-  подпись `footerNote`.
+  Логотипы команд в «Эфире»: app.js ставит `[data-lan-logo=<teamId>]`, lan.js рисует canvas.
   Окно Oneshot (`obs-bridge.js`): сообщения `cards-have {keys}` → `{have}` и
   `blob {key, index, count, data}` (карточка по 32 КБ, собирает `ChunkAssembler`, кэш 40
   карточек в памяти); `apply*` несёт `match.cardRefs` вместо самих карточек, а если дока
   успели перезагрузить — отвечает `cards: 'missing'`, и панель шлёт карточки заново.
   `reconcileKeys`: если из сохранённого состава никого не осталось (ники переписаны) —
-  состав по умолчанию, а не пять пустых мест.
+  состав по умолчанию; места, освобождённые вручную, остаются пустыми.
+  Проверка — `scripts/qa_lan.py` (сам поднимает панели EVENT=reu и КиберКлэш),
+  `test/lan.test.js`, `test/events.test.js`, `test/server.test.js`.
   `scripts/import_event_folder.py <папка> [--write]` — тот же импорт из командной строки
   (в `assets/players` как `"source":"local"` и `assets/teams`), для публикации фото на сайте.
 - «Сервер» (`cs2.js`, вкладка `serverNavBtn`/`serverView`, только сайт): судейский журнал
-  CS2-сервера, который работает на том же компьютере, что и панель (`CS2_JOURNAL=1 npm start`).
-  Вкладка скрыта, пока `/api/cs2-status` не ответит (на хостинге её нет). Бэкенд — `server/`:
+  CS2-сервера, который работает на том же компьютере, что и панель (`CS2_JOURNAL=1 npm start`,
+  для события ещё `EVENT=<slug>`). Вкладка скрыта, пока `/api/cs2-status` не ответит; у события с
+  модулем server она видна всегда и без журнала показывает инструкцию запуска (`serverGuide`). Бэкенд — `server/`:
   `cs2-log.js` (чистый разбор строк лога CS2: kill/damage/chat/bomb/round/score/team, класс
   `Journal`: номер раунда = CT+T+1 по счёту, каждая карта (и матч, перезапущенный после
   live-раундов) — новая `game`, раунд = (game, round); время в раунде — по часам лога
@@ -520,10 +537,12 @@ Netlify проверяет локальные фото, докачивает н�
   obsRemoteBox obsMore playerVeto captainVeto cvFormat cvTimer cvLang cvCreate
   cvStatus cvSite cvLinks cvNameA cvNameB cvMsgA cvMsgB cvMsgS cvMsgO cvOpen bookies bookiesCheck bookiesTable
   bookiesStatus bookiesCopy bookiesCsv
-  lanBtn lanDialog lanForm closeLan lanOn lanPrefix lanPassword lanTeams lanError
-  lanSeats lanCopySeats lanNewPrefix lanPickZip lanPickFolder lanZip lanFolder
-  lanPreviewCard lanClearAssets lanCardPreview lanImportStatus lanImportLog
-  lanEventName lanColorAccent lanColorDeep lanColorBlack lanColorsReset footerNote
+  eventTitle teamsNavBtn teamsView ltPickFolder ltPickZip ltAddTeam ltStatus ltLog ltGrid
+  ltZip ltFolder ltImage ltCardDialog ltCardCanvas ltCardCaption matchesNavBtn matchesView
+  lmTemplate lmAdd lmList seatsNavBtn seatsDot seatsView seatsWatch seatsCopyAll seatGrid
+  seatsPrefix seatsPassword seatsNewPrefix seatsNote eventNavBtn eventView evName evAccent
+  evDeep evBlack evColorsReset evPreview evExport evImport evStatus evFile evClear footerNote
+  serverGuide serverStartCommand serverStartWindows
   serverNavBtn serverDot serverView serverHeading serverSetup serverCopyRound serverStatus
   serverRounds serverShowKill serverShowDamage serverShowChat serverShowBomb serverShowOther
   serverLog serverSayForm serverSay

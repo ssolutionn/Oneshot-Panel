@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { createServer } from '../server.js';
+import { createServer, eventFile } from '../server.js';
 
 test('Static server serves public files and rejects traversal', async () => {
   const server = createServer();
@@ -73,4 +73,23 @@ test('Netlify and Cloudflare serve the same security headers as server.js', asyn
   } finally {
     await new Promise(resolve => server.close(resolve));
   }
+});
+
+test('/event.js says which event this panel is: CyberClash unless EVENT names another', async () => {
+  for (const [event, slug, kind] of [[undefined, 'cyberclash', 'sheets'], [eventFile('reu'), 'reu', 'manual']]) {
+    const server = createServer(event === undefined ? {} : { event });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const reply = await fetch(`http://127.0.0.1:${server.address().port}/event.js`);
+      assert.equal(reply.status, 200);
+      assert.match(reply.headers.get('content-type'), /javascript/);
+      const text = await reply.text();
+      assert.match(text, new RegExp(`"slug":"${slug}"`));
+      assert.match(text, new RegExp(`dataset\\.kind="${kind}"`));
+    } finally { server.close(); }
+  }
+  assert.throws(() => eventFile('nope'), /Нет события/);
+  // The build writes the same file for the address it builds.
+  const build = fs.readFileSync(new URL('../scripts/build-site.sh', import.meta.url), 'utf8');
+  assert.match(build, /^node scripts\/event-config\.mjs > public\/event\.js$/m);
 });

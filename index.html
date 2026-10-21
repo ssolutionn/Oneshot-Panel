@@ -10,6 +10,7 @@
   <link rel="icon" type="image/png" sizes="256x256" href="/assets/favicon-night.png" media="(prefers-color-scheme: dark)">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
   <script src="/theme.js"></script>
+  <script src="/event.js"></script>
   <link rel="stylesheet" href="/style.css">
   <!-- web-only --><link rel="stylesheet" href="/assets/obs-connection.css"><!-- /web-only -->
 </head>
@@ -22,6 +23,7 @@
       <img class="logo-night" src="/assets/oneshot-logo-night.png" alt="Oneshot" width="359" height="96">
       <span class="brand-sub">panel</span>
     </a>
+    <span id="eventTitle" class="event-title" hidden></span>
     <div class="header-actions">
       <a id="sidebarSource" class="source-link" target="_blank" rel="noreferrer" title="Открыть таблицу организатора">
         <i id="syncDot" aria-hidden="true"></i><span>Таблица турнира</span><span class="external-mark" aria-hidden="true">↗</span>
@@ -31,16 +33,19 @@
   </header>
   <nav class="panel-nav" aria-label="Разделы панели">
     <!-- web-only --><div class="view-tabs" role="tablist" aria-label="Режим панели">
+      <button id="teamsNavBtn" class="view-tab event-tab" type="button" role="tab" aria-selected="false" aria-controls="teamsView" tabindex="-1" hidden>Команды</button>
+      <button id="matchesNavBtn" class="view-tab event-tab" type="button" role="tab" aria-selected="false" aria-controls="matchesView" tabindex="-1" hidden>Матчи</button>
       <button id="viewPrep" class="view-tab active" type="button" role="tab" aria-selected="true" aria-controls="prepView">Подготовка</button>
       <button id="vetoNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="vetoView" tabindex="-1">Вето<span id="vetoBadge" class="tab-badge" hidden></span></button>
       <button id="viewLobby" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="lobbyView" tabindex="-1">Лобби<span id="lobbyBadge" class="tab-badge" hidden></span></button>
+      <button id="serverNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="serverView" tabindex="-1" hidden>Сервер<i id="serverDot" class="obs-tab-dot" aria-hidden="true"></i></button>
+      <button id="seatsNavBtn" class="view-tab event-tab" type="button" role="tab" aria-selected="false" aria-controls="seatsView" tabindex="-1" hidden>Компы<i id="seatsDot" class="obs-tab-dot" aria-hidden="true"></i></button>
       <button id="obsNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="obsView" tabindex="-1">OBS<i id="obsTabDot" class="obs-tab-dot" aria-hidden="true"></i></button>
       <button id="bookiesNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="bookiesView" tabindex="-1">Букмекеры</button>
-      <button id="serverNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="serverView" tabindex="-1" hidden>Сервер<i id="serverDot" class="obs-tab-dot" aria-hidden="true"></i></button>
+      <button id="eventNavBtn" class="view-tab event-tab" type="button" role="tab" aria-selected="false" aria-controls="eventView" tabindex="-1" hidden>Событие</button>
     </div><!-- /web-only -->
     <div class="nav-tools">
       <button id="refreshBtn" class="nav-button" type="button" title="Обновить данные">↻ Обновить</button>
-      <!-- web-only --><button id="lanBtn" class="nav-button" type="button" aria-controls="lanDialog">ЛАН</button><!-- /web-only -->
       <button id="settingsBtn" class="nav-button" type="button">Источник данных</button>
     </div>
   </nav>
@@ -324,6 +329,17 @@
             <button id="serverCopyRound" class="button small" type="button" title="Весь выбранный раунд текстом: для чата, когда команды спорят">Скопировать раунд</button>
           </div>
         </div>
+        <div id="serverGuide" class="event-guide" hidden>
+          <p><b>Журнал работает на компе, где запущен сервер CS2.</b> Там панель открывается не с этого сайта, а с самого компа — тогда сервер присылает ей лог: фраги, урон, чат и бомбу по раундам, для споров.</p>
+          <ol>
+            <li>Поставь Node.js (20 или новее) и скачай панель: <code>git clone https://github.com/ssolutionn/Oneshot-Panel</code> или ZIP с GitHub.</li>
+            <li>В папке панели: <code id="serverStartCommand">CS2_JOURNAL=1 EVENT=reu npm start</code> (на Windows без WSL — <code id="serverStartWindows">set CS2_JOURNAL=1&amp;&amp; set EVENT=reu&amp;&amp; npm start</code>).</li>
+            <li>Открой на этом компе <code>http://127.0.0.1:3000/#server</code> — там будет эта же вкладка, уже живая.</li>
+            <li>Нажми «Как подключить» и вставь три команды в консоль сервера CS2 (или в конфиг eBot).</li>
+            <li>Чтобы писать в чат сервера из панели, перед запуском задай <code>CS2_RCON_PASSWORD</code> (и <code>CS2_RCON_PORT</code>, если не 27015).</li>
+          </ol>
+          <p class="muted">Команды и фото с этого сайта на тот комп переносятся файлом: «Событие» → «Скачать файл события», там — «Загрузить файл».</p>
+        </div>
         <p id="serverStatus" class="cs2-status" role="status"></p>
         <div id="serverRounds" class="cs2-rounds" role="group" aria-label="Раунды"></div>
         <div class="cs2-filters" role="group" aria-label="Что показывать">
@@ -365,6 +381,118 @@
           <div class="bookies-wrap"><table id="bookiesHistoryTable" class="bookies-table" aria-labelledby="bookiesHistoryHeading"></table></div>
           <p id="bookiesHistoryStatus" class="lobby-status" role="status"></p>
         </div>
+      </section>
+    </div><!-- /web-only -->
+    <!-- web-only --><div id="teamsView" class="event-view" role="tabpanel" aria-labelledby="teamsNavBtn" hidden>
+      <section class="event-panel" aria-labelledby="teamsHeading">
+        <div class="panel-heading">
+          <div><span class="eyebrow">СОБЫТИЕ</span><h2 id="teamsHeading">Команды</h2></div>
+          <div class="event-actions">
+            <button id="ltPickFolder" class="button small" type="button" title="Папка с Drive: в ней папка каждой команды с фото и logo.png">Папка с Drive</button>
+            <button id="ltPickZip" class="button small" type="button" title="Та же папка, скачанная с Drive ZIP-архивом">ZIP</button>
+            <button id="ltAddTeam" class="button small primary" type="button">+ Команда</button>
+          </div>
+        </div>
+        <p class="muted">Всё правится прямо в карточке: название — в шапке, ник — в строке игрока. Лого и фото — нажми на квадрат или перетащи туда картинку (PNG с прозрачным фоном, как «Скопировать объект» на iPhone; фон обрежется сам). Первые пять — основной состав, дальше запасные.</p>
+        <p id="ltStatus" class="event-status" role="status" aria-live="polite"></p>
+        <ul id="ltLog" class="lan-import-log"></ul>
+        <div id="ltGrid" class="lt-grid"></div>
+        <details class="event-guide">
+          <summary>Как подготовить папку на Drive</summary>
+          <ol>
+            <li>Одна папка на событие, внутри — папка каждой команды с её названием.</li>
+            <li>В папке команды: фото игроков, имя файла = ник (<code>s1mple.png</code>), и <code>logo.png</code>.</li>
+            <li>Скачай папку целиком (Drive сам сделает ZIP) и нажми «ZIP», или выбери распакованную папку кнопкой «Папка с Drive».</li>
+            <li>Команды и игроки создадутся сами; если команда уже есть — её фото заменятся.</li>
+          </ol>
+        </details>
+        <input type="file" id="ltZip" accept=".zip,application/zip,application/x-zip-compressed" hidden>
+        <input type="file" id="ltFolder" webkitdirectory multiple hidden>
+        <input type="file" id="ltImage" accept="image/png,image/jpeg,image/webp" hidden>
+      </section>
+    </div><!-- /web-only -->
+    <!-- web-only --><div id="matchesView" class="event-view" role="tabpanel" aria-labelledby="matchesNavBtn" hidden>
+      <section class="event-panel" aria-labelledby="matchesHeading">
+        <div class="panel-heading">
+          <div><span class="eyebrow">СОБЫТИЕ</span><h2 id="matchesHeading">Матчи</h2></div>
+          <div class="event-actions">
+            <button id="lmTemplate" class="button small" type="button">2 полуфинала + финал</button>
+            <button id="lmAdd" class="button small primary" type="button">+ Матч</button>
+          </div>
+        </div>
+        <p class="muted">Порядок дня. «В эфир» отправляет матч во вкладку «Эфир»: команды, время, стадия и формат вето подставятся сами, рассадку по компам выберешь там.</p>
+        <ol id="lmList" class="em-list"></ol>
+      </section>
+    </div><!-- /web-only -->
+    <!-- web-only --><div id="seatsView" class="event-view" role="tabpanel" aria-labelledby="seatsNavBtn" hidden>
+      <section class="event-panel" aria-labelledby="seatsHeading">
+        <div class="panel-heading">
+          <div><span class="eyebrow">ПЛОЩАДКА</span><h2 id="seatsHeading">Компы игроков</h2></div>
+          <div class="event-actions">
+            <button id="seatsWatch" class="button small" type="button" aria-pressed="false">Следить за вебками</button>
+            <button id="seatsCopyAll" class="button small" type="button"><span aria-hidden="true">⧉</span> Все ссылки</button>
+          </div>
+        </div>
+        <p class="muted">Вебка принадлежит компу, а не игроку: у каждого места своя постоянная ссылка на весь день. Открой её один раз в браузере на компе и не закрывай. Кто где сидит в текущем матче — выбираешь во вкладке «Эфир». A — места первой команды эфира, B — второй.</p>
+        <div id="seatGrid" class="seat-grid"></div>
+        <div class="seat-settings">
+          <label>Префикс вебок<input id="seatsPrefix" autocomplete="off" spellcheck="false" maxlength="12" pattern="[a-z0-9]{2,12}" required></label>
+          <label>Пароль комнаты <span class="muted">(необязательно)</span><input id="seatsPassword" autocomplete="off" spellcheck="false" maxlength="40"></label>
+          <button id="seatsNewPrefix" class="text-button" type="button">Новый префикс</button>
+        </div>
+        <p id="seatsNote" class="muted">Префикс и пароль меняют ссылки всех десяти компов: после смены открой новые ссылки на местах.</p>
+        <details class="event-guide">
+          <summary>Как поставить вебку на комп</summary>
+          <ol>
+            <li>Подключи вебку к компу места и открой ссылку места в Chrome или Edge.</li>
+            <li>Разреши доступ к камере, выбери её и нажми «Start». Звук не нужен — микрофон можно выключить.</li>
+            <li>Не закрывай вкладку и не сворачивай браузер до конца дня. Если комп перезагрузили — открой ссылку снова, она та же.</li>
+            <li>Статус места здесь станет зелёным, когда вебка в эфире (кнопка «Следить за вебками»).</li>
+          </ol>
+        </details>
+      </section>
+    </div><!-- /web-only -->
+    <!-- web-only --><div id="eventView" class="event-view" role="tabpanel" aria-labelledby="eventNavBtn" hidden>
+      <section class="event-panel" aria-labelledby="eventHeading">
+        <div class="panel-heading">
+          <div><span class="eyebrow">СОБЫТИЕ</span><h2 id="eventHeading">Название и вид</h2></div>
+        </div>
+        <label class="event-field">Название события <span class="muted">(шапка панели, ссылки капитанов: /название_команда)</span><input id="evName" maxlength="60" autocomplete="off"></label>
+        <div class="event-look">
+          <div class="lan-colors">
+            <label>Акцент<input id="evAccent" type="color" value="#00d3ef"></label>
+            <label>Фон<input id="evDeep" type="color" value="#043746"></label>
+            <label>Тёмный<input id="evBlack" type="color" value="#031b24"></label>
+            <button type="button" class="text-button" id="evColorsReset">Цвета по умолчанию</button>
+          </div>
+          <canvas id="evPreview" class="lan-preview" width="640" height="360" role="img" aria-label="Карточка игрока в OBS с этими цветами"></canvas>
+          <p class="muted">Карточка игрока под вебкой в OBS (галочка «Добавлять карточки» во вкладке «Эфир»). Своё фото и лого команды — во вкладке «Команды».</p>
+        </div>
+      </section>
+      <section class="event-panel" aria-labelledby="eventFileHeading">
+        <div class="panel-heading">
+          <div><span class="eyebrow">ПЕРЕНОС</span><h2 id="eventFileHeading">Файл события</h2></div>
+          <div class="event-actions">
+            <button id="evExport" class="button small" type="button">↓ Скачать файл события</button>
+            <button id="evImport" class="button small" type="button">Загрузить файл</button>
+          </div>
+        </div>
+        <p class="muted">Всё событие одним файлом: команды, фото и лого, матчи, места и название. Им переносят событие на другой комп (например, на комп с сервером CS2) или отдают второму оператору. В файле есть пароль комнаты вебок — отдавай только своим.</p>
+        <p id="evStatus" class="event-status" role="status" aria-live="polite"></p>
+        <input type="file" id="evFile" accept=".json,application/json" hidden>
+        <button id="evClear" class="text-button danger" type="button">Очистить событие в этом браузере</button>
+      </section>
+      <section class="event-panel" aria-labelledby="eventDayHeading">
+        <div class="panel-heading"><div><span class="eyebrow">ИНСТРУКЦИЯ</span><h2 id="eventDayHeading">ЛАН по шагам</h2></div></div>
+        <ol class="event-steps">
+          <li><b>Команды</b> — названия, лого и игроки (или папка с Drive одной кнопкой).</li>
+          <li><b>Матчи</b> — «2 полуфинала + финал», впиши время и команды.</li>
+          <li><b>Компы</b> — открой ссылку места на каждом из 10 компов, проверь, что все зелёные.</li>
+          <li><b>OBS</b> — подключи окно Oneshot в OBS компа с вебками (или скачай JSON во вкладке «Эфир» и импортируй коллекцию).</li>
+          <li><b>Сервер</b> — на компе с CS2 запусти панель с журналом (инструкция во вкладке).</li>
+          <li><b>Перед матчем</b> — «Матчи» → «В эфир», в «Эфире» рассади игроков по местам и нажми «Отправить в OBS».</li>
+          <li><b>Вето</b> — ссылки капитанам во вкладке «Вето»; ходы капитанов сами попадут в вето панели и оверлей.</li>
+        </ol>
       </section>
     </div><!-- /web-only -->
     <!-- web-only --><div id="obsView" class="obs-view" role="tabpanel" aria-labelledby="obsNavBtn" hidden>
@@ -593,62 +721,6 @@
     </form>
   </dialog>
 
-  <!-- web-only --><dialog id="lanDialog" class="lan-dialog" aria-labelledby="lanHeading">
-    <form id="lanForm">
-      <div class="dialog-head">
-        <h2 id="lanHeading">ЛАН: места и команды</h2>
-        <button class="icon-button" type="button" id="closeLan" aria-label="Закрыть">×</button>
-      </div>
-      <p>Без таблиц: команды вписываются здесь, у каждого компа своя постоянная вебка. Кто на каком месте сидит — выбираешь в карточках команд, как обычно.</p>
-      <label class="lan-switch"><input id="lanOn" type="checkbox"> Работать в режиме ЛАН</label>
-      <p class="muted">В режиме ЛАН скрыты вкладки «Лобби» (FACEIT) и «Букмекеры», а вместо таблицы — команды отсюда.</p>
-      <div class="lan-row">
-        <label>Префикс вебок<input id="lanPrefix" autocomplete="off" spellcheck="false" maxlength="12" pattern="[a-z0-9]{2,12}" placeholder="например, k7qz" required></label>
-        <label>Пароль комнаты <span class="muted">(необязательно)</span><input id="lanPassword" autocomplete="off" spellcheck="false" maxlength="40"></label>
-      </div>
-      <label>Команды — одна строка на команду
-        <textarea id="lanTeams" rows="7" spellcheck="false" placeholder="Team Alpha: nick1, nick2, nick3, nick4, nick5&#10;Team Bravo: nick1, nick2, nick3, nick4, nick5, запасной"></textarea>
-      </label>
-      <p class="muted">Первые пять ников играют, остальные — запасные. Строки с # не читаются.</p>
-      <div id="lanError" class="error-box" role="alert" hidden></div>
-      <div class="lan-seats-head">
-        <h3>Турнир</h3>
-      </div>
-      <label>Название <span class="muted">(попадёт в ссылки капитанов: /название_команда)</span><input id="lanEventName" maxlength="60" autocomplete="off" placeholder="например, Winter LAN"></label>
-      <div class="lan-colors">
-        <label>Акцент<input id="lanColorAccent" type="color" value="#00d3ef"></label>
-        <label>Фон<input id="lanColorDeep" type="color" value="#043746"></label>
-        <label>Тёмный<input id="lanColorBlack" type="color" value="#031b24"></label>
-        <button type="button" class="text-button" id="lanColorsReset">Цвета по умолчанию</button>
-      </div>
-      <p class="muted">Цвета карточек игроков в OBS. Логотип события и фон придут вместе с дизайном; пока карточка — название команды, фото и ник.</p>
-      <div class="lan-seats-head">
-        <h3>Фото и лого</h3>
-      </div>
-      <p class="muted">Папка на Drive: внутри папки каждой команды — фото игроков (имя файла = ник, PNG с прозрачным фоном, как из «Скопировать объект» на iPhone) и <b>logo.png</b>. Скачай папку с Drive ZIP-ом и выбери его тут или выбери саму папку. Фото обрезаются по человеку и сжимаются сами.</p>
-      <div class="lan-import-actions">
-        <button type="button" class="button" id="lanPickZip">Выбрать ZIP</button>
-        <button type="button" class="button" id="lanPickFolder">Выбрать папку</button>
-        <button type="button" class="text-button" id="lanPreviewCard">Посмотреть карточки</button>
-        <button type="button" class="text-button" id="lanClearAssets">Убрать все фото</button>
-      </div>
-      <input type="file" id="lanZip" accept=".zip,application/zip,application/x-zip-compressed" hidden>
-      <input type="file" id="lanFolder" webkitdirectory multiple hidden>
-      <canvas id="lanCardPreview" class="lan-preview" width="640" height="360" role="img" aria-label="Как карточка будет выглядеть в OBS" hidden></canvas>
-      <p class="muted" id="lanImportStatus" role="status" aria-live="polite"></p>
-      <ul id="lanImportLog" class="lan-import-log"></ul>
-      <div class="lan-seats-head">
-        <h3>Ссылки мест</h3>
-        <button class="text-button" type="button" id="lanCopySeats"><span aria-hidden="true">⧉</span> Копировать все</button>
-      </div>
-      <p class="muted">Открой один раз на компе каждого места и не закрывай весь день. A — места первой команды в панели, B — второй.</p>
-      <ol id="lanSeats" class="lan-seats"></ol>
-      <div class="dialog-actions">
-        <button type="button" class="button" id="lanNewPrefix">Новый префикс</button>
-        <button type="submit" class="button primary">Сохранить</button>
-      </div>
-    </form>
-  </dialog><!-- /web-only -->
 
   <dialog id="cameraDialog" class="camera-dialog" aria-labelledby="cameraHeading">
     <div class="dialog-head"><h2 id="cameraHeading">Кадр камеры</h2><button id="closeCamera" class="icon-button" type="button" aria-label="Закрыть">×</button></div>

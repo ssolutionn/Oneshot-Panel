@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { bookmakersResponse } from './netlify/functions/bookmakers.mjs';
@@ -8,6 +9,7 @@ import { nodeRelay } from './server/veto-relay-node.mjs';
 import { FileRelayStore } from './server/veto-relay-file.js';
 import {shortIdValid,shortPathValid} from './assets/veto-short-protocol.js';
 import { createCs2, handleCs2, loadToken } from './server/cs2-api.js';
+import { eventScript, eventSlug } from './events/event-script.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicFiles = new Set([
@@ -24,9 +26,16 @@ const mime = {
   '.json': 'application/json; charset=utf-8',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml'
 };
+// The page's /event.js (events/event-script.js): which event this panel is.
+// EVENT=reu npm start opens the panel of events/reu; CyberClash by default.
+export function eventFile(slug = '') {
+  const file = name => path.join(root, 'events', name, 'event.json');
+  const chosen = eventSlug({ slug, exists: name => fs.existsSync(file(name)) });
+  return eventScript(JSON.parse(fs.readFileSync(file(chosen), 'utf8')));
+}
 // cs2: the referee's journal of a CS2 server on this computer (server/cs2-api.js);
 // off unless given, so tests and plain static hosting never open it.
-export function createServer({cs2 = null, relayStore = new FileRelayStore(process.env.VETO_RELAY_DIR || path.join(root, '.veto-relay-data')),
+export function createServer({cs2 = null, event = eventFile(process.env.EVENT || ''), relayStore = new FileRelayStore(process.env.VETO_RELAY_DIR || path.join(root, '.veto-relay-data')),
   shortStore = new FileRelayStore(path.join(process.env.VETO_RELAY_DIR || path.join(root, '.veto-relay-data'),'links'),shortIdValid)} = {}) {
   return http.createServer(async (request, response) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -79,6 +88,11 @@ export function createServer({cs2 = null, relayStore = new FileRelayStore(proces
     try {
       const pathname = decodeURIComponent(
         new URL(request.url, 'http://localhost').pathname);
+      if (pathname === '/event.js') {
+        response.writeHead(200, { 'Content-Type': mime['.js'], 'Cache-Control': 'no-cache' });
+        response.end(request.method === 'HEAD' ? undefined : event);
+        return;
+      }
       const relative = pathname === '/' ? 'index.html' : shortPathValid(pathname)?'veto.html':pathname.slice(1);
       const target = path.resolve(root, relative);
       const asset =

@@ -299,12 +299,93 @@ export function eventProfile(value) {
     accent: color(v.accent), deep: color(v.deep), black: color(v.black)
   };
 }
+// The event's data, edited on the panel. Teams and players keep a stable id, so
+// a renamed team keeps its logo, photos and lineups. Older versions kept the
+// teams as text («Команда: ник1, ник2, …»); that text becomes teams once.
+const LAN_ID = /^[a-z0-9]{1,16}$/;
+export const LAN_LIMITS = Object.freeze({ teams: 32, players: 12, matches: 40 });
+export const MATCH_FORMATS = ['BO1', 'BO2', 'BO3', 'BO5'];
+function lanTeamsOf(value) {
+  const ids = new Set();
+  const fresh = id => typeof id === 'string' && LAN_ID.test(id) && !ids.has(id) && Boolean(ids.add(id));
+  return (Array.isArray(value) ? value : []).filter(t => t && typeof t === 'object' && fresh(t.id))
+    .slice(0, LAN_LIMITS.teams).map(t => ({
+      id: t.id, name: typeof t.name === 'string' ? line(t.name).slice(0, 60) : '',
+      players: (Array.isArray(t.players) ? t.players : []).filter(p => p && typeof p === 'object' && fresh(p.id))
+        .slice(0, LAN_LIMITS.players).map(p => ({ id: p.id, nick: typeof p.nick === 'string' ? line(p.nick).slice(0, 40) : '' }))
+    }));
+}
+function lanMatchesOf(value, teams) {
+  const teamIds = new Set(teams.map(t => t.id)), ids = new Set();
+  return (Array.isArray(value) ? value : []).filter(m => m && typeof m === 'object' &&
+    typeof m.id === 'string' && LAN_ID.test(m.id) && !ids.has(m.id) && Boolean(ids.add(m.id)))
+    .slice(0, LAN_LIMITS.matches).map(m => ({
+      id: m.id,
+      time: typeof m.time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(m.time) ? m.time : '',
+      stage: typeof m.stage === 'string' ? line(m.stage).slice(0, 100) : '',
+      a: teamIds.has(m.a) ? m.a : '', b: teamIds.has(m.b) && m.b !== m.a ? m.b : '',
+      format: MATCH_FORMATS.includes(m.format) ? m.format : 'BO3'
+    }));
+}
+// The old text roster as teams, with ids t1, t1p1… (nothing typed: none).
+function teamsFromText(text) {
+  try {
+    return parseLanRoster(text).map((team, i) => ({
+      id: `t${i + 1}`, name: team.name, players: team.players.map((p, j) => ({ id: `t${i + 1}p${j + 1}`, nick: p.nick }))
+    }));
+  } catch { return []; }
+}
 export function lanConfig(value) {
   const v = value && typeof value === 'object' ? value : {};
   const prefix = typeof v.prefix === 'string' && /^[a-z0-9]{2,12}$/.test(v.prefix) ? v.prefix : '';
   const password = typeof v.password === 'string' ? line(v.password).slice(0, 40) : '';
-  const text = typeof v.text === 'string' ? v.text.slice(0, 20000) : '';
-  return { on: v.on === true && Boolean(prefix), prefix, password, text, event: eventProfile(v.event) };
+  const teams = Array.isArray(v.teams) ? lanTeamsOf(v.teams) : lanTeamsOf(teamsFromText(typeof v.text === 'string' ? v.text.slice(0, 20000) : ''));
+  return { on: v.on === true && Boolean(prefix), prefix, password, teams, matches: lanMatchesOf(v.matches, teams), event: eventProfile(v.event) };
+}
+// A new id for a team, player or match; random bytes from the caller.
+export function lanId(bytes, taken = []) {
+  const letters = 'abcdefghjkmnpqrstuvwxyz23456789';
+  const id = 'x' + Array.from(bytes, b => letters[b % letters.length]).join('').slice(0, 10);
+  return taken.includes(id) ? id + taken.length.toString(36) : id;
+}
+// Short and easy to type by hand on a seat's PC: no 0/o, 1/l/i look-alikes.
+export function newLanPrefix(bytes) {
+  const letters = 'abcdefghjkmnpqrstuvwxyz23456789';
+  return Array.from(bytes, b => letters[b % letters.length]).join('').slice(0, 12).padEnd(2, 'a');
+}
+// The teams as the panel uses them (like parseTeams for the sheets): a team
+// without a name and a player without a nick are not ready yet; a name already
+// taken is skipped. Keys use the ids, so renaming changes no lineup.
+export function lanTeams(lan) {
+  const teams = [], skipped = [], names = new Set();
+  for (const team of lan.teams) {
+    if (!team.name) continue;
+    if (names.has(team.name.toLowerCase())) { skipped.push(`команда ${team.name} уже есть`); continue; }
+    names.add(team.name.toLowerCase());
+    const nicks = new Set(), players = [];
+    for (const p of team.players) {
+      if (!p.nick) continue;
+      if (nicks.has(p.nick.toLowerCase())) { skipped.push(`${team.name}: ник ${p.nick} повторяется`); continue; }
+      nicks.add(p.nick.toLowerCase());
+      players.push({
+        key: JSON.stringify(['lan', team.id, p.id]), playerId: p.id, slot: '', nick: p.nick, id: '', room: '', password: '',
+        role: players.length < LAN_SEATS ? 'Основной' : 'Запасной'
+      });
+    }
+    teams.push({ name: team.name, teamId: team.id, room: '', password: '', players });
+  }
+  teams.skipped = skipped;
+  if (!teams.length) throw new Error('Добавь команды во вкладке «Команды».');
+  return teams;
+}
+// The event's matches in the shape of the sheets schedule (the match picker
+// takes both); a match waits until both of its teams are chosen.
+export function lanSchedule(lan) {
+  const name = Object.fromEntries(lan.teams.map(t => [t.id, t.name]));
+  return lan.matches.filter(m => name[m.a] && name[m.b]).map(m => ({
+    date: '', time: m.time, team1: name[m.a], team2: name[m.b], stage: m.stage, format: m.format,
+    matchId: m.id, key: JSON.stringify(['lan-match', m.id])
+  }));
 }
 export function parseLanRoster(text) {
   const teams = [], skipped = [], names = new Set();

@@ -15,7 +15,9 @@ import {DEFAULT_TOURNAMENT,friendlyCaptainLinks,resolveRoomLink} from './assets/
 import {showNotification} from './notifications.js';
 import { splitChunks, docKey } from './lan-event.js';
 // The tournament name the captains' links start with: the LAN event's own when there is one.
-const tournamentDefault = () => { const lan = window.oneshotPanel.lan(); return lan.on && lan.event.name ? lan.event.name : DEFAULT_TOURNAMENT; };
+// The event of this address (event.js); none: the panel as it always was.
+const EVENT = globalThis.oneshotEvent || null;
+const tournamentDefault = () => { const lan = window.oneshotPanel.lan(); return lan.on ? lan.event.name || EVENT?.name || DEFAULT_TOURNAMENT : DEFAULT_TOURNAMENT; };
 
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
@@ -30,8 +32,17 @@ function write(key, value) {
 const cardBase = () => /^https?:$/.test(location.protocol) ? location.origin : DEFAULT_CARD_BASE;
 
 // ---------- tabs ----------
-const views = [['prep', 'viewPrep', 'prepView'], ['veto', 'vetoNavBtn', 'vetoView'], ['lobby', 'viewLobby', 'lobbyView'],
-  ['obs', 'obsNavBtn', 'obsView'], ['bookies', 'bookiesNavBtn', 'bookiesView'], ['server', 'serverNavBtn', 'serverView']];
+const views = [['teams', 'teamsNavBtn', 'teamsView'], ['matches', 'matchesNavBtn', 'matchesView'],
+  ['prep', 'viewPrep', 'prepView'], ['veto', 'vetoNavBtn', 'vetoView'], ['lobby', 'viewLobby', 'lobbyView'],
+  ['server', 'serverNavBtn', 'serverView'], ['seats', 'seatsNavBtn', 'seatsView'], ['obs', 'obsNavBtn', 'obsView'],
+  ['bookies', 'bookiesNavBtn', 'bookiesView'], ['event', 'eventNavBtn', 'eventView']];
+// The event's modules decide its tabs (events/schema.js MODULES); «Сервер» is
+// cs2.js's: it appears where a journal answers, or on an event that has one.
+const MODULE_TABS = { teams: 'teamsNavBtn', matches: 'matchesNavBtn', cameras: 'viewPrep', veto: 'vetoNavBtn',
+  lobby: 'viewLobby', seats: 'seatsNavBtn', obs: 'obsNavBtn', bookmakers: 'bookiesNavBtn', settings: 'eventNavBtn' };
+if (EVENT) for (const [module, tab] of Object.entries(MODULE_TABS)) $(tab).hidden = !EVENT.modules?.[module];
+if (EVENT?.kind === 'manual') $('viewPrep').textContent = 'Эфир';
+document.documentElement.dataset.tabs = 'ready';
 // On the site the panel's veto has a tab of its own, under the captains' room
 // (the Claude artifact keeps it on the one page).
 $('cvLive').after($('veto'));
@@ -62,7 +73,9 @@ for (const [view, tab] of views) {
 }
 window.addEventListener('oneshot:notification-open',event=>showView(event.detail==='veto'?'veto':'lobby',true));
 const startView = location.hash.slice(1) || read(VIEW_STORE);
-showView(views.some(v => v[0] === startView) ? startView : 'prep');
+// A new event starts where it is filled in: its teams.
+const firstView = !$('teamsNavBtn').hidden && !panel.lan().teams.length ? 'teams' : 'prep';
+showView(views.some(v => v[0] === startView && (!$(v[1]).hidden || v[0] === 'server' && EVENT?.modules?.server)) ? startView : firstView);
 
 // ---------- match payload ----------
 function matchPayload() {

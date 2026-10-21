@@ -181,8 +181,6 @@ jobs:
               asyncio.run(panel["run"](args))
               asyncio.run(live["run"](args))
               asyncio.run(veto["run"](args))
-              lan = runpy.run_path("scripts/qa_lan.py", run_name="published_lan")
-              asyncio.run(lan["run"](args))
               bookies = runpy.run_path("scripts/qa_bookies.py", run_name="published_bookies")
               asyncio.run(bookies["run"](args))
               api = runpy.run_path("scripts/qa_bookies_api.py", run_name="published_bookies_api")

@@ -223,8 +223,11 @@ export function cardDocs(players, assets, colors) {
   const docs = {};
   for (const p of players) {
     if (!p?.team || !p?.nick) continue;
+    // An event's own teams keep photos by id (renaming keeps them); older ones by name.
     docs[cardKey(p.team, p.nick)] = eventCardUrl({
-      team: p.team, nick: p.nick, photo: photoOf(assets, p.team, p.nick), logo: logoOf(assets, p.team), colors
+      team: p.team, nick: p.nick, colors,
+      photo: (p.playerId && assets.photos[p.playerId]) || photoOf(assets, p.team, p.nick),
+      logo: (p.teamId && assets.logos[p.teamId]) || logoOf(assets, p.team)
     });
   }
   return docs;

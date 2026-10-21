@@ -109,10 +109,20 @@ async function poll() {
 }
 
 async function start() {
-  try {
-    const status = await (await api('/api/cs2-status')).json();
-    if (!status?.ok) return;
-  } catch { return; } // not the local panel: no tab
+  // An event with a CS2 server shows the tab everywhere: away from the server's
+  // computer it says how to start the journal there.
+  const event = globalThis.oneshotEvent;
+  const guide = Boolean(event?.modules?.server);
+  if (guide) {
+    $('serverNavBtn').hidden = false;
+    for (const id of ['serverStartCommand', 'serverStartWindows']) $(id).textContent = $(id).textContent.replace('EVENT=reu', `EVENT=${event.slug}`);
+  }
+  let local = false;
+  try { local = Boolean((await (await api('/api/cs2-status')).json())?.ok); } catch { /* not the local panel */ }
+  $('serverGuide').hidden = local || !guide;
+  for (const id of ['serverSetup', 'serverCopyRound', 'serverSayForm', 'serverStatus', 'serverRounds', 'serverLog']) $(id).hidden = !local;
+  document.querySelector('#serverView .cs2-filters').hidden = !local;
+  if (!local) return;
   $('serverNavBtn').hidden = false;
   $('serverView').dataset.ready = 'true';
   poll();
