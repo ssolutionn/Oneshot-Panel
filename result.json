@@ -100,8 +100,11 @@
       "tail": "PASS: admin makes three short links; they survive a reload; the match comes from the schedule\nPASS: whole BO3 by turns; spectators only listen; HLTV text copies\nPASS: a reload and late viewers get the finished veto; HLTV text only on the admin link\nPASS: 375 px without horizontal scroll; broken link and broken key explain themselves\nPASS: BO1 by keyboard only (select with Enter, focus lands on confirm) and BO5 with four sides\nPASS: assigned first team: both teams, immediate ban without order choice, signed propagation, reload and mobile YOU badge\nveto matches: 6 scenarios passed\n"
     },
     "veto_server_webkit": {
-      "status": "running"
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 132.6,
+      "tail": "PASS: admin makes three short links; they survive a reload; the match comes from the schedule\nPASS: whole BO3 by turns; spectators only listen; HLTV text copies\nPASS: a reload and late viewers get the finished veto; HLTV text only on the admin link\nPASS: 375 px without horizontal scroll; broken link and broken key explain themselves\nPASS: BO1 by keyboard only (select with Enter, focus lands on confirm) and BO5 with four sides\nPASS: assigned first team: both teams, immediate ban without order choice, signed propagation, reload and mobile YOU badge\nveto matches: 6 scenarios passed\n"
     }
   },
-  "updated_at": "2026-10-21T02:58:27.687823+00:00"
+  "updated_at": "2026-10-21T03:00:41.746304+00:00"
 }
