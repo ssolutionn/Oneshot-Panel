@@ -12,7 +12,7 @@ import { ServerDisplayLink } from './assets/veto-relay-links.js';
 import { checkRelay } from './assets/veto-relay-client.js';
 import { relayEndpoint } from './assets/veto-relay-protocol.js';
 import {DEFAULT_TOURNAMENT,friendlyCaptainLinks,resolveRoomLink} from './assets/veto-short-links.js';
-import {showNotification} from './notifications.js';
+import {showNotification,setFlashingTitle} from './notifications.js';
 import { splitChunks, docKey } from './lan-event.js';
 // The tournament name the captains' links start with: the LAN event's own when there is one.
 // The event of this address (event.js); none: the panel as it always was.
@@ -942,21 +942,18 @@ function roomCall(team, at) {
   const name = watch.live.room.t[team];
   watch.ringing.set(id, { name, at: Date.now() });
   callBeep();
+  setFlashingTitle('veto', '🔔 Капитан зовёт админа');
   void showNotification('Oneshot · Вето',`Капитан ${name} зовёт админа`,{tag:'oneshot-veto-call',section:'veto'});
   paintWatch();
 }
 $('cvAlertOk').addEventListener('click', () => {
   for (const id of watch.ringing.keys()) watch.answered.add(id);
   watch.ringing.clear();
+  setFlashingTitle('veto', '');
   if (watch.live) watchSave({ calls: { r: watch.live.room.r, ids: [...watch.answered].slice(-50) } });
   paintWatch();
 });
-// The title blinks only while a call rings (the lobby's siren blinks it too).
-const panelTitle = document.title, CALL_TITLE = '🔔 Капитан зовёт админа';
-setInterval(() => {
-  if (watch.ringing.size) document.title = document.title === CALL_TITLE ? panelTitle : CALL_TITLE;
-  else if (document.title === CALL_TITLE) document.title = panelTitle;
-}, 1000);
+// The title blinks through notifications.js: coordinates with the lobby's siren.
 
 const setText = (el, text) => { if (el.textContent !== text) el.textContent = text; };
 function moveText(names, move) {

@@ -132,6 +132,16 @@ test('file relay survives restart, keeps private permissions, prunes expiry and 
   assert.throws(()=>restarted.file('../passwords'));
   await restarted.prune(now+KEEP_MS+1);
   assert.equal(await restarted.read(packet.topic),null);
+  const tmpFile=path.path ? '' : path.join(dir,'orphaned.json.12345.tmp');
+  const linkDir=path.join(dir,'links');
+  await import('node:fs/promises').then(async fs=>{
+    await fs.writeFile(path.join(dir,'orphaned.json.12345.tmp'),'{}');
+    await fs.mkdir(linkDir,{recursive:true});
+    await restarted.prune(now+KEEP_MS+1);
+    await assert.rejects(()=>fs.stat(path.join(dir,'orphaned.json.12345.tmp')));
+    const linkDirStat=await fs.stat(linkDir);
+    assert.ok(linkDirStat.isDirectory());
+  });
  }finally{await rm(dir,{recursive:true,force:true});}
 });
 
