@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  cs2-server:
+    image: cm2network/cs2:latest
+    container_name: oneshot-cs2-server
+    restart: unless-stopped
+    ports:
+      - "27015:27015/tcp"
+      - "27015:27015/udp"
+    environment:
+      - SRCDS_TOKEN="" # Твой Steam Game Server Token (желательно указать для публичных матчей)
+      - SRCDS_PW=""    # Пароль сервера (приватный матч)
+      - SRCDS_RCONPW=OneshotSecureRcon2026! # Пароль RCON для панели
+      - SRCDS_STARTMAP=de_mirage
+      - SRCDS_MAXPLAYERS=10
+      - SRCDS_FPS_MAX=300
+    volumes:
+      - cs2-data:/home/steam/cs2-home/cs2-dedi/game/csgo/cfg
+volumes:
+  cs2-data:
+    name: oneshot-cs2-volumes
