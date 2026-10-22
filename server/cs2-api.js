@@ -9,8 +9,14 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { appendFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
 import { Journal } from './cs2-log.js';
 import { rconExec, sayCommand } from './cs2-rcon.js';
+import { summarize, playerStats, roundStats, toCsv, toNdjson } from './cs2-stats.js';
+import { RosterStore, mergeWithCatalog } from './cs2-roster.js';
+import { Archive } from './cs2-archive.js';
+import { createLauncher, normalizeSettings, buildCfg, CVARS, MAP_NAMES } from './cs2-launch.js';
 
 export const MAX_BODY = 1024 * 1024;
 const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
@@ -51,13 +57,37 @@ export function keepRaw(file, text) {
   } catch { /* the journal works without it */ }
 }
 
-export function createCs2({ token, env = process.env, journal = new Journal(), rcon = rconExec, port = 3000, rawLog = '' } = {}) {
+// The panel's own player/team catalogs, so the roster can be merged with what
+// the organizer already entered (assets/players/players.json, teams.json). Read
+// on demand and cached: they change only when someone re-imports an event folder.
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+async function loadCatalogs(dir = root) {
+  try {
+    const [players, teams] = await Promise.all([
+      readFile(path.join(dir, 'assets', 'players', 'players.json'), 'utf8'),
+      readFile(path.join(dir, 'assets', 'teams', 'teams.json'), 'utf8')
+    ]);
+    return { players: JSON.parse(players).players || [], logos: JSON.parse(teams) };
+  } catch { return { players: [], logos: {} }; }
+}
+
+export function createCs2({ token, env = process.env, journal = new Journal(), rcon = rconExec, port = 3000, rawLog = '',
+  roster = null, archive = null, launcher = null, dataDir = '', catalogs = loadCatalogs } = {}) {
   if (!token) throw new Error('Нужен токен.');
-  return {
-    token, journal, port, rcon, rawLog,
+  const base = {
+    token, journal, port, rcon, rawLog, catalogs,
+    // The three new pieces are opt-in, so tests and a plain journal keep working
+    // exactly as before and nothing writes to disk unless it was asked to:
+    // no dataDir → no roster, no CS2_ARCHIVE_DIR → no archive, no CS2_LAUNCH=1 →
+    // no launcher (the page then says why instead of showing a dead button).
+    roster: roster ?? (dataDir && env.CS2_ROSTER !== '0' ? new RosterStore({ dir: dataDir }) : null),
+    archive: archive ?? (env.CS2_ARCHIVE_DIR ? new Archive({ dir: env.CS2_ARCHIVE_DIR }) : null),
+    launcher: launcher ?? (env.CS2_LAUNCH === '1' ? createLauncher({ env, cwd: env.CS2_SERVER_DIR || '' }) : null),
     allowRemote: env.CS2_ALLOW_REMOTE === '1',
     rconConfig: { host: env.CS2_RCON_HOST || '127.0.0.1', port: Number(env.CS2_RCON_PORT) || 27015, password: env.CS2_RCON_PASSWORD || '' }
   };
+  if (base.roster) base.roster.load();
+  return base;
 }
 
 function send(res, status, body, type = 'application/json; charset=utf-8') {
@@ -106,12 +136,31 @@ export async function handleCs2(req, res, cs2) {
       if (!cs2.allowRemote && !LOOPBACK.has(req.socket.remoteAddress)) return send(res, 403, { error: 'remote' }), true;
       const body = await readBody(req);
       keepRaw(cs2.rawLog, body);
-      cs2.journal.push(body);
+      const added = cs2.journal.push(body);
+      // Two side effects on the same log, both optional and both unable to
+      // break the journal: who the players are (SteamID), and the full game on
+      // disk. A failure here must not cost the referee the live journal.
+      try { cs2.roster?.push(added); } catch { /* the roster is a convenience */ }
+      try {
+        const status = cs2.journal.status();
+        if (cs2.archive) {
+          cs2.archive.keepRaw(status.game, status.map, body);
+          for (const event of added) cs2.archive.write({ type: 'event', ...event });
+        }
+      } catch { /* the broadcast does not depend on the archive */ }
       return send(res, 200, 'ok', 'text/plain; charset=utf-8'), true;
     }
     if (!fromHere(req, cs2, url)) return send(res, 403, { error: 'local-only' }), true;
     if (req.method === 'GET' && url.pathname === '/api/cs2-status') {
-      return send(res, 200, { ok: true, rcon: Boolean(cs2.rconConfig.password), ...cs2.journal.status() }), true;
+      return send(res, 200, {
+        ok: true, rcon: Boolean(cs2.rconConfig.password), ...cs2.journal.status(),
+        // What this panel can do here: the page hides a control whose backend
+        // is not turned on, instead of showing a button that answers 400.
+        features: {
+          roster: Boolean(cs2.roster), rosterSize: cs2.roster?.size() || 0,
+          archive: Boolean(cs2.archive), launch: Boolean(cs2.launcher)
+        }
+      }), true;
     }
     if (req.method === 'GET' && url.pathname === '/api/cs2-events') {
       const since = Math.max(0, Number(url.searchParams.get('since')) || 0);
@@ -133,6 +182,103 @@ export async function handleCs2(req, res, cs2) {
       try { command = sayCommand(text); } catch (error) { return send(res, 400, { error: error.message }), true; }
       try { await cs2.rcon({ ...cs2.rconConfig, command }); } catch (error) { return send(res, 502, { error: error.message }), true; }
       return send(res, 200, { ok: true }), true;
+    }
+
+    // ── Broadcast stats ───────────────────────────────────────────────────────
+    // The journal's events, counted into what a graphic needs. `?g=` picks a
+    // game (the last one by default); `?format=csv|ndjson` picks the encoding.
+    if (req.method === 'GET' && url.pathname === '/api/cs2-stats') {
+      const gParam = url.searchParams.get('g');
+      let scope;
+      if (gParam !== null) {
+        const parsed = Number(gParam);
+        scope = Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+      }
+      const events = cs2.journal.events;
+      const format = url.searchParams.get('format') || '';
+      if (format === 'csv') {
+        const csv = toCsv(playerStats(events, scope));
+        return send(res, 200, `﻿${csv}`, 'text/csv; charset=utf-8'), true;
+      }
+      if (format === 'ndjson') {
+        return send(res, 200, toNdjson(cs2.journal.since(0, Number.MAX_SAFE_INTEGER)), 'application/x-ndjson; charset=utf-8'), true;
+      }
+      if (format === 'rounds') return send(res, 200, { rounds: roundStats(events, scope) }), true;
+      return send(res, 200, summarize(events, cs2.journal.status(), { game: scope })), true;
+    }
+    // What the panel offers, so the page builds its controls from one source.
+    if (req.method === 'GET' && url.pathname === '/api/cs2-cvars') {
+      return send(res, 200, { cvars: CVARS, maps: MAP_NAMES }), true;
+    }
+
+    // ── Roster (SteamID) ──────────────────────────────────────────────────────
+    // The SteamIDs the log has shown, merged with the panel's own catalogs. A
+    // graphic or a HUD-manager import reads this; a player the log has not shown
+    // yet has an empty steamid64 and `source: ""`, visibly, not silently.
+    if (req.method === 'GET' && url.pathname === '/api/cs2-roster') {
+      if (!cs2.roster) return send(res, 200, { enabled: false, players: [] }), true;
+      try {
+        const { players, logos } = await cs2.catalogs();
+        const rows = mergeWithCatalog(cs2.roster.roster, players, logos);
+        return send(res, 200, { enabled: true, size: cs2.roster.size(), players: rows }), true;
+      } catch (error) {
+        return send(res, 500, { error: 'catalogs', message: error.message }), true;
+      }
+    }
+
+    // ── Archive of finished games ─────────────────────────────────────────────
+    if (req.method === 'GET' && url.pathname === '/api/cs2-archive') {
+      if (!cs2.archive) return send(res, 200, { enabled: false, files: [] }), true;
+      const name = url.searchParams.get('file');
+      if (name) {
+        const game = cs2.archive.read(name);
+        return game ? send(res, 200, game) : send(res, 404, { error: 'not-found' }), true;
+      }
+      return send(res, 200, { enabled: true, ...cs2.archive.status(), files: cs2.archive.list().map(({ name, map, bytes, mtime }) => ({ name, map, bytes, mtime })) }), true;
+    }
+    if (req.method === 'POST' && url.pathname === '/api/cs2-archive-delete') {
+      if (!sameSiteWrite(req)) return send(res, 403, { error: 'same-origin' }), true;
+      let name;
+      try { name = JSON.parse(await readBody(req, 4096)).name; } catch { return send(res, 400, { error: 'json' }), true; }
+      return send(res, cs2.archive?.remove(name) ? 200 : 404, { ok: Boolean(cs2.archive) }), true;
+    }
+
+    // ── Starting the server ───────────────────────────────────────────────────
+    // Status is always readable; starting and stopping are same-origin writes.
+    if (req.method === 'GET' && url.pathname === '/api/cs2-launch') {
+      if (!cs2.launcher) return send(res, 200, { enabled: false }), true;
+      return send(res, 200, { enabled: true, ...cs2.launcher.status() }), true;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/cs2-launch-output') {
+      if (!cs2.launcher) return send(res, 200, '', 'text/plain; charset=utf-8'), true;
+      const tail = Number(url.searchParams.get('tail')) || 8000;
+      return send(res, 200, cs2.launcher.output.slice(-Math.max(0, Math.min(tail, MAX_BODY))), 'text/plain; charset=utf-8'), true;
+    }
+    if (req.method === 'POST' && url.pathname === '/api/cs2-launch-start') {
+      if (!sameSiteWrite(req)) return send(res, 403, { error: 'same-origin' }), true;
+      if (!cs2.launcher) return send(res, 400, { error: 'Панель не запускает сервер CS2 (не задан CS2_SERVER_BIN или CS2_LAUNCH).' }), true;
+      let settings;
+      try { settings = normalizeSettings(JSON.parse(await readBody(req, 16384))); }
+      catch { return send(res, 400, { error: 'Не понял настройки.' }), true; }
+      if (settings.errors.length) return send(res, 400, { error: settings.errors.join(' ') }), true;
+      // The log address the started server posts back to, so a server the panel
+      // started fills the journal by itself.
+      const logUrl = `http://127.0.0.1:${cs2.port}/api/cs2-log?token=${cs2.token}`;
+      let cfgName;
+      try { cfgName = cs2.launcher.writeCfg(buildCfg({ ...settings, logUrl })); }
+      catch (error) { return send(res, 500, { error: error.message }), true; }
+      try {
+        const started = cs2.launcher.start({ ...settings, cfgName: cfgName.replace(/\.cfg$/, '') });
+        return send(res, 200, { ok: true, pid: started.pid }), true;
+      } catch (error) { return send(res, 500, { error: error.message }), true; }
+    }
+    if (req.method === 'POST' && url.pathname === '/api/cs2-launch-stop') {
+      if (!sameSiteWrite(req)) return send(res, 403, { error: 'same-origin' }), true;
+      let force = false;
+      try { force = Boolean(JSON.parse(await readBody(req, 1024)).force); } catch { /* no body: a plain stop */ }
+      const stopped = cs2.launcher?.stop({ force });
+      return stopped === undefined ? send(res, 400, { error: 'Панель не запускает сервер CS2.' }) :
+        send(res, 200, { ok: stopped }), true;
     }
     return send(res, 404, { error: 'not-found' }), true;
   } catch (error) {

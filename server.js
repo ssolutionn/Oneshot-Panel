@@ -16,7 +16,8 @@ const publicFiles = new Set([
   'index.html', 'app.js', 'core.js', 'style.css', 'theme.js',
   'card.html', 'card.js', 'card.css', 'live.js', 'obs.js', 'vdo.js',
   'lobby.js', 'faceit.js', 'notifications.js', 'notification-worker.js', 'obs-bridge.html', 'obs-bridge.js',
-  'veto.html', 'veto.js', 'veto.css', 'veto-room.js', 'veto-watch.js', 'bookmakers.js', 'bookies.js', 'lan.js', 'lan-event.js', 'lan-images.js', 'cs2.js'
+  'veto.html', 'veto.js', 'veto.css', 'veto-room.js', 'veto-watch.js', 'bookmakers.js', 'bookies.js', 'lan.js', 'lan-event.js', 'lan-images.js', 'cs2.js',
+  'oneshot-webcams.js', 'veto-mobile.html'
 ]);
 const mime = {
   '.html': 'text/html; charset=utf-8',
@@ -123,14 +124,22 @@ if (process.argv[1] &&
   const host = process.env.HOST || '127.0.0.1';
   const port = Number(process.env.PORT || 3000);
   // CS2_JOURNAL=1: take the log of a CS2 server on this computer (logaddress_add_http).
+  const dataDir = path.join(root, '.cs2-data');
   const cs2 = process.env.CS2_JOURNAL === '1' ?
-    createCs2({ token: loadToken({ dir: path.join(root, '.cs2-data') }), port,
-      rawLog: process.env.CS2_RAW_LOG === '1' ? path.join(root, '.cs2-data', 'raw.log') : '' }) : null;
+    createCs2({ token: loadToken({ dir: dataDir }), port, dataDir,
+      rawLog: process.env.CS2_RAW_LOG === '1' ? path.join(dataDir, 'raw.log') : '' }) : null;
   createServer({ cs2 }).listen(port, host, () => {
     console.log(`Oneshot Panel listening on ${host}:${port}`);
     if (!cs2) return;
     console.log('\nCS2: журнал сервера включён. Выполни на сервере CS2 (консоль или RCON):');
     for (const command of [`logaddress_add_http "http://127.0.0.1:${port}/api/cs2-log?token=${cs2.token}"`, 'mp_logdetail 3', 'log on']) console.log('  ' + command);
     console.log(cs2.rconConfig.password ? '  (RCON: сообщения на сервер включены)' : '  (RCON выключен: задай CS2_RCON_PASSWORD, чтобы писать в чат сервера)');
+    // What the panel can do here, in one place, so an operator does not have
+    // to read the source to find out why a tab is empty.
+    if (cs2.roster) console.log(`  Ростер SteamID: ${dataDir}/roster.json`);
+    else console.log('  Ростер SteamID выключен (CS2_ROSTER=0).');
+    console.log(cs2.archive ? `  Архив игр: ${cs2.archive.dir}` : '  Архив игр выключен: задай CS2_ARCHIVE_DIR.');
+    console.log(cs2.launcher?.available ? `  Запуск сервера CS2: ${cs2.launcher.bin}` :
+      '  Запуск сервера выключен: задай CS2_LAUNCH=1, CS2_SERVER_BIN и CS2_SERVER_DIR.');
   });
 }

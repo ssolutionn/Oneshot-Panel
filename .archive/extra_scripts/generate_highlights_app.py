@@ -1,0 +1,65 @@
+import json
+
+# Simulated highlight extraction from the parsed demo match data for DrestoV1ch and others
+highlights_data = {
+  "match": "FACEIT CS2 - de_ancient",
+  "demo": "1-45e25330-31f6-44ab-9483-9f1ffaf15c6a-1-1.dem.zst",
+  "players": ["-DrestoV1ch", "KIRIL_BELKIN", "quickly-_-", "-Asmodeus", "nesdavaites", "FunK1z1769"],
+  "highlights": [
+    {
+      "id": "hl_1",
+      "round": 4,
+      "player": "-DrestoV1ch",
+      "type": "ACE",
+      "kills": 5,
+      "description": "-DrestoV1ch 1v3 Clutch & ACE! 5 kills with AK-47 on Ancient A-site.",
+      "videoUrl": "#",
+      "clipTime": "01:24"
+    },
+    {
+      "id": "hl_2",
+      "round": 7,
+      "player": "-DrestoV1ch",
+      "type": "MULTIKILL",
+      "kills": 3,
+      "description": "-DrestoV1ch 3 kills entry frag on Banana / Mid control.",
+      "videoUrl": "#",
+      "clipTime": "03:12"
+    },
+    {
+      "id": "hl_3",
+      "round": 12,
+      "player": "KIRIL_BELKIN",
+      "type": "MULTIKILL",
+      "kills": 4,
+      "description": "KIRIL_BELKIN 4 kills multi-kill defense hold.",
+      "videoUrl": "#",
+      "clipTime": "06:45"
+    },
+    {
+      "id": "hl_4",
+      "round": 15,
+      "player": "-DrestoV1ch",
+      "type": "ACE",
+      "kills": 5,
+      "description": "-DrestoV1ch Second ACE of the half! 5 kills in pistol/eco round.",
+      "videoUrl": "#",
+      "clipTime": "09:02"
+    },
+    {
+      "id": "hl_5",
+      "round": 19,
+      "player": "quickly-_-",
+      "type": "MULTIKILL",
+      "kills": 3,
+      "description": "quickly-_- 3 kills in crucial round win.",
+      "videoUrl": "#",
+      "clipTime": "12:15"
+    }
+  ]
+}
+
+with open('highlights.json', 'w') as f:
+    json.dump(highlights_data, f, indent=2)
+
+print('Generated highlights.json successfully!')
