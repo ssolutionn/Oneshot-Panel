@@ -6,6 +6,10 @@
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const ALLOWED = new RegExp(`^/(championships/${UUID}(/matches)?|matches/1-${UUID}(/stats)?)$`, 'i');
 
+// Proof that a page of this site asks: Fetch Metadata, else an Origin that is
+// this site (sent with POST and cross-origin requests). A plain same-origin GET
+// from a browser without Fetch Metadata (old Safari, http on a LAN address)
+// proves nothing and is refused: the admin's own key still works there.
 export function fromThisSite(request) {
   const site = request.headers.get('sec-fetch-site');
   if (site) return site === 'same-origin';
@@ -24,9 +28,9 @@ export async function proxyFaceit(request, serverKey = '') {
   if (!key && String(serverKey || '').trim()) {
     // Other websites and scripts must not spend the site's key. A request
     // that proves nothing about where it came from (curl, no headers) is
-    // refused too; browsers without Fetch Metadata fall back to Origin.
+    // refused too.
     if (!fromThisSite(request)) {
-      return Response.json({ error: 'not-allowed', message: 'Ключ сайта доступен только самой панели.' }, { status: 403 });
+      return Response.json({ error: 'not-allowed', message: 'Ключ сайта доступен только самой панели, а этот браузер не сообщил, откуда запрос. Впиши свой ключ FACEIT в поле «Ключ».' }, { status: 403 });
     }
     key = `Bearer ${String(serverKey).trim()}`;
   }

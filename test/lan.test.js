@@ -127,7 +127,20 @@ test('event teams: nameless teams wait, a repeated name or nick is skipped and t
   assert.deepEqual(teams.map(t => t.name), ['Alpha']);
   assert.deepEqual(teams[0].players.map(p => p.nick), ['one']);
   assert.deepEqual(teams.skipped, ['Alpha: ник ONE повторяется', 'команда alpha уже есть']);
-  assert.throws(() => lanTeams(lanConfig({ on: true, prefix: 'ab' })), /вкладке «Команды»/);
+  // No teams yet (or all removed): an empty list, not stale teams kept on air.
+  assert.deepEqual([...lanTeams(lanConfig({ on: true, prefix: 'ab' }))], []);
+});
+
+test('event teams: nicks and names that would share a card are told, not merged', () => {
+  const teams = lanTeams(lanConfig({ on: true, prefix: 'ab', teams: [
+    { id: 'a', name: 'Team A', players: [{ id: 'a1', nick: 'a.b' }, { id: 'a2', nick: 'ab' }, { id: 'a3', nick: '???' }, { id: 'a4', nick: 'Ник' }] },
+    { id: 'b', name: 'TeamA', players: [{ id: 'b1', nick: 'x' }] },
+    { id: 'c', name: '!!!', players: [{ id: 'c1', nick: 'y' }] }
+  ] }));
+  assert.deepEqual(teams.map(t => t.name), ['Team A']);
+  assert.deepEqual(teams[0].players.map(p => p.nick), ['a.b', 'Ник']);
+  assert.deepEqual(teams.skipped, ['Team A: ник ab повторяется', 'Team A: в нике ??? нужны буквы или цифры',
+    'команда TeamA уже есть', 'команда !!!: в названии нужны буквы или цифры']);
 });
 
 test('the old text roster becomes teams once, with ids', () => {

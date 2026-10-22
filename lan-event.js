@@ -68,13 +68,16 @@ export async function readZip(buffer) {
 // picked folder (webkitRelativePath). Returns teams and plain-words problems.
 export function collectTeams(files) {
   const teams = new Map(), problems = [];
+  // What Finder and Windows add (__MACOSX/…, ._x.png, desktop.ini) is not ours,
+  // and must not decide how deep the team folders are.
+  const ignored = parts => !parts.at(-1) || parts.at(-1).startsWith('.') || parts.includes('__MACOSX') || /^desktop\.ini$/i.test(parts.at(-1));
+  const kept = files.filter(file => !ignored(String(file.path).split('/').filter(Boolean)));
   // «Event/Team/nick.png»: team folders sit one level below the root folder of
   // the archive. When there are such, an image right in the root belongs to no team.
-  const nested = files.some(file => String(file.path).split('/').filter(Boolean).length >= 3);
-  for (const file of files) {
+  const nested = kept.some(file => String(file.path).split('/').filter(Boolean).length >= 3);
+  for (const file of kept) {
     const parts = String(file.path).split('/').filter(Boolean);
-    const name = parts.at(-1) || '';
-    if (!name || name.startsWith('.') || parts.includes('__MACOSX') || /^desktop\.ini$/i.test(name)) continue;
+    const name = parts.at(-1);
     if (HEIC_EXT.test(name)) {
       problems.push(`${parts.slice(-2).join('/')}: HEIC не читается браузером и OBS — сохрани как PNG`);
       continue;
@@ -168,6 +171,9 @@ export class AssetStore {
     return true;
   }
 }
+// The key of an event team's or player's picture. personKey of a name never
+// holds «#», so these never meet the name keys of older versions («T1» and id t1).
+export const ownKey = id => '#' + id;
 export const photoOf = (assets, team, nick) => assets.photos[cardKey(team, nick)] || '';
 export const logoOf = (assets, team) => assets.logos[personKey(team)] || '';
 
@@ -223,11 +229,11 @@ export function cardDocs(players, assets, colors) {
   const docs = {};
   for (const p of players) {
     if (!p?.team || !p?.nick) continue;
-    // An event's own teams keep photos by id (renaming keeps them); older ones by name.
+    // An event's own teams keep pictures by id (renaming keeps them); older ones by name.
     docs[cardKey(p.team, p.nick)] = eventCardUrl({
       team: p.team, nick: p.nick, colors,
-      photo: (p.playerId && assets.photos[p.playerId]) || photoOf(assets, p.team, p.nick),
-      logo: (p.teamId && assets.logos[p.teamId]) || logoOf(assets, p.team)
+      photo: p.playerId ? assets.photos[ownKey(p.playerId)] || '' : photoOf(assets, p.team, p.nick),
+      logo: p.teamId ? assets.logos[ownKey(p.teamId)] || '' : logoOf(assets, p.team)
     });
   }
   return docs;
@@ -243,7 +249,9 @@ export function splitChunks(url, size = CHUNK) {
   return parts.length ? parts : [''];
 }
 export class ChunkAssembler {
-  constructor(limit = 600000) { this.limit = limit; this.pending = new Map(); this.done = new Map(); }
+  // Big enough for the largest card the panel can make: a photo and a logo of up
+  // to 400 000 characters each (normalizeAssets), percent-encoded in the page.
+  constructor(limit = 1200000) { this.limit = limit; this.pending = new Map(); this.done = new Map(); }
   has(key) { return this.done.has(key); }
   get(key) { return this.done.get(key); }
   // true when this part completed the card.

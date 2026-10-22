@@ -355,18 +355,23 @@ export function newLanPrefix(bytes) {
 }
 // The teams as the panel uses them (like parseTeams for the sheets): a team
 // without a name and a player without a nick are not ready yet; a name already
-// taken is skipped. Keys use the ids, so renaming changes no lineup.
+// taken is skipped. Keys use the ids, so renaming changes no lineup. «Taken»
+// is by personKey, as cards are (cardKey): «a.b» and «ab» would share a card.
 export function lanTeams(lan) {
   const teams = [], skipped = [], names = new Set();
   for (const team of lan.teams) {
     if (!team.name) continue;
-    if (names.has(team.name.toLowerCase())) { skipped.push(`команда ${team.name} уже есть`); continue; }
-    names.add(team.name.toLowerCase());
+    const key = personKey(team.name);
+    if (!key) { skipped.push(`команда ${team.name}: в названии нужны буквы или цифры`); continue; }
+    if (names.has(key)) { skipped.push(`команда ${team.name} уже есть`); continue; }
+    names.add(key);
     const nicks = new Set(), players = [];
     for (const p of team.players) {
       if (!p.nick) continue;
-      if (nicks.has(p.nick.toLowerCase())) { skipped.push(`${team.name}: ник ${p.nick} повторяется`); continue; }
-      nicks.add(p.nick.toLowerCase());
+      const nick = personKey(p.nick);
+      if (!nick) { skipped.push(`${team.name}: в нике ${p.nick} нужны буквы или цифры`); continue; }
+      if (nicks.has(nick)) { skipped.push(`${team.name}: ник ${p.nick} повторяется`); continue; }
+      nicks.add(nick);
       players.push({
         key: JSON.stringify(['lan', team.id, p.id]), playerId: p.id, slot: '', nick: p.nick, id: '', room: '', password: '',
         role: players.length < LAN_SEATS ? 'Основной' : 'Запасной'
@@ -375,7 +380,6 @@ export function lanTeams(lan) {
     teams.push({ name: team.name, teamId: team.id, room: '', password: '', players });
   }
   teams.skipped = skipped;
-  if (!teams.length) throw new Error('Добавь команды во вкладке «Команды».');
   return teams;
 }
 // The event's matches in the shape of the sheets schedule (the match picker

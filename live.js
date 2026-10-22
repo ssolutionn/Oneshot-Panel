@@ -2,7 +2,7 @@
 // match to OBS (directly or through the OBS dock), copying the JSON, webcam
 // status from VDO.Ninja and the live veto overlay. app.js keeps working
 // without this file (the Claude artifact has none of it).
-import { buildObs, DEFAULT_CARD_BASE, normalizeCamera } from './core.js';
+import { buildObs, DEFAULT_CARD_BASE, normalizeCamera, lanSeatLinks } from './core.js';
 import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto } from './obs.js';
 import { VdoLink, CamWatch, bridgeSecrets, newBridgeCode, normalizeCode, VDO_CONNECT_TIMEOUT, VDO_CONNECT_MAX_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
 import { mountQrReader, parseObsQr, parsePairingQr } from './assets/obs-qr.js';
@@ -495,13 +495,20 @@ $('copyJsonBtn').addEventListener('click', () => {
 let watcher = null, live = new Set(), checking = new Set();
 function camGroups(s) {
   const groups = new Map();
-  for (const p of [...s.playersA, ...s.playersB]) {
-    if (!p?.room || !p?.id) continue;
-    const group = groups.get(p.room) || { room: p.room, password: p.password || '', ids: [] };
-    group.ids.push(p.id);
-    groups.set(p.room, group);
-  }
+  const add = (room, password, id) => {
+    const group = groups.get(room) || { room, password: password || '', ids: [] };
+    if (!group.ids.includes(id)) group.ids.push(id);
+    groups.set(room, group);
+  };
+  for (const p of [...s.playersA, ...s.playersB]) if (p?.room && p?.id) add(p.room, p.password, p.id);
+  // On a LAN every seat's PC is watched, seated or not («Компы» shows them all).
+  const lan = panel.lan();
+  if (lan.on && lan.prefix) for (const seat of lanSeatLinks(lan)) add(lan.prefix, lan.password, seat.id);
   return [...groups.values()];
+}
+// The webcam status by stream id, for «Компы» (lan.js); oneshot:cams on each change.
+export function camStatus() {
+  return { on: Boolean(watcher), live: new Set(live), checking: new Set(checking) };
 }
 function paintCams() {
   const s = panel.snapshot();
@@ -547,6 +554,7 @@ function paintCams() {
     label.textContent = up === total ? `Все вебки на месте · ${up}/${total}` : `Нет камеры: ${total - up} · ${up}/${total} в эфире`;
     label.classList.add(up === total ? 'all' : 'missing');
   }
+  document.dispatchEvent(new CustomEvent('oneshot:cams'));
 }
 function syncWatcher() {
   const s = panel.snapshot();

@@ -49,8 +49,9 @@ function render() {
   }
   $('serverDot').dataset.kind = state.online ? (status?.lines ? 'good' : 'wait') : 'bad';
   // Round chips: warm-up, the last 30 rounds; each earlier game is headed by its map
-  const rounds = [];
-  for (const e of state.events) if (!rounds.some(r => sameRound(r, e))) rounds.push({ game: e.game, round: e.round });
+  const seen = new Map();
+  for (const e of state.events) if (!seen.has(`${e.game}:${e.round}`)) seen.set(`${e.game}:${e.round}`, { game: e.game, round: e.round });
+  const rounds = [...seen.values()];
   rounds.sort((a, b) => a.game - b.game || a.round - b.round).splice(0, Math.max(0, rounds.length - 30));
   const games = new Set(rounds.map(r => r.game));
   const chips = rounds.flatMap((r, i) => {

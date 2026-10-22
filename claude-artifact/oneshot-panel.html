@@ -330,7 +330,7 @@ dialog textarea { margin:0; width:100%; }
 .cs2-log .side-t { color:var(--cs2-t); }
 .cs2-say { display:flex; gap:8px; margin-top:10px; }
 .cs2-say input { flex:1; min-width:0; padding:10px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font-size:12px; }
-.lan-preview { display:block; width:100%; max-width:640px; aspect-ratio:16/9; border:1px solid var(--line); border-radius:6px; margin:6px 0; background:#000; }
+.lan-preview { display:block; width:100%; max-width:640px; aspect-ratio:16/9; border:1px solid var(--line); border-radius:6px; margin:6px 0; background:var(--bar); }
 .lan-colors { display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 18px; margin:0 0 6px; }
 .lan-colors label { margin:8px 0; }
 .lan-colors input[type=color] { width:56px; height:36px; padding:2px; cursor:pointer; }
@@ -1262,18 +1262,23 @@ function newLanPrefix(bytes) {
 }
 // The teams as the panel uses them (like parseTeams for the sheets): a team
 // without a name and a player without a nick are not ready yet; a name already
-// taken is skipped. Keys use the ids, so renaming changes no lineup.
+// taken is skipped. Keys use the ids, so renaming changes no lineup. «Taken»
+// is by personKey, as cards are (cardKey): «a.b» and «ab» would share a card.
 function lanTeams(lan) {
   const teams = [], skipped = [], names = new Set();
   for (const team of lan.teams) {
     if (!team.name) continue;
-    if (names.has(team.name.toLowerCase())) { skipped.push(`команда ${team.name} уже есть`); continue; }
-    names.add(team.name.toLowerCase());
+    const key = personKey(team.name);
+    if (!key) { skipped.push(`команда ${team.name}: в названии нужны буквы или цифры`); continue; }
+    if (names.has(key)) { skipped.push(`команда ${team.name} уже есть`); continue; }
+    names.add(key);
     const nicks = new Set(), players = [];
     for (const p of team.players) {
       if (!p.nick) continue;
-      if (nicks.has(p.nick.toLowerCase())) { skipped.push(`${team.name}: ник ${p.nick} повторяется`); continue; }
-      nicks.add(p.nick.toLowerCase());
+      const nick = personKey(p.nick);
+      if (!nick) { skipped.push(`${team.name}: в нике ${p.nick} нужны буквы или цифры`); continue; }
+      if (nicks.has(nick)) { skipped.push(`${team.name}: ник ${p.nick} повторяется`); continue; }
+      nicks.add(nick);
       players.push({
         key: JSON.stringify(['lan', team.id, p.id]), playerId: p.id, slot: '', nick: p.nick, id: '', room: '', password: '',
         role: players.length < LAN_SEATS ? 'Основной' : 'Запасной'
@@ -1282,7 +1287,6 @@ function lanTeams(lan) {
     teams.push({ name: team.name, teamId: team.id, room: '', password: '', players });
   }
   teams.skipped = skipped;
-  if (!teams.length) throw new Error('Добавь команды во вкладке «Команды».');
   return teams;
 }
 // The event's matches in the shape of the sheets schedule (the match picker
@@ -2154,14 +2158,19 @@ function cardDocsNow() {
 }
 // lan.js: another prefix is a new data source; edited teams keep the match,
 // lineups and veto where they still fit, and a renamed team stays chosen.
+// A team on air whose name is being retyped (blank, or for a moment the same as
+// another's) is held: its side, lineup and veto wait for the new name.
+const lanHold = {};
 function setLan(value) {
   const next = lanConfig({ ...value, on: EVENT_LAN });
   // With LAN off the prefix is only kept for later: the sheets match stays.
   const sameSource = next.on === state.lan.on && (!next.on || next.prefix === state.lan.prefix);
+  const ready = new Set(lanTeams(next).map(t => t.teamId));
   for (const side of ['a', 'b']) {
-    const id = state.lan.teams.find(t => t.name === state[side])?.id;
-    const renamed = next.teams.find(t => t.id === id)?.name;
-    if (renamed) state[side] = renamed;
+    const id = state.lan.teams.find(t => t.name === state[side])?.id || lanHold[side];
+    const team = next.teams.find(t => t.id === id);
+    if (team && ready.has(team.id)) state[side] = team.name;
+    if (team && !ready.has(team.id)) lanHold[side] = id; else delete lanHold[side];
   }
   state.lan = next;
   const stored = writeStorage(LAN_STORE, next);
@@ -2454,7 +2463,10 @@ function render() {
   if (listed && (listed.team1 !== state.a || listed.team2 !== state.b)) state.matchKey = '';
   $('matchSelect').value = listed && state.matchKey ? state.matchKey : '';
 
-  $('teamGrid').innerHTML = ['a', 'b'].map((side, index) => {
+  // An event whose teams were all removed: say where they are made, nothing stale.
+  $('teamGrid').innerHTML = state.lan.on && !state.teams.length ?
+    '<div class="empty-panel">Добавь команды во вкладке «Команды»: название, логотип и игроков прямо в карточке.</div>' :
+    ['a', 'b'].map((side, index) => {
     const team = getTeam(side);
     if (!team) return '<div class="empty-panel">Команда не выбрана</div>';
     const keys = state[side === 'a' ? 'keysA' : 'keysB'];
@@ -2841,7 +2853,8 @@ $('swapBtn').addEventListener('click', () => {
   state.matchKey = '';
   swapVeto();
   render();
-  toast('Команды поменялись сторонами');
+  // On a LAN a side is a row of PCs: the swap moves each team to the other seats' webcams.
+  toast(state.lan.on ? 'Команды поменялись местами: первая теперь за компами A1–A5, вторая — за B1–B5' : 'Команды поменялись сторонами');
 });
 $('matchSelect').addEventListener('change', () => {
   state.matchKey = $('matchSelect').value;

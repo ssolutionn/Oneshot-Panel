@@ -38,6 +38,9 @@ test('rounds, score, map and teams', () => {
   assert.equal(parseLine(line('Loading map "de_nuke"')).map, 'de_nuke');
   assert.deepEqual(parseLine(line('Team playing "TERRORIST": Bravo')), { clock: '18:31:05', type: 'team', side: 'T', name: 'Bravo' });
   assert.equal(parseLine(line(`${A} switched from team <Unassigned> to <CT>`)).to, 'CT');
+  // As CS2 writes it: no team part in the player.
+  const moved = parseLine(line('"nick1<2><[U:1:111]>" switched from team <Unassigned> to <TERRORIST>'));
+  assert.deepEqual([moved.type, moved.player.name, moved.player.steam, moved.to], ['presence', 'nick1', '[U:1:111]', 'T']);
 });
 
 test('lines that do not matter, and broken ones, give nothing', () => {

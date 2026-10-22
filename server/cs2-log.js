@@ -5,14 +5,15 @@
 // everything here is data, never markup.
 export const MAX_EVENTS = 30000;
 const SIDE = { CT: 'CT', TERRORIST: 'T', T: 'T' };
-const PLAYER = /^(.*)<(\d+)><([^>]*)><([^>]*)>$/;
+// The team part is missing on some lines («"Name<2><[U:1:1]>" switched from team …»).
+const PLAYER = /^(.*)<(\d+)><([^>]*)>(?:<([^>]*)>)?$/;
 const KEYED = (text, key) => text.match(new RegExp(`\\(${key} "([^"]*)"\\)`))?.[1];
 
 // "Name<2><[U:1:123]><CT>" — a name may itself hold < and >, so the tail is read from the end.
 export function parsePlayer(text) {
   const match = PLAYER.exec(String(text).trim());
   if (!match) return null;
-  return { name: match[1], userid: Number(match[2]), steam: match[3], side: SIDE[match[4]] || '' };
+  return { name: match[1], userid: Number(match[2]), steam: match[3], side: SIDE[match[4] ?? ''] || '' };
 }
 // «L 10/20/2026 - 18:31:05: …» (log file, UDP) or, from CS2's logaddress_add_http,
 // «10/20/2026 - 18:31:05.123 - …».

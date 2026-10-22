@@ -38,20 +38,22 @@ live.js  obs.js  vdo.js  lobby.js  faceit.js  obs-bridge.html  obs-bridge.js  ve
 | --- | --- | --- |
 | A | `panel` | `185.139.70.76` |
 
-**2. Файлы на сервер:**
+**2. Файлы на сервер.** Сайт собирает тот же скрипт, что и хостинги: он докачивает
+фото, копирует файлы в `public/` и пишет `public/event.js` — какое это событие
+(`EVENT=reu` — ЛАН РЭУ, без него — КиберКлэш; см. «Свой адрес на событие»). Нужны
+Node.js и python3.
 
 ```sh
 sudo git clone --depth 1 -b claude/gracious-sagan-apztcc \
   https://github.com/ssolutionn/Oneshot-Panel.git /opt/oneshot-panel
-sudo mkdir -p /var/www/oneshot-panel
 cd /opt/oneshot-panel
-sudo python3 scripts/fetch_player_photos.py --allow-missing
-sudo cp index.html app.js core.js theme.js style.css card.html card.js card.css \
-  live.js obs.js vdo.js lobby.js faceit.js obs-bridge.html obs-bridge.js veto.html veto.js veto.css veto-room.js veto-watch.js bookmakers.js bookies.js lan.js lan-event.js lan-images.js cs2.js /var/www/oneshot-panel/
-sudo cp -R assets /var/www/oneshot-panel/
+sudo sh scripts/build-site.sh            # для события: sudo EVENT=reu sh scripts/build-site.sh
+sudo mkdir -p /var/www/oneshot-panel
+sudo cp -R public/. /var/www/oneshot-panel/
 ```
 
-Или распаковать `oneshot-panel-site.zip` в `/var/www/oneshot-panel`.
+Или распаковать `oneshot-panel-site.zip` (артефакт CI, в нём уже есть `event.js` КиберКлэша)
+в `/var/www/oneshot-panel`.
 
 **3. nginx** — `/etc/nginx/sites-available/panel.oneshot.su`:
 
@@ -62,11 +64,12 @@ server {
     root /var/www/oneshot-panel;
     index index.html;
 
-    # Те же заголовки, что на Netlify: скрипты и стили только свои,
-    # сеть — только к Google Sheets.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://open.faceit.com ws://127.0.0.1:* ws://localhost:*; frame-src https://vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
+    # Те же заголовки, что в _headers (Cloudflare), netlify.toml и server.js.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://open.faceit.com https://oneshot-veto.pages.dev https://oneshot-veto.cyberclash.workers.dev ws://127.0.0.1:* ws://localhost:*; frame-src https://vdo.ninja https://cdn-backup.vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header Permissions-Policy "camera=(self), microphone=(), geolocation=(), payment=(), usb=()" always;
 
     location / {
         try_files $uri $uri/ =404;
@@ -81,16 +84,16 @@ sudo certbot --nginx -d panel.oneshot.su   # HTTPS от Let's Encrypt
 ```
 
 Если на сервере не nginx, а другой веб-сервер — подойдёт любой, который
-отдаёт статику; важны только три заголовка выше.
+отдаёт статику; важны заголовки выше (их же сверяет `test/server.test.js` для
+трёх хостингов). Прокси FACEIT, букмекеры и вето-relay — функции хостинга: на
+голой статике их нет (для них — `node server.js` за nginx).
 
 **4. Обновление** (когда в репозитории появились правки):
 
 ```sh
 cd /opt/oneshot-panel && sudo git pull
-sudo python3 scripts/fetch_player_photos.py --allow-missing
-sudo cp index.html app.js core.js theme.js style.css card.html card.js card.css \
-  live.js obs.js vdo.js lobby.js faceit.js obs-bridge.html obs-bridge.js veto.html veto.js veto.css veto-room.js veto-watch.js bookmakers.js bookies.js lan.js lan-event.js lan-images.js cs2.js /var/www/oneshot-panel/
-sudo cp -R assets /var/www/oneshot-panel/
+sudo sh scripts/build-site.sh            # для события — с тем же EVENT=…
+sudo cp -R public/. /var/www/oneshot-panel/
 ```
 
 ## Вариант 2. Оставить Netlify, только домен

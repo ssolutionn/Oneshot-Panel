@@ -259,7 +259,7 @@ dialog textarea { margin:0; width:100%; }
 .cs2-log .side-t { color:var(--cs2-t); }
 .cs2-say { display:flex; gap:8px; margin-top:10px; }
 .cs2-say input { flex:1; min-width:0; padding:10px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font-size:12px; }
-.lan-preview { display:block; width:100%; max-width:640px; aspect-ratio:16/9; border:1px solid var(--line); border-radius:6px; margin:6px 0; background:#000; }
+.lan-preview { display:block; width:100%; max-width:640px; aspect-ratio:16/9; border:1px solid var(--line); border-radius:6px; margin:6px 0; background:var(--bar); }
 .lan-colors { display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 18px; margin:0 0 6px; }
 .lan-colors label { margin:8px 0; }
 .lan-colors input[type=color] { width:56px; height:36px; padding:2px; cursor:pointer; }

@@ -4,10 +4,10 @@
 // .lan / setLan); here it is edited right where it is shown. Names and nicks
 // from people go into the page as text only.
 import { lanSeatLinks, lanId, newLanPrefix, personKey, cardKey, LAN_LIMITS, LAN_SEATS, MATCH_FORMATS } from './core.js';
-import { showView } from './live.js';
+import { showView, camStatus } from './live.js';
 import { DEFAULT_TOURNAMENT } from './assets/veto-short-links.js';
 import {
-  readZip, collectTeams, AssetStore, indexedAssets, normalizeAssets, cardDocs, paletteFrom, DEFAULT_COLORS
+  readZip, collectTeams, AssetStore, indexedAssets, normalizeAssets, cardDocs, paletteFrom, DEFAULT_COLORS, ownKey
 } from './lan-event.js';
 import { processImage, drawCardPreview, drawThumb } from './lan-images.js';
 
@@ -49,19 +49,41 @@ const newId = () => lanId(random(6), allIds());
 const teamOf = id => draft.teams.find(t => t.id === id);
 const eventName = () => draft.event.name || EVENT?.name || 'ЛАН';
 
-// Photos and logos: IndexedDB (lan-event.js AssetStore), by team and player id.
-const store = new AssetStore({ db: globalThis.indexedDB ? indexedAssets() : null });
-const loaded = store.load().then(migrateAssets).then(() => { renderTeams(); paintLogos(); paintPreview(); });
-// Photos imported before ids existed were kept by team name and nick.
+// Photos and logos: IndexedDB (lan-event.js AssetStore), under ownKey(team or
+// player id). Opened only on an event's address (start()).
+let store = null, loaded = null;
+const logoOf = id => store?.assets.logos[ownKey(id)] || '';
+const photoOf = id => store?.assets.photos[ownKey(id)] || '';
+// Every change of the pictures goes in turn: two drops at once, or a drop during
+// a Drive import, must not save over each other.
+let saving = Promise.resolve(true);
+function changeAssets(change) {
+  const run = saving.then(async () => {
+    await loaded;
+    const assets = structuredClone(store.assets);
+    change(assets);
+    return store.save(assets);
+  });
+  saving = run.catch(() => false);
+  return run;
+}
+// Pictures of older versions move to their team and player once: those kept by
+// team name and nick (the «ЛАН» window), and those kept by bare id.
 async function migrateAssets() {
   const assets = structuredClone(store.assets);
   let moved = false;
+  const move = (shelf, from, to) => {
+    if (!shelf[from]) return;
+    if (!shelf[to]) shelf[to] = shelf[from];
+    delete shelf[from];
+    moved = true;
+  };
   for (const team of draft.teams) {
-    const logo = assets.logos[personKey(team.name)];
-    if (logo && !assets.logos[team.id]) { assets.logos[team.id] = logo; moved = true; }
+    move(assets.logos, personKey(team.name), ownKey(team.id));
+    if (team.id.startsWith('x')) move(assets.logos, team.id, ownKey(team.id));
     for (const p of team.players) {
-      const photo = assets.photos[cardKey(team.name, p.nick)];
-      if (photo && !assets.photos[p.id]) { assets.photos[p.id] = photo; moved = true; }
+      move(assets.photos, cardKey(team.name, p.nick), ownKey(p.id));
+      if (p.id.startsWith('x')) move(assets.photos, p.id, ownKey(p.id));
     }
   }
   if (moved) await store.save(assets);
@@ -69,8 +91,6 @@ async function migrateAssets() {
 const palette = () => paletteFrom({
   accent: draft.event.accent || EVENT?.colors?.accent, deep: draft.event.deep || EVENT?.colors?.deep, black: draft.event.black || EVENT?.colors?.black
 });
-// OBS gets every card as one page with its photo inside.
-panel().setCardDocs(players => cardDocs(players, store.assets, palette()));
 
 // ---------- the event's look on the panel ----------
 let appliedName = '';
@@ -107,10 +127,8 @@ async function setImage(target, file) {
   setStatus('ltStatus', 'Обрабатываем картинку…');
   try {
     const { url, warning } = await processImage(file, target.kind);
-    await loaded;
-    const assets = structuredClone(store.assets);
-    if (target.kind === 'logo') assets.logos[target.id] = url; else assets.photos[target.id] = url;
-    if (!await store.save(assets)) throw new Error('браузеру не хватило места');
+    const stored = await changeAssets(assets => { (target.kind === 'logo' ? assets.logos : assets.photos)[ownKey(target.id)] = url; });
+    if (!stored) throw new Error('браузеру не хватило места');
     setStatus('ltStatus', warning ? `Готово, но картинка ${warning}: фон останется на карточке.` : 'Готово.', Boolean(warning));
     paintSlots();
     paintLogos();
@@ -118,9 +136,7 @@ async function setImage(target, file) {
   } catch (error) { setStatus('ltStatus', `Не получилось: ${error.message}.`, true); }
 }
 async function clearImage(target) {
-  const assets = structuredClone(store.assets);
-  delete (target.kind === 'logo' ? assets.logos : assets.photos)[target.id];
-  await store.save(assets);
+  await changeAssets(assets => { delete (target.kind === 'logo' ? assets.logos : assets.photos)[ownKey(target.id)]; });
   paintSlots();
   paintLogos();
 }
@@ -141,7 +157,7 @@ async function paintSlots() {
   await loaded;
   for (const button of $('ltGrid').querySelectorAll('[data-slot-kind]')) {
     const { slotKind: kind, slotId: id } = button.dataset;
-    const image = (kind === 'logo' ? store.assets.logos : store.assets.photos)[id] || '';
+    const image = kind === 'logo' ? logoOf(id) : photoOf(id);
     const shown = image ? await drawThumb(button.querySelector('canvas'), image, kind === 'photo' ? 'head' : 'contain') : false;
     if (!image) button.querySelector('canvas').getContext('2d').clearRect(0, 0, 999, 999);
     button.classList.toggle('filled', shown);
@@ -206,7 +222,7 @@ function countPlayers(teamId) {
 function duplicates() {
   const seen = new Set(), repeated = new Set();
   for (const team of draft.teams) {
-    const key = team.name.trim().toLowerCase();
+    const key = personKey(team.name); // as core.lanTeams compares them
     if (key && seen.has(key)) repeated.add(team.id);
     seen.add(key);
   }
@@ -250,11 +266,11 @@ function addPlayer(teamId) {
 async function removePlayer(teamId, playerId) {
   const team = teamOf(teamId), player = team?.players.find(p => p.id === playerId);
   if (!player) return;
-  if ((player.nick || store.assets.photos[playerId]) && !window.confirm(`Убрать игрока ${player.nick || ''} вместе с фото?`)) return;
+  if ((player.nick || photoOf(playerId)) && !window.confirm(`Убрать игрока ${player.nick || ''} вместе с фото?`)) return;
   team.players = team.players.filter(p => p.id !== playerId);
   commit(true);
   renderTeams();
-  if (store.assets.photos[playerId]) await clearImage({ kind: 'photo', id: playerId });
+  if (photoOf(playerId)) await clearImage({ kind: 'photo', id: playerId });
 }
 async function removeTeam(teamId) {
   const team = teamOf(teamId);
@@ -265,10 +281,10 @@ async function removeTeam(teamId) {
   commit(true);
   renderTeams();
   renderMatches();
-  const assets = structuredClone(store.assets);
-  delete assets.logos[teamId];
-  for (const p of team.players) delete assets.photos[p.id];
-  await store.save(assets);
+  await changeAssets(assets => {
+    delete assets.logos[ownKey(teamId)];
+    for (const p of team.players) delete assets.photos[ownKey(p.id)];
+  });
 }
 
 // A Drive folder: a folder per team, «nick.png» per player and logo.png.
@@ -283,7 +299,7 @@ async function importFiles(files) {
     await loaded;
     const { teams, problems } = collectTeams(files);
     if (!teams.length) throw new Error('В выбранном нет папок команд с картинками (PNG, JPG, WEBP).');
-    const assets = structuredClone(store.assets), jobs = [], failed = [], warned = [];
+    const made = { logos: {}, photos: {} }, jobs = [], failed = [], warned = [];
     for (const found of teams) {
       let team = draft.teams.find(t => personKey(t.name) === personKey(found.name));
       if (!team) {
@@ -310,14 +326,17 @@ async function importFiles(files) {
       for (let job = queue.shift(); job; job = queue.shift()) {
         try {
           const { url, warning } = await processImage(await job.file.blob(), job.kind);
-          (job.kind === 'logo' ? assets.logos : assets.photos)[job.id] = url;
+          (job.kind === 'logo' ? made.logos : made.photos)[ownKey(job.id)] = url;
           if (warning) warned.push(`${job.label}: ${warning}`);
         } catch (error) { failed.push(`${job.label}: ${error.message} — карточка будет без картинки`); }
         setStatus('ltStatus', `Обрабатываем ${++done} из ${jobs.length}…`);
       }
     };
     await Promise.all([worker(), worker()]);
-    if (!await store.save(assets)) throw new Error('Браузеру не хватило места для фото.');
+    // Only the pictures made here are added: what changed meanwhile stays.
+    if (!await changeAssets(assets => { Object.assign(assets.logos, made.logos); Object.assign(assets.photos, made.photos); })) {
+      throw new Error('Браузеру не хватило места для фото.');
+    }
     commit(true);
     renderTeams();
     for (const text of [...problems, ...failed, ...warned]) logLine(text, true);
@@ -355,7 +374,7 @@ async function showCard() {
   const { team, player } = list[Math.max(0, at)] || {};
   if (!player) return;
   cardAt = player.id;
-  const photo = store.assets.photos[player.id] || '', logo = store.assets.logos[team.id] || '';
+  const photo = photoOf(player.id), logo = logoOf(team.id);
   await drawCardPreview($('ltCardCanvas'), { team: team.name, nick: player.nick, photo, logo, colors: palette() });
   $('ltCardCaption').textContent = `${player.nick} (${team.name || 'без названия'}) — ${photo ? 'фото есть' : 'фото нет'}, ${logo ? 'лого есть' : 'лого нет'}.`;
 }
@@ -377,7 +396,7 @@ function stepCard(step) {
 async function paintLogos() {
   await loaded;
   for (const box of document.querySelectorAll('#teamGrid [data-lan-logo]')) {
-    const logo = store.assets.logos[box.dataset.lanLogo];
+    const logo = logoOf(box.dataset.lanLogo);
     if (!logo) continue;
     let canvas = box.querySelector('canvas');
     if (!canvas) { canvas = el('canvas', { width: 68, height: 68 }); box.replaceChildren(canvas); box.classList.add('has-logo'); }
@@ -443,14 +462,14 @@ function renderSeats() {
   if (document.activeElement !== $('seatsPrefix')) $('seatsPrefix').value = lan.prefix;
   if (document.activeElement !== $('seatsPassword')) $('seatsPassword').value = lan.password;
   const snapshot = panel().snapshot();
-  const rows = [...document.querySelectorAll('#teamGrid .player-row')];
+  const cams = camStatus();
   const links = lan.prefix ? lanSeatLinks(lan) : [];
   let live = 0;
   const columns = ['a', 'b'].map((side, s) => el('div', { class: 'seat-column' },
     el('h3', { text: `${side.toUpperCase()} · ${(s ? snapshot.b : snapshot.a)?.name || (s ? 'вторая команда' : 'первая команда')}` }),
     ...Array.from({ length: LAN_SEATS }, (_, i) => {
       const link = links[s * LAN_SEATS + i];
-      const cam = rows[s * LAN_SEATS + i]?.dataset.cam || 'none';
+      const cam = !cams.on || !link ? 'none' : cams.live.has(link.id) ? 'live' : cams.checking.has(link.id) ? 'wait' : 'off';
       if (cam === 'live') live++;
       const who = (s ? snapshot.playersB : snapshot.playersA)?.[i]?.nick || '';
       return el('div', { class: 'seat-card', 'data-seat-cam': cam },
@@ -487,10 +506,10 @@ function fillEvent() {
 }
 async function paintPreview() {
   await loaded;
-  const sample = everyone().find(x => store.assets.photos[x.player.id]) || everyone()[0];
+  const sample = everyone().find(x => photoOf(x.player.id)) || everyone()[0];
   await drawCardPreview($('evPreview'), {
     team: sample?.team.name || 'Команда', nick: sample?.player.nick || 'Игрок',
-    photo: sample ? store.assets.photos[sample.player.id] || '' : '', logo: sample ? store.assets.logos[sample.team.id] || '' : '', colors: palette()
+    photo: sample ? photoOf(sample.player.id) : '', logo: sample ? logoOf(sample.team.id) : '', colors: palette()
   });
 }
 function exportEvent() {
@@ -512,11 +531,12 @@ async function importEvent(file) {
     const assets = normalizeAssets(data.assets);
     const teams = Array.isArray(data.lan.teams) ? data.lan.teams.length : 0;
     if (!window.confirm(`Заменить событие в этом браузере? В файле: ${teams} команд, ${Object.keys(assets.photos).length} фото. Текущие команды, фото и матчи пропадут.`)) return;
-    await loaded;
-    if (!await store.save(assets)) throw new Error('браузеру не хватило места для фото');
+    if (!await changeAssets(shelf => { shelf.logos = assets.logos; shelf.photos = assets.photos; })) throw new Error('браузеру не хватило места для фото');
     draft = structuredClone({ ...data.lan, on: true });
     commit(true);
     draft = structuredClone(panel().lan()); // what app.js kept: checked and cleaned
+    await saving;
+    await migrateAssets(); // a file saved by an older version
     renderAll();
     setStatus('evStatus', `Событие загружено: ${draft.teams.length} команд, ${Object.keys(store.assets.photos).length} фото.`);
   } catch (error) { setStatus('evStatus', `Не загрузилось: ${error.message}.`, true); }
@@ -526,7 +546,7 @@ async function clearEvent() {
   draft.teams = [];
   draft.matches = [];
   commit(true);
-  await store.save({});
+  await changeAssets(assets => { assets.logos = {}; assets.photos = {}; });
   renderAll();
   setStatus('evStatus', 'Событие очищено.');
 }
@@ -542,6 +562,10 @@ function renderAll() {
 
 // ---------- wiring ----------
 function start() {
+  store = new AssetStore({ db: globalThis.indexedDB ? indexedAssets() : null });
+  loaded = store.load().then(migrateAssets).then(() => { renderTeams(); paintLogos(); paintPreview(); });
+  // OBS gets every card as one page with its photo inside.
+  panel().setCardDocs(players => cardDocs(players, store.assets, palette()));
   $('ltAddTeam').addEventListener('click', addTeam);
   $('ltPickZip').addEventListener('click', () => $('ltZip').click());
   $('ltPickFolder').addEventListener('click', () => $('ltFolder').click());
@@ -591,8 +615,7 @@ function start() {
   $('seatsPassword').addEventListener('change', () => changeSeats(panel().lan().prefix, $('seatsPassword').value));
   $('seatsNewPrefix').addEventListener('click', () => changeSeats(newLanPrefix(random(4)), panel().lan().password));
   // Webcam dots in «Эфир» (live.js) are the seats' too.
-  new MutationObserver(() => { if (!$('seatsView').hidden) renderSeats(); })
-    .observe($('teamGrid'), { subtree: true, attributes: true, attributeFilter: ['data-cam'] });
+  document.addEventListener('oneshot:cams', () => { if (!$('seatsView').hidden) renderSeats(); });
 
   $('evName').addEventListener('input', () => { draft.event.name = $('evName').value; commit(); });
   for (const [key, id] of COLORS) $(id).addEventListener('input', () => {

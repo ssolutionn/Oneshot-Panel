@@ -364,14 +364,19 @@ function cardDocsNow() {
 }
 // lan.js: another prefix is a new data source; edited teams keep the match,
 // lineups and veto where they still fit, and a renamed team stays chosen.
+// A team on air whose name is being retyped (blank, or for a moment the same as
+// another's) is held: its side, lineup and veto wait for the new name.
+const lanHold = {};
 function setLan(value) {
   const next = lanConfig({ ...value, on: EVENT_LAN });
   // With LAN off the prefix is only kept for later: the sheets match stays.
   const sameSource = next.on === state.lan.on && (!next.on || next.prefix === state.lan.prefix);
+  const ready = new Set(lanTeams(next).map(t => t.teamId));
   for (const side of ['a', 'b']) {
-    const id = state.lan.teams.find(t => t.name === state[side])?.id;
-    const renamed = next.teams.find(t => t.id === id)?.name;
-    if (renamed) state[side] = renamed;
+    const id = state.lan.teams.find(t => t.name === state[side])?.id || lanHold[side];
+    const team = next.teams.find(t => t.id === id);
+    if (team && ready.has(team.id)) state[side] = team.name;
+    if (team && !ready.has(team.id)) lanHold[side] = id; else delete lanHold[side];
   }
   state.lan = next;
   const stored = writeStorage(LAN_STORE, next);
@@ -505,24 +510,25 @@ async function refresh() {
       parseSchedule(schedule.value) : state.schedule, names);
 
     const pair = state.a + '\n' + state.b;
-    if (!names.includes(state.a)) {
-      state.a = names[0];
+    const held = side => lan && Boolean(lanHold[side]);
+    if (!names.includes(state.a) && !held('a')) {
+      state.a = names[0] || '';
       state.keysA = [];
     }
-    if (!names.includes(state.b) || state.b === state.a) {
+    if ((!names.includes(state.b) || state.b === state.a) && !held('b')) {
       state.b = names.find(n => n !== state.a) || '';
       state.keysB = [];
     }
     if (pair !== state.a + '\n' + state.b) resetVeto();
-    state.keysA = reconcileKeys(getTeam('a'), state.keysA);
-    state.keysB = reconcileKeys(getTeam('b'), state.keysB);
+    if (!held('a')) state.keysA = reconcileKeys(getTeam('a'), state.keysA);
+    if (!held('b')) state.keysB = reconcileKeys(getTeam('b'), state.keysB);
     syncScheduledSelection();
     state.lastSync = new Date();
     state.stale = false;
     render();
     const word = teams.length % 10 === 1 && teams.length % 100 !== 11 ? 'команда' :
       [2, 3, 4].includes(teams.length % 10) && ![12, 13, 14].includes(teams.length % 100) ? 'команды' : 'команд';
-    $('syncTitle').textContent = lan ? `${teams.length} ${word} · ЛАН` : `${teams.length} команд из таблицы`;
+    $('syncTitle').textContent = lan ? (teams.length ? `${teams.length} ${word} · ЛАН` : 'Нет команд · ЛАН') : `${teams.length} команд из таблицы`;
     $('syncDot').className = 'good';
     $('syncTime').textContent = lan ? 'команды и матчи — во вкладках «Команды» и «Матчи»' :
       'Обновлено ' + state.lastSync.toLocaleTimeString('ru-RU', {
@@ -628,7 +634,10 @@ function render() {
   if (listed && (listed.team1 !== state.a || listed.team2 !== state.b)) state.matchKey = '';
   $('matchSelect').value = listed && state.matchKey ? state.matchKey : '';
 
-  $('teamGrid').innerHTML = ['a', 'b'].map((side, index) => {
+  // An event whose teams were all removed: say where they are made, nothing stale.
+  $('teamGrid').innerHTML = state.lan.on && !state.teams.length ?
+    '<div class="empty-panel">Добавь команды во вкладке «Команды»: название, логотип и игроков прямо в карточке.</div>' :
+    ['a', 'b'].map((side, index) => {
     const team = getTeam(side);
     if (!team) return '<div class="empty-panel">Команда не выбрана</div>';
     const keys = state[side === 'a' ? 'keysA' : 'keysB'];
@@ -1006,7 +1015,8 @@ $('swapBtn').addEventListener('click', () => {
   state.matchKey = '';
   swapVeto();
   render();
-  toast('Команды поменялись сторонами');
+  // On a LAN a side is a row of PCs: the swap moves each team to the other seats' webcams.
+  toast(state.lan.on ? 'Команды поменялись местами: первая теперь за компами A1–A5, вторая — за B1–B5' : 'Команды поменялись сторонами');
 });
 $('matchSelect').addEventListener('change', () => {
   state.matchKey = $('matchSelect').value;

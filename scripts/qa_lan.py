@@ -212,10 +212,18 @@ async def event_address(browser, base, out):
     await page.click("#tabObserver")
     observer = await page.input_value("#output")
     assert "2. Альфа — sub1" in observer and "6. Браво — b1" in observer, observer
-    # Renaming a team in «Команды» keeps it in the match, its lineup and its logo.
+    # Renaming a team in «Команды» keeps it in the match, its lineup, veto and logo —
+    # also while the name is blank for a moment (saved on the way).
+    await page.click("#vetoNavBtn")
+    await page.click('[data-map="Anubis"]')
+    await expect(page.locator('[data-map="Anubis"]')).to_be_disabled()
     await page.click("#teamsNavBtn")
+    await cards.nth(0).locator(".lt-name").fill("")
+    await page.wait_for_timeout(700)
     await cards.nth(0).locator(".lt-name").fill("Альфа Про")
     await cards.nth(0).locator(".lt-name").dispatch_event("change")
+    await page.click("#vetoNavBtn")
+    await expect(page.locator('[data-map="Anubis"]')).to_be_disabled()
     await page.click("#viewPrep")
     await expect(page.locator('[data-team="a"]')).to_have_value("Альфа Про")
     assert (await page.locator('[data-player="a"][data-slot="1"] option:checked').inner_text()).startswith("sub1")
@@ -374,8 +382,14 @@ async def old_roster_moves_over(browser, base):
     await expect(cards.nth(0).locator(".lt-logo")).to_have_class(re.compile("filled"), timeout=15000)
     await expect(cards.nth(0).locator(".lt-photo").first).to_have_class(re.compile("filled"))
     stored = await page.evaluate(INDEXED)
-    assert stored["logos"].get("t1") and stored["photos"].get("t1p1"), stored and list(stored["photos"])
+    assert stored["logos"].get("#t1") and stored["photos"].get("#t1p1"), list(stored["photos"])
+    # The old name keys moved, not copied: a later team «T1» can not pick them up.
+    assert not stored["logos"].get(KEYS[0]) and not stored["photos"].get(KEYS[1]), list(stored["photos"])
     assert await page.input_value("#seatsPrefix") == "k7qz"
+    # «Компы» watches every seat's PC, also the seats nobody sits at (3 players here, 10 PCs).
+    await page.click("#seatsNavBtn")
+    await expect(page.locator(".seat-card[data-seat-cam=live]")).to_have_count(10, timeout=20000)
+    await expect(page.locator("#seatsWatch")).to_have_text("Вебки: 10 из 10 в эфире")
     await ctx.close()
 
 

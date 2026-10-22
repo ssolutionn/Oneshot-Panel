@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import zlib from 'node:zlib';
 import {
   readZip, collectTeams, rosterLine, normalizeAssets, readAssets, writeAssets, AssetStore, photoOf, logoOf,
-  eventCardHtml, eventCardUrl, cardDocs, paletteFrom, DEFAULT_COLORS, splitChunks, ChunkAssembler, docKey, CHUNK, ASSETS_STORE
+  eventCardHtml, eventCardUrl, cardDocs, paletteFrom, DEFAULT_COLORS, splitChunks, ChunkAssembler, docKey, CHUNK, ASSETS_STORE, ownKey
 } from '../lan-event.js';
 import { parseLanRoster, defaultLineup, seatTeam, lanConfig, buildObs, cardKey } from '../core.js';
 import { slotPlan } from '../obs.js';
@@ -220,4 +220,26 @@ test('palette: three chosen colours become the five of a card; none chosen chang
   assert.ok(html(url).includes('--accent:#ff0066') && html(url).includes('--black:#000000'));
   const [plain] = Object.values(cardDocs([{ team: 'T', nick: 'n' }], normalizeAssets({})));
   assert.ok(html(plain).includes(`--accent:${DEFAULT_COLORS.accent}`));
+});
+
+test('a ZIP from a Mac: __MACOSX and ._ files do not make real team folders look misplaced', () => {
+  const file = path => ({ path, size: 100, blob: async () => new Blob([PNG]) });
+  const { teams, problems } = collectTeams([file('TeamA/s1mple.png'), file('TeamB/zywoo.png'), file('TeamA/logo.png'),
+    file('__MACOSX/TeamA/._s1mple.png'), file('TeamA/._logo.png'), file('desktop.ini')]);
+  assert.deepEqual(teams.map(t => [t.name, [...t.players.keys()], Boolean(t.logo)]), [['TeamA', ['s1mple'], true], ['TeamB', ['zywoo'], false]]);
+  assert.deepEqual(problems, []);
+});
+
+test('the dock takes the largest card the panel can make; event pictures are kept by #id', () => {
+  const big = 'data:image/png;base64,' + 'A'.repeat(399000);
+  const url = eventCardUrl({ team: 'T', nick: 'n', photo: big, logo: big });
+  const parts = splitChunks(url), dock = new ChunkAssembler();
+  assert.ok(url.length > 600000, 'bigger than the old limit');
+  parts.forEach((data, index) => dock.add('T|n', index, parts.length, data));
+  assert.equal(dock.get('T|n'), url);
+  // A team named «T1» (old name key «t1») and an event team with id t1 do not meet.
+  const assets = normalizeAssets({ photos: { [ownKey('p1')]: PNG }, logos: { t1: WEBP, [ownKey('t1')]: PNG } });
+  const docs = cardDocs([{ team: 'Navi', nick: 'n1', teamId: 't1', playerId: 'p1' }, { team: 'T1', nick: 'x', teamId: 't2', playerId: 'p2' }], assets, {});
+  assert.match(decodeURIComponent(docs[cardKey('Navi', 'n1')]), /data:image\/png;base64,/);
+  assert.doesNotMatch(decodeURIComponent(docs[cardKey('T1', 'x')]), /data:image\/webp/);
 });
