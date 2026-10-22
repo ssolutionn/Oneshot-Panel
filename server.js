@@ -11,7 +11,7 @@ import { createCs2, handleCs2, loadToken } from './server/cs2-api.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicFiles = new Set([
-  'index.html', 'app.js', 'core.js', 'style.css', 'theme.js',
+  'index.html', 'app.js', 'core.js', 'style.css', 'theme.js', 'event-hub.js', 'event-hub-config.js', 'profile-storage.js',
   'card.html', 'card.js', 'card.css', 'live.js', 'obs.js', 'vdo.js',
   'lobby.js', 'faceit.js', 'notifications.js', 'notification-worker.js', 'obs-bridge.html', 'obs-bridge.js',
   'veto.html', 'veto.js', 'veto.css', 'veto-room.js', 'veto-watch.js', 'bookmakers.js', 'bookies.js', 'lan.js', 'lan-event.js', 'lan-images.js', 'cs2.js'

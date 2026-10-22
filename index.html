@@ -11,25 +11,44 @@
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
   <script src="/theme.js"></script>
   <link rel="stylesheet" href="/style.css">
-  <!-- web-only --><link rel="stylesheet" href="/assets/obs-connection.css"><!-- /web-only -->
+  <!-- web-only --><link rel="stylesheet" href="/assets/obs-connection.css"><link rel="stylesheet" href="/assets/event-hub.css"><!-- /web-only -->
 </head>
 <body>
   <a class="skip-link" href="#webcams">К составам команд</a>
   <div class="app-shell">
+  <!-- web-only --><section id="eventHub" class="event-hub" hidden aria-labelledby="hubHeading">
+    <header class="hub-header">
+      <img src="/assets/oneshot-logo-day.png" alt="Oneshot" width="220" height="59">
+      <p>ПАНЕЛЬ ТУРНИРНОЙ КОМАНДЫ</p>
+    </header>
+    <div id="hubEventsView" class="hub-view" hidden>
+      <span class="eyebrow">ONESHOT HUB</span>
+      <h1 id="hubHeading">Выбери мероприятие</h1>
+      <p class="hub-description">Все турниры и дисциплины — в одном месте. Данные каждого события хранятся отдельно.</p>
+      <div id="hubEvents" class="hub-cards"></div>
+    </div>
+    <div id="hubGamesView" class="hub-view" hidden>
+      <button id="hubBackEvents" class="hub-back" type="button">← Все мероприятия</button>
+      <span class="eyebrow">МЕРОПРИЯТИЕ</span>
+      <h1 id="hubEventName"></h1>
+      <p id="hubEventDescription" class="hub-description"></p>
+      <div id="hubGames" class="hub-cards hub-games"></div>
+    </div>
+    <div id="hubSetupView" class="hub-view" hidden>
+      <button id="hubBackGames" class="hub-back" type="button">← К дисциплинам</button>
+      <span class="eyebrow">МОДУЛЬ ГОТОВИТСЯ</span>
+      <h1 id="hubSetupTitle">Dota 2</h1>
+      <p class="hub-description">Разделение заложено, но Dota 2 ещё не подключена к панели. Здесь появится отдельная подготовка составов, GSI-статистика и эфирная графика. Настройки Counter-Strike 2 останутся отдельными.</p>
+    </div>
+  </section><!-- /web-only -->
+  <div id="panelApp">
   <header class="site-header">
     <a class="brand" href="/" aria-label="Oneshot Panel">
       <img class="logo-day" src="/assets/oneshot-logo-day.png" alt="Oneshot" width="359" height="96">
       <img class="logo-night" src="/assets/oneshot-logo-night.png" alt="Oneshot" width="359" height="96">
       <span class="brand-sub">panel</span>
     </a>
-    <!-- web-only -->
-    <div class="event-selector-box" style="margin-left: 16px;">
-      <select id="eventSelector" aria-label="Выбор турнира" style="padding: 6px 10px; border-radius: 6px; background: var(--field); color: var(--ink); border: 1px solid var(--field-line); font-size: 13px;">
-        <option value="cyberclash">CyberClash</option>
-        <option value="reu">REU Esports Cup</option>
-      </select>
-    </div>
-    <!-- /web-only -->
+    <!-- web-only --><button id="changeEventBtn" class="nav-button" type="button">Мероприятия</button><!-- /web-only -->
     <div class="header-actions">
       <button id="wizardBtn" class="nav-button" type="button" title="Быстрый запуск и чеклист">⚡ Мастер запуска</button>
       <a id="sidebarSource" class="source-link" target="_blank" rel="noreferrer" title="Открыть таблицу организатора">
@@ -735,7 +754,9 @@
     </div>
   </dialog><!-- /web-only -->
 
+  </div>
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <!-- web-only --><script type="module" src="/profile-storage.js"></script><script type="module" src="/event-hub.js"></script><!-- /web-only -->
   <script type="module" src="/app.js"></script>
   <!-- web-only --><script type="module" src="/live.js"></script>
   <script type="module" src="/lan.js"></script>
