@@ -549,7 +549,7 @@ export function buildObs(template, a, b, ka, kb,
       // VDO.Ninja has no video (not connected yet, or dropped).
       Object.assign(cardSource, {
         uuid: uuidFn(), name: `CARD ${slot} | ${p.team} | ${p.nick}`,
-        settings: { url: readyCard(cardDocs, cardKey(p.team, p.nick)) || cardUrl(p, cardBase), width: 1920, height: 1080 },
+        settings: { url: readyCard(cardDocs, cardKey(p.team, p.nick)) || cardUrl(p, cardBase), width: geometry.width, height: geometry.height },
         muted: true
       });
       d.sources.push(cardSource);
@@ -559,8 +559,8 @@ export function buildObs(template, a, b, ka, kb,
         source_uuid: cardSource.uuid, visible: true,
         id: Math.max(...scene.settings.items.map(it => Number(it.id) || 0)) + 1
       };
-      const rect=cameraFrame(frame);
-      fitItem(cardItem,rect.x,rect.y,rect.width,rect.height);
+      fitItem(cardItem,geometry.x,geometry.y,geometry.width,geometry.height);
+      cardItem.rot=0;
       scene.settings.items.splice(scene.settings.items.indexOf(item), 0, cardItem);
     }
   });

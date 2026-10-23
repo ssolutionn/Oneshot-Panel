@@ -8,69 +8,73 @@
   --card-fallback:
     radial-gradient(ellipse at 50% 15%,var(--card-cyan),transparent 65%),
     linear-gradient(120deg,var(--card-teal),var(--card-deep) 48%,var(--card-teal));
-  --scale:1;
   color-scheme:dark;
 }
 * { box-sizing:border-box; }
-html,body { margin:0; height:100%; overflow:hidden; background:var(--card-black); }
+html,body { margin:0; width:100%; height:100%; overflow:hidden; background:transparent; }
 .card {
-  position:absolute; left:calc((100vw - 1920px * var(--scale)) / 2);
-  top:calc((100vh - 1080px * var(--scale)) / 2);
-  width:1920px; height:1080px; overflow:hidden;
-  transform:scale(var(--scale)); transform-origin:0 0;
+  position:relative; width:100%; height:100%; min-width:0; min-height:0; overflow:hidden;
   background:var(--card-fallback); color:var(--card-ink);
   font-family:var(--card-font); -webkit-font-smoothing:antialiased;
-  font-synthesis:none;
+  font-synthesis:none; container-type:size;
 }
 .card-background { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-.card-event { position:absolute; z-index:5; top:100px; right:105px; width:290px; height:147px; object-fit:contain; }
+.card-event { position:absolute; z-index:5; top:6%; right:5%; width:15%; height:14%; object-fit:contain; }
 .card-portrait { position:absolute; z-index:1; inset:0; overflow:hidden; }
 .card-photo {
-  position:absolute; left:50%; top:35px; transform:translateX(-50%);
-  /* HLTV bodyshots are 400×417: about 2.8× keeps the face sharp on a full
-     1920×1080 frame (it was 4× and visibly soft). */
-  height:1150px; width:auto; max-width:none; max-height:none;
+  position:absolute; left:50%; top:3%; transform:translateX(-50%);
+  height:96%; width:auto; max-width:none; max-height:none;
   object-fit:contain; object-position:50% 0;
-  filter:drop-shadow(0 0 28px var(--card-teal));
+  filter:drop-shadow(0 0 2cqh var(--card-teal));
 }
 .card-shade { position:absolute; z-index:2; inset:0; pointer-events:none; }
 .card-identity {
-  position:absolute; z-index:3; left:160px; right:160px; top:160px; bottom:130px;
+  position:absolute; z-index:3; inset:10% 8%;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   text-align:center;
 }
 .card-emblem {
-  flex:none; width:280px; height:280px; object-fit:contain; margin-bottom:30px;
-  filter:drop-shadow(0 10px 28px var(--card-shadow));
+  flex:none; width:min(28cqh,28cqw); height:min(28cqh,28cqw); object-fit:contain; margin-bottom:3cqh;
+  filter:drop-shadow(0 1cqh 3cqh var(--card-shadow));
 }
 .card-text { width:100%; min-width:0; }
 .card-team {
-  display:flex; align-items:center; justify-content:center; gap:20px;
-  font-family:"Segoe UI",Arial,sans-serif; font-size:46px; font-weight:700;
-  line-height:1.15; letter-spacing:.18em; text-transform:uppercase;
+  display:flex; align-items:center; justify-content:center; gap:1.5cqw;
+  font-family:"Segoe UI",Arial,sans-serif; font-size:4.2cqh; font-weight:700;
+  line-height:1.15; letter-spacing:.12em; text-transform:uppercase;
   color:var(--card-muted); text-shadow:0 2px 14px var(--card-shadow);
 }
 .card-team>span:last-child { min-width:0; max-width:100%; overflow-wrap:anywhere; }
-.card-logo { flex:none; width:60px; height:60px; }
+.card-logo { flex:none; width:5cqh; height:5cqh; }
 .card-logo img { display:block; width:100%; height:100%; object-fit:contain; }
 .card-nick {
-  margin:25px 0 0; max-width:100%; white-space:nowrap;
-  font-size:224px; font-weight:900; line-height:1.08; letter-spacing:-.035em;
-  text-shadow:0 6px 30px var(--card-shadow);
+  margin:2.2cqh 0 0; max-width:100%; white-space:nowrap;
+  font-size:19cqh; font-weight:900; line-height:1.02; letter-spacing:-.035em;
+  text-shadow:0 .6cqh 3cqh var(--card-shadow);
 }
 .card-nick.is-long { white-space:normal; overflow-wrap:anywhere; }
 .card-rule {
-  display:block; width:280px; height:12px; margin:32px auto 0;
+  display:block; width:24cqw; height:1.1cqh; margin:2.8cqh auto 0;
   background:var(--card-accent);
   clip-path:polygon(2% 10%,90% 0,97% 25%,100% 60%,94% 85%,13% 100%,0 65%);
 }
 body[data-layout="photo"] .card-shade {
-  background:linear-gradient(0deg,var(--card-black),transparent 43%);
+  background:linear-gradient(0deg,var(--card-black),transparent 48%);
 }
-body[data-layout="photo"] .card-identity { top:auto; bottom:60px; }
+body[data-layout="photo"] .card-identity { inset:auto 6% 5%; }
 body[data-layout="photo"] .card-emblem,
 body[data-layout="no-photo"] .card-logo { display:none!important; }
-body[data-layout="photo"] .card-team { font-size:30px; letter-spacing:.1em; }
-body[data-layout="photo"] .card-nick { font-size:160px; margin-top:12px; }
+body[data-layout="photo"] .card-team { font-size:3.3cqh; letter-spacing:.08em; }
+body[data-layout="photo"] .card-nick { font-size:14cqh; margin-top:1cqh; }
 body[data-layout="photo"] .card-rule { display:none; }
+@container (max-aspect-ratio: 1/1) {
+  .card-event { width:22%; height:12%; }
+  .card-identity { inset:8% 6%; }
+  .card-team { font-size:5cqh; }
+  .card-nick { font-size:15cqh; white-space:normal; overflow-wrap:anywhere; }
+  .card-emblem { width:min(24cqh,24cqw); height:min(24cqh,24cqw); }
+  body[data-layout="photo"] .card-identity { inset:auto 5% 5%; }
+  body[data-layout="photo"] .card-team { font-size:4cqh; }
+  body[data-layout="photo"] .card-nick { font-size:12cqh; }
+}
 [hidden] { display:none!important; }

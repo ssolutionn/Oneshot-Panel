@@ -75,7 +75,7 @@ test('an older panel keeps the previous full-frame and contain behavior through 
   assert.equal(new URL(plan.camera.settings.url).searchParams.has('cover'),false);
 });
 
-test('JSON export and live OBS apply share camera settings and geometry; cards stay upright',()=>{
+test('JSON export and live OBS apply share camera and card frame geometry',()=>{
   for(const frame of ['inner43','full43','wide']){
     for(const rotation of [0,90,180,270]){
       const a=team('A'),b=team('B');
@@ -95,9 +95,11 @@ test('JSON export and live OBS apply share camera settings and geometry; cards s
       assert.deepEqual(camera.pos,{x:plan.camera.transform.positionX,y:plan.camera.transform.positionY});
       assert.deepEqual(camera.bounds,{x:plan.camera.transform.boundsWidth,y:plan.camera.transform.boundsHeight});
       assert.equal(card.rot,0);
-      const rect=cameraFrame(frame);
-      assert.deepEqual(card.pos,{x:rect.x,y:rect.y});
-      assert.deepEqual(card.bounds,{x:rect.width,y:rect.height});
+      assert.deepEqual(card.pos,camera.pos);
+      assert.deepEqual(card.bounds,camera.bounds);
+      const cardSource=document.sources.find(s=>s.uuid===card.source_uuid);
+      assert.deepEqual([cardSource.settings.width,cardSource.settings.height],
+        [camera.bounds.x,camera.bounds.y]);
       assert.equal(source.settings.url.includes('cover'),true);
     }
   }

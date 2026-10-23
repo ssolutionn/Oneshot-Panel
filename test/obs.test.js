@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { ObsClient, obsAuth, applyMatch, slotPlan, cardIndex, emitVeto, VETO_EVENT, loopbackObsUrl } from '../obs.js';
-import { cameraViewUrl as viewUrl, cardUrl } from '../core.js';
+import { cameraViewUrl as viewUrl, cardUrl, DEFAULT_CARD_BASE } from '../core.js';
 
 // A small obs-websocket v5 server: enough of the protocol and of OBS scenes
 // to run applyMatch end to end over a real WebSocket.
@@ -144,10 +144,16 @@ test('Sending a match updates cameras and puts cards right under them', async ()
       assert.equal(obs.state.inputs.get(camera).settings.url, viewUrl(p));
       assert.equal(obs.state.inputs.get(camera).settings.css, 'keep');
       assert.equal(obs.state.inputs.get(card).settings.url, cardUrl(p, 'https://panel.example'));
-      for (const it of obs.state.scenes.get(`Игрок ${p.slot}`).slice(2)) {
-        assert.equal(it.transform.boundsWidth, 1320);
-        assert.equal(it.transform.boundsType, 'OBS_BOUNDS_SCALE_INNER');
-      }
+      const sceneItems = obs.state.scenes.get(`Игрок ${p.slot}`).slice(2);
+      const [cardItem, cameraItem] = sceneItems;
+      assert.equal(cardItem.transform.boundsWidth, cameraItem.transform.boundsWidth);
+      assert.equal(cardItem.transform.boundsHeight, cameraItem.transform.boundsHeight);
+      assert.equal(cardItem.transform.rotation, cameraItem.transform.rotation);
+      assert.equal(cardItem.transform.boundsType, 'OBS_BOUNDS_SCALE_INNER');
+      assert.deepEqual(
+        [obs.state.inputs.get(card).settings.width, obs.state.inputs.get(card).settings.height],
+        [obs.state.inputs.get(camera).settings.width, obs.state.inputs.get(camera).settings.height]
+      );
     }
     // Next match: other players, cards switched off. Sources are renamed in
     // place and the old cards are hidden, not deleted.
@@ -184,6 +190,23 @@ test('OBS errors are explained instead of half-applying a match', async () => {
     obs.close();
   }
   await assert.rejects(new ObsClient('ws://127.0.0.1:9', '', { timeout: 2000 }).connect(), /OBS/);
+});
+
+test('Live OBS card uses the camera bounds while keeping its text upright', () => {
+  const sceneItems = [
+    { inputKind: 'browser_source', sourceName: 'CAM 01 | A | old', sceneItemIndex: 2, sceneItemId: 12 }
+  ];
+  for (const rotation of [0, 90, 180, 270]) {
+    const plan = slotPlan(sceneItems, { ...players()[0], camera: { rotation } }, { includeCards: true, cameraFrame: 'inner43' });
+    assert.deepEqual(plan.card.settings, {
+      url: cardUrl(players()[0], DEFAULT_CARD_BASE), width: plan.camera.transform.boundsWidth, height: plan.camera.transform.boundsHeight
+    });
+    assert.equal(plan.card.transform.rotation, 0);
+    assert.deepEqual([plan.card.transform.positionX, plan.card.transform.positionY,
+      plan.card.transform.boundsWidth, plan.card.transform.boundsHeight],
+      [plan.camera.transform.positionX, plan.camera.transform.positionY,
+        plan.camera.transform.boundsWidth, plan.camera.transform.boundsHeight]);
+  }
 });
 
 test('Card placement keeps the card directly under the camera', () => {

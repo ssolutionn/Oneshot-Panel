@@ -338,15 +338,16 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   Нативное событие `oneshot-veto` оставлено для совместимости,
   но успешный vendor request не доказывает доставку в браузер. `?preview=1` —
   демо. Свой README и `scripts/qa_veto_overlay.py` (нужен WebGL).
-- `card.html`, `card.js`, `card.css` — карточка игрока 1920×1080
-  (`/card.html?team=…&nick=…`): фон `assets/card/background.jpg`, логотип CyberClash и логотип
-  команды, ник, фото HLTV из `assets/players/players.json`. В OBS JSON
-  добавляется под каждой камерой только при включённом includeCards
-  (`CARD NN | Команда | Ник`); фото и логотип `card.js` выбирает через
-  `playerPhoto`/`teamLogo` из `core.js` (их же использует
-  `scripts/build_match_packages.mjs`). Оформление — токены `--card-*`.
-  Фото крупно по центру; при отсутствии/ошибке фото — эмблема команды
-  и ник по центру. Совпадение ника в другой команде не даёт фото.
+- `card.html`, `card.js`, `card.css` — адаптивная карточка игрока
+  (`/card.html?team=…&nick=…`): фон `assets/card/background.jpg`, логотип
+  события и команды, ник, фото HLTV из `assets/players/players.json`. Browser
+  Source карточки получает ту же конечную область, bounds и position, что
+  камера (inner43/full43/wide; portrait rotation меняет ширину и высоту), но
+  остаётся upright (rotation=0), чтобы текст и логотип читались. В OBS JSON она
+  добавляется прямо под камерой только при `includeCards` (`CARD NN | Команда | Ник`);
+  фото и логотип `card.js` выбирает через `playerPhoto`/`teamLogo` из `core.js`.
+  Оформление — токены `--card-*`. При отсутствии фото показываются эмблема
+  команды и ник. Совпадение ника в другой команде не даёт фото.
 - `scripts/build_match_packages.mjs` и `scripts/render_match_cards.py` —
   эфирный пакет по дате из живых таблиц: готовые CARD внутри JSON, JPG,
   исходные фото и переносимые локальные коллекции. Workflow

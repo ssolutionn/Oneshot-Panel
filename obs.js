@@ -139,8 +139,8 @@ export function slotPlan(sceneItems, player, { includeCards = false, cardBase = 
     },
     card: includeCards ? {
       item: card || null, name: `CARD ${slot} | ${player.team} | ${player.nick}`,
-      settings: { url: readyCard(cardDocs, cardKey(player.team, player.nick)) || cardUrl(player, cardBase), width:1920,height:1080 },
-      transform:{...FIT,positionX:rect.x,positionY:rect.y,boundsWidth:rect.width,boundsHeight:rect.height}
+      settings: { url: readyCard(cardDocs, cardKey(player.team, player.nick)) || cardUrl(player, cardBase), width:geometry.width,height:geometry.height },
+      transform:{...FIT,positionX:geometry.x,positionY:geometry.y,rotation:0,boundsWidth:geometry.width,boundsHeight:geometry.height}
     } : null,
     hideCard: !includeCards && card ? card : null
   };

@@ -10,17 +10,13 @@ const nick = (params.get('nick') || '').trim();
 const TIMEOUT = 4500;
 const DATA_TIMEOUT = 10000;
 
-function fitStage() {
-  document.documentElement.style.setProperty('--scale',
-    String(Math.min(innerWidth / 1920, innerHeight / 1080) || 1));
-}
 function fitNick() {
   const el = $('cardNick');
   const width = el.parentElement.clientWidth;
-  let size = document.body.dataset.layout === 'photo' ? 160 : 224;
+  let size = Math.min(innerWidth, innerHeight) * (document.body.dataset.layout === 'photo' ? 0.14 : 0.19);
   el.classList.remove('is-long');
   el.style.fontSize = `${size}px`;
-  while (el.scrollWidth > width && size > 52) {
+  while (el.scrollWidth > width && size > Math.max(18, innerWidth * 0.035)) {
     size -= 4;
     el.style.fontSize = `${size}px`;
   }
@@ -87,6 +83,7 @@ async function render() {
   document.body.dataset.ready = 'true';
 }
 
-fitStage();
-addEventListener('resize', fitStage);
+const resizeObserver = new ResizeObserver(fitNick);
+resizeObserver.observe($('card'));
+addEventListener('resize', fitNick);
 render();

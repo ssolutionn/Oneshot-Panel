@@ -5,7 +5,7 @@ import {
   decodeGviz, parseTeams, parseSchedule, scheduleDay, defaultLineup, observerText,
   selectedPlayers, validateMatch, playerText, viewUrl, pushUrl, directorUrl,
   safeFilename, buildObs, cardUrl, personKey, DEFAULT_CARD_BASE, MAP_POOL, VETO_RULES,
-  validateVeto, appendVeto, vetoText, photoMatches, playerPhoto, teamLogo, cameraViewUrl
+  validateVeto, appendVeto, vetoText, photoMatches, playerPhoto, teamLogo, cameraViewUrl, cameraGeometry
 } from '../core.js';
 
 const makeRows = () => ['HYPERSPIRIT', '6yuBoJlbl'].flatMap((team, t) =>
@@ -285,9 +285,15 @@ test('Player card sits under each camera and opens the card page', () => {
     assert.deepEqual(item.bounds, { x: 1320, y: 1008 });
     assert.deepEqual(item.pos, { x: 300, y: 36 });
     assert.equal(new Set(scene.settings.items.map(it => it.id)).size, names.length);
+    const cameraItem = scene.settings.items[camera];
+    const cameraSource = byId.get(cameraItem.source_uuid);
     assert.deepEqual(source.settings, {
-      url: cardUrl(players[i], 'https://panel.example'), width: 1920, height: 1080
+      url: cardUrl(players[i], 'https://panel.example'),
+      width: cameraSource.settings.width, height: cameraSource.settings.height
     });
+    assert.deepEqual(item.pos, cameraItem.pos);
+    assert.deepEqual(item.bounds, cameraItem.bounds);
+    assert.equal(item.rot, cameraItem.rot);
     const url = new URL(source.settings.url);
     assert.equal(url.origin + url.pathname, 'https://panel.example/card.html');
     assert.equal(url.searchParams.get('team'), players[i].team);
@@ -302,6 +308,29 @@ test('Player card sits under each camera and opens the card page', () => {
   assert.equal(personKey('zs0lt1-'), 'zs0lt1');
   assert.notEqual(personKey('es0r7'), personKey('esor'));
   assert.equal(new URL(cardUrl({ team: 'A&B', nick: 'x#1' })).searchParams.get('nick'), 'x#1');
+});
+
+test('Player card follows the selected camera frame and quarter-turn geometry', () => {
+  const args = fixture();
+  for (const frame of ['inner43', 'full43', 'wide']) {
+    for (const rotation of [0, 90, 180, 270]) {
+      const [a, b, keysA, keysB] = args;
+      const rotatedA = { ...a, players: a.players.map((player, index) => index === 0 ? { ...player, camera: { rotation } } : player) };
+      const result = buildObs(template, rotatedA, b, keysA, keysB, uuidFn(), { includeCards: true, cameraFrame: frame });
+      const scene = result.sources.find(source => source.name === 'Игрок 1');
+      const cardItem = scene.settings.items.find(item => item.name.startsWith('CARD '));
+      const cameraItem = scene.settings.items.find(item => item.name.startsWith('CAM '));
+      const sourceById = new Map(result.sources.map(source => [source.uuid, source]));
+      const cardSource = sourceById.get(cardItem.source_uuid);
+      const cameraSource = sourceById.get(cameraItem.source_uuid);
+      assert.deepEqual(cardItem.pos, cameraItem.pos, `${frame}/${rotation} position`);
+      assert.deepEqual(cardItem.bounds, cameraItem.bounds, `${frame}/${rotation} bounds`);
+      assert.equal(cameraItem.rot, rotation, `${frame}/${rotation} camera rotation`);
+      assert.equal(cardItem.rot, 0, `${frame}/${rotation} card remains upright`);
+      assert.deepEqual([cardSource.settings.width, cardSource.settings.height], [cameraSource.settings.width, cameraSource.settings.height]);
+      assert.deepEqual([cardSource.settings.width, cardSource.settings.height], [cameraItem.bounds.x, cameraItem.bounds.y]);
+    }
+  }
 });
 
 test('Player photo list points at HLTV bodyshots and files that exist', () => {
