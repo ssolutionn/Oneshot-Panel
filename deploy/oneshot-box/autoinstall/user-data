@@ -1,0 +1,22 @@
+#cloud-config
+# Safely installs the OS without selecting or formatting a disk automatically.
+autoinstall:
+  version: 1
+  interactive-sections:
+    - storage
+  locale: en_US.UTF-8
+  keyboard: { layout: us }
+  identity:
+    hostname: oneshot-box
+    username: oneshot
+    # build-iso.sh supplies a crypt hash; the generated ISO is private.
+    password: "__PASSWORD_HASH__"
+  ssh:
+    install-server: true
+    allow-pw: true
+  packages: [curl, git, ufw]
+  late-commands:
+    - curtin in-target --target=/target -- bash -c 'systemctl enable ssh'
+    - curtin in-target --target=/target -- bash -c 'ufw allow 22/tcp && ufw allow 3000/tcp && ufw --force enable'
+  updates: security
+  shutdown: reboot

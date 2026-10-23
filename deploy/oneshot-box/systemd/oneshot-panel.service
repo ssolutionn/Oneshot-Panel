@@ -1,0 +1,25 @@
+[Unit]
+Description=Oneshot Panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=oneshot-panel
+Group=oneshot-panel
+WorkingDirectory=/opt/oneshot-panel
+Environment=PORT=3000
+Environment=HOST=0.0.0.0
+Environment=CS2_JOURNAL=1
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/oneshot-panel/.cs2-data
+Environment=CS2_ALLOW_REMOTE=1
+
+[Install]
+WantedBy=multi-user.target

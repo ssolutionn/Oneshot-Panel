@@ -1,0 +1,21 @@
+services:
+  cs2-server:
+    # Community image tag is intentionally visible; pin a verified digest before tournaments.
+    image: cm2network/cs2:latest
+    container_name: oneshot-cs2-server
+    restart: unless-stopped
+    ports:
+      - "27015:27015/tcp"
+      - "27015:27015/udp"
+    env_file:
+      - .env
+    environment:
+      SRCDS_RCONPW: ${SRCDS_RCONPW:?Set SRCDS_RCONPW in the private environment}
+      CS2_RCON_PASSWORD: ${SRCDS_RCONPW:?Set SRCDS_RCONPW in the private environment}
+      SRCDS_STARTMAP: de_mirage
+      SRCDS_MAXPLAYERS: "10"
+      SRCDS_FPS_MAX: "300"
+    volumes:
+      - ./oneshot.cfg:/home/steam/cs2-home/cs2-dedi/game/csgo/cfg/oneshot.cfg:ro
+volumes:
+  cs2-data:
