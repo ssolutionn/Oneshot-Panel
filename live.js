@@ -874,6 +874,7 @@ function followRoom() {
     watch.live?.stop();
     watch.live = null;
     watch.ringing.clear();
+    setFlashingTitle('veto', '');
     watch.synced = '';
     if (target) {
       const stored = read(WATCH_STORE) || {};
@@ -953,7 +954,6 @@ $('cvAlertOk').addEventListener('click', () => {
   if (watch.live) watchSave({ calls: { r: watch.live.room.r, ids: [...watch.answered].slice(-50) } });
   paintWatch();
 });
-// The title blinks through notifications.js: coordinates with the lobby's siren.
 
 const setText = (el, text) => { if (el.textContent !== text) el.textContent = text; };
 function moveText(names, move) {

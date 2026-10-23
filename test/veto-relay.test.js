@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm,stat} from 'node:fs/promises';
+import {mkdtemp,rm,stat,writeFile,mkdir,utimes} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {createRoom,decodeLink,encodeLink,captainKey,roomSecrets,displayRelayIdentity} from '../veto-room.js';
@@ -132,16 +132,15 @@ test('file relay survives restart, keeps private permissions, prunes expiry and 
   assert.throws(()=>restarted.file('../passwords'));
   await restarted.prune(now+KEEP_MS+1);
   assert.equal(await restarted.read(packet.topic),null);
-  const tmpFile=path.path ? '' : path.join(dir,'orphaned.json.12345.tmp');
-  const linkDir=path.join(dir,'links');
-  await import('node:fs/promises').then(async fs=>{
-    await fs.writeFile(path.join(dir,'orphaned.json.12345.tmp'),'{}');
-    await fs.mkdir(linkDir,{recursive:true});
-    await restarted.prune(now+KEEP_MS+1);
-    await assert.rejects(()=>fs.stat(path.join(dir,'orphaned.json.12345.tmp')));
-    const linkDirStat=await fs.stat(linkDir);
-    assert.ok(linkDirStat.isDirectory());
-  });
+  // A write that crashed before its rename leaves a .tmp: an old one goes, a
+  // fresh one (another topic's write in flight) stays, the links folder stays.
+  const orphan=path.join(dir,'orphaned.json.12345.tmp'),writing=path.join(dir,'writing.json.67890.tmp');
+  await writeFile(orphan,'{}');await writeFile(writing,'{}');await mkdir(path.join(dir,'links'));
+  const old=new Date(Date.now()-2*3600000);await utimes(orphan,old,old);
+  await restarted.prune();
+  await assert.rejects(()=>stat(orphan));
+  assert.ok((await stat(writing)).isFile());
+  assert.ok((await stat(path.join(dir,'links'))).isDirectory());
  }finally{await rm(dir,{recursive:true,force:true});}
 });
 

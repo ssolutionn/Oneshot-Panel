@@ -4,35 +4,31 @@ let workerPromise;
 const permission = () => typeof Notification==='undefined' ? 'unsupported' : Notification.permission;
 const sectionOf = value => value==='veto' ? 'veto' : 'lobby';
 
+// Alarms that blink the tab title (the lobby's siren, a captain calling the
+// admin): one timer for all, so they take turns instead of fighting.
 const activeTitles = new Map();
-let baseTitle = typeof document !== 'undefined' ? document.title : 'Oneshot Panel';
+let baseTitle = '';
 let titleTimer = null;
 let titleOn = false;
-
+function stopFlashing() {
+  clearInterval(titleTimer);
+  titleTimer = null;
+  document.title = baseTitle;
+}
 export function setFlashingTitle(key, text) {
   if (typeof document === 'undefined') return;
   if (!text) activeTitles.delete(key);
   else activeTitles.set(key, text);
   if (activeTitles.size && !titleTimer) {
+    // The title as it is now: an event panel names itself after the page loaded.
+    baseTitle = document.title;
     titleTimer = setInterval(() => {
-      if (!activeTitles.size) {
-        clearInterval(titleTimer);
-        titleTimer = null;
-        document.title = baseTitle;
-        return;
-      }
       titleOn = !titleOn;
-      // When several alarms ring at once (a map ended and a captain calls),
-      // the tab shows them in turn instead of overwriting each other.
       const texts = [...activeTitles.values()];
       const current = texts[Math.floor(Date.now() / 1000) % texts.length];
       document.title = titleOn ? current : baseTitle;
     }, 1000);
-  } else if (!activeTitles.size && titleTimer) {
-    clearInterval(titleTimer);
-    titleTimer = null;
-    document.title = baseTitle;
-  }
+  } else if (!activeTitles.size && titleTimer) stopFlashing();
 }
 async function bounded(task) {
   let timer;

@@ -16,9 +16,8 @@ const POLL = 20000, REPEAT = 20000, REPEAT_LIMIT = 3;
 const lobby = {
   client: null, champ: '', timer: null, tick: 0, interval: POLL,
   matches: new Map(), pauses: new Map(), finished: null,
-  alert: null, repeats: 0, repeatTimer: null, flashTimer: null, unread: 0, view: 'prep'
+  alert: null, repeats: 0, repeatTimer: null, unread: 0, view: 'prep'
 };
-const title = document.title;
 
 function read(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
@@ -112,11 +111,9 @@ function alertAdmins(text, tag, { loud = true } = {}) {
     if (++lobby.repeats >= REPEAT_LIMIT) return clearInterval(lobby.repeatTimer);
     beep();
   }, REPEAT);
-  clearInterval(lobby.flashTimer);
   // The tab title blinks through the shared flasher (notifications.js): the
   // veto room's «Call admin» may ring at the same time, they must not fight.
-  setFlashingTitle('lobby', text);
-  lobby.flashTimer = null;
+  setFlashingTitle('lobby', `● ${text}`);
 }
 function hush() { clearInterval(lobby.repeatTimer); }
 window.addEventListener('focus', hush);

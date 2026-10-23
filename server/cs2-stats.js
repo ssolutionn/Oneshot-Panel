@@ -1,7 +1,8 @@
 // Broadcast statistics, counted from the journal's events. Pure functions, no
 // I/O: the events come from server/cs2-log.js, the HTTP side is
 // server/cs2-api.js. What the server log carries (kills, damage, rounds, bomb,
-// sides) is exact; what it does not (assists) is derived and says so.
+// sides) is exact; what it does not (assists) is derived and says so. Only live
+// rounds count: warm-up (round 0) kills are not a player's stats.
 //
 // Log text comes from players (their names, their chat): everything here stays
 // data. A page shows it with textContent, a graphics package reads the JSON.
@@ -24,14 +25,15 @@ export function playerKey(player) {
   return isSteam3(player.steam) ? player.steam : `${player.name}\u0000${player.steam || ''}`;
 }
 
-// How a round ended. «Elimination» is also what CS2 logs when the terrorists
-// simply ran out of time, so the code below refines it from the bomb events of
-// the same round; `reason` keeps the server's own string untouched.
+// How a round ended, as the server says it; `reason` keeps its own string.
+// A planted bomb proves nothing on its own: the terrorists may still win by
+// killing everyone before it goes off.
 export const REASONS = {
   SFUI_Notice_CTs_Win: { text: 'CT победили', code: 'elimination' },
   SFUI_Notice_Terrorists_Win: { text: 'T победили', code: 'elimination' },
   SFUI_Notice_Target_Bombed: { text: 'бомба взорвалась', code: 'bomb' },
   SFUI_Notice_Bomb_Defused: { text: 'бомба разминирована', code: 'defuse' },
+  SFUI_Notice_Target_Saved: { text: 'время вышло', code: 'time' },
   SFUI_Notice_Round_Draw: { text: 'ничья', code: 'draw' },
   SFUI_Notice_Terrorists_Escaped: { text: 'T ускользнули', code: 'escape' },
   SFUI_Notice_CTs_PreventEscape: { text: 'CT не дали ускользнуть', code: 'escape' },
@@ -63,9 +65,15 @@ function analyze(events, game) {
   // attributed to a team name even after the half-time swap.
   const sideTeamAt = new Map();
   let map = '', live = false, over = false, ct = 0, t = 0;
-  // Damage per victim per round: an assist is the one who hurt the victim most,
-  // which is how the game itself counts it. One pass, no nested search.
+  // Damage per victim per round: the assist goes to whoever hurt the victim
+  // most, past the game's own bar of 40. Flash assists are not in damage lines.
+  // One pass, no nested search.
   const hurt = new Map();
+  // Health left per victim per round: damage past it (an AWP on 30 HP) is not
+  // damage dealt, ADR counts only what the victim had.
+  const health = new Map();
+  // Who died in which round, by key (a name can change mid-match).
+  const died = new Set();
   const roundOf = (n, clock) => {
     let round = rounds.get(n);
     if (!round) {
@@ -91,6 +99,7 @@ function analyze(events, game) {
 
   for (const event of events) {
     if (event.game !== game) continue;
+    if (event.round < 1 && ['kill', 'damage', 'bomb'].includes(event.type)) continue;
     switch (event.type) {
       case 'map': map = event.map || map; break;
       case 'match_start': live = true; if (event.map) map = event.map; break;
@@ -110,6 +119,10 @@ function analyze(events, game) {
         round.winner = event.winner; round.reason = event.reason;
         round.ct = event.ct; round.t = event.t;
         round.winnerTeam = sideTeamAt.get(`${event.round}:${event.winner}`) || sideName[event.winner] || '';
+        const reason = REASONS[event.reason] || { text: `${event.winner} победили`, code: 'other' };
+        round.reasonCode = reason.code; round.reasonText = reason.text;
+        round.exploded = event.reason === 'SFUI_Notice_Target_Bombed';
+        if (event.reason === 'SFUI_Notice_Bomb_Defused') round.defused = true;
         break;
       }
       case 'round_end': {
@@ -121,28 +134,29 @@ function analyze(events, game) {
         const killer = seen(event.killer), victim = seen(event.victim);
         if (!killer || !victim) break;
         const round = roundOf(event.round);
-        if (killer.team || !victim.team) killer.team = killer.team || teamOf(event.killer, event.round);
+        if (!killer.team) killer.team = teamOf(event.killer, event.round);
         if (!victim.team) victim.team = teamOf(event.victim, event.round);
-        killer.kills++; victim.deaths++;
-        if (event.headshot) killer.headshots++;
-        // The first kill of a live round is the entry frag.
-        if (event.round > 0 && !round.kills.length) { killer.firstKills++; victim.firstDeaths++; }
+        // A teammate killed is a death, never a frag (the game takes a frag away).
+        const teamkill = Boolean(event.killer.side) && event.killer.side === event.victim.side;
+        victim.deaths++;
+        died.add(`${event.round}\u0000${victim.key}`);
+        if (!teamkill) {
+          killer.kills++;
+          if (event.headshot) killer.headshots++;
+          // The first frag of a round is the entry frag.
+          if (!round.kills.some(kill => !kill.teamkill)) { killer.firstKills++; victim.firstDeaths++; }
+        }
         round.kills.push({
           at: event.offset, clock: event.clock, weapon: event.weapon, headshot: event.headshot,
           through: event.through, killer: killer.name, killerTeam: killer.team, killerSide: event.killer.side,
-          victim: victim.name, victimTeam: victim.team, victimSide: event.victim.side
+          victim: victim.name, victimTeam: victim.team, victimSide: event.victim.side, teamkill
         });
-        // The round's winner, refined by the bomb: «CTs win» alone does not say
-        // whether the bomb was defused or the enemy was eliminated.
-        if (round.winner || round.reason) {
-          round.reasonCode = round.exploded ? 'bomb' : round.defused ? 'defuse' :
-            (REASONS[round.reason]?.code || (round.winner ? 'elimination' : ''));
-        }
-        // An assist goes to whoever hurt this victim most in this round.
+        if (teamkill) break;
+        // An assist goes to whoever hurt this victim most in this round, over 40.
         const hurtHere = hurt.get(`${event.round}\u0000${victim.key}`);
         if (hurtHere) {
           let best = null;
-          for (const [key, amount] of hurtHere) if (key !== killer.key && (!best || amount > best.amount)) best = { key, amount };
+          for (const [key, amount] of hurtHere) if (key !== killer.key && amount > 40 && (!best || amount > best.amount)) best = { key, amount };
           const helper = best && players.get(best.key);
           if (helper && helper !== victim) helper.assists++;
         }
@@ -151,14 +165,19 @@ function analyze(events, game) {
       case 'damage': {
         const attacker = seen(event.attacker), victim = seen(event.victim);
         if (!attacker || !victim || attacker === victim) break;
-        const amount = Number(event.damage) || 0;
+        const id = `${event.round}\u0000${victim.key}`;
+        // The line gives the health left after the hit, so the health before it
+        // is exact while the victim lives; the last hit takes only what was left.
+        const given = Number(event.damage) || 0;
+        const before = event.health > 0 ? event.health + given : health.get(id) ?? 100;
+        const amount = Math.max(0, Math.min(given, before));
+        health.set(id, Number.isFinite(event.health) ? event.health : before - amount);
         const own = event.attacker.side && event.victim.side && event.attacker.side === event.victim.side;
         if (own) attacker.friendlyDamage += amount; else attacker.damage += amount;
         if (!own) victim.damageTaken += amount;
         if (!attacker.team) attacker.team = teamOf(event.attacker, event.round);
         if (!victim.team) victim.team = teamOf(event.victim, event.round);
         if (!own) {
-          const id = `${event.round}\u0000${victim.key}`;
           const list = hurt.get(id) || new Map();
           list.set(attacker.key, (list.get(attacker.key) || 0) + amount);
           hurt.set(id, list);
@@ -181,27 +200,14 @@ function analyze(events, game) {
       }
       default: break;
     }
-    // The bomb can explode after the round result line, so «exploded» is a pass
-    // of its own; a planted bomb that was not defused is the reason CT lost.
-    if (event.type === 'bomb' && event.action === 'Planted_The_Bomb') roundOf(event.round).exploded = false;
-    if (event.type === 'round_end') {
-      const round = roundOf(event.round);
-      if (round.planted && !round.defused) round.exploded = true;
-      round.reasonCode = round.exploded ? 'bomb' : round.defused ? 'defuse' :
-        (REASONS[round.reason]?.code || (round.winner ? 'elimination' : ''));
-      round.reasonText = round.exploded ? 'бомба взорвалась' : round.defused ? 'бомба разминирована' :
-        (REASONS[round.reason]?.text || (round.winner ? `${round.winner} победили` : ''));
-    }
   }
 
   // Rounds the game actually played: the denominator of ADR and of «survived».
   const liveRounds = [...rounds.values()].filter(round => round.round > 0);
   const played = liveRounds.length;
-  const died = new Map();
-  for (const round of liveRounds) for (const kill of round.kills) died.set(`${round.round}\u0000${kill.victim}`, true);
   for (const player of players.values()) {
     player.rounds = played;
-    player.roundsSurvived = liveRounds.filter(round => !died.has(`${round.round}\u0000${player.name}`)).length;
+    player.roundsSurvived = liveRounds.filter(round => !died.has(`${round.round}\u0000${player.key}`)).length;
     player.adr = played ? Math.round(player.damage / played) : 0;
   }
   const list = [...rounds.values()].sort((a, b) => a.round - b.round)
@@ -233,10 +239,12 @@ export function summarize(events, status = {}, { game = lastGame(events) } = {})
   const found = analyze(events, game);
   const players = playerStats(events, game);
   // Teams are counted from the players, so a half-time swap does not move a
-  // team's score to the other side's name.
+  // team's score to the other side's name. A team is known only by the name the
+  // server gives it (mp_teamname_1/2 → «Team playing»): grouped by side, players
+  // would trade their rounds at half-time, so without names there are no teams.
   const teams = [];
   for (const player of players) {
-    const name = player.team || player.side;
+    const name = player.team;
     if (!name) continue;
     let team = teams.find(entry => entry.name === name);
     if (!team) teams.push(team = { name, side: player.side, score: 0, roundsWon: 0, players: [] });
@@ -244,8 +252,7 @@ export function summarize(events, status = {}, { game = lastGame(events) } = {})
     if (player.side && !team.side) team.side = player.side;
   }
   for (const round of found.rounds) {
-    const winner = round.winnerTeam || round.winner;
-    const team = winner && teams.find(entry => entry.name === winner || entry.side === winner);
+    const team = round.winnerTeam && teams.find(entry => entry.name === round.winnerTeam);
     if (team) { team.roundsWon++; team.score++; }
   }
   return {
@@ -277,7 +284,9 @@ const csvCell = value => {
   // operator's machine. An apostrophe in front makes Excel keep it as text.
   // A plain number is left alone, so the stats stay numbers in the sheet.
   if (/^[=+\-@\t\r]/.test(text) && !/^-?\d+(?:\.\d+)?$/.test(text)) text = `'${text}`;
-  return /[";\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  // A comma is quoted too: an Excel set to «,» would split «a,=cmd…» into a
+  // fresh cell that starts with «=», past the apostrophe above.
+  return /[";,\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 export function toCsv(players) {
   // A semicolon: the Russian Excel opens such a file by a double click.

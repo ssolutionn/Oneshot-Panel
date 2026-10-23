@@ -120,12 +120,16 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   (строки `L …: ` и HTTP-формат CS2 `… - HH:MM:SS.mmm - `), `describe`,
   `roundText`; поле `text` у чата — сообщение игрока, описание события — `line`),
   `cs2-rcon.js` (Source RCON без зависимостей; наружу только `say` через `sayCommand`),
+  `cs2-stats.js` (статистика из событий журнала, чистые функции, пока ни к чему не подключена:
+  только live-раунды — разминка не считается; причина раунда — строка сервера; ассист — больше
+  40 урона; урон не больше оставшегося HP; тимкилл — смерть, не фраг; команды — только по
+  названиям сервера `mp_teamname_1/2`, без них `teams` пуст; CSV через `;` с защитой от формул),
   `cs2-api.js` (`handleCs2`: `POST /api/cs2-log?token=` — лог, всегда с токеном;
   остальное только с этого компьютера: loopback + Host localhost (против DNS rebinding);
   запись `/api/cs2-say` — только JSON и same-origin; `CS2_ALLOW_REMOTE=1` пускает чужих,
   но с токеном). `server.js` включает его лишь с `CS2_JOURNAL=1` (`createServer({cs2})`);
   токен — `CS2_LOG_TOKEN` или `.cs2-data/token`. Всё, что пришло из игры (ники, чат), в
-  интерфейсе — только `textContent`. Тесты — `test/cs2-log.test.js`, `test/cs2-api.test.js`
+  интерфейсе — только `textContent`. Тесты — `test/cs2-log.test.js`, `test/cs2-stats.test.js`, `test/cs2-api.test.js`
   (поддельный RCON на TCP), браузер — `scripts/qa_cs2.py` (сам поднимает сервер).
 - `docs/ARCHITECTURE.md` — как устроить сайт на много событий и много операторов (событие как пакет
   данных, модули, бренд, хранилище и роли, фазы внедрения). `events/schema.js` — схема манифеста события
@@ -478,7 +482,8 @@ Netlify проверяет локальные фото, докачивает н�
   закрывает iframe подложкой. Таймер останавливается при закрытии «Кадра».
   Регрессия белого документа/позднего API — qa_camera_loading.py в Firefox,
   Chromium и WebKit; реальный API получает локальное WebRTC-видео.
-  notifications.js/notification-worker.js —
+  notifications.js/notification-worker.js (и общий мигающий заголовок `setFlashingTitle`: сирена
+  лобби и вызов капитана по очереди) —
   уведомления открытой панели, без кеша/fetch/Push. Клик фокусирует панель.
   «Кадр» хранится в oneshot-camera-settings-v1 по источнику/GID/player.key,
   пресет — oneshot-camera-frame-v1. Матрица сохраняет прежние плитки.

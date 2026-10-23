@@ -1,8 +1,8 @@
-import {mkdir,readFile,writeFile,rename,unlink,readdir} from 'node:fs/promises';
+import {mkdir,readFile,writeFile,rename,unlink,readdir,stat} from 'node:fs/promises';
 import path from 'node:path';
 import {topicValid} from '../assets/veto-relay-protocol.js';
 export class FileRelayStore {
- constructor(directory,valid=topicValid){this.directory=path.resolve(directory);this.queues=new Map();this.valid=valid;this.startedAt=Date.now();}
+ constructor(directory,valid=topicValid){this.directory=path.resolve(directory);this.queues=new Map();this.valid=valid;}
  file(topic){if(!this.valid(topic))throw Error('topic');return path.join(this.directory,topic+'.json');}
  async read(topic){
   try{return JSON.parse(await readFile(this.file(topic),'utf8'));}
@@ -29,9 +29,12 @@ export class FileRelayStore {
    if(!entry.isFile())continue; // subdirectories (short links have their own store) are not topics
    const name=entry.name;
    // A crash between writeFile and rename leaves <topic>.json.<uuid>.tmp
-   // behind; update() never revisits it, so prune is the only sweeper.
+   // behind; update() never revisits it, so prune is the only sweeper. Only an
+   // old one: a fresh one may be another topic's write about to be renamed.
    if(name.endsWith('.tmp')){
-    if(now-this.startedAt>3600000)await unlink(path.join(this.directory,name)).catch(()=>{});
+    const file=path.join(this.directory,name);
+    const written=await stat(file).then(s=>s.mtimeMs,()=>now);
+    if(now-written>3600000)await unlink(file).catch(()=>{});
     continue;
    }
    const topic=name.replace(/\.json$/,'');if(name!==topic+'.json'||!this.valid(topic))continue;
