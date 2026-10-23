@@ -119,7 +119,10 @@ async function start() {
   }
   let local = false;
   try { local = Boolean((await (await api('/api/cs2-status')).json())?.ok); } catch { /* not the local panel */ }
-  $('serverGuide').hidden = local || !guide;
+  // A local CS2 journal must not override an event profile that disables the
+  // CS2 server module (e.g. Dota LAN).
+  if (!guide) { $('serverNavBtn').hidden = true; return; }
+  $('serverGuide').hidden = local;
   for (const id of ['serverSetup', 'serverCopyRound', 'serverSayForm', 'serverStatus', 'serverRounds', 'serverLog']) $(id).hidden = !local;
   document.querySelector('#serverView .cs2-filters').hidden = !local;
   if (!local) return;
