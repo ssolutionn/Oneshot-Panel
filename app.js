@@ -68,12 +68,20 @@ state.streamIds = readStorage('oneshot-stream-ids') || {};
 // sheets (kind manual) is always LAN, any other never is.
 const LAN_STORE = 'oneshot-lan-v1';
 const EVENT_LAN = globalThis.oneshotEvent?.kind === 'manual';
-state.lan = lanConfig(readStorage(LAN_STORE));
+const savedLan = readStorage(LAN_STORE);
+state.lan = lanConfig(savedLan);
 // The event's own webcam rooms and PCs (events/<slug>/event.json): what an event
 // panel starts with, and keeps when a file or the stored data has none.
 const EVENT_CAMS = EVENT_LAN ? lanCams(globalThis.oneshotEvent?.cameras) : null;
-if (EVENT_LAN !== state.lan.on || (EVENT_CAMS && !state.lan.cams)) {
+// REU is a LAN: 720p/30/H.264/5000, low latency and LAN-only until the operator
+// picks otherwise. A saved choice wins over the manifest.
+const EVENT_NET = globalThis.oneshotEvent?.cameras?.net;
+const eventNet = EVENT_NET ? { ...EVENT_NET, mode: EVENT_NET.mode || (EVENT_LAN ? 'lan' : 'online') } :
+  (EVENT_LAN ? { mode: 'lan' } : null);
+const netNew = Boolean(eventNet && !savedLan?.net);
+if (EVENT_LAN !== state.lan.on || (EVENT_CAMS && !state.lan.cams) || netNew) {
   state.lan = lanConfig({ ...state.lan, on: EVENT_LAN, cams: state.lan.cams || EVENT_CAMS,
+    net: savedLan?.net || eventNet || state.lan.net,
     prefix: state.lan.prefix || newLanPrefix(crypto.getRandomValues(new Uint8Array(4))) });
   writeStorage(LAN_STORE, state.lan);
 }
@@ -209,7 +217,8 @@ function editorPlayer() {
 }
 function cameraPreviewStyle(camera) {
   // Only the video paints above our backdrop, including while VDO connects.
-  return cameraCss(camera)+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
+  const fit=cameraFrame(state.cameraFrame).fit==='contain' ? 'contain' : 'cover';
+  return cameraCss(camera,fit)+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
 }
 function cameraPreviewLoading(loading) {
   $('cameraPreviewBox').dataset.loading=String(loading);
@@ -292,7 +301,7 @@ function openCamera(side,slot,seat=false) {
   cameraPreview.title='Предпросмотр камеры '+player.nick;
   cameraPreview.allow='autoplay';
   cameraPreview.referrerPolicy='no-referrer';
-  const url=new URL(cameraViewUrl(player));
+  const url=new URL(cameraViewUrl(player,state.cameraFrame));
   url.searchParams.set('b64css',btoa(cameraPreviewStyle(player.camera)));
   url.searchParams.set('darkmode','');url.searchParams.set('noaudio','');
   cameraPreview.src=url.href;
@@ -470,6 +479,8 @@ function notify() {
   document.dispatchEvent(new CustomEvent('oneshot:change'));
 }
 window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next),
+  // A file handed in by live.js (the seats' collection) is saved like our own.
+  download: file => directDownload(file),
   lan: () => ({ ...state.lan }), setLan,
   // «Ник» of a webcam (a seat in «Компы», a slot in «Эфир»): read and write.
   camNick: (side, index) => camNickValue(side, index, chosen(side)[index]),
@@ -947,15 +958,22 @@ function renderOutput() {
   const error = valid();
   const metadataError =
     validateMetadata($('matchTime').value, $('matchStage').value);
-  $('downloadBtn').disabled = state.exporting || !!error || !!metadataError || !state.template;
+  // A LAN without a match: live.js builds the same collection from the ten seats'
+  // cameras, so the file OBS imports once can be downloaded before «В эфир».
+  const seatsJson = !!error && !!state.template && !!state.lan?.on &&
+    typeof window.oneshotPanel?.seatsJsonFile === 'function';
+  $('downloadBtn').disabled = state.exporting || !state.template ||
+    (!seatsJson && (!!error || !!metadataError));
   $('exportRecovery').disabled = $('downloadBtn').disabled;
   $('copyAllBtn').disabled = !!error;
   $('swapBtn').disabled = !getTeam('a') || !getTeam('b');
-  $('exportHint').textContent =
+  $('exportHint').textContent = seatsJson ?
+    'Без матча: десять камер мест — файл для импорта в OBS' :
     error || metadataError || state.templateError ||
     (!state.template ? 'Загружаем шаблон OBS…' :
       `${state.stale ? 'По ранее загруженным данным. ' : ''}1–5: ${state.a} · 6–10: ${state.b}`);
-  $('filenamePreview').textContent =
+  $('filenamePreview').textContent = seatsJson ?
+    (window.oneshotPanel.seatsJsonName?.() || '') :
     !error && !metadataError ?
       safeFilename(state.a, state.b,
         $('matchTime').value, $('matchStage').value) : '';
@@ -1219,6 +1237,10 @@ for (const [id, tab] of [
 }
 $('copyAllBtn').addEventListener('click', () => copy($('output').value));
 function exportObsFile() {
+  // A LAN without a match has no teams to build from: live.js builds the seats'
+  // collection instead, and this is the file OBS imports before the first match.
+  const seats = window.oneshotPanel?.seatsJsonFile?.();
+  if (seats) return seats;
   const filename = safeFilename(state.a, state.b, $('matchTime').value, $('matchStage').value);
   const data = buildObs(state.template, getTeam('a'), getTeam('b'), state.keysA, state.keysB, undefined, {
     includeCards: cardsOn(),

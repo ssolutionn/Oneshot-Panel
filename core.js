@@ -210,17 +210,57 @@ export function validateMatch(a, b, ka, kb) {
 function roomPassword(x) {
   return x?.password ? `&password=${encodeURIComponent(x.password)}` : '';
 }
+// VDO.Ninja's preset for the webcams: 720p, 30 fps, H.264, 5000 kbit/s; low
+// latency is on in both modes. On a LAN the media also stays on the local
+// network («Только локальная сеть»); online that flag is always off.
+export const VDO_NET_DEFAULT = Object.freeze({
+  mode: 'online', quality: '720', fps: 30, codec: 'h264', bitrate: 5000,
+  lowlatency: true, lanonly: false
+});
+export function vdoNet(value) {
+  const v = value && typeof value === 'object' ? value : {};
+  const mode = v.mode === 'lan' ? 'lan' : 'online';
+  const bitrate = Number(v.bitrate);
+  return {
+    mode,
+    quality: v.quality === '1080' ? '1080' : '720',
+    fps: [24, 30, 60].includes(v.fps) ? v.fps : VDO_NET_DEFAULT.fps,
+    codec: ['h264', 'vp8', 'vp9'].includes(v.codec) ? v.codec : VDO_NET_DEFAULT.codec,
+    bitrate: Number.isInteger(bitrate) && bitrate >= 1000 && bitrate <= 50000 ? bitrate : VDO_NET_DEFAULT.bitrate,
+    lowlatency: v.lowlatency !== false,
+    // The mode owns this switch: online never asks for a LAN-only connection.
+    lanonly: mode === 'lan' ? v.lanonly !== false : false
+  };
+}
+// Where the tuning goes: the publisher chooses the camera's quality and frame
+// rate, the OBS viewer chooses codec and bitrate. lowlatency/lanonly are
+// general VDO.Ninja options and go on both sides.
+function netQuery(net, side) {
+  if (!net || typeof net !== 'object') return '';
+  const n = vdoNet(net);
+  const parts = side === 'push' ?
+    [`quality=${n.quality === '720' ? 1 : 0}`, `fps=${n.fps}`] :
+    [`videobitrate=${n.bitrate}`];
+  if (n.lowlatency) parts.push('lowlatency');
+  if (n.lanonly) parts.push('lanonly');
+  return '&' + parts.join('&');
+}
 export function viewUrl(p) {
-  return `https://vdo.ninja/?view=${encodeURIComponent(p.id)}&solo=1&room=${encodeURIComponent(p.room)}${roomPassword(p)}&codec=h264&cleanoutput&transparent`;
+  const codec = p?.net ? vdoNet(p.net).codec : 'h264';
+  return `https://vdo.ninja/?view=${encodeURIComponent(p.id)}&solo=1&room=${encodeURIComponent(p.room)}${roomPassword(p)}&codec=${codec}&cleanoutput&transparent${netQuery(p?.net, 'view')}`;
 }
 export function pushUrl(p) {
-  return `https://vdo.ninja/?room=${encodeURIComponent(p.room)}${roomPassword(p)}&broadcast&do&push=${encodeURIComponent(p.id)}`;
+  return `https://vdo.ninja/?room=${encodeURIComponent(p.room)}${roomPassword(p)}&broadcast&do&push=${encodeURIComponent(p.id)}${netQuery(p?.net, 'push')}`;
 }
 export function directorUrl(team) {
   return `https://vdo.ninja/?director=${encodeURIComponent(team.room)}${roomPassword(team)}`;
 }
-export const DEFAULT_CAMERA_FRAME = 'inner43';
+// The whole canvas, the camera's own proportions: the video reaches the top and
+// bottom edges (4:3 leaves transparent sides) and nothing is cut. This is the
+// default: every webcam fills the scene's height.
+export const DEFAULT_CAMERA_FRAME = 'fullheight';
 export const CAMERA_FRAMES = {
+  fullheight: { x:0, y:0, width:1920, height:1080, fit:'contain' },
   // Key kept for saved settings: fields 300 px left/right and 36 px top/bottom.
   inner43: { x:300, y:36, width:1320, height:1008 },
   full43: { x:240, y:0, width:1440, height:1080 },
@@ -251,20 +291,29 @@ export function normalizeCamera(value) {
 // after rotation, rather than making "left" move up on a sideways camera.
 // The mirror follows those screen axes too: on a quarter turn the camera's own
 // width is vertical on screen, so the flipped axis is the video's height.
-export function cameraCss(value) {
+export function cameraCss(value, fit = 'cover') {
   const c=normalizeCamera(value);
   let x=c.panX,y=c.panY;
   if(c.rotation===90)[x,y]=[y,100-x];
   else if(c.rotation===180)[x,y]=[100-x,100-y];
   else if(c.rotation===270)[x,y]=[100-y,x];
-  const sideways=c.rotation===90 || c.rotation===270;
-  const scale=c.mirror ? (sideways ? c.zoom+' -'+c.zoom : '-'+c.zoom+' '+c.zoom) : String(c.zoom);
-  return 'html,body{background:transparent!important;}video{object-fit:cover!important;object-position:'+x+'% '+y+'%!important;scale:'+scale+'!important;transform-origin:'+x+'% '+y+'%!important;}';
+  const sideways=c.rotation===90 || c.rotation===270,flipX=c.mirror&&!sideways,flipY=c.mirror&&sideways;
+  // A flipped video must turn about the frame's middle on that axis, or the
+  // crop would leave a transparent strip where the video no longer reaches;
+  // the other axis still zooms towards the panned point.
+  const scale=c.mirror ? (flipY ? c.zoom+' -'+c.zoom : '-'+c.zoom+' '+c.zoom) : String(c.zoom);
+  const origin=(flipX ? 50 : x)+'% '+(flipY ? 50 : y)+'%';
+  return 'html,body{background:transparent!important;}video{object-fit:'+(fit==='contain'?'contain':'cover')+'!important;object-position:'+x+'% '+y+'%!important;scale:'+scale+'!important;transform-origin:'+origin+'!important;}';
 }
-export function cameraViewUrl(player) {
-  const c=normalizeCamera(player?.camera);
-  return viewUrl(player)+'&cover'+(c.panX===50 && c.panY===50 && c.zoom===1 && !c.mirror ? '' :
-    '&b64css='+encodeURIComponent(btoa(cameraCss(c))));
+// &scale=100: VDO.Ninja asks for the camera's full inbound resolution instead
+// of shrinking it to the page's window, which made some OBS sources (9/10)
+// softer than the rest. The full-height frame keeps the camera's proportions:
+// &cover is dropped and object-fit:contain is sent even at the default pan/zoom.
+export function cameraViewUrl(player, frame = DEFAULT_CAMERA_FRAME) {
+  const c=normalizeCamera(player?.camera), fit=cameraFrame(frame).fit==='contain' ? 'contain' : 'cover';
+  const css=fit==='contain' || !(c.panX===50 && c.panY===50 && c.zoom===1 && !c.mirror) ?
+    '&b64css='+encodeURIComponent(btoa(cameraCss(c,fit))) : '';
+  return viewUrl(player)+(fit==='cover' ? '&cover' : '')+'&scale=100'+css;
 }
 export function cameraGeometry(player, frame = DEFAULT_CAMERA_FRAME) {
   const rect=cameraFrame(frame),{rotation}=normalizeCamera(player?.camera);
@@ -365,6 +414,12 @@ function teamsFromText(text) {
 }
 // Rooms and stream IDs as VDO.Ninja keeps them: letters, digits and _.
 export const VDO_NAME = /^[A-Za-z0-9_]{1,40}$/;
+// VDO.Ninja reports a peer whose stream ID it does not know yet under a key
+// like "undefined"/"null": that is not a push and must never become a seat ID.
+const NOT_STREAM_IDS = new Set(['undefined', 'null', 'false', 'true', 'nan']);
+export function isVdoStreamId(value) {
+  return typeof value === 'string' && VDO_NAME.test(value) && !NOT_STREAM_IDS.has(value.toLowerCase());
+}
 // The event's own rooms and PCs, or null (then the prefix makes them): two
 // different rooms, five different PCs, a password per room (may be empty).
 // The second room's PCs (idsB) may have their own names; none = the same.
@@ -372,10 +427,12 @@ export function lanCams(value) {
   const v = value && typeof value === 'object' ? value : {};
   const names = (list, size) => Array.isArray(list) && list.length === size && list.every(x => typeof x === 'string' && VDO_NAME.test(x)) &&
     new Set(list).size === size ? [...list] : null;
-  const rooms = names(v.rooms, 2), ids = names(v.ids, LAN_SEATS), idsB = names(v.idsB, LAN_SEATS);
-  if (!rooms || !ids) return null;
+  const ids = (list) => Array.isArray(list) && list.length === LAN_SEATS && list.every(isVdoStreamId) &&
+    new Set(list).size === LAN_SEATS ? [...list] : null;
+  const rooms = names(v.rooms, 2), idsA = ids(v.ids), idsB = ids(v.idsB);
+  if (!rooms || !idsA) return null;
   const passwords = [0, 1].map(i => typeof v.passwords?.[i] === 'string' ? line(v.passwords[i]).slice(0, 40) : '');
-  return { rooms, ids, ...(idsB && idsB.join() !== ids.join() ? { idsB } : {}), passwords };
+  return { rooms, ids: idsA, ...(idsB && idsB.join() !== idsA.join() ? { idsB } : {}), passwords };
 }
 // A room typed or pasted: its name, or a VDO.Ninja link (a director's, a
 // guest's) with the room and, when there is one, its password.
@@ -401,10 +458,13 @@ export function vdoStreamId(text) {
   if (inLink) {
     let found = inLink[1];
     try { found = decodeURIComponent(found); } catch { /* kept as typed */ }
-    return vdoId(found);
+    const id = vdoId(found);
+    return isVdoStreamId(id) ? id : '';
   }
   // A bare ID: VDO.Ninja keeps only letters, digits and _ (Q-Q → Q_Q).
-  return /^[A-Za-z0-9_.-]{1,64}$/.test(value) ? vdoId(value) : '';
+  if (!/^[A-Za-z0-9_.-]{1,64}$/.test(value)) return '';
+  const id = vdoId(value);
+  return isVdoStreamId(id) ? id : '';
 }
 // «Компы»: a seat's own stream ID, typed by hand when the scan or the event's
 // IDs missed that PC. It belongs to the seat (side and number), not to the
@@ -423,7 +483,8 @@ export function lanConfig(value) {
   const teams = Array.isArray(v.teams) ? lanTeamsOf(v.teams) : lanTeamsOf(teamsFromText(typeof v.text === 'string' ? v.text.slice(0, 20000) : ''));
   const pushes = lanPushes(v.pushes);
   return { on: v.on === true && Boolean(prefix), prefix, password, cams: lanCams(v.cams),
-    ...(pushes ? { pushes } : {}), teams, matches: lanMatchesOf(v.matches, teams), event: eventProfile(v.event) };
+    net: vdoNet(v.net), ...(pushes ? { pushes } : {}), teams,
+    matches: lanMatchesOf(v.matches, teams), event: eventProfile(v.event) };
 }
 // A new id for a team, player or match; random bytes from the caller.
 export function lanId(bytes, taken = []) {
@@ -519,7 +580,10 @@ export function lanSeat(lan, side, index) {
   const own = lan.pushes?.[side]?.[index];
   const base = lan.cams ? { room: lan.cams.rooms[s], password: lan.cams.passwords[s], id: (s && lan.cams.idsB || lan.cams.ids)[index] }
     : { room: lan.prefix, password: lan.password || '', id: lanSeatId(lan.prefix, side, index) };
-  return own ? { ...base, id: own } : base;
+  // The tuning belongs to the seats' links: push gets quality/fps, OBS gets
+  // codec/bitrate, and both get lowlatency/lanonly when the mode asks for it.
+  const net = lan.net ? { net: vdoNet(lan.net) } : {};
+  return { ...base, ...(own ? { id: own } : {}), ...net };
 }
 // The team as it sits this match: players picked for its seats get that
 // seat's stream; everyone else has none.
@@ -728,7 +792,7 @@ export function buildObs(template, a, b, ka, kb,
     item.name = browser.name;
     const geometry=cameraGeometry(p,frame);
     Object.assign(browser.settings, {
-      url: cameraViewUrl(p), width:geometry.width, height:geometry.height
+      url: cameraViewUrl(p,frame), width:geometry.width, height:geometry.height
     });
     const slot = String(i + 1).padStart(2, '0');
     names.set(browser.name, `CAM ${slot} | ${p.team} | ${playerNick}`);

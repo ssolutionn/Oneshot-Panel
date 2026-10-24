@@ -110,11 +110,61 @@ function seatsPayload() {
   const cardDocs = cards ? Object.fromEntries(players.map((p, i) => [cardKey(p.team, p.nick), plates[i < 5 ? 0 : 1] || BLANK_CARD])) : {};
   return { title: `Камеры: ${lan.cams?.rooms.join(' и ') || lan.prefix}`, match: { players, includeCards: cards, cardBase: cardBase(), cameraFrame: s.cameraFrame, cardDocs } };
 }
+// The collection OBS imports once: the same scenes, filled with the ten seats'
+// cameras, so a LAN can be set up before any match. buildObs needs two teams —
+// the seats stand in for them (a side per room), and validation stays in core.
+function seatsObs() {
+  const s = panel.snapshot(), { title, match } = seatsPayload();
+  if (!s.template) throw new Error(s.templateError || 'Шаблон OBS ещё загружается.');
+  if (match.players.length !== 10) throw new Error('В событии не заданы десять компов.');
+  const team = start => {
+    const five = match.players.slice(start, start + 5);
+    return {
+      name: five[0].team || (start ? 'B' : 'A'),
+      // A seat's stream is its room and ID: the two rooms may both have a pc1,
+      // which core allows only for players marked as seats.
+      players: five.map((p, i) => ({ ...p, seat: `${start ? 'B' : 'A'}${i + 1}`, key: `seat-${start + i}` }))
+    };
+  };
+  const a = team(0), b = team(5);
+  // buildObs refuses two teams with one name: both sides in one room is possible.
+  if (a.name === b.name) b.name = `${b.name} B`;
+  const data = buildObs(s.template, a, b, a.players.map(p => p.key), b.players.map(p => p.key), undefined, {
+    includeCards: match.includeCards, cardBase: match.cardBase,
+    cameraFrame: match.cameraFrame, cardDocs: match.cardDocs
+  });
+  data.name = title;
+  return data;
+}
+function seatsJsonName() {
+  const base = String(EVENT?.short || EVENT?.name || '')
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').replace(/\s+/g, '-').replace(/-{2,}/g, '-').replace(/^[-.]+|[-.]+$/g, '');
+  return base ? `Камеры_${base}.json` : 'Камеры_мест.json';
+}
+const seatsJsonFile = () => ({ filename: seatsJsonName(), text: JSON.stringify(seatsObs(), null, 2) + '\n' });
+// app.js's «Скачать JSON» asks first: on a LAN without a match there are no
+// teams to build from, and the seats' collection is exactly what OBS needs.
+panel.seatsJsonFile = () => {
+  const s = panel.snapshot();
+  return s.matchError && panel.lan().on && s.template ? seatsJsonFile() : null;
+};
+panel.seatsJsonName = seatsJsonName;
+$('seatsJson').addEventListener('click', () => {
+  try {
+    panel.download(seatsJsonFile());
+    panel.toast('JSON сохранён. OBS → Коллекция сцен → Импорт.');
+  } catch (error) {
+    panel.showError(error.message);
+    panel.toast(error.message, 9000);
+  }
+});
 // What «Отправить в OBS» sends: the match on air, or on a LAN the seats' cameras.
 const obsPayload = () => panel.snapshot().matchError && panel.lan().on ? seatsPayload() : matchPayload();
 function obsJson() {
   const s = panel.snapshot();
   if (!s.template) throw new Error(s.templateError || 'Шаблон OBS ещё загружается.');
+  // Without a match the file still has to be importable: the seats' cameras.
+  if (s.matchError && panel.lan().on) return seatsJsonFile().text;
   return JSON.stringify(buildObs(s.template, s.a, s.b, s.keysA, s.keysB, undefined,
     { includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame, cardDocs: panel.cardDocs() }), null, 2) + '\n';
 }
@@ -783,7 +833,8 @@ function onChange() {
   $('cameraApplyObs').disabled = sendingMatch || (!!s.matchError && !panel.lan().on);
   // In «Компы» the same send works without a match: only an in-flight send blocks it.
   $('seatsSendObs').disabled = sendingMatch;
-  $('copyJsonBtn').disabled = !!s.matchError || !s.template;
+  // Without a match on a LAN the JSON is the seats' collection (see obsJson).
+  $('copyJsonBtn').disabled = (!!s.matchError && !panel.lan().on) || !s.template;
   syncWatcher();
   sendVeto();
   playerVetoLink(s);

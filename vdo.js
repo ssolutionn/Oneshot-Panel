@@ -3,6 +3,8 @@
 // Messages on the link are sealed with AES-GCM from the pairing code, so only
 // pages that know the code can send commands to OBS.
 
+import { isVdoStreamId } from './core.js';
+
 const VDO = 'https://vdo.ninja/';
 // Signalling/ICE can take much longer than a heartbeat gap. Never tear down
 // a new connection on the shorter deadline used for an established channel.
@@ -75,6 +77,14 @@ export function watchUrl(room, ids, password = '') {
   return url.href;
 }
 
+// The IDs VDO.Ninja really reports as publishing. A peer whose stream ID it
+// does not know yet comes back under a key "undefined" (also "null"/"false"):
+// those are not pushes, so they never reach a seat, a link or OBS.
+export function streamIdsOf(data) {
+  if (!data || typeof data !== 'object') return [];
+  return Object.keys(data).filter(id => isVdoStreamId(id) && data[id] !== false)
+    .sort((x, y) => x.localeCompare(y, 'en', { numeric: true }));
+}
 // Who publishes in a room (a LAN's director room): a scene viewer without
 // audio or video, asked for its stream IDs until three answers in a row agree
 // or the time is up. Only VDO-safe IDs, in natural order (pc2 before pc10).
@@ -90,8 +100,7 @@ export function scanRoom(room, password = '', { wait = 12000, every = 1000 } = {
     let last = '', same = 0;
     const listener = event => {
       if (event.source !== iframe.contentWindow || !event.data?.streamIDs || typeof event.data.streamIDs !== 'object') return;
-      const ids = Object.keys(event.data.streamIDs).filter(id => /^[A-Za-z0-9_]{1,40}$/.test(id))
-        .sort((x, y) => x.localeCompare(y, 'en', { numeric: true }));
+      const ids = streamIdsOf(event.data.streamIDs);
       const key = ids.join(',');
       same = ids.length && key === last ? same + 1 : 0;
       last = key;
@@ -199,7 +208,7 @@ export class CamWatch {
     const data = event.data;
     if (data.streamIDs && typeof data.streamIDs === 'object') {
       entry.answered = true;
-      entry.live = new Set(Object.keys(data.streamIDs).filter(id => entry.ids.includes(id)));
+      entry.live = new Set(streamIdsOf(data.streamIDs).filter(id => entry.ids.includes(id)));
     } else if (data.action === 'view-connection' && entry.ids.includes(data.streamID)) {
       // The data channel to a viewed stream opened (true) or closed (false).
       if (data.value === false) entry.live.delete(data.streamID);

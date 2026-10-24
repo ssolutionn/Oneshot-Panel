@@ -101,19 +101,25 @@ test('mirror flips the camera along the screen\'s horizontal axis and reaches th
   assert.equal(normalizeCamera({mirror:'yes'}).mirror,false,'only a real true mirrors');
   assert.equal(normalizeCamera({mirror:true}).mirror,true);
   // Upright: the video flips left-right; zoom keeps its size and the sign.
-  assert.match(cameraCss({mirror:true}),/scale:-1 1!important/);
+  assert.match(cameraCss({mirror:true}),/scale:-1 1!important;transform-origin:50% 50%!important/);
   assert.match(cameraCss({mirror:true,zoom:1.5}),/scale:-1.5 1.5!important/);
+  // The flip turns about the frame's middle, so the panned crop stays filled;
+  // the other axis (here vertical) still scales towards the panned point.
+  assert.match(cameraCss({mirror:true,panX:20,panY:70}),/transform-origin:50% 70%!important/);
   // A half turn keeps the camera's own horizontal axis on screen's horizontal.
   assert.match(cameraCss({mirror:true,rotation:180}),/scale:-1 1!important/);
-  // A quarter turn puts the camera's own width on the screen's vertical axis.
-  assert.match(cameraCss({mirror:true,rotation:90}),/scale:1 -1!important/);
+  // A quarter turn puts the camera's own width on the screen's vertical axis:
+  // the pan 20/70 is the remapped 70/80, and the middle of that axis is 50%.
+  assert.match(cameraCss({mirror:true,rotation:90,panX:20,panY:70}),
+    /scale:1 -1!important;transform-origin:70% 50%!important/);
   assert.match(cameraCss({mirror:true,rotation:270,zoom:2}),/scale:2 -2!important/);
-  // The same CSS rides in the URL, and the OBS geometry stays untouched.
+  // The same CSS rides in the URL, and the OBS geometry stays untouched. The
+  // frame is named outright: the default frame belongs to the other tests.
   const player={id:'pc1',room:'room'};
-  assert.equal(new URL(cameraViewUrl(player)).searchParams.has('b64css'),false,'nothing changes without a mirror');
-  const mirrored=new URL(cameraViewUrl({...player,camera:{mirror:true}}));
+  assert.equal(new URL(cameraViewUrl(player,'inner43')).searchParams.has('b64css'),false,'nothing changes without a mirror');
+  const mirrored=new URL(cameraViewUrl({...player,camera:{mirror:true}},'inner43'));
   assert.match(atob(mirrored.searchParams.get('b64css')),/scale:-1 1!important/);
-  assert.deepEqual(cameraGeometry({camera:{mirror:true}}),{rotation:0,x:300,y:36,width:1320,height:1008});
+  assert.deepEqual(cameraGeometry({camera:{mirror:true}},'inner43'),{rotation:0,x:300,y:36,width:1320,height:1008});
 });
 
 test('an older panel keeps the previous full-frame and contain behavior through an updated dock',()=>{
