@@ -100,6 +100,29 @@ export async function drawCardPreview(canvas, { team, nick, photo, logo, colors 
   if (!small) { g.fillStyle = c.accent; g.fillRect(960 - 140, nickY + 32, 280, 12); }
   photoBitmap?.close?.(); logoBitmap?.close?.();
 }
+// A placeholder picture for a side's cameras: the whole picture, at most
+// 1280 px, JPEG small enough to travel to the OBS window (≤ 380 000 characters).
+export async function processPlate(blob) {
+  let bitmap;
+  try { bitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' }); }
+  catch { throw new Error('файл не открывается как картинка'); }
+  try {
+    for (const side of [1280, 1080, 900, 720]) {
+      const ratio = Math.min(1, side / Math.max(bitmap.width, bitmap.height));
+      const out = canvasOf(bitmap.width * ratio, bitmap.height * ratio);
+      const context = out.getContext('2d');
+      context.imageSmoothingQuality = 'high';
+      context.fillStyle = '#031b24';
+      context.fillRect(0, 0, out.width, out.height);
+      context.drawImage(bitmap, 0, 0, out.width, out.height);
+      for (const quality of [0.86, 0.78, 0.7]) {
+        const url = await encode(out, 'image/jpeg', quality);
+        if (url.length <= 380000) return url;
+      }
+    }
+  } finally { bitmap.close?.(); }
+  throw new Error('слишком большая даже после сжатия');
+}
 // kind: 'photo' | 'logo'. Resolves { url, warning }.
 export async function processImage(blob, kind) {
   const spec = kind === 'logo' ? LOGO : PHOTO;

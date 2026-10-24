@@ -139,7 +139,10 @@ export function slotPlan(sceneItems, player, { includeCards = false, cardBase = 
     },
     card: includeCards ? {
       item: card || null, name: `CARD ${slot} | ${player.team} | ${player.nick}`,
-      settings: { url: readyCard(cardDocs, cardKey(player.team, player.nick)) || cardUrl(player, cardBase), width:1920,height:1080 },
+      // A ready page fills the frame (its size); the site's card stays 1920×1080.
+      settings: readyCard(cardDocs, cardKey(player.team, player.nick)) ?
+        { url: readyCard(cardDocs, cardKey(player.team, player.nick)), width: rect.width, height: rect.height } :
+        { url: cardUrl(player, cardBase), width:1920,height:1080 },
       transform:{...FIT,positionX:rect.x,positionY:rect.y,boundsWidth:rect.width,boundsHeight:rect.height}
     } : null,
     hideCard: !includeCards && card ? card : null

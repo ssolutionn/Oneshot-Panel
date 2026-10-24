@@ -465,6 +465,17 @@ async def director_rooms(browser, base):
     await page.click("#closeCamera")
     frames = await page.evaluate("JSON.parse(localStorage.getItem('oneshot-camera-settings-v1'))")
     assert frames['["lan","dota2","pc6"]']["rotation"] == 90, frames
+    # The status says it in words: the stub VDO streams every seat.
+    await expect(page.locator(".seat-card").nth(0).locator(".seat-state")).to_have_text("В ЭФИРЕ", timeout=20000)
+    # A placeholder for team B: under its cameras in OBS, A's cards stay blank.
+    plate = "data:image/png;base64," + base64.b64encode(png((640, 480), transparent=False, color=(0, 200, 230))).decode()
+    async with page.expect_file_chooser() as chooser:
+        await page.click("#seatsPlatePickB")
+    await (await chooser.value).set_files(files=[{"name": "plate.png", "mimeType": "image/png",
+                                                  "buffer": base64.b64decode(plate.split(",", 1)[1])}])
+    await expect(page.locator("#seatsPlateNameB")).not_to_contain_text("нет картинки", timeout=15000)
+    await expect(page.locator("#seatsPlateClearB")).to_be_enabled()
+    await expect(page.locator("#seatsPlateClearA")).to_be_disabled()
     # No match yet: «Камеры в OBS» still sends the ten seats' cameras straight into OBS.
     obs = MockObs()
     await page.route_web_socket(OBS_URL, obs.handler)
@@ -474,6 +485,10 @@ async def director_rooms(browser, base):
     urls = {name: v.get("url", "") for name, v in obs.inputs.items()}
     assert "view=pc1&solo=1&room=team1&" in urls["CAM 01 | team1 | pc1"], urls
     assert "view=pc6&solo=1&room=dota2&password=qq&" in urls["CAM 06 | dota2 | pc6"], urls
+    cards = {name: v for name, v in obs.inputs.items() if name.startswith("CARD ")}
+    b_card = unquote(cards["CARD 06 | dota2 | pc6"]["url"])
+    assert "<title>Заглушка</title>" in b_card and "data:image/jpeg;base64," in b_card, b_card[:200]
+    assert unquote(cards["CARD 01 | team1 | pc1"]["url"]).endswith("<title>-</title>"), cards["CARD 01 | team1 | pc1"]["url"][:80]
     await no_sideways(page, "«Компы» with rooms")
     await ctx.close()
 

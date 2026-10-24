@@ -2,7 +2,7 @@
 // match to OBS (directly or through the OBS dock), copying the JSON, webcam
 // status from VDO.Ninja and the live veto overlay. app.js keeps working
 // without this file (the Claude artifact has none of it).
-import { buildObs, DEFAULT_CARD_BASE, normalizeCamera, lanSeatLinks } from './core.js';
+import { buildObs, DEFAULT_CARD_BASE, normalizeCamera, lanSeatLinks, cardKey, BLANK_CARD } from './core.js';
 import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto } from './obs.js';
 import { VdoLink, CamWatch, camKey, bridgeSecrets, newBridgeCode, normalizeCode, VDO_CONNECT_TIMEOUT, VDO_CONNECT_MAX_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
 import { mountQrReader, parseObsQr, parsePairingQr } from './assets/obs-qr.js';
@@ -98,7 +98,11 @@ function seatsPayload() {
     slot: i + 1, team: names[i < 5 ? 0 : 1] || seat.room, nick: seated[i]?.nick || seat.id,
     id: seat.id, room: seat.room, password: seat.password || '', camera: seated[i]?.id === seat.id ? seated[i].camera : undefined
   }));
-  return { title: `Камеры: ${lan.cams?.rooms.join(' и ') || lan.prefix}`, match: { players, includeCards: false, cardBase: cardBase(), cameraFrame: s.cameraFrame, cardDocs: {} } };
+  // A side's placeholder goes under its cameras; the other side's cards are blank.
+  const plates = [panel.plate('a'), panel.plate('b')];
+  const cards = plates.some(Boolean);
+  const cardDocs = cards ? Object.fromEntries(players.map((p, i) => [cardKey(p.team, p.nick), plates[i < 5 ? 0 : 1] || BLANK_CARD])) : {};
+  return { title: `Камеры: ${lan.cams?.rooms.join(' и ') || lan.prefix}`, match: { players, includeCards: cards, cardBase: cardBase(), cameraFrame: s.cameraFrame, cardDocs } };
 }
 // What «Отправить в OBS» sends: the match on air, or on a LAN the seats' cameras.
 const obsPayload = () => panel.snapshot().matchError && panel.lan().on ? seatsPayload() : matchPayload();
@@ -556,6 +560,16 @@ function paintCams() {
       dot.className = 'cam-dot ' + state;
       dot.hidden = !on;
       row.dataset.cam = state || 'none';
+      // In words too: a dot alone does not say if the webcam is there.
+      let note = row.querySelector('.cam-note');
+      if (!note) {
+        note = document.createElement('span');
+        note.className = 'cam-note';
+        row.querySelector('.player-subline')?.before(note);
+      }
+      note.dataset.cam = state || 'none';
+      note.hidden = !on || !player;
+      note.textContent = { live: 'ВЕБКА В ЭФИРЕ', wait: 'ПРОВЕРЯЕМ ВЕБКУ…', off: panel.plate(side) ? 'НЕТ ВЕБКИ · в OBS заглушка' : 'НЕТ ВЕБКИ' }[state] || '';
       if (player) total++;
       if (state === 'live') { up++; teamUp++; }
       if (state === 'wait') pending++;

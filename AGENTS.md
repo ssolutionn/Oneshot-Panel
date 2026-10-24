@@ -71,7 +71,14 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   предупреждение `seatsClash` при одинаковых паролях и общих ID; «Кадр» у каждого места
   (`data-seat-frame`, `oneshotPanel.editSeatCamera` — то же окно `cameraDialog`, кадр хранится за
   компом: `cameraKey` = ['lan', room, id]); «▶ Камеры в OBS» `seatsSendObs` = `live.js sendObs`:
-  в ЛАН без готового матча «Отправить в OBS» шлёт десять камер мест (`seatsPayload`); смена — с
+  в ЛАН без готового матча «Отправить в OBS» шлёт десять камер мест (`seatsPayload`); статус места
+  словами (`.seat-state`; в «Эфире» — `.cam-note` у игрока); «Заглушка, когда вебки нет»
+  (`seatsPlatePickA/B`, `seatsPlateClearA/B`, `seatsPlateFile`, превью `seatsPlateA/B`): картинка
+  стороны (`lan-images processPlate` — JPEG ≤ 380 000 символов, IndexedDB `logos['#plate-a'|'#plate-b']`)
+  → `lan-event plateCardUrl` (страница только с картинкой, cover) → `oneshotPanel.setPlates`/`plate`;
+  с заглушкой CARD включаются сами (`cardsOn`), под камерами этой стороны — заглушка, у другой при
+  выключенных карточках — пустая `BLANK_CARD`; готовая страница (`readyCard`) в OBS размером с рамку,
+  сайтовая card.html — 1920×1080; смена — с
   подтверждением), «Событие» (`evName`,
   цвета `evAccent/evDeep/evBlack` с превью `evPreview`, файл события `evExport`/`evImport`
   — `{format:'oneshot-event', v:1, lan, assets}`, в нём пароль комнаты; `evClear`). Правки — в
@@ -569,7 +576,8 @@ Netlify проверяет локальные фото, докачивает н�
   ltZip ltFolder ltImage ltCardDialog ltCardCanvas ltCardCaption matchesNavBtn matchesView
   lmTemplate lmAdd lmList seatsNavBtn seatsDot seatsView seatsWatch seatsCopyAll seatGrid
   seatsPrefix seatsPassword seatsNewPrefix seatsNote seatsPrefixBox seatsRoomsBox seatsRoomA seatsRoomB
-  seatsPasswordA seatsPasswordB seatsIds seatsIdsB seatsScan seatsClash seatsSendObs eventNavBtn eventView evName evAccent
+  seatsPasswordA seatsPasswordB seatsIds seatsIdsB seatsScan seatsClash seatsSendObs seatsPlateA seatsPlateB
+  seatsPlateNameA seatsPlateNameB seatsPlatePickA seatsPlatePickB seatsPlateClearA seatsPlateClearB seatsPlateFile seatsPlatesHeading eventNavBtn eventView evName evAccent
   evDeep evBlack evColorsReset evPreview evExport evImport evStatus evFile evClear footerNote
   serverGuide serverStartCommand serverStartWindows
   serverNavBtn serverDot serverView serverHeading serverSetup serverCopyRound serverStatus

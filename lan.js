@@ -8,9 +8,8 @@ import { camKey, scanRoom } from './vdo.js';
 import { showView, camStatus, sendObs } from './live.js';
 import { DEFAULT_TOURNAMENT } from './assets/veto-short-links.js';
 import {
-  readZip, collectTeams, AssetStore, indexedAssets, normalizeAssets, cardDocs, paletteFrom, DEFAULT_COLORS, ownKey
-} from './lan-event.js';
-import { processImage, drawCardPreview, drawThumb } from './lan-images.js';
+  readZip, collectTeams, AssetStore, indexedAssets, normalizeAssets, cardDocs, paletteFrom, DEFAULT_COLORS, ownKey, plateCardUrl } from './lan-event.js';
+import { processImage, processPlate, drawCardPreview, drawThumb } from './lan-images.js';
 
 const $ = id => document.getElementById(id);
 const panel = () => window.oneshotPanel;
@@ -489,12 +488,15 @@ function renderSeats() {
       const link = links[s * LAN_SEATS + i];
       const key = link && camKey(link.room, link.id);
       const cam = !cams.on || !link ? 'none' : cams.live.has(key) ? 'live' : cams.checking.has(key) ? 'wait' : 'off';
+      const plate = Boolean(plateImage(side));
+      const state = { live: 'В ЭФИРЕ', off: plate ? 'НЕТ ВЕБКИ · в OBS заглушка' : 'НЕТ ВЕБКИ', wait: 'ПРОВЕРЯЕМ…', none: 'статус выключен' }[cam];
       if (cam === 'live') live++;
       const who = (s ? snapshot.playersB : snapshot.playersA)?.[i]?.nick || '';
       return el('div', { class: 'seat-card', 'data-seat-cam': cam },
         el('b', { class: 'seat-name', text: link?.seat || `${side.toUpperCase()}${i + 1}` }),
         el('i', { class: 'seat-dot', 'aria-hidden': 'true' }),
         el('span', { class: 'seat-who', text: who || 'место свободно' }),
+        el('span', { class: 'seat-state', text: state }),
         el('code', { class: 'seat-link', text: link?.push || '' }),
         el('button', { type: 'button', class: 'copy-icon', text: '⧉', title: `Копировать ссылку места ${link?.seat || ''}`,
           'aria-label': `Копировать ссылку места ${link?.seat || ''}`, disabled: !link, onclick: () => panel().copy(link.push) }),
@@ -531,6 +533,46 @@ function changeCams() {
   commit(true);
   panel().toast('Готово: открой новые ссылки на компах и скачай JSON для OBS заново.');
 }
+// ---------- placeholders: a side's picture under its cameras in OBS ----------
+const PLATE = { a: '#plate-a', b: '#plate-b' };
+const plateImage = side => store?.assets.logos[PLATE[side]] || '';
+const plateDocs = new Map();
+function plateDoc(side) {
+  const image = plateImage(side);
+  if (!image) return '';
+  if (!plateDocs.has(image)) { plateDocs.clear(); plateDocs.set(image, plateCardUrl(image)); }
+  return plateDocs.get(image);
+}
+let plateSide = 'a';
+function paintPlates() {
+  const lan = panel().lan();
+  for (const [side, suffix] of [['a', 'A'], ['b', 'B']]) {
+    const image = plateImage(side);
+    $(`seatsPlateName${suffix}`).textContent = `Команда ${suffix}${lan.cams ? ` · ${lan.cams.rooms[side === 'a' ? 0 : 1]}` : ''}${image ? '' : ' · нет картинки'}`;
+    $(`seatsPlateClear${suffix}`).disabled = !image;
+    const canvas = $(`seatsPlate${suffix}`);
+    if (image) drawThumb(canvas, image, 'contain');
+    else canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  }
+}
+async function setPlate(side, file) {
+  if (!imageFile(file)) return panel().toast('Нужна картинка PNG, JPG или WEBP.');
+  try {
+    const url = await processPlate(file);
+    if (!await changeAssets(assets => { assets.logos[PLATE[side]] = url; })) throw new Error('браузеру не хватило места');
+    panel().setPlates(plateDoc);
+    paintPlates();
+    renderSeats();
+    panel().toast(`Заглушка команды ${side.toUpperCase()} готова: отправь камеры в OBS.`);
+  } catch (error) { panel().toast(`Заглушка не загрузилась: ${error.message}.`); }
+}
+async function clearPlate(side) {
+  await changeAssets(assets => { delete assets.logos[PLATE[side]]; });
+  panel().setPlates(plateDoc);
+  paintPlates();
+  renderSeats();
+}
+
 // «Найти компы»: who streams in each room right now becomes that room's PCs, in
 // natural order (pc1, pc2 … pc10); seats nobody streams to keep their old IDs.
 async function scanCams() {
@@ -627,6 +669,8 @@ function renderAll() {
   fillEvent();
   renderTeams();
   renderMatches();
+  panel().setPlates(plateDoc);
+  paintPlates();
   renderSeats();
   paintLogos();
   paintPreview();
@@ -635,7 +679,7 @@ function renderAll() {
 // ---------- wiring ----------
 function start() {
   store = new AssetStore({ db: globalThis.indexedDB ? indexedAssets() : null });
-  loaded = store.load().then(migrateAssets).then(() => { renderTeams(); paintLogos(); paintPreview(); });
+  loaded = store.load().then(migrateAssets).then(() => { renderTeams(); paintLogos(); paintPreview(); panel().setPlates(plateDoc); paintPlates(); });
   // OBS gets every card as one page with its photo inside.
   panel().setCardDocs(players => cardDocs(players, store.assets, palette()));
   $('ltAddTeam').addEventListener('click', addTeam);
@@ -688,6 +732,15 @@ function start() {
   $('seatsNewPrefix').addEventListener('click', () => changeSeats(newLanPrefix(random(4)), panel().lan().password));
   for (const id of ['seatsRoomA', 'seatsRoomB', 'seatsPasswordA', 'seatsPasswordB', 'seatsIds', 'seatsIdsB']) $(id).addEventListener('change', changeCams);
   $('seatsScan').addEventListener('click', scanCams);
+  for (const [side, suffix] of [['a', 'A'], ['b', 'B']]) {
+    $(`seatsPlatePick${suffix}`).addEventListener('click', () => { plateSide = side; $('seatsPlateFile').click(); });
+    $(`seatsPlateClear${suffix}`).addEventListener('click', () => clearPlate(side));
+  }
+  $('seatsPlateFile').addEventListener('change', () => {
+    const file = $('seatsPlateFile').files[0];
+    $('seatsPlateFile').value = '';
+    if (file) setPlate(plateSide, file);
+  });
   // The ten webcams (or the match on air, when there is one) straight into OBS.
   $('seatsSendObs').addEventListener('click', () => sendObs());
   // Webcam dots in «Эфир» (live.js) are the seats' too.

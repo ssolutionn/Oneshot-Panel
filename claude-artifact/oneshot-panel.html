@@ -672,7 +672,7 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .seat-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
 .seat-column { display:grid; gap:6px; min-width:0; }
 .seat-column h3 { margin:0 0 2px; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.seat-card { display:grid; grid-template-columns:30px 10px minmax(0,1fr) auto auto; grid-template-areas:'seat dot who frame copy' 'link link link link link'; align-items:center; gap:4px 8px; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--field); }
+.seat-card { display:grid; grid-template-columns:30px 10px minmax(0,1fr) auto auto; grid-template-areas:'seat dot who frame copy' 'state state state state state' 'link link link link link'; align-items:center; gap:4px 8px; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--field); }
 .seat-name { grid-area:seat; font-size:13px; }
 .seat-dot { grid-area:dot; width:9px; height:9px; border-radius:50%; background:var(--btn-line); }
 .seat-card[data-seat-cam=live] .seat-dot { background:var(--success); }
@@ -681,6 +681,20 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .seat-who { grid-area:who; font-size:12px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .seat-card .copy-icon { grid-area:copy; }
 .seat-card .seat-frame { grid-area:frame; font-size:12px; }
+.seat-state { grid-area:state; justify-self:start; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:800; letter-spacing:.04em; background:var(--soft); color:var(--muted); }
+.seat-card[data-seat-cam=live] .seat-state { background:var(--success-bg); color:var(--success); }
+.seat-card[data-seat-cam=off] .seat-state { background:var(--red); color:var(--on-accent); }
+.seat-card[data-seat-cam=wait] .seat-state { background:var(--warn); color:var(--warn-ink); }
+.cam-note { display:inline-block; margin-left:6px; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:800; letter-spacing:.04em; vertical-align:middle; background:var(--soft); color:var(--muted); }
+.cam-note[data-cam=live] { background:var(--success-bg); color:var(--success); }
+.cam-note[data-cam=off] { background:var(--red); color:var(--on-accent); }
+.cam-note[data-cam=wait] { background:var(--warn); color:var(--warn-ink); }
+.seat-plates { margin-top:16px; }
+.seat-plates h3 { margin:0 0 4px; font-size:14px; }
+.seat-plate-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr)); gap:12px; margin-top:8px; }
+.seat-plate { display:grid; grid-template-columns:auto 1fr; gap:6px 10px; align-items:center; padding:8px; border:1px solid var(--line); border-radius:6px; background:var(--field); }
+.seat-plate canvas { grid-row:span 3; width:120px; height:90px; border-radius:4px; background:var(--bar); }
+.seat-plate .button,.seat-plate .text-button { justify-self:start; }
 .seat-link { grid-area:link; color:var(--muted); font-size:10px; }
 .seat-settings { display:grid; grid-template-columns:minmax(0,180px) minmax(0,240px) auto; align-items:end; gap:12px; margin-top:14px; font-size:12px; }
 #seatsNote { margin-top:8px; font-size:11px; }
@@ -1434,6 +1448,9 @@ function personKey(value) {
 // One card per player of a match: the key of a ready-made card page (LAN).
 const cardKey = (team, nick) => personKey(team) + '|' + personKey(nick);
 // A ready card is only ever a data: page; anything else in its place is ignored.
+// A card page that shows nothing (an OBS browser source is transparent): the
+// card of a seat whose side has no placeholder while the other side has one.
+const BLANK_CARD = 'data:text/html;charset=utf-8,' + encodeURIComponent('<!doctype html><title>-</title>');
 const readyCard = (docs, key) => {
   const doc = docs?.[key];
   return typeof doc === 'string' && doc.startsWith('data:text/html;charset=utf-8,') ? doc : '';
@@ -1596,9 +1613,12 @@ function buildObs(template, a, b, ka, kb,
     if (includeCards) {
       // The player card sits right under the camera: it is seen whenever
       // VDO.Ninja has no video (not connected yet, or dropped).
+      // A ready page (a LAN card, a placeholder) is made the frame's size, so it
+      // fills the frame; the site's card page stays 1920×1080 inside it.
+      const doc = readyCard(cardDocs, cardKey(p.team, p.nick)), area = cameraFrame(frame);
       Object.assign(cardSource, {
         uuid: uuidFn(), name: `CARD ${slot} | ${p.team} | ${p.nick}`,
-        settings: { url: readyCard(cardDocs, cardKey(p.team, p.nick)) || cardUrl(p, cardBase), width: 1920, height: 1080 },
+        settings: { url: doc || cardUrl(p, cardBase), width: doc ? area.width : 1920, height: doc ? area.height : 1080 },
         muted: true
       });
       d.sources.push(cardSource);
@@ -2202,7 +2222,7 @@ function snapshot() {
     a: getTeam('a'), b: getTeam('b'), playersA: chosen('a'), playersB: chosen('b'),
     keysA: [...state.keysA], keysB: [...state.keysB],
     matchError: valid(), template: state.template, templateError: state.templateError,
-    includeCards: $('includeCards').checked, logos: state.logos,
+    includeCards: cardsOn(), logos: state.logos,
     cameraFrame:state.cameraFrame,
     veto: { ...state.veto, actions: [...state.veto.actions] }, pending: state.pending,
     schedule: state.schedule, matchKey: state.matchKey,
@@ -2218,13 +2238,30 @@ window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, se
   // «Кадр» of a LAN seat's webcam (side 'a'|'b', seat 0–4), from «Компы».
   editSeatCamera: (side, index) => { if (state.lan.on && ['a', 'b'].includes(side) && index >= 0 && index < 5) openCamera(side, index, true); },
   // lan.js registers the maker of self-contained cards (photos inside).
-  setCardDocs: provider => { cardDocsProvider = provider; }, cardDocs: () => cardDocsNow() };
-let cardDocsProvider = null;
-// LAN cards with their photos inside, for the players of the current match.
+  setCardDocs: provider => { cardDocsProvider = provider; }, cardDocs: () => cardDocsNow(),
+  // lan.js: a side's placeholder card page («Компы»), '' when there is none.
+  setPlates: provider => { platesProvider = provider; notify(); }, plate: side => plateOf(side) };
+let cardDocsProvider = null, platesProvider = null;
+const plateOf = side => state.lan.on && platesProvider ? platesProvider(side) || '' : '';
+// Cards go to OBS with the checkbox, or on a LAN whenever a side has a placeholder.
+const cardsOn = () => $('includeCards').checked || Boolean(plateOf('a') || plateOf('b'));
+// LAN cards with their photos inside, for the players of the current match. A
+// side with a placeholder gets it under every camera (seen while a webcam has
+// no video); with cards off, the other side's cards show nothing.
 function cardDocsNow() {
-  if (!state.lan.on || !$('includeCards').checked || !cardDocsProvider) return {};
-  return cardDocsProvider(['a', 'b'].flatMap(side =>
-    chosen(side).filter(Boolean).map(p => ({ team: getTeam(side).name, nick: p.nick, teamId: getTeam(side).teamId, playerId: p.playerId }))));
+  if (!state.lan.on || !cardsOn()) return {};
+  const cards = $('includeCards').checked && cardDocsProvider;
+  const docs = cards ? cardDocsProvider(['a', 'b'].flatMap(side =>
+    chosen(side).filter(Boolean).map(p => ({ team: getTeam(side).name, nick: p.nick, teamId: getTeam(side).teamId, playerId: p.playerId })))) : {};
+  for (const side of ['a', 'b']) {
+    const plate = plateOf(side);
+    for (const p of chosen(side).filter(Boolean)) {
+      const key = cardKey(getTeam(side).name, p.nick);
+      if (plate) docs[key] = plate;
+      else if (!cards) docs[key] = BLANK_CARD;
+    }
+  }
+  return docs;
 }
 // lan.js: another prefix is a new data source; edited teams keep the match,
 // lineups and veto where they still fit, and a renamed team stays chosen.

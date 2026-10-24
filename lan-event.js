@@ -223,6 +223,14 @@ var n=document.getElementById('nick'),w=n.parentElement.clientWidth,z=${p ? 160 
 </script></body></html>`;
 }
 export const eventCardUrl = fields => 'data:text/html;charset=utf-8,' + encodeURIComponent(eventCardHtml(fields));
+// A team's placeholder (its logo on the event's background): under each of its
+// cameras in OBS, seen while that webcam has no video. The picture covers the
+// frame; only a data:image gets in.
+export function plateCardUrl(image) {
+  if (!DATA_IMAGE.test(image || '')) return '';
+  return 'data:text/html;charset=utf-8,' + encodeURIComponent('<!doctype html><html><head><meta charset="utf-8"><title>Заглушка</title><style>' +
+    `html,body{margin:0;height:100%;overflow:hidden;background:#031b24 url("${image}") center/cover no-repeat}</style></head><body></body></html>`);
+}
 
 // The cards of one match: { [cardKey]: data: URL } for its ten players.
 export function cardDocs(players, assets, colors) {

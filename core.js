@@ -522,6 +522,9 @@ export function personKey(value) {
 // One card per player of a match: the key of a ready-made card page (LAN).
 export const cardKey = (team, nick) => personKey(team) + '|' + personKey(nick);
 // A ready card is only ever a data: page; anything else in its place is ignored.
+// A card page that shows nothing (an OBS browser source is transparent): the
+// card of a seat whose side has no placeholder while the other side has one.
+export const BLANK_CARD = 'data:text/html;charset=utf-8,' + encodeURIComponent('<!doctype html><title>-</title>');
 export const readyCard = (docs, key) => {
   const doc = docs?.[key];
   return typeof doc === 'string' && doc.startsWith('data:text/html;charset=utf-8,') ? doc : '';
@@ -684,9 +687,12 @@ export function buildObs(template, a, b, ka, kb,
     if (includeCards) {
       // The player card sits right under the camera: it is seen whenever
       // VDO.Ninja has no video (not connected yet, or dropped).
+      // A ready page (a LAN card, a placeholder) is made the frame's size, so it
+      // fills the frame; the site's card page stays 1920×1080 inside it.
+      const doc = readyCard(cardDocs, cardKey(p.team, p.nick)), area = cameraFrame(frame);
       Object.assign(cardSource, {
         uuid: uuidFn(), name: `CARD ${slot} | ${p.team} | ${p.nick}`,
-        settings: { url: readyCard(cardDocs, cardKey(p.team, p.nick)) || cardUrl(p, cardBase), width: 1920, height: 1080 },
+        settings: { url: doc || cardUrl(p, cardBase), width: doc ? area.width : 1920, height: doc ? area.height : 1080 },
         muted: true
       });
       d.sources.push(cardSource);

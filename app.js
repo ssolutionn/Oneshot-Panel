@@ -6,7 +6,7 @@ import {
   observerText, playerText, buildObs, safeFilename, validateMetadata,
   CAMERA_FRAMES, DEFAULT_CAMERA_FRAME, cameraFrame, normalizeCamera, cameraCss, cameraViewUrl,
   MAP_POOL, VETO_RULES, validateVeto, appendVeto, vetoText,
-  lanConfig, lanCams, lanSeat, lanTeams, lanSchedule, newLanPrefix, seatTeam
+  lanConfig, lanCams, lanSeat, lanTeams, lanSchedule, newLanPrefix, seatTeam, BLANK_CARD, cardKey
 } from './core.js';
 
 const $ = id => document.getElementById(id);
@@ -351,7 +351,7 @@ function snapshot() {
     a: getTeam('a'), b: getTeam('b'), playersA: chosen('a'), playersB: chosen('b'),
     keysA: [...state.keysA], keysB: [...state.keysB],
     matchError: valid(), template: state.template, templateError: state.templateError,
-    includeCards: $('includeCards').checked, logos: state.logos,
+    includeCards: cardsOn(), logos: state.logos,
     cameraFrame:state.cameraFrame,
     veto: { ...state.veto, actions: [...state.veto.actions] }, pending: state.pending,
     schedule: state.schedule, matchKey: state.matchKey,
@@ -367,13 +367,30 @@ window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, se
   // «Кадр» of a LAN seat's webcam (side 'a'|'b', seat 0–4), from «Компы».
   editSeatCamera: (side, index) => { if (state.lan.on && ['a', 'b'].includes(side) && index >= 0 && index < 5) openCamera(side, index, true); },
   // lan.js registers the maker of self-contained cards (photos inside).
-  setCardDocs: provider => { cardDocsProvider = provider; }, cardDocs: () => cardDocsNow() };
-let cardDocsProvider = null;
-// LAN cards with their photos inside, for the players of the current match.
+  setCardDocs: provider => { cardDocsProvider = provider; }, cardDocs: () => cardDocsNow(),
+  // lan.js: a side's placeholder card page («Компы»), '' when there is none.
+  setPlates: provider => { platesProvider = provider; notify(); }, plate: side => plateOf(side) };
+let cardDocsProvider = null, platesProvider = null;
+const plateOf = side => state.lan.on && platesProvider ? platesProvider(side) || '' : '';
+// Cards go to OBS with the checkbox, or on a LAN whenever a side has a placeholder.
+const cardsOn = () => $('includeCards').checked || Boolean(plateOf('a') || plateOf('b'));
+// LAN cards with their photos inside, for the players of the current match. A
+// side with a placeholder gets it under every camera (seen while a webcam has
+// no video); with cards off, the other side's cards show nothing.
 function cardDocsNow() {
-  if (!state.lan.on || !$('includeCards').checked || !cardDocsProvider) return {};
-  return cardDocsProvider(['a', 'b'].flatMap(side =>
-    chosen(side).filter(Boolean).map(p => ({ team: getTeam(side).name, nick: p.nick, teamId: getTeam(side).teamId, playerId: p.playerId }))));
+  if (!state.lan.on || !cardsOn()) return {};
+  const cards = $('includeCards').checked && cardDocsProvider;
+  const docs = cards ? cardDocsProvider(['a', 'b'].flatMap(side =>
+    chosen(side).filter(Boolean).map(p => ({ team: getTeam(side).name, nick: p.nick, teamId: getTeam(side).teamId, playerId: p.playerId })))) : {};
+  for (const side of ['a', 'b']) {
+    const plate = plateOf(side);
+    for (const p of chosen(side).filter(Boolean)) {
+      const key = cardKey(getTeam(side).name, p.nick);
+      if (plate) docs[key] = plate;
+      else if (!cards) docs[key] = BLANK_CARD;
+    }
+  }
+  return docs;
 }
 // lan.js: another prefix is a new data source; edited teams keep the match,
 // lineups and veto where they still fit, and a renamed team stays chosen.
@@ -1073,7 +1090,7 @@ $('copyAllBtn').addEventListener('click', () => copy($('output').value));
 function exportObsFile() {
   const filename = safeFilename(state.a, state.b, $('matchTime').value, $('matchStage').value);
   const data = buildObs(state.template, getTeam('a'), getTeam('b'), state.keysA, state.keysB, undefined, {
-    includeCards: $('includeCards').checked,
+    includeCards: cardsOn(),
     cameraFrame:state.cameraFrame, cardDocs: cardDocsNow(),
     ...(/^https?:$/.test(location.protocol) ? { cardBase: location.origin } : {})
   });

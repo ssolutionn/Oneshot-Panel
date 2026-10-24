@@ -243,3 +243,17 @@ test('the dock takes the largest card the panel can make; event pictures are kep
   assert.match(decodeURIComponent(docs[cardKey('Navi', 'n1')]), /data:image\/png;base64,/);
   assert.doesNotMatch(decodeURIComponent(docs[cardKey('T1', 'x')]), /data:image\/webp/);
 });
+
+test('a placeholder is one page with only its picture, covering the frame; anything else gives none', async () => {
+  const { plateCardUrl } = await import('../lan-event.js');
+  const { BLANK_CARD, readyCard } = await import('../core.js');
+  const image = 'data:image/jpeg;base64,AAAA';
+  const url = plateCardUrl(image);
+  assert.ok(readyCard({ k: url }, 'k'));
+  const html = decodeURIComponent(url.slice('data:text/html;charset=utf-8,'.length));
+  assert.match(html, /url\("data:image\/jpeg;base64,AAAA"\) center\/cover/);
+  assert.doesNotMatch(html, /<script/);
+  for (const bad of ['', 'https://evil.example/x.png', 'data:image/svg+xml;base64,AAAA', 'data:image/png;base64,AA"A'])
+    assert.equal(plateCardUrl(bad), '', bad);
+  assert.ok(readyCard({ k: BLANK_CARD }, 'k'));
+});

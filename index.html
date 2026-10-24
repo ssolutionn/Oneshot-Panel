@@ -450,6 +450,17 @@
           <label class="seat-ids">ID компов B <span class="muted">(пусто — как у A)</span><input id="seatsIdsB" autocomplete="off" spellcheck="false" maxlength="220"></label>
           <button id="seatsScan" class="button small seat-ids" type="button">Найти компы в комнатах</button>
         </div>
+        <div class="seat-plates" aria-labelledby="seatsPlatesHeading">
+          <h3 id="seatsPlatesHeading">Заглушка, когда вебки нет</h3>
+          <p class="muted">Картинка встаёт в OBS под камеры команды: пока вебка места не в эфире, видно её, вебка появилась — закрывает. Уходит с «Отправить в OBS» / «Камеры в OBS» и в JSON.</p>
+          <div class="seat-plate-row">
+            <div class="seat-plate"><canvas id="seatsPlateA" width="240" height="180"></canvas><b id="seatsPlateNameA">A</b>
+              <button id="seatsPlatePickA" class="button small" type="button">Загрузить</button><button id="seatsPlateClearA" class="text-button" type="button">Убрать</button></div>
+            <div class="seat-plate"><canvas id="seatsPlateB" width="240" height="180"></canvas><b id="seatsPlateNameB">B</b>
+              <button id="seatsPlatePickB" class="button small" type="button">Загрузить</button><button id="seatsPlateClearB" class="text-button" type="button">Убрать</button></div>
+          </div>
+          <input type="file" id="seatsPlateFile" accept="image/png,image/jpeg,image/webp" hidden>
+        </div>
         <p id="seatsNote" class="muted">Префикс и пароль меняют ссылки всех десяти компов: после смены открой новые ссылки на местах.</p>
         <p id="seatsClash" class="error-box" hidden>У комнат одинаковый пароль (или его нет), а ID компов те же: VDO.Ninja может принять pc1 первой комнаты и pc1 второй за один поток, и второй комп отключится («stream ID is already in use»). Надёжно — дать комнатам разные пароли.</p>
         <details class="event-guide">

@@ -135,3 +135,16 @@ test('JSON export and live OBS apply share camera settings and geometry; cards s
     }
   }
 });
+
+test('a ready card page (a LAN card, a placeholder) is the frame\'s size, so it fills the frame; the site card stays 1920×1080',async()=>{
+  const {cardKey,BLANK_CARD}=await import('../core.js');
+  const a=team('Plate A'),b=team('Plate B');
+  const docs=Object.fromEntries(b.players.map(p=>[cardKey(b.name,p.nick),BLANK_CARD]));
+  const document=buildObs(template,a,b,a.players.map(p=>p.key),b.players.map(p=>p.key),undefined,{includeCards:true,cameraFrame:'square_over20',cardDocs:docs});
+  const card=n=>document.sources.find(s=>s.name.startsWith(`CARD ${String(n).padStart(2,'0')} `)).settings;
+  assert.deepEqual([card(6).url,card(6).width,card(6).height],[BLANK_CARD,1120,1120]);
+  assert.deepEqual([card(1).width,card(1).height],[1920,1080]);
+  assert.match(card(1).url,/^https:/);
+  const plan=slotPlan([{inputKind:'browser_source',sourceName:'CAM old',sceneItemId:1}],{...b.players[0],team:b.name,slot:6},{includeCards:true,cameraFrame:'square_over20',cardDocs:docs});
+  assert.deepEqual([plan.card.settings.url,plan.card.settings.width,plan.card.settings.height],[BLANK_CARD,1120,1120]);
+});
