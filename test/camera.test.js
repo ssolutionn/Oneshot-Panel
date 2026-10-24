@@ -51,6 +51,20 @@ test('camera rotation keeps all four corners exactly inside the chosen frame',()
   }
 });
 
+test('a frame with a 20 px margin leaves 20 px of the scene free on every side, in the JSON and through OBS',()=>{
+  const a=team('Pad A'),b=team('Pad B');
+  for (const [frame,rect] of [['square_pad20',{x:440,y:20,width:1040,height:1040}],['inner43_pad20',{x:320,y:56,width:1280,height:968}],
+    ['wide_pad20',{x:20,y:20,width:1880,height:1040}],['full43_pad20',{x:260,y:20,width:1400,height:1040}]]) {
+    assert.deepEqual(cameraFrame(frame),rect);
+    const document=buildObs(template,a,b,a.players.map(p=>p.key),b.players.map(p=>p.key),undefined,{cameraFrame:frame});
+    const item=document.sources.find(s=>s.name==='Игрок 1').settings.items.find(it=>it.name.startsWith('CAM '));
+    const plan=slotPlan([{inputKind:'browser_source',sourceName:'CAM old',sceneItemId:1}],{...a.players[0],team:a.name,slot:1},{cameraFrame:frame});
+    assert.deepEqual([item.pos,item.bounds],[{x:rect.x,y:rect.y},{x:rect.width,y:rect.height}]);
+    assert.deepEqual([plan.camera.transform.positionX,plan.camera.transform.positionY,plan.camera.transform.boundsWidth,plan.camera.transform.boundsHeight],
+      [rect.x,rect.y,rect.width,rect.height]);
+  }
+});
+
 test('cover and pan use VDO options with numeric CSS, and screen directions survive rotation',()=>{
   const player={id:'player',room:'team',password:'secret'};
   const url=new URL(cameraViewUrl({...player,camera:{rotation:90,panX:20,panY:70}}));
