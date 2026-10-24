@@ -225,12 +225,12 @@ export const CAMERA_FRAMES = {
   // A square crop is centered on the 1920×1080 canvas. OBS can place this
   // source anywhere later without stretching it.
   square: { x:420, y:0, width:1080, height:1080 },
-  // The same frames with 20 px of the scene left free around the camera (a LAN's
-  // own graphic around the webcam).
-  inner43_pad20: { x:320, y:56, width:1280, height:968 },
-  full43_pad20: { x:260, y:20, width:1400, height:1040 },
-  wide_pad20: { x:20, y:20, width:1880, height:1040 },
-  square_pad20: { x:440, y:20, width:1040, height:1040 }
+  // The same frames with the camera 20 px larger on every side: a margin past
+  // the frame's edge, so a webcam that does not quite fill it shows no stripes.
+  inner43_over20: { x:280, y:16, width:1360, height:1048 },
+  full43_over20: { x:220, y:-20, width:1480, height:1120 },
+  wide_over20: { x:-20, y:-20, width:1960, height:1120 },
+  square_over20: { x:400, y:-20, width:1120, height:1120 }
 };
 export function cameraFrame(value = DEFAULT_CAMERA_FRAME) {
   return { ...CAMERA_FRAMES[typeof value==='string' && Object.hasOwn(CAMERA_FRAMES,value) ? value : DEFAULT_CAMERA_FRAME] };

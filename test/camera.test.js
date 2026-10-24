@@ -51,11 +51,11 @@ test('camera rotation keeps all four corners exactly inside the chosen frame',()
   }
 });
 
-test('a frame with a 20 px margin leaves 20 px of the scene free on every side, in the JSON and through OBS',()=>{
+test('a frame with 20 px to spare puts the camera 20 px past the frame on every side, in the JSON and through OBS',()=>{
   const a=team('Pad A'),b=team('Pad B');
-  for (const [frame,rect] of [['square_pad20',{x:440,y:20,width:1040,height:1040}],['inner43_pad20',{x:320,y:56,width:1280,height:968}],
-    ['wide_pad20',{x:20,y:20,width:1880,height:1040}],['full43_pad20',{x:260,y:20,width:1400,height:1040}]]) {
-    assert.deepEqual(cameraFrame(frame),rect);
+  for (const [frame,base] of [['square_over20','square'],['inner43_over20','inner43'],['wide_over20','wide'],['full43_over20','full43']]) {
+    const inner=cameraFrame(base),rect=cameraFrame(frame);
+    assert.deepEqual(rect,{x:inner.x-20,y:inner.y-20,width:inner.width+40,height:inner.height+40});
     const document=buildObs(template,a,b,a.players.map(p=>p.key),b.players.map(p=>p.key),undefined,{cameraFrame:frame});
     const item=document.sources.find(s=>s.name==='Игрок 1').settings.items.find(it=>it.name.startsWith('CAM '));
     const plan=slotPlan([{inputKind:'browser_source',sourceName:'CAM old',sceneItemId:1}],{...a.players[0],team:a.name,slot:1},{cameraFrame:frame});

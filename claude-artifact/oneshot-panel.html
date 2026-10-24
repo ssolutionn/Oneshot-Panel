@@ -781,7 +781,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
       </div>
       <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
       <label class="camera-frame-setting">Рамка вебок
-        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option><option value="inner43_pad20">Внутренняя рамка, отступ 20 px</option><option value="full43_pad20">4:3 на всю высоту, отступ 20 px</option><option value="wide_pad20">Весь холст, отступ 20 px</option><option value="square_pad20">Квадрат, отступ 20 px (1040×1040)</option></select>
+        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option><option value="inner43_over20">Внутренняя рамка +20 px запаса</option><option value="full43_over20">4:3 на всю высоту +20 px запаса</option><option value="wide_over20">Весь холст +20 px запаса</option><option value="square_over20">Квадрат +20 px запаса (1120×1120)</option></select>
         <span>Заполнение с обрезкой краёв. «Кадр» под ником — поворот и положение игрока.</span>
       </label>
       <div class="export-meta">
@@ -1137,12 +1137,12 @@ const CAMERA_FRAMES = {
   // A square crop is centered on the 1920×1080 canvas. OBS can place this
   // source anywhere later without stretching it.
   square: { x:420, y:0, width:1080, height:1080 },
-  // The same frames with 20 px of the scene left free around the camera (a LAN's
-  // own graphic around the webcam).
-  inner43_pad20: { x:320, y:56, width:1280, height:968 },
-  full43_pad20: { x:260, y:20, width:1400, height:1040 },
-  wide_pad20: { x:20, y:20, width:1880, height:1040 },
-  square_pad20: { x:440, y:20, width:1040, height:1040 }
+  // The same frames with the camera 20 px larger on every side: a margin past
+  // the frame's edge, so a webcam that does not quite fill it shows no stripes.
+  inner43_over20: { x:280, y:16, width:1360, height:1048 },
+  full43_over20: { x:220, y:-20, width:1480, height:1120 },
+  wide_over20: { x:-20, y:-20, width:1960, height:1120 },
+  square_over20: { x:400, y:-20, width:1120, height:1120 }
 };
 function cameraFrame(value = DEFAULT_CAMERA_FRAME) {
   return { ...CAMERA_FRAMES[typeof value==='string' && Object.hasOwn(CAMERA_FRAMES,value) ? value : DEFAULT_CAMERA_FRAME] };
