@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
-  lanConfig, eventProfile, parseLanRoster, lanSeatId, seatTeam, lanSeatLinks, LAN_SEATS,
+  lanConfig, lanCams, eventProfile, parseLanRoster, lanSeatId, seatTeam, lanSeatLinks, LAN_SEATS,
   lanTeams, lanSchedule, lanId, newLanPrefix, LAN_LIMITS,
   defaultLineup, validateMatch, selectedPlayers, buildObs, observerText, directorUrl
 } from '../core.js';
@@ -15,7 +15,7 @@ Bravo: b1, b2, b3, b4, b5`;
 
 test('LAN config: needs a short lowercase prefix to switch on', () => {
   assert.deepEqual(lanConfig({ on: true, prefix: 'k7qz', password: ' pw ', teams: [] }),
-    { on: true, prefix: 'k7qz', password: 'pw', teams: [], matches: [], event: { name: '', accent: '', deep: '', black: '' } });
+    { on: true, prefix: 'k7qz', password: 'pw', cams: null, teams: [], matches: [], event: { name: '', accent: '', deep: '', black: '' } });
   for (const prefix of ['', 'K7QZ', 'a', 'has space', 'x'.repeat(13), 'a-b'])
     assert.equal(lanConfig({ on: true, prefix }).on, false, prefix);
   assert.equal(lanConfig(null).on, false);
@@ -86,6 +86,31 @@ test('LAN seat links: ten links to type on the PCs, password included when set',
   assert.equal(links[0].push, 'https://vdo.ninja/?room=k7qz&broadcast&do&push=k7qza1');
   const locked = lanSeatLinks(lanConfig({ on: true, prefix: 'k7qz', password: 'p w' }));
   assert.equal(locked[9].push, 'https://vdo.ninja/?room=k7qz&password=p%20w&broadcast&do&push=k7qzb5');
+});
+
+test('LAN rooms: a room per side and the same PCs in each (REU: team1/team2, pc1…pc5) go into the OBS JSON', () => {
+  const PCS = ['pc1', 'pc2', 'pc3', 'pc4', 'pc5'];
+  const lan = lanConfig({ on: true, prefix: 'k7qz', cams: { rooms: ['team1', 'team2'], ids: PCS, passwords: ['', 'pw 2'] } });
+  assert.deepEqual(lan.cams, { rooms: ['team1', 'team2'], ids: PCS, passwords: ['', 'pw 2'] });
+  const [alpha, bravo] = parseLanRoster(ROSTER);
+  const keysA = defaultLineup(alpha), keysB = defaultLineup(bravo);
+  const a = seatTeam(alpha, 'a', keysA, lan), b = seatTeam(bravo, 'b', keysB, lan);
+  assert.deepEqual(selectedPlayers(b, keysB).map(p => [p.seat, p.room, p.id, p.password]).slice(0, 2),
+    [['B1', 'team2', 'pc1', 'pw 2'], ['B2', 'team2', 'pc2', 'pw 2']]);
+  const cams = buildObs(template, a, b, keysA, keysB, () => crypto.randomUUID()).sources
+    .filter(s => /^CAM /.test(s.name)).sort((x, y) => x.name.localeCompare(y.name));
+  assert.match(cams[0].settings.url, /[?&]view=pc1&solo=1&room=team1&codec/);
+  assert.match(cams[9].settings.url, /[?&]view=pc5&solo=1&room=team2&password=pw%202&codec/);
+  const links = lanSeatLinks(lan);
+  assert.equal(links[0].push, 'https://vdo.ninja/?room=team1&broadcast&do&push=pc1');
+  assert.equal(links[9].push, 'https://vdo.ninja/?room=team2&password=pw%202&broadcast&do&push=pc5');
+  assert.equal(directorUrl(b), 'https://vdo.ninja/?director=team2&password=pw%202');
+  // Two different rooms and five different VDO-safe IDs, or the prefix stays in charge.
+  for (const bad of [{ rooms: ['team1', 'team1'], ids: PCS }, { rooms: ['team1'], ids: PCS }, { rooms: ['team 1', 'team2'], ids: PCS },
+    { rooms: ['team1', 'team2'], ids: ['pc1', 'pc1', 'pc3', 'pc4', 'pc5'] }, { rooms: ['team1', 'team2'], ids: PCS.slice(0, 4) }])
+    assert.equal(lanCams(bad), null, JSON.stringify(bad));
+  assert.equal(lanSeatLinks(lanConfig({ on: true, prefix: 'k7qz', cams: { rooms: ['a'], ids: [] } }))[0].push,
+    'https://vdo.ninja/?room=k7qz&broadcast&do&push=k7qza1');
 });
 
 test('event profile: a name and three hex colours, nothing else gets through', () => {

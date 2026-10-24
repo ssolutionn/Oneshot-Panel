@@ -64,7 +64,9 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   команды по id, формат; «2 полуфинала + финал»; «▶ В эфир» выбирает матч в `matchSelect` и
   открывает «Эфир»), «Компы» (`seatGrid`: 10 мест, кто сидит, статус вебки
   `live.js camStatus()` / событие `oneshot:cams` — в ЛАН live.js следит за всеми 10 потоками мест,
-  занятыми и нет; ссылки; `seatsPrefix`/`seatsPassword`, смена — с подтверждением), «Событие» (`evName`,
+  занятыми и нет; ссылки; `seatsPrefix`/`seatsPassword`, или у события свои комнаты — `seatsRoomA/B`,
+  `seatsPasswordA/B`, `seatsIds`, предупреждение `seatsClash` при одинаковых паролях; смена — с
+  подтверждением), «Событие» (`evName`,
   цвета `evAccent/evDeep/evBlack` с превью `evPreview`, файл события `evExport`/`evImport`
   — `{format:'oneshot-event', v:1, lan, assets}`, в нём пароль комнаты; `evClear`). Правки — в
   `draft`, в app.js через `setLan` (во время набора с задержкой; поля не перерисовываются, пока в
@@ -80,7 +82,13 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   состав и вето ждут нового имени. ⇄ в ЛАН пересаживает команды на компы другой стороны
   (тост говорит об этом). `lanSchedule` (матчи
   с обеими командами — в форме расписания, ключ `['lan-match', id]`, `format` ставит формат вето).
-  Вебка принадлежит месту: поток `<префикс>a1…a5` / `b1…b5`, комната = префикс (`lanSeatLinks`),
+  Вебка принадлежит месту: поток `<префикс>a1…a5` / `b1…b5`, комната = префикс (`lanSeatLinks`); или
+  `cams` (`lanCams`: комната на сторону, пять ID компов — одни и те же в обеих комнатах, пароль на
+  комнату; по умолчанию из манифеста `cameras.rooms`/`cameras.ids`, REU — team1/team2 и pc1…pc5;
+  `lanSeat` даёт комнату, пароль и ID места). Поток места — пара комната + ID: `validateMatch`
+  сверяет у мест пару, статус вебок — `camKey(room, id)` из vdo.js (CamWatch отдаёт и ID, и пару).
+  VDO.Ninja добавляет к ID хэш пароля комнаты, а не имя комнаты: без разных паролей pc1 двух
+  комнат может оказаться одним потоком — отсюда `seatsClash`.
   `seatTeam` сажает выбранных, `cameraKey` = ['lan', id], ↻/✎ скрыты, ID потоков таблицы не трогаются.
   Фото и лого: `lan-event.js` — без DOM (тесты `test/lan-event.test.js`): `readZip`
   (stored/deflate через DecompressionStream, без ZIP64), `collectTeams`, хранение `AssetStore`:
@@ -554,7 +562,8 @@ Netlify проверяет локальные фото, докачивает н�
   eventTitle teamsNavBtn teamsView ltPickFolder ltPickZip ltAddTeam ltStatus ltLog ltGrid
   ltZip ltFolder ltImage ltCardDialog ltCardCanvas ltCardCaption matchesNavBtn matchesView
   lmTemplate lmAdd lmList seatsNavBtn seatsDot seatsView seatsWatch seatsCopyAll seatGrid
-  seatsPrefix seatsPassword seatsNewPrefix seatsNote eventNavBtn eventView evName evAccent
+  seatsPrefix seatsPassword seatsNewPrefix seatsNote seatsPrefixBox seatsRoomsBox seatsRoomA seatsRoomB
+  seatsPasswordA seatsPasswordB seatsIds seatsClash eventNavBtn eventView evName evAccent
   evDeep evBlack evColorsReset evPreview evExport evImport evStatus evFile evClear footerNote
   serverGuide serverStartCommand serverStartWindows
   serverNavBtn serverDot serverView serverHeading serverSetup serverCopyRound serverStatus

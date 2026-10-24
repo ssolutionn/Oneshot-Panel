@@ -612,6 +612,9 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .seat-link { grid-area:link; color:var(--muted); font-size:10px; }
 .seat-settings { display:grid; grid-template-columns:minmax(0,180px) minmax(0,240px) auto; align-items:end; gap:12px; margin-top:14px; font-size:12px; }
 #seatsNote { margin-top:8px; font-size:11px; }
+.seat-rooms { grid-template-columns:minmax(0,180px) minmax(0,240px); }
+.seat-rooms .seat-ids { grid-column:1/-1; }
+#seatsClash { margin:10px 0 0; }
 @media(max-width:900px) {
   .em-row { grid-template-columns:24px 96px minmax(0,1fr) 76px; }
   .em-teams { grid-column:2/-1; grid-row:2; }

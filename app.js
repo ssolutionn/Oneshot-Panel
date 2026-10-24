@@ -6,7 +6,7 @@ import {
   observerText, playerText, buildObs, safeFilename, validateMetadata,
   CAMERA_FRAMES, DEFAULT_CAMERA_FRAME, cameraFrame, normalizeCamera, cameraCss, cameraViewUrl,
   MAP_POOL, VETO_RULES, validateVeto, appendVeto, vetoText,
-  lanConfig, lanTeams, lanSchedule, newLanPrefix, seatTeam
+  lanConfig, lanCams, lanTeams, lanSchedule, newLanPrefix, seatTeam
 } from './core.js';
 
 const $ = id => document.getElementById(id);
@@ -57,8 +57,11 @@ state.streamIds = readStorage('oneshot-stream-ids') || {};
 const LAN_STORE = 'oneshot-lan-v1';
 const EVENT_LAN = globalThis.oneshotEvent?.kind === 'manual';
 state.lan = lanConfig(readStorage(LAN_STORE));
-if (EVENT_LAN !== state.lan.on) {
-  state.lan = lanConfig({ ...state.lan, on: EVENT_LAN,
+// The event's own webcam rooms and PCs (events/<slug>/event.json): what an event
+// panel starts with, and keeps when a file or the stored data has none.
+const EVENT_CAMS = EVENT_LAN ? lanCams(globalThis.oneshotEvent?.cameras) : null;
+if (EVENT_LAN !== state.lan.on || (EVENT_CAMS && !state.lan.cams)) {
+  state.lan = lanConfig({ ...state.lan, on: EVENT_LAN, cams: state.lan.cams || EVENT_CAMS,
     prefix: state.lan.prefix || newLanPrefix(crypto.getRandomValues(new Uint8Array(4))) });
   writeStorage(LAN_STORE, state.lan);
 }
@@ -369,7 +372,7 @@ function cardDocsNow() {
 // another's) is held: its side, lineup and veto wait for the new name.
 const lanHold = {};
 function setLan(value) {
-  const next = lanConfig({ ...value, on: EVENT_LAN });
+  const next = lanConfig({ ...value, on: EVENT_LAN, cams: lanCams(value?.cams) || EVENT_CAMS });
   // With LAN off the prefix is only kept for later: the sheets match stays.
   const sameSource = next.on === state.lan.on && (!next.on || next.prefix === state.lan.prefix);
   const ready = new Set(lanTeams(next).map(t => t.teamId));

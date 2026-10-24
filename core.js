@@ -192,7 +192,9 @@ export function validateMatch(a, b, ka, kb) {
   if (new Set([...pa, ...pb].map(p => p.key)).size !== 10) {
     return 'Один игрок выбран в обеих командах.';
   }
-  if (new Set([...pa, ...pb].map(p => p.id)).size !== 10) {
+  // A seat's stream is its room and ID: a LAN's two rooms may both have a pc1
+  // (REU: team1 and team2). Players from a table keep IDs unique across rooms.
+  if (new Set([...pa, ...pb].map(p => p.seat ? `${p.room}/${p.id}` : p.id)).size !== 10) {
     return 'У каждого из десяти игроков должен быть свой ID видеопотока.';
   }
   return '';
@@ -293,7 +295,9 @@ export function applyStreamIds(teams, saved) {
 }
 // LAN: no sheets, and a camera belongs to a seat (one PC), not to a player.
 // Seat streams are fixed for the whole event: <prefix>a1…a5 for the first
-// team's seats, <prefix>b1…b5 for the second's; the room is the prefix.
+// team's seats, <prefix>b1…b5 for the second's; the room is the prefix. Or the
+// event names its own (`cams`): a room per side and the PCs' stream IDs, the
+// same in both rooms (REU: rooms team1 and team2, PCs pc1…pc5).
 // Teams are typed by hand, one per line: «Команда: ник1, ник2, …». The
 // first five nicks play, the rest are substitutes.
 export const LAN_SEATS = 5;
@@ -344,12 +348,25 @@ function teamsFromText(text) {
     }));
   } catch { return []; }
 }
+// Rooms and stream IDs as VDO.Ninja keeps them: letters, digits and _.
+export const VDO_NAME = /^[A-Za-z0-9_]{1,40}$/;
+// The event's own rooms and PCs, or null (then the prefix makes them): two
+// different rooms, five different PCs, a password per room (may be empty).
+export function lanCams(value) {
+  const v = value && typeof value === 'object' ? value : {};
+  const names = (list, size) => Array.isArray(list) && list.length === size && list.every(x => typeof x === 'string' && VDO_NAME.test(x)) &&
+    new Set(list).size === size ? [...list] : null;
+  const rooms = names(v.rooms, 2), ids = names(v.ids, LAN_SEATS);
+  if (!rooms || !ids) return null;
+  const passwords = [0, 1].map(i => typeof v.passwords?.[i] === 'string' ? line(v.passwords[i]).slice(0, 40) : '');
+  return { rooms, ids, passwords };
+}
 export function lanConfig(value) {
   const v = value && typeof value === 'object' ? value : {};
   const prefix = typeof v.prefix === 'string' && /^[a-z0-9]{2,12}$/.test(v.prefix) ? v.prefix : '';
   const password = typeof v.password === 'string' ? line(v.password).slice(0, 40) : '';
   const teams = Array.isArray(v.teams) ? lanTeamsOf(v.teams) : lanTeamsOf(teamsFromText(typeof v.text === 'string' ? v.text.slice(0, 20000) : ''));
-  return { on: v.on === true && Boolean(prefix), prefix, password, teams, matches: lanMatchesOf(v.matches, teams), event: eventProfile(v.event) };
+  return { on: v.on === true && Boolean(prefix), prefix, password, cams: lanCams(v.cams), teams, matches: lanMatchesOf(v.matches, teams), event: eventProfile(v.event) };
 }
 // A new id for a team, player or match; random bytes from the caller.
 export function lanId(bytes, taken = []) {
@@ -438,17 +455,23 @@ export function parseLanRoster(text) {
 export function lanSeatId(prefix, side, index) {
   return vdoId(`${prefix}${side}${index + 1}`);
 }
+// Where seat `index` of a side streams: its room, the room's password, its ID.
+export function lanSeat(lan, side, index) {
+  const s = side === 'b' ? 1 : 0;
+  if (lan.cams) return { room: lan.cams.rooms[s], password: lan.cams.passwords[s], id: lan.cams.ids[index] };
+  return { room: lan.prefix, password: lan.password || '', id: lanSeatId(lan.prefix, side, index) };
+}
 // The team as it sits this match: players picked for its seats get that
 // seat's stream; everyone else has none.
 export function seatTeam(team, side, keys, lan) {
   if (!team) return team;
-  const room = lan.prefix, password = lan.password || '';
+  const { room, password } = lanSeat(lan, side, 0);
   return {
     ...team, room, password,
     players: team.players.map(p => {
       const i = keys.indexOf(p.key);
       return i >= 0 && i < LAN_SEATS ?
-        { ...p, id: lanSeatId(room, side, i), room, password, seat: `${side.toUpperCase()}${i + 1}` } :
+        { ...p, ...lanSeat(lan, side, i), seat: `${side.toUpperCase()}${i + 1}` } :
         { ...p, id: '', room, password, seat: '' };
     })
   };
@@ -456,8 +479,8 @@ export function seatTeam(team, side, keys, lan) {
 // The ten links to open once on the seats' PCs.
 export function lanSeatLinks(lan) {
   return ['a', 'b'].flatMap(side => Array.from({ length: LAN_SEATS }, (_, i) => {
-    const seat = { room: lan.prefix, password: lan.password || '', id: lanSeatId(lan.prefix, side, i) };
-    return { seat: `${side.toUpperCase()}${i + 1}`, id: seat.id, push: pushUrl(seat), view: viewUrl(seat) };
+    const seat = lanSeat(lan, side, i);
+    return { seat: `${side.toUpperCase()}${i + 1}`, ...seat, push: pushUrl(seat), view: viewUrl(seat) };
   }));
 }
 

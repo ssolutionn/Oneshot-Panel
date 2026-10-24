@@ -6,7 +6,7 @@
 // that leaves the event's folder is an error in words, found when the event is
 // loaded, not a broken broadcast. The manifest holds NO secrets (FACEIT key,
 // RCON password, tokens): those stay in the server's environment.
-import { MAP_POOL } from '../core.js';
+import { MAP_POOL, lanCams } from '../core.js';
 import { TIMERS } from '../veto-room.js';
 
 export const EVENT_VERSION = 1;
@@ -133,8 +133,12 @@ export function validateEvent(value) {
   const cameras = value.cameras ?? {};
   if (!isObject(cameras)) bad('cameras', 'должен быть объектом');
   else {
-    for (const key of Object.keys(cameras)) if (key !== 'frame') bad(`cameras.${key}`, 'неизвестное поле');
+    for (const key of Object.keys(cameras)) if (!['frame', 'rooms', 'ids'].includes(key)) bad(`cameras.${key}`, 'неизвестное поле');
     if (cameras.frame !== undefined && !FRAMES.includes(cameras.frame)) bad('cameras.frame', FRAMES.join(', '));
+    // A LAN's webcams: a VDO.Ninja room per team side and the PCs' stream IDs in
+    // each (no passwords here: the manifest is public, they are typed in «Компы»).
+    if ((cameras.rooms === undefined) !== (cameras.ids === undefined)) bad('cameras', 'rooms и ids задаются вместе');
+    else if (cameras.rooms !== undefined && !lanCams(cameras)) bad('cameras.rooms', 'две разные комнаты и пять разных ID: латиница, цифры, _');
   }
 
   for (const key of ['lobby', 'bookmakers']) {
@@ -165,7 +169,7 @@ export function validateEvent(value) {
       modules: Object.fromEntries(MODULES.map(m => [m.id, modules[m.id] ?? m.default])),
       source: value.kind === 'sheets' ? source : { type: value.kind },
       veto: { pool: veto.pool ?? [...MAP_POOL], format: veto.format ?? 'BO3', timerMinutes: veto.timerMinutes ?? 5, tournament: veto.tournament ?? value.name },
-      cameras: { frame: cameras.frame ?? 'inner43' },
+      cameras: { frame: cameras.frame ?? 'inner43', ...(cameras.rooms ? { rooms: cameras.rooms, ids: cameras.ids } : {}) },
       lobby: { faceit: value.lobby?.faceit ?? false },
       bookmakers: { match: value.bookmakers?.match ?? [] },
       operators: value.operators ?? []

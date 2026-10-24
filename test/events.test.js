@@ -94,6 +94,18 @@ test('templates: LAN and blank are ready as they are; the sheets one waits for r
 const base = () => ({ slug: 'winter-lan', name: 'Winter LAN', kind: 'manual' });
 const errorsOf = change => validateEvent({ ...base(), ...change }).errors.join(' | ');
 
+test('a LAN names its webcam rooms and PCs: REU is team1/team2 with pc1…pc5, no passwords in the manifest', () => {
+  const reu = loadEvent(json('events/reu/event.json'));
+  assert.deepEqual([reu.cameras.rooms, reu.cameras.ids], [['team1', 'team2'], ['pc1', 'pc2', 'pc3', 'pc4', 'pc5']]);
+  const pcs = ['pc1', 'pc2', 'pc3', 'pc4', 'pc5'];
+  assert.equal(errorsOf({ cameras: { rooms: ['a1', 'b1'], ids: pcs } }), '');
+  assert.match(errorsOf({ cameras: { rooms: ['a1', 'b1'] } }), /вместе/);
+  assert.match(errorsOf({ cameras: { rooms: ['same', 'same'], ids: pcs } }), /cameras.rooms/);
+  assert.match(errorsOf({ cameras: { rooms: ['a1', 'b1'], ids: ['pc1', 'pc 2', 'pc3', 'pc4', 'pc5'] } }), /cameras.rooms/);
+  assert.match(errorsOf({ cameras: { rooms: ['a1', 'b1'], ids: pcs, passwords: ['x', 'y'] } }), /cameras.passwords/);
+  assert.equal(loadEvent({ ...base() }).cameras.rooms, undefined);
+});
+
 test('slug, name and kind', () => {
   for (const slug of ['', 'ab', 'Has-Upper', '-start', 'end-', 'with space', 'a'.repeat(40), 'кириллица', 'a/b', '../x'])
     assert.match(validateEvent({ ...base(), slug }).errors.join(), /slug/, slug);

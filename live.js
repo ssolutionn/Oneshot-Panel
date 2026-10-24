@@ -4,7 +4,7 @@
 // without this file (the Claude artifact has none of it).
 import { buildObs, DEFAULT_CARD_BASE, normalizeCamera, lanSeatLinks } from './core.js';
 import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto } from './obs.js';
-import { VdoLink, CamWatch, bridgeSecrets, newBridgeCode, normalizeCode, VDO_CONNECT_TIMEOUT, VDO_CONNECT_MAX_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
+import { VdoLink, CamWatch, camKey, bridgeSecrets, newBridgeCode, normalizeCode, VDO_CONNECT_TIMEOUT, VDO_CONNECT_MAX_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
 import { mountQrReader, parseObsQr, parsePairingQr } from './assets/obs-qr.js';
 import { createRoom, restartRoom, captainMessage, spectatorMessage, nextTurn, clock, formatClock, resultText } from './veto-room.js';
 import { RoomWatch, adminRoom, roomToPanel, roomMoves } from './veto-watch.js';
@@ -503,10 +503,10 @@ function camGroups(s) {
   for (const p of [...s.playersA, ...s.playersB]) if (p?.room && p?.id) add(p.room, p.password, p.id);
   // On a LAN every seat's PC is watched, seated or not («Компы» shows them all).
   const lan = panel.lan();
-  if (lan.on && lan.prefix) for (const seat of lanSeatLinks(lan)) add(lan.prefix, lan.password, seat.id);
+  if (lan.on && lan.prefix) for (const seat of lanSeatLinks(lan)) add(seat.room, seat.password, seat.id);
   return [...groups.values()];
 }
-// The webcam status by stream id, for «Компы» (lan.js); oneshot:cams on each change.
+// The webcam status by camKey(room, id), for «Компы» (lan.js); oneshot:cams on each change.
 export function camStatus() {
   return { on: Boolean(watcher), live: new Set(live), checking: new Set(checking) };
 }
@@ -534,7 +534,9 @@ function paintCams() {
         dot.setAttribute('aria-hidden', 'true');
         row.querySelector('.slot-number')?.append(dot);
       }
-      const state = !on || !player ? '' : live.has(player.id) ? 'live' : checking.has(player.id) ? 'wait' : 'off';
+      // By room and ID: on a LAN both teams' rooms may have a pc1.
+      const key = player && camKey(player.room, player.id);
+      const state = !on || !player ? '' : live.has(key) ? 'live' : checking.has(key) ? 'wait' : 'off';
       dot.className = 'cam-dot ' + state;
       dot.hidden = !on;
       row.dataset.cam = state || 'none';

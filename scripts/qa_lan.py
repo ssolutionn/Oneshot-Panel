@@ -101,13 +101,15 @@ async def run(args):
             await event_address(browser, base, out)
             await sheets_address(browser, sheets_base)
             await old_roster_moves_over(browser, base)
+            await previous_version_pictures(browser, base)
             await browser.close()
     finally:
         event_panel.kill()
         sheets_panel.kill()
     print("PASS: LAN event panel: the address decides the event, teams/logos/photos edited in place, rename keeps "
           "photos and the match, Drive ZIP, matches and «В эфир», seats and substitutes, OBS JSON and dock cards, "
-          "«Компы», «Событие» (name, colours, file out and in), «Сервер» guide, old roster moves over, reload, 375 px")
+          "«Компы», «Событие» (name, colours, file out and in), «Сервер» guide, old roster moves over, pictures of the "
+          "previous version keep their teams, reload, 375 px")
 
 
 async def new_context(browser, **options):
@@ -197,18 +199,17 @@ async def event_address(browser, base, out):
     assert await page.input_value("#vetoFormat") == "BO1"
     await expect(page.locator("#scheduleLabel")).to_have_text("Матч из вкладки «Матчи»")
 
-    # ---- «Эфир»: one fixed webcam per seat, logos in the cards ----
-    prefix = await page.input_value("#seatsPrefix")
-    assert re.fullmatch(r"[a-z2-9]{4}", prefix), prefix
+    # ---- «Эфир»: one fixed webcam per seat (REU: rooms team1/team2, PCs pc1…pc5), logos in the cards ----
     team_rows = page.locator("#teamGrid .player-row")
     await expect(team_rows.nth(0)).to_contain_text("Место A1")
-    await expect(team_rows.nth(0)).to_contain_text(f"view={prefix}a1")
-    await expect(team_rows.nth(9)).to_contain_text(f"view={prefix}b5")
+    await expect(team_rows.nth(0)).to_contain_text("view=pc1&solo=1&room=team1")
+    await expect(team_rows.nth(5)).to_contain_text("view=pc1&solo=1&room=team2")
+    await expect(team_rows.nth(9)).to_contain_text("view=pc5&solo=1&room=team2")
     assert await page.locator("[data-regen], [data-setid]").count() == 0
     await expect(page.locator("#teamGrid [data-lan-logo] canvas")).to_have_count(1)  # Альфа has a logo, Браво not
     # A substitute takes seat A2: the stream stays with the seat.
     await page.select_option('[data-player="a"][data-slot="1"]', label="sub1 (запасной)")
-    await expect(team_rows.nth(1)).to_contain_text(f"view={prefix}a2")
+    await expect(team_rows.nth(1)).to_contain_text("view=pc2&solo=1&room=team1")
     await page.click("#tabObserver")
     observer = await page.input_value("#output")
     assert "2. Альфа — sub1" in observer and "6. Браво — b1" in observer, observer
@@ -234,7 +235,8 @@ async def event_address(browser, base, out):
         await page.click("#downloadBtn")
     data = json.loads((await (await info.value).path()).read_text())
     cams = {s["name"]: s["settings"]["url"] for s in data["sources"] if s["name"].startswith("CAM ")}
-    assert f"view={prefix}a2&" in cams["CAM 02 | Альфа Про | sub1"], cams
+    assert "view=pc2&solo=1&room=team1&" in cams["CAM 02 | Альфа Про | sub1"], cams
+    assert "view=pc1&solo=1&room=team2&" in cams["CAM 06 | Браво | b1"], cams
     cards_json = {s["name"]: s["settings"]["url"] for s in data["sources"] if s["name"].startswith("CARD ")}
     first = unquote(cards_json["CARD 01 | Альфа Про | nick1"])
     assert first.startswith("data:text/html;charset=utf-8,") and "data:image/webp;base64," in first and "data:image/png;base64," in first
@@ -275,13 +277,19 @@ async def event_address(browser, base, out):
     seat_cards = page.locator(".seat-card")
     await expect(seat_cards).to_have_count(10)
     await expect(seat_cards.nth(1)).to_contain_text("sub1")
-    await expect(seat_cards.nth(9)).to_contain_text(f"push={prefix}b5")
+    await expect(seat_cards.nth(9)).to_contain_text("?room=team2&broadcast&do&push=pc5")
     await page.click("#seatsCopyAll")
     copied = await page.evaluate("navigator.clipboard.readText()")
     assert copied.count("https://vdo.ninja/") == 10 and copied.startswith("A1: "), copied
-    await page.fill("#seatsPrefix", "zz9")
-    await page.dispatch_event("#seatsPrefix", "change")
-    await expect(seat_cards.nth(0)).to_contain_text("push=zz9a1")
+    await expect(page.locator("#seatsPrefixBox")).to_be_hidden()
+    assert [await page.input_value(f"#{i}") for i in ("seatsRoomA", "seatsRoomB", "seatsIds")] == ["team1", "team2", "pc1, pc2, pc3, pc4, pc5"]
+    # pc1 in both rooms with no passwords: the panel says how to keep them apart.
+    await expect(page.locator("#seatsClash")).to_be_visible()
+    await page.fill("#seatsPasswordB", "b2pw")
+    await page.dispatch_event("#seatsPasswordB", "change")
+    await expect(seat_cards.nth(9)).to_contain_text("?room=team2&password=b2pw&broadcast&do&push=pc5")
+    await expect(seat_cards.nth(0)).to_contain_text("?room=team1&broadcast&do&push=pc1")
+    await expect(page.locator("#seatsClash")).to_be_hidden()
     await page.screenshot(path=str(out / "lan-seats.png"), full_page=True)
 
     # ---- «Сервер» away from the CS2 computer: how to start it there ----
@@ -338,7 +346,7 @@ async def event_address(browser, base, out):
     await fresh.click("#teamsNavBtn")
     await expect(fresh.locator(".lt-card")).to_have_count(4)
     await expect(fresh.locator(".lt-card").nth(0).locator(".lt-name")).to_have_value("Альфа Про")
-    assert await fresh.input_value("#seatsPrefix") == "zz9"
+    assert await fresh.input_value("#seatsPasswordB") == "b2pw"
     await expect(fresh.locator("#eventTitle")).to_have_text("ЛАН РЭУ Финалы")
     await other.close()
 
@@ -390,6 +398,32 @@ async def old_roster_moves_over(browser, base):
     await page.click("#seatsNavBtn")
     await expect(page.locator(".seat-card[data-seat-cam=live]")).to_have_count(10, timeout=20000)
     await expect(page.locator("#seatsWatch")).to_have_text("Вебки: 10 из 10 в эфире")
+    await ctx.close()
+
+async def previous_version_pictures(browser, base):
+    """Pictures the previous version (live on reu) kept by bare id stay with their teams after the update."""
+    ctx, _ = await new_context(browser)
+    page = await ctx.new_page()
+    url = lambda color: "data:image/png;base64," + base64.b64encode(png((40, 40), transparent=False, color=color)).decode()
+    alpha, alpha_photo, bravo_new, bravo_old = url((250, 0, 0)), url((0, 250, 0)), url((0, 0, 250)), url((9, 9, 9))
+    lan = {"on": True, "prefix": "k7qz", "teams": [
+        {"id": "t1", "name": "Alpha", "players": [{"id": "t1p1", "nick": "a1"}]},
+        {"id": "xq1", "name": "T1", "players": [{"id": "xq1p", "nick": "z1"}]},   # its name key is «t1» too
+        {"id": "xq2", "name": "Bravo", "players": [{"id": "xq2p", "nick": "b1"}]}]}
+    assets = {"v": 1, "logos": {"t1": alpha, "xq2": bravo_new, "bravo": bravo_old}, "photos": {"t1p1": alpha_photo}}
+    await page.add_init_script("""if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1');
+      localStorage.setItem('oneshot-lan-v1', %s); localStorage.setItem('oneshot-lan-assets-v1', %s); }"""
+                               % (json.dumps(json.dumps(lan)), json.dumps(json.dumps(assets))))
+    await page.goto(base + "/#teams")
+    await expect(page.locator(".lt-card")).to_have_count(3)
+    await expect(page.locator(".lt-card").nth(0).locator(".lt-logo")).to_have_class(re.compile("filled"), timeout=15000)
+    stored = await page.evaluate(INDEXED)
+    logos, photos = stored["logos"], stored["photos"]
+    assert logos.get("#t1") == alpha and photos.get("#t1p1") == alpha_photo, (list(logos), list(photos))
+    assert "#xq1" not in logos, "the team named «T1» took Alpha's logo"
+    assert logos.get("#xq2") == bravo_new, "the older name-keyed logo beat the team's own"
+    assert not ({"t1", "xq2", "bravo"} & set(logos)) and "t1p1" not in photos, (list(logos), list(photos))
+    await expect(page.locator(".lt-card").nth(1).locator(".lt-logo")).not_to_have_class(re.compile("filled"))
     await ctx.close()
 
 

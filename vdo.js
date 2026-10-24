@@ -128,6 +128,7 @@ export class VdoLink {
 
 // Which stream IDs of the selected match are publishing. One viewer per team
 // room; getStreamIDs is polled because join/leave events can be missed.
+export const camKey = (room, id) => `${room}/${id}`;
 export class CamWatch {
   constructor(onChange, interval = 4000) {
     Object.assign(this, { onChange, interval });
@@ -151,7 +152,7 @@ export class CamWatch {
     for (const [room, ids] of wanted) {
       if (!this.rooms.has(room)) {
         this.rooms.set(room, {
-          ids, password: passwords.get(room), live: new Set(), answered: false,
+          room, ids, password: passwords.get(room), live: new Set(), answered: false,
           iframe: frame(watchUrl(room, ids, passwords.get(room)), 'Статус вебок')
         });
       }
@@ -179,10 +180,13 @@ export class CamWatch {
   }
   // onChange(live, checking): checking lists stream IDs whose room has not
   // answered yet, so the panel can say "проверяем" instead of "нет камеры".
+  // Each ID is there as itself and as camKey(room, id): two rooms may use the
+  // same IDs (a LAN's pc1…pc5 in each team's room).
   update() {
     const entries = [...this.rooms.values()];
-    this.live = new Set(entries.flatMap(e => [...e.live]));
-    this.onChange(this.live, new Set(entries.filter(e => !e.answered).flatMap(e => e.ids)));
+    const keys = (e, ids) => [...ids].flatMap(id => [id, camKey(e.room, id)]);
+    this.live = new Set(entries.flatMap(e => keys(e, e.live)));
+    this.onChange(this.live, new Set(entries.filter(e => !e.answered).flatMap(e => keys(e, e.ids))));
   }
   stop() {
     clearInterval(this.timer);

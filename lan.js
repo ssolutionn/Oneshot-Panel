@@ -3,7 +3,8 @@
 // «Матчи», «Компы» and «Событие». app.js keeps the data (window.oneshotPanel
 // .lan / setLan); here it is edited right where it is shown. Names and nicks
 // from people go into the page as text only.
-import { lanSeatLinks, lanId, newLanPrefix, personKey, cardKey, LAN_LIMITS, LAN_SEATS, MATCH_FORMATS } from './core.js';
+import { lanSeatLinks, lanCams, lanId, newLanPrefix, personKey, cardKey, LAN_LIMITS, LAN_SEATS, MATCH_FORMATS } from './core.js';
+import { camKey } from './vdo.js';
 import { showView, camStatus } from './live.js';
 import { DEFAULT_TOURNAMENT } from './assets/veto-short-links.js';
 import {
@@ -67,8 +68,11 @@ function changeAssets(change) {
   saving = run.catch(() => false);
   return run;
 }
-// Pictures of older versions move to their team and player once: those kept by
-// team name and nick (the «ЛАН» window), and those kept by bare id.
+// Pictures of older versions move to their team and player once. First those
+// kept by bare id (t1, t1p1, x…: what the previous version showed), then those
+// kept by team name and nick (the «ЛАН» window) where nothing newer is there.
+// In this order an old name key («T1» → t1) can neither beat nor take a team's
+// own picture: the bare id t1 is moved away before names are looked at.
 async function migrateAssets() {
   const assets = structuredClone(store.assets);
   let moved = false;
@@ -79,12 +83,12 @@ async function migrateAssets() {
     moved = true;
   };
   for (const team of draft.teams) {
+    move(assets.logos, team.id, ownKey(team.id));
+    for (const p of team.players) move(assets.photos, p.id, ownKey(p.id));
+  }
+  for (const team of draft.teams) {
     move(assets.logos, personKey(team.name), ownKey(team.id));
-    if (team.id.startsWith('x')) move(assets.logos, team.id, ownKey(team.id));
-    for (const p of team.players) {
-      move(assets.photos, cardKey(team.name, p.nick), ownKey(p.id));
-      if (p.id.startsWith('x')) move(assets.photos, p.id, ownKey(p.id));
-    }
+    for (const p of team.players) move(assets.photos, cardKey(team.name, p.nick), ownKey(p.id));
   }
   if (moved) await store.save(assets);
 }
@@ -459,8 +463,20 @@ function goLive(matchId) {
 // ---------- «Компы» ----------
 function renderSeats() {
   const lan = panel().lan();
-  if (document.activeElement !== $('seatsPrefix')) $('seatsPrefix').value = lan.prefix;
-  if (document.activeElement !== $('seatsPassword')) $('seatsPassword').value = lan.password;
+  const fill = (id, value) => { if (document.activeElement !== $(id)) $(id).value = value; };
+  fill('seatsPrefix', lan.prefix);
+  fill('seatsPassword', lan.password);
+  // The event's own rooms (REU: team1, team2 and pc1…pc5) or the prefix.
+  $('seatsPrefixBox').hidden = Boolean(lan.cams);
+  $('seatsRoomsBox').hidden = !lan.cams;
+  if (lan.cams) {
+    fill('seatsRoomA', lan.cams.rooms[0]); fill('seatsRoomB', lan.cams.rooms[1]);
+    fill('seatsPasswordA', lan.cams.passwords[0]); fill('seatsPasswordB', lan.cams.passwords[1]);
+    fill('seatsIds', lan.cams.ids.join(', '));
+  }
+  $('seatsNote').textContent = lan.cams ? 'Комнаты, пароли и ID меняют ссылки компов и камер в OBS: после смены открой новые ссылки на местах и скачай JSON заново.' :
+    'Префикс и пароль меняют ссылки всех десяти компов: после смены открой новые ссылки на местах.';
+  $('seatsClash').hidden = !lan.cams || lan.cams.passwords[0] !== lan.cams.passwords[1];
   const snapshot = panel().snapshot();
   const cams = camStatus();
   const links = lan.prefix ? lanSeatLinks(lan) : [];
@@ -469,7 +485,8 @@ function renderSeats() {
     el('h3', { text: `${side.toUpperCase()} · ${(s ? snapshot.b : snapshot.a)?.name || (s ? 'вторая команда' : 'первая команда')}` }),
     ...Array.from({ length: LAN_SEATS }, (_, i) => {
       const link = links[s * LAN_SEATS + i];
-      const cam = !cams.on || !link ? 'none' : cams.live.has(link.id) ? 'live' : cams.checking.has(link.id) ? 'wait' : 'off';
+      const key = link && camKey(link.room, link.id);
+      const cam = !cams.on || !link ? 'none' : cams.live.has(key) ? 'live' : cams.checking.has(key) ? 'wait' : 'off';
       if (cam === 'live') live++;
       const who = (s ? snapshot.playersB : snapshot.playersA)?.[i]?.nick || '';
       return el('div', { class: 'seat-card', 'data-seat-cam': cam },
@@ -485,6 +502,20 @@ function renderSeats() {
   $('seatsWatch').setAttribute('aria-pressed', String(Boolean(watching)));
   $('seatsWatch').textContent = watching ? `Вебки: ${live} из 10 в эфире` : 'Следить за вебками';
   $('seatsDot').dataset.kind = watching ? (live === 10 ? 'good' : live ? 'wait' : 'bad') : '';
+}
+function changeCams() {
+  const lan = panel().lan();
+  const cams = lanCams({
+    rooms: [$('seatsRoomA').value.trim(), $('seatsRoomB').value.trim()],
+    passwords: [$('seatsPasswordA').value, $('seatsPasswordB').value],
+    ids: $('seatsIds').value.split(/[\s,;]+/).filter(Boolean)
+  });
+  if (JSON.stringify(cams) === JSON.stringify(lan.cams)) return;
+  if (!cams) { renderSeats(); return panel().toast('Нужны две разные комнаты и пять разных ID компов: латиница, цифры, _.'); }
+  if (!window.confirm('Поменяются ссылки компов и камер в OBS: старые вкладки на местах перестанут попадать в эфир. Продолжить?')) { renderSeats(); return; }
+  draft.cams = cams;
+  commit(true);
+  panel().toast('Готово: открой новые ссылки на компах и скачай JSON для OBS заново.');
 }
 function changeSeats(prefix, password) {
   const lan = panel().lan();
@@ -614,6 +645,7 @@ function start() {
   $('seatsPrefix').addEventListener('change', () => changeSeats($('seatsPrefix').value.trim().toLowerCase(), panel().lan().password));
   $('seatsPassword').addEventListener('change', () => changeSeats(panel().lan().prefix, $('seatsPassword').value));
   $('seatsNewPrefix').addEventListener('click', () => changeSeats(newLanPrefix(random(4)), panel().lan().password));
+  for (const id of ['seatsRoomA', 'seatsRoomB', 'seatsPasswordA', 'seatsPasswordB', 'seatsIds']) $(id).addEventListener('change', changeCams);
   // Webcam dots in «Эфир» (live.js) are the seats' too.
   document.addEventListener('oneshot:cams', () => { if (!$('seatsView').hidden) renderSeats(); });
 
