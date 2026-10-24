@@ -2,7 +2,7 @@
 // match to OBS (directly or through the OBS dock), copying the JSON, webcam
 // status from VDO.Ninja and the live veto overlay. app.js keeps working
 // without this file (the Claude artifact has none of it).
-import { buildObs, DEFAULT_CARD_BASE, normalizeCamera, lanSeatLinks, cardKey, BLANK_CARD } from './core.js';
+import { buildObs, DEFAULT_CARD_BASE, normalizeCamera, lanSeatLinks, cardKey, BLANK_CARD, displayNick } from './core.js';
 import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto } from './obs.js';
 import { VdoLink, CamWatch, camKey, bridgeSecrets, newBridgeCode, normalizeCode, VDO_CONNECT_TIMEOUT, VDO_CONNECT_MAX_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
 import { mountQrReader, parseObsQr, parsePairingQr } from './assets/obs-qr.js';
@@ -84,7 +84,8 @@ function matchPayload() {
   const players = [
     ...s.playersA.map(p => ({ ...p, team: s.a.name })),
     ...s.playersB.map(p => ({ ...p, team: s.b.name }))
-  ].map((p, i) => ({ slot: i + 1, team: p.team, nick: p.nick, id: p.id, room: p.room, password: p.password || '', camera:p.camera, ...(p.net ? { net: p.net } : {}) }));
+  ].map((p, i) => ({ slot: i + 1, team: p.team, nick: p.nick, nickname: p.nickname || '',
+    id: p.id, room: p.room, password: p.password || '', camera:p.camera }));
   return { title: `${s.a.name} vs ${s.b.name}`, match: { players, includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame, cardDocs: panel.cardDocs() } };
 }
 // A LAN without a match on air yet: the ten seats' cameras alone, named by
@@ -94,12 +95,15 @@ function seatsPayload() {
   if (!lan.on) throw new Error(s.matchError || 'Выбери матч.');
   const seated = [...s.playersA, ...s.playersB];
   const names = [s.a?.name, s.b?.name];
-  const players = lanSeatLinks(lan).map((seat, i) => ({
-    slot: i + 1, team: names[i < 5 ? 0 : 1] || seat.room, nick: seated[i]?.nick || seat.id,
-    // The frame belongs to the PC: the same one whoever sits there, nobody included.
-    id: seat.id, room: seat.room, password: seat.password || '', camera: panel.seatCamera(i < 5 ? 'a' : 'b', i % 5),
-    ...(seat.net ? { net: seat.net } : {})
-  }));
+  const players = lanSeatLinks(lan).map((seat, i) => {
+    const player = seated[i], side = i < 5 ? 'a' : 'b';
+    const nick = (player ? displayNick(player) : '') || panel.camNick(side, i % 5) || seat.id;
+    return {
+      slot: i + 1, team: names[i < 5 ? 0 : 1] || seat.room, nick,
+      // The frame belongs to the PC: the same one whoever sits there, nobody included.
+      id: seat.id, room: seat.room, password: seat.password || '', camera: panel.seatCamera(side, i % 5)
+    };
+  });
   // A side's placeholder goes under its cameras; the other side's cards are blank.
   const plates = [panel.plate('a'), panel.plate('b')];
   const cards = plates.some(Boolean);
@@ -467,6 +471,17 @@ $('sendObsConfig').addEventListener('click', async () => {
 });
 
 let sendingMatch = false, lastObsError = '';
+// A send can wait up to 30 s for the dock: the button that started it has to
+// show that something happens — and a failure must be visible from «Компы»,
+// where #errorBox is not on screen.
+const sendLabels = { sendObsBtn: $('sendObsBtn').innerHTML, seatsSendObs: $('seatsSendObs').innerHTML };
+function markSending(on) {
+  for (const [id, html] of Object.entries(sendLabels)) {
+    $(id).disabled = on;
+    $(id).innerHTML = on ? 'Отправляем…' : html;
+    if (on) $(id).setAttribute('aria-busy', 'true'); else $(id).removeAttribute('aria-busy');
+  }
+}
 $('cameraApplyObs').addEventListener('click',()=>{
   $('cameraDialog').close();
   $('sendObsBtn').click();
@@ -477,16 +492,21 @@ export async function sendObs() {
   let payload;
   try { payload = obsPayload(); } catch (error) { return panel.toast(error.message); }
   if (!obsSettings().configured) {
+    panel.toast('OBS ещё не подключён: открой вкладку «OBS» и подключи его.', 6000);
     return openObsSettings();
   }
   const button = $('sendObsBtn');
   if (lastObsError && $('errorBox').textContent === lastObsError) panel.showError('');
   lastObsError = '';
   sendingMatch = true;
-  button.disabled = true;
+  markSending(true);
   obsBadge('Отправляем в OBS…', 'wait');
   try {
-    const type = payload.match.players.some(p=>normalizeCamera(p.camera).zoom!==1) ? 'apply-camera-zoom' : 'apply-camera';
+    // Mirror, like zoom, lives only in the camera URL's CSS: a dock older than
+    // «apply-camera-zoom» would drop it silently, so both ask for that message.
+    const type = payload.match.players.some(p=>{
+      const c=normalizeCamera(p.camera);return c.zoom!==1 || c.mirror;
+    }) ? 'apply-camera-zoom' : 'apply-camera';
     const { summary } = await obsCommand({ type, ...payload });
     delete button.dataset.attention;
     button.title = '';
@@ -494,8 +514,10 @@ export async function sendObs() {
   } catch (error) {
     lastObsError = `${error.message} JSON для импорта можно скачать или скопировать рядом.`;
     panel.showError(lastObsError);
+    panel.toast(error.message, 9000);
   } finally {
     sendingMatch = false;
+    markSending(false);
     button.disabled = !!panel.snapshot().matchError && !panel.lan().on;
     renderObsState();
   }
@@ -759,6 +781,8 @@ function onChange() {
   // On a LAN it also works before a match: then it sends the seats' cameras.
   $('sendObsBtn').disabled = sendingMatch || (!!s.matchError && !panel.lan().on);
   $('cameraApplyObs').disabled = sendingMatch || (!!s.matchError && !panel.lan().on);
+  // In «Компы» the same send works without a match: only an in-flight send blocks it.
+  $('seatsSendObs').disabled = sendingMatch;
   $('copyJsonBtn').disabled = !!s.matchError || !s.template;
   syncWatcher();
   sendVeto();

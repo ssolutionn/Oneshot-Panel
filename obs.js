@@ -1,7 +1,7 @@
 // obs-websocket v5 (built into OBS 28+) and the steps that point an already
 // imported Oneshot collection at a new match. No DOM: the panel, the OBS dock
 // (obs-bridge.html) and the tests share it.
-import { viewUrl, cameraViewUrl, cameraGeometry, cameraFrame, DEFAULT_CAMERA_FRAME, cardUrl, cardKey, readyCard, DEFAULT_CARD_BASE, matrixTile } from './core.js';
+import { viewUrl, cameraViewUrl, cameraGeometry, cameraFrame, DEFAULT_CAMERA_FRAME, cardUrl, cardKey, readyCard, DEFAULT_CARD_BASE, matrixTile, displayNick } from './core.js';
 
 export const OBS_DEFAULT_URL = 'ws://127.0.0.1:4455';
 export const VETO_EVENT = 'oneshot-veto';
@@ -128,20 +128,21 @@ export function slotPlan(sceneItems, player, { includeCards = false, cardBase = 
   if (!camera) throw new Error(`В сцене «${scene}» нет камеры. Импортируй коллекцию из JSON один раз.`);
   const slot = String(player.slot).padStart(2, '0');
   if(legacyCamera){frame='wide';player={...player,camera:null};}
+  const nick = displayNick(player);
   const geometry=cameraGeometry(player,frame),rect=cameraFrame(frame);
   return {
     scene,
     camera: {
-      item: camera, name: `CAM ${slot} | ${player.team} | ${player.nick}`,
-      settings: {url:legacyCamera ? viewUrl(player) : cameraViewUrl(player,frame),width:geometry.width,height:geometry.height},
+      item: camera, name: `CAM ${slot} | ${player.team} | ${nick}`,
+      settings: {url:legacyCamera ? viewUrl(player) : cameraViewUrl(player),width:geometry.width,height:geometry.height},
       transform:{...FIT,positionX:geometry.x,positionY:geometry.y,rotation:geometry.rotation,
         boundsWidth:geometry.width,boundsHeight:geometry.height}
     },
     card: includeCards ? {
-      item: card || null, name: `CARD ${slot} | ${player.team} | ${player.nick}`,
+      item: card || null, name: `CARD ${slot} | ${player.team} | ${nick}`,
       // A ready page fills the frame (its size); the site's card stays 1920×1080.
-      settings: readyCard(cardDocs, cardKey(player.team, player.nick)) ?
-        { url: readyCard(cardDocs, cardKey(player.team, player.nick)), width: rect.width, height: rect.height } :
+      settings: readyCard(cardDocs, cardKey(player.team, nick)) ?
+        { url: readyCard(cardDocs, cardKey(player.team, nick)), width: rect.width, height: rect.height } :
         { url: cardUrl(player, cardBase), width:1920,height:1080 },
       transform:{...FIT,positionX:rect.x,positionY:rect.y,boundsWidth:rect.width,boundsHeight:rect.height}
     } : null,

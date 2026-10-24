@@ -8,6 +8,7 @@
     "start": "node server.js",
     "test": "node --test",
     "check": "node scripts/check-syntax.mjs",
+    "verify": "node scripts/agent-test.mjs",
     "check:veto-sync": "node scripts/check-veto-sync.mjs"
   },
   "engines": {

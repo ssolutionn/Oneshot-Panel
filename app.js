@@ -2,9 +2,10 @@ import {
   DEFAULT_SOURCE, decodeGviz, parseTeams, parseSchedule, scheduleDay,
   defaultLineup, lineupCandidates, roleSuffix, selectedPlayers,
   validatePlayers, validateMatch, viewUrl, directorUrl,
-  newStreamId, applyStreamIds, playerLine, vdoId,
+  newStreamId, applyStreamIds, playerLine, vdoStreamId,
   observerText, playerText, buildObs, safeFilename, validateMetadata,
   CAMERA_FRAMES, DEFAULT_CAMERA_FRAME, cameraFrame, normalizeCamera, cameraCss, cameraViewUrl,
+  displayNick,
   MAP_POOL, VETO_RULES, validateVeto, appendVeto, vetoText,
   lanConfig, lanCams, lanSeat, lanTeams, lanSchedule, newLanPrefix, seatTeam, BLANK_CARD, cardKey
 } from './core.js';
@@ -17,6 +18,7 @@ const state = {
   source: { ...DEFAULT_SOURCE }, template: null, templateError: '', logos: {},
   veto: { format: 'BO3', first: 0, actions: [], matchKey: '' },
   cameras: readStorage('oneshot-camera-settings-v1') || {}, cameraFrame: DEFAULT_CAMERA_FRAME,
+  camNicks: {},
   pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false
 };
 let toastTimer, regenTimer, refreshId = 0, controller, templatePromise;
@@ -29,6 +31,16 @@ function writeStorage(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); return true; }
   catch { return false; }
 }
+
+// «Ник» каждой вебки (text field in «Эфир» and «Компы»): an override with its
+// own key, so the table/roster nick stays intact for links, photos and cards.
+const CAM_NICK_STORE = 'oneshot-cam-nicks-v1';
+const savedCamNicks = readStorage(CAM_NICK_STORE);
+state.camNicks = savedCamNicks && typeof savedCamNicks === 'object' && !Array.isArray(savedCamNicks) ?
+  Object.fromEntries(Object.entries(savedCamNicks)
+    .filter(([, value]) => typeof value === 'string')
+    .map(([key, value]) => [key, value.replace(/[\r\n\t]+/g, ' ').trim().slice(0, 40)])
+    .filter(([, value]) => value)) : {};
 
 const savedSource = readStorage('webcam-desk-source');
 if (savedSource &&
@@ -121,11 +133,11 @@ function persist() {
     stage: $('matchStage').value, tab: state.tab, veto: state.veto
   });
 }
-function toast(message) {
+function toast(message, duration = 3500) {
   $('toast').textContent = message;
   $('toast').hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { $('toast').hidden = true; }, 3500);
+  toastTimer = setTimeout(() => { $('toast').hidden = true; }, duration);
 }
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, c => ({
@@ -151,6 +163,39 @@ function cameraKey(player) {
   if(state.lan.on)return JSON.stringify(['lan',player.room,player.id]);
   return JSON.stringify([state.source.id,state.source.gid,player.key]);
 }
+// A webcam's «Ник»: on a LAN it belongs to the seat (side and number), so the
+// seats keep their names when the prefix changes; the event slug keeps two
+// events in one browser apart. In the sheet panel it follows the player's
+// camera and survives a new stream ID (↻).
+function camNickKey(side, slot, player) {
+  if (state.lan.on) return JSON.stringify(['seat', globalThis.oneshotEvent?.slug || '', side, slot]);
+  return player ? cameraKey(player) : '';
+}
+function camNickValue(side, slot, player) {
+  const key = camNickKey(side, slot, player);
+  return key ? state.camNicks[key] || '' : '';
+}
+// Every webcam's own nick, or nothing (then the player's/seat's nick shows).
+function withCamNicks(side, team) {
+  if (!team) return team;
+  const keys = state[side === 'a' ? 'keysA' : 'keysB'];
+  return { ...team, players: team.players.map(p => {
+    const slot = state.lan.on ? (p.seat ? Number(p.seat.slice(1)) - 1 : -1) : keys.indexOf(p.key);
+    if (!(slot >= 0 && slot < 5)) return p;
+    const nickname = camNickValue(side, slot, p);
+    return nickname ? { ...p, nickname } : p;
+  }) };
+}
+function setCamNick(side, slot, value) {
+  if (!['a', 'b'].includes(side) || !(slot >= 0 && slot < 5)) return;
+  const key = camNickKey(side, slot, chosen(side)[slot]);
+  if (!key) return;
+  const nick = String(value ?? '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, 40);
+  if (nick) state.camNicks[key] = nick; else delete state.camNicks[key];
+  writeStorage(CAM_NICK_STORE, state.camNicks);
+  // The input keeps its focus: only the outputs (observer text, OBS status) move.
+  renderOutput();
+}
 let cameraEditor=null,cameraPreview=null,cameraPreviewTimer,cameraPreviewPoll,cameraPreviewCss='',cameraPreviewAck=false,cameraPreviewRequest='',cameraPreviewSequence=0;
 // A LAN seat's webcam on its own («Компы»): framed before anyone sits there.
 function seatPlayer(side,index) {
@@ -164,7 +209,7 @@ function editorPlayer() {
 }
 function cameraPreviewStyle(camera) {
   // Only the video paints above our backdrop, including while VDO connects.
-  return cameraCss(camera,cameraFrame(state.cameraFrame).fit==='contain' ? 'contain' : 'cover')+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
+  return cameraCss(camera)+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
 }
 function cameraPreviewLoading(loading) {
   $('cameraPreviewBox').dataset.loading=String(loading);
@@ -210,6 +255,7 @@ function updateCameraPreview() {
   $('cameraZoom').value=String(Math.round(config.zoom*100));
   $('cameraZoomValue').value=Math.round(config.zoom*100)+'%';
   $('cameraPreviewBox').dataset.rotation=String(config.rotation);
+  $('cameraMirror').setAttribute('aria-pressed',String(config.mirror));
   for(const [name,value] of Object.entries({left:rect.x/1920*100,top:rect.y/1080*100,
     width:rect.width/1920*100,height:rect.height/1080*100,
     'rotated-width':rect.height/rect.width*100,'rotated-height':rect.width/rect.height*100})) {
@@ -246,7 +292,7 @@ function openCamera(side,slot,seat=false) {
   cameraPreview.title='Предпросмотр камеры '+player.nick;
   cameraPreview.allow='autoplay';
   cameraPreview.referrerPolicy='no-referrer';
-  const url=new URL(cameraViewUrl(player,state.cameraFrame));
+  const url=new URL(cameraViewUrl(player));
   url.searchParams.set('b64css',btoa(cameraPreviewStyle(player.camera)));
   url.searchParams.set('darkmode','');url.searchParams.set('noaudio','');
   cameraPreview.src=url.href;
@@ -274,7 +320,10 @@ $('cameraRotation').addEventListener('change',()=>saveCamera({rotation:Number($(
 $('cameraRotate').addEventListener('click',()=>{
   const player=editorPlayer();if(player)saveCamera({rotation:(normalizeCamera(player.camera).rotation+90)%360});
 });
-$('cameraReset').addEventListener('click',()=>saveCamera({rotation:0,panX:50,panY:50,zoom:1}));
+$('cameraMirror').addEventListener('click',()=>{
+  const player=editorPlayer();if(player)saveCamera({mirror:!normalizeCamera(player.camera).mirror});
+});
+$('cameraReset').addEventListener('click',()=>saveCamera({rotation:0,panX:50,panY:50,zoom:1,mirror:false}));
 $('cameraZoom').addEventListener('input',()=>saveCamera({zoom:Number($('cameraZoom').value)/100}));
 for(const button of document.querySelectorAll('[data-camera-zoom]'))button.addEventListener('click',()=>{
   const player=editorPlayer();if(player)saveCamera({zoom:normalizeCamera(player.camera).zoom+Number(button.dataset.cameraZoom)/100});
@@ -309,14 +358,17 @@ function regenerate(side, slot) {
 }
 // ✎ next to a player: the ID the player really joined with (an old link, a
 // typo), so OBS and the webcam status follow their camera. The player keeps
-// their link; «вернуть» goes back to the sheet's ID.
+// their link; «вернуть» goes back to the sheet's ID. On a LAN the stream
+// belongs to the seat, so there it edits the seat's own ID («Компы»).
 function setStreamId(side, slot) {
   const team = getTeam(side), player = chosen(side)[slot];
   if (!team || !player) return;
+  if (state.lan.on) return setSeatPush(side, slot, player);
   const typed = window.prompt(`${player.nick}: ID потока, под которым игрок зашёл в VDO.Ninja ` +
     '(то, что после push= в его ссылке):', player.id);
   if (typed === null) return;
-  const id = vdoId(typed.replace(/^.*[?&]push=/, '').replace(/&.*$/, ''));
+  const id = vdoStreamId(typed);
+  if (typed.trim() && !id) return toast('Не нашёл ни push=, ни ID — ничего не поменяли.');
   if (!id) return toast('Пустой ID — ничего не поменяли.');
   const was = player.sheetId ?? player.id;
   if (id === was) delete state.streamIds[player.key];
@@ -325,6 +377,50 @@ function setStreamId(side, slot) {
   render();
   toast(`Вебка ${player.nick}: ID ${id}. В OBS камеру обновит «Отправить в OBS» (или новый JSON).`);
   document.dispatchEvent(new CustomEvent('oneshot:stream-id', { detail: { team: team.name, nick: player.nick } }));
+}
+// A seat's «Кадр» follows its own stream ID: the PC is the same, only push= changed.
+function moveSeatCamera(before, after) {
+  if (!state.lan.on || !before?.room || !after?.room || !before.id || !after.id) return;
+  const from = cameraKey(before), to = cameraKey(after);
+  if (from === to || !state.cameras[from]) return;
+  const cameras = { ...state.cameras, [to]: state.cameras[from] };
+  delete cameras[from];
+  state.cameras = cameras;
+  writeStorage(CAMERA_STORE, state.cameras);
+}
+// ✎ on a seat (from «Компы» or the player's row in «Эфир»): the ID its PC
+// really streams under. The automatic ones (the event's IDs, «Найти компы»)
+// stay the normal way; this fixes the case where they got a stream wrong. An
+// empty answer drops the fix and the seat goes back to its usual ID.
+function setSeatPush(side, index, player) {
+  if (!['a', 'b'].includes(side) || !(index >= 0 && index < 5)) return;
+  const name = `${side.toUpperCase()}${index + 1}`;
+  const lan = state.lan;
+  const usual = lanSeat({ ...lan, pushes: null }, side, index).id;
+  const own = lanSeat(lan, side, index).id;
+  const pinned = Boolean(lan.pushes?.[side]?.[index]);
+  const typed = window.prompt(`${name}: ID потока, под которым вещает компьютер (то, что стоит ` +
+    'после push= в его ссылке). Пусто — вернуть обычный:', own);
+  if (typed === null) return;
+  const text = typed.trim(), id = vdoStreamId(text);
+  if (text && !id) return toast(`${name}: не нашёл ни push=, ни ID — ничего не поменяли. ` +
+    'Скопируй адрес из вкладки компа.');
+  // Typing the seat's usual ID means «обычный», not «закрепи за местом»: a pin
+  // that changes nothing would quietly stop «Найти компы» from fixing the seat.
+  const next = id && id !== usual ? id : '';
+  if (next === (pinned ? own : '')) return;
+  const pushes = { a: Array(5).fill(null), b: Array(5).fill(null), ...(lan.pushes || {}) };
+  const list = Array.from({ length: 5 }, (_, i) => pushes[side]?.[i] || null);
+  list[index] = next || null;
+  pushes[side] = list;
+  const before = lanSeat(lan, side, index);
+  setLan({ ...lan, pushes });
+  const after = lanSeat(state.lan, side, index);
+  moveSeatCamera(before, after);
+  render();
+  toast(next ? `${name}: ID ${next}. Открой ссылку места и отправь камеры в OBS заново.`
+    : `${name}: снова обычный ID ${after.id}.`);
+  document.dispatchEvent(new CustomEvent('oneshot:stream-id', { detail: { nick: player?.nick || name } }));
 }
 function unregenerate(side, slot) {
   const player = chosen(side)[slot];
@@ -337,10 +433,11 @@ function unregenerate(side, slot) {
 }
 function getTeam(side) {
   const team = state.teams.find(t => t.name === state[side]);
-  if (!state.lan.on || !team) return team;
+  if (!team) return team;
+  if (!state.lan.on) return withCamNicks(side, team);
   const seated = seatTeam(team, side, state[side === 'a' ? 'keysA' : 'keysB'], state.lan);
-  return { ...seated, players: seated.players.map(p => p.id ?
-    { ...p, camera: normalizeCamera(state.cameras[cameraKey(p)]) } : p) };
+  return withCamNicks(side, { ...seated, players: seated.players.map(p => p.id ?
+    { ...p, camera: normalizeCamera(state.cameras[cameraKey(p)]) } : p) });
 }
 function chosen(side) {
   return selectedPlayers(getTeam(side),
@@ -374,10 +471,15 @@ function notify() {
 }
 window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next),
   lan: () => ({ ...state.lan }), setLan,
+  // «Ник» of a webcam (a seat in «Компы», a slot in «Эфир»): read and write.
+  camNick: (side, index) => camNickValue(side, index, chosen(side)[index]),
+  setCamNick: (side, index, value) => setCamNick(side, index, value),
   // «Кадр» of a LAN seat's webcam (side 'a'|'b', seat 0–4), from «Компы».
   // The frame saved for a seat's PC («Кадр» in «Компы»), for sending the seats alone.
   seatCamera: (side, index) => state.lan.on ? seatPlayer(side, index).camera : undefined,
   editSeatCamera: (side, index) => { if (state.lan.on && ['a', 'b'].includes(side) && index >= 0 && index < 5) openCamera(side, index, true); },
+  // ✎ у места в «Компах»: ID потока, под которым реально вещает его комп.
+  editSeatPush: (side, index) => { if (state.lan.on) setSeatPush(side, index, chosen(side)[index]); },
   // lan.js registers the maker of self-contained cards (photos inside).
   setCardDocs: provider => { cardDocsProvider = provider; }, cardDocs: () => cardDocsNow(),
   // lan.js: a side's placeholder card page («Компы»), '' when there is none.
@@ -393,11 +495,12 @@ function cardDocsNow() {
   if (!state.lan.on || !cardsOn()) return {};
   const cards = $('includeCards').checked && cardDocsProvider;
   const docs = cards ? cardDocsProvider(['a', 'b'].flatMap(side =>
-    chosen(side).filter(Boolean).map(p => ({ team: getTeam(side).name, nick: p.nick, teamId: getTeam(side).teamId, playerId: p.playerId })))) : {};
+    chosen(side).filter(Boolean).map(p => ({ team: getTeam(side).name, nick: displayNick(p), lookup: p.nick,
+      teamId: getTeam(side).teamId, playerId: p.playerId })))) : {};
   for (const side of ['a', 'b']) {
     const plate = plateOf(side);
     for (const p of chosen(side).filter(Boolean)) {
-      const key = cardKey(getTeam(side).name, p.nick);
+      const key = cardKey(getTeam(side).name, displayNick(p));
       if (plate) docs[key] = plate;
       else if (!cards) docs[key] = BLANK_CARD;
     }
@@ -702,8 +805,9 @@ function render() {
       </div>
       <div class="camera-list">${Array.from({ length: 5 }, (_, i) => {
         const player = team.players.find(p => p.key === keys[i]);
-        return `<div class="player-row" draggable="true" tabindex="0" data-drag="${side}${i}"
-          title="Перетащи на другой слот этой команды (или Alt+↑/↓), чтобы поменять игроков местами">
+        const nick = camNickValue(side, i, player);
+        const nickHint = player ? player.nick : (state.lan.on ? 'Ник вебки' : 'Сначала выбери игрока');
+        return `<div class="player-row">
           <span class="slot-number">${String(index * 5 + i + 1).padStart(2, '0')}</span>
           <div class="player-info">
             <select data-player="${side}" data-slot="${i}" aria-label="Игрок ${index * 5 + i + 1}">
@@ -714,6 +818,15 @@ function render() {
                 ${keys.includes(p.key) && p.key !== keys[i] ? 'disabled' : ''}
               >${escapeHtml(p.nick + roleSuffix(p))}</option>`).join('')}
             </select>
+            <label class="player-nick-line">
+              <span class="visually-hidden">Ник вебки ${index * 5 + i + 1}</span>
+              <input id="cam-nick-${side}-${i}" class="cam-nick" type="text" maxlength="40"
+                value="${escapeHtml(nick)}" placeholder="${escapeHtml(nickHint)}"
+                data-cam-nick="${side}" data-slot="${i}"
+                ${!player && !state.lan.on ? 'disabled' : ''}
+                aria-label="Ник вебки ${index * 5 + i + 1}${player ? `, по умолчанию ${escapeHtml(player.nick)}` : ''}"
+                autocomplete="off" spellcheck="false">
+            </label>
             <span class="player-subline">${player ?
               (player.seat ? `<b class="seat-id">Место ${player.seat}</b> · ` : '') +
               (player.sheetId ? `<b class="new-id">${player.manualId ? 'Свой ID' : 'Новый ID'}</b> <button type="button" class="link-button"
@@ -721,7 +834,7 @@ function render() {
                 title="Вернуть ID из таблицы (${escapeHtml(player.sheetId)})">вернуть</button> · ` : '') +
               escapeHtml(viewUrl(player)) :
               'Место не заполнено'}</span>
-            <button class="link-button camera-adjust" type="button" id="camera-${side}-${i}" data-camera="${side}" data-slot="${i}" ${!player ? 'disabled' : ''}>Кадр${player?.camera?.rotation ? ' · '+player.camera.rotation+'°' : ''}</button>
+            <button class="link-button camera-adjust" type="button" id="camera-${side}-${i}" data-camera="${side}" data-slot="${i}" ${!player ? 'disabled' : ''}>Кадр${player?.camera?.rotation ? ' · '+player.camera.rotation+'°' : ''}${player?.camera?.mirror ? ' · ↔' : ''}</button>
           </div>
           ${state.lan.on ? '' : `<button class="copy-icon regen-icon${state.regenAsk === `${side}${i}` ? ' asking' : ''}"
             id="regen-${side}-${i}" type="button" data-regen="${side}" data-slot="${i}"
@@ -730,10 +843,12 @@ function render() {
               `Новая ссылка игроку ${player ? escapeHtml(player.nick) : ''}`}"
             title="${state.regenAsk === `${side}${i}` ? 'Нажми ещё раз — сделать новую ссылку' :
               'Новая ссылка игроку (если старая утекла)'}" ${!player ? 'disabled' : ''}
-            >${state.regenAsk === `${side}${i}` ? '✓?' : '↻'}</button>
+            >${state.regenAsk === `${side}${i}` ? '✓?' : '↻'}</button>`}
           <button class="copy-icon setid-icon" type="button" data-setid="${side}" data-slot="${i}"
-            aria-label="Указать ID потока вручную ${player ? escapeHtml(player.nick) : ''}"
-            title="Указать ID вручную (игрок зашёл по другой ссылке)" ${!player ? 'disabled' : ''}>✎</button>`}
+            aria-label="${state.lan.on ? `Указать ID потока места ${side.toUpperCase()}${i + 1} вручную` :
+              `Указать ID потока вручную ${player ? escapeHtml(player.nick) : ''}`}"
+            title="${state.lan.on ? 'ID, под которым вещает комп этого места (после push= в его ссылке)' :
+              'Указать ID вручную (игрок зашёл по другой ссылке)'}" ${!player ? 'disabled' : ''}>✎</button>
           <button class="give-button" type="button" data-give="${side}" data-slot="${i}"
             aria-label="Скопировать ссылку игроку ${player ? escapeHtml(player.nick) : ''}"
             title="${state.lan.on ? 'Скопировать PUSH-ссылку места' : 'Скопировать PUSH-ссылку, чтобы отдать игроку'}" ${!player ? 'disabled' : ''}>${state.lan.on ? 'Ссылка места' : 'Игроку'}</button>
@@ -771,41 +886,9 @@ function render() {
         [Number(el.dataset.slot)] = el.value;
       render();
     }));
-  // Two slots of one team swap players: drag a row onto another (or Alt+↑/↓).
-  // On a LAN a slot is a seat, so this reseats the two players.
-  let dragged='';
-  const swapSlots=(side,from,to)=>{
-    const keys=state[side==='a' ? 'keysA' : 'keysB'];
-    [keys[from],keys[to]]=[keys[to],keys[from]];
-    render();
-    document.querySelector(`.player-row[data-drag="${side}${to}"]`)?.focus();
-    toast(`Слоты ${from+1} и ${to+1} поменялись игроками.`);
-  };
-  $('teamGrid').querySelectorAll('.player-row[data-drag]').forEach(row => {
-    const side=row.dataset.drag[0],slot=Number(row.dataset.drag.slice(1));
-    row.addEventListener('dragstart',event=>{
-      if(event.target!==row)return;
-      dragged=row.dataset.drag;
-      event.dataTransfer.effectAllowed='move';
-      event.dataTransfer.setData('text/plain',dragged);
-      row.classList.add('dragging');
-    });
-    row.addEventListener('dragend',()=>{dragged='';document.querySelectorAll('.player-row.drag-over,.player-row.dragging').forEach(r=>r.classList.remove('drag-over','dragging'));});
-    row.addEventListener('dragover',event=>{if(dragged[0]===side && dragged!==row.dataset.drag){event.preventDefault();row.classList.add('drag-over');}});
-    row.addEventListener('dragleave',()=>row.classList.remove('drag-over'));
-    row.addEventListener('drop',event=>{
-      event.preventDefault();
-      row.classList.remove('drag-over');
-      if(dragged[0]===side && dragged!==row.dataset.drag)swapSlots(side,Number(dragged.slice(1)),slot);
-    });
-    row.addEventListener('keydown',event=>{
-      if(event.target!==row || !event.altKey || !['ArrowUp','ArrowDown'].includes(event.key))return;
-      const to=slot+(event.key==='ArrowUp' ? -1 : 1);
-      if(to<0 || to>4)return;
-      event.preventDefault();
-      swapSlots(side,slot,to);
-    });
-  });
+  $('teamGrid').querySelectorAll('[data-cam-nick]').forEach(el =>
+    el.addEventListener('input', () =>
+      setCamNick(el.dataset.camNick, Number(el.dataset.slot), el.value)));
   $('teamGrid').querySelectorAll('[data-reset]').forEach(el =>
     el.addEventListener('click', () => {
       const side = el.dataset.reset;
@@ -1268,6 +1351,17 @@ $('settingsForm').addEventListener('submit', event => {
   } catch (error) {
     $('sourceError').textContent = error.message;
     $('sourceError').hidden = false;
+  }
+});
+
+// The «Ник» fields are edited in «Компы» too: coming back to «Эфир» shows the
+// stored values without a full redraw.
+document.addEventListener('oneshot:view', event => {
+  if (event.detail !== 'prep') return;
+  for (const el of $('teamGrid').querySelectorAll('[data-cam-nick]')) {
+    if (document.activeElement === el) continue;
+    const side = el.dataset.camNick, slot = Number(el.dataset.slot);
+    el.value = camNickValue(side, slot, chosen(side)[slot]);
   }
 });
 

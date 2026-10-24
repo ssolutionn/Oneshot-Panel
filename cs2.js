@@ -116,7 +116,12 @@ async function start() {
   const guide = Boolean(event?.modules?.server);
   if (guide) {
     $('serverNavBtn').hidden = false;
-    for (const id of ['serverStartCommand', 'serverStartWindows']) $(id).textContent = $(id).textContent.replace('EVENT=reu', `EVENT=${event.slug}`);
+    // The event's slug in both spellings the guide uses: shell `EVENT=reu` and PowerShell's `'reu'`.
+    for (const id of ['serverStartCommand', 'serverStartWindows', 'serverStartPowershell']) {
+      $(id).textContent = $(id).textContent
+        .replace('EVENT=reu', `EVENT=${event.slug}`)
+        .replace("EVENT='reu'", `EVENT='${event.slug}'`);
+    }
   }
   let local = false;
   try { local = Boolean((await (await api('/api/cs2-status')).json())?.ok); } catch { /* not the local panel */ }

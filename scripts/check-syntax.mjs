@@ -19,8 +19,10 @@ const files = [];
 
 let failed = 0;
 for (const file of files.sort()) {
-  const result = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' });
-  if (result.status !== 0) { failed++; console.error(`✗ ${path.relative(root, file)}\n${result.stderr}`); }
+  // stdio: inherit, без pipe: в песочнице Windows именованные каналы запрещены,
+  // и захват stderr превращал бы каждую проверку в ложное «✗ undefined».
+  const result = spawnSync(process.execPath, ['--check', file], { stdio: 'inherit' });
+  if (result.status !== 0) { failed++; console.error(`✗ ${path.relative(root, file)}`); }
 }
 console.log(`${files.length - failed}/${files.length} files pass node --check`);
 process.exit(failed ? 1 : 0);

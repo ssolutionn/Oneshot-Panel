@@ -170,6 +170,36 @@ test('Observer text is the slot order only, without links', () => {
   assert.ok(text.startsWith('HYPERSPIRIT — 6yuBoJlbl\n\n'));
 });
 
+test('A webcam\'s own nick is what the observer and the card show; photos keep the roster nick', () => {
+  const [a, b, ka, kb] = fixture();
+  const pa = selectedPlayers(a, ka), pb = selectedPlayers(b, kb);
+  const shown = pa.map((p, i) => i === 0 ? { ...p, nickname: 'Кастом' } : p);
+  const text = observerText(a, b, shown, pb);
+  assert.match(text, /^1\. HYPERSPIRIT — Кастом$/m);
+  assert.ok(!text.includes('Ciocardau'));
+  const url = new URL(cardUrl(shown[0]));
+  assert.equal(url.searchParams.get('nick'), 'Кастом');
+  assert.equal(url.searchParams.get('lookup'), pa[0].nick);
+  // No override: the old address stays exactly as it was.
+  assert.equal(new URL(cardUrl(pa[0])).searchParams.has('lookup'), false);
+});
+
+test('A webcam nickname names its OBS scene, camera and card; the card keeps the photo lookup', () => {
+  const [a, b, ka, kb] = fixture();
+  a.players[0].nickname = 'Кастом';
+  const result = buildObs(template, a, b, ka, kb, uuidFn(),
+    { includeCards: true, cardBase: 'https://panel.example' });
+  const scene = result.sources.find(s => s.name.startsWith('1 Кастом '));
+  assert.ok(scene, 'the scene is named by the webcam nick');
+  const camera = scene.settings.items.find(it => it.name.startsWith('CAM 01 '));
+  const card = scene.settings.items.find(it => it.name.startsWith('CARD 01 '));
+  assert.equal(camera.name, 'CAM 01 | HYPERSPIRIT | Кастом');
+  assert.equal(card.name, 'CARD 01 | HYPERSPIRIT | Кастом');
+  const url = new URL(result.sources.find(s => s.uuid === card.source_uuid).settings.url);
+  assert.equal(url.searchParams.get('nick'), 'Кастом');
+  assert.equal(url.searchParams.get('lookup'), a.players[0].nick);
+});
+
 test('URL parameters and Markdown are escaped', () => {
   const p = {
     nick: 'x\n# title',
@@ -213,7 +243,8 @@ test('OBS repairs cameras and remaps references without mutating template', () =
     ...selectedPlayers(args[1], args[3])
   ];
   for (let i = 0; i < 10; i++) {
-    const scene = result.sources.find(s => s.name === `Игрок ${i + 1}`);
+    const scene = result.sources.find(s => s.name === `${i + 1} ${players[i].nick} ${players[i].id}`);
+    assert.ok(scene);
     const item = scene.settings.items.find(it => it.name.startsWith('CAM '));
     const browser = byId.get(item.source_uuid);
     refs.add(item.source_uuid);
@@ -248,7 +279,7 @@ test('OBS omits all player cards by default and when disabled', () => {
     assert.ok(!result.sources.some(s => s.settings?.url?.includes('/card.html')));
     const byId = new Map(result.sources.map(s => [s.uuid, s]));
     for (let i = 1; i <= 10; i++) {
-      const scene = result.sources.find(s => s.name === `Игрок ${i}`);
+      const scene = result.sources.find(s => s.name.startsWith(`${i} `));
       const cameras = scene.settings.items.filter(it => it.name.startsWith('CAM '));
       assert.equal(cameras.length, 1);
       assert.ok(!scene.settings.items.some(it => it.name.startsWith('CARD ')));
@@ -271,7 +302,7 @@ test('Player card sits under each camera and opens the card page', () => {
   const byId = new Map(result.sources.map(s => [s.uuid, s]));
   for (let i = 0; i < 10; i++) {
     const slot = String(i + 1).padStart(2, '0');
-    const scene = result.sources.find(s => s.name === `Игрок ${i + 1}`);
+    const scene = result.sources.find(s => s.name.startsWith(`${i + 1} `));
     const names = scene.settings.items.map(it => it.name);
     const card = names.indexOf(`CARD ${slot} | ${players[i].team} | ${players[i].nick}`);
     const camera = names.indexOf(`CAM ${slot} | ${players[i].team} | ${players[i].nick}`);

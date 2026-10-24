@@ -31,7 +31,12 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   зашёл (старая ссылка), вручную, сообщение не копируется (`manual`);
   действует, пока в таблице прежний ID, —
   `applyStreamIds`; «вернуть» в строке отменяет), вето,
-  копирование, скачивание JSON. Отдаёт `window.oneshotPanel.snapshot()`
+  копирование, скачивание JSON. `oneshot-cam-nicks-v1` — «Ник» каждой вебки
+  (`camNickKey`/`camNickValue`/`setCamNick`): поле `[data-cam-nick]` в строке
+  «Эфира», пусто — берётся ник игрока; в ЛАН ключ события и места (сторона и
+  номер), иначе `cameraKey` игрока, поэтому ↻ и смена состава его не теряют; `nickname`
+  на игроке читают OBS (`core.buildObs`, `obs.slotPlan`), обсервер и карточка
+  (`cardUrl` + `lookup` для фото). Отдаёт `window.oneshotPanel.snapshot()`
   и событие `oneshot:change` для `live.js` и `lobby.js`; сам их не знает
   (в артефакте Claude их нет).
 - `live.js` — только сайт: вкладки (Подготовка, Вето, Лобби, OBS, Букмекеры), «Отправить в OBS», «Копировать JSON»,
@@ -64,20 +69,22 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   команды по id, формат; «2 полуфинала + финал»; «▶ В эфир» выбирает матч в `matchSelect` и
   открывает «Эфир»), «Компы» (`seatGrid`: 10 мест, кто сидит, статус вебки
   `live.js camStatus()` / событие `oneshot:cams` — в ЛАН live.js следит за всеми 10 потоками мест,
-  занятыми и нет; ссылки; `seatsPrefix`/`seatsPassword`, или у события свои комнаты — `seatsRoomA/B`,
+  занятыми и нет; `input.seat-nick` — свой «Ник» вебки места (`oneshotPanel.camNick`/`setCamNick`,
+  пусто — кто сидит; ввод не перерисовывает сетку); ссылки; `seatsPrefix`/`seatsPassword`, или у события свои комнаты — `seatsRoomA/B`,
   `seatsPasswordA/B`, `seatsIds`/`seatsIdsB`; в поле комнаты можно вставить ссылку директора —
   `vdoRoomOf` берёт комнату и пароль; ссылки директоров комнат — `seatsDirectorA/B` (`directorUrl`, копировать — `seatsDirectorCopyA/B`); «Найти компы» `seatsScan` — `vdo.js scanRoom` (скрытый
-  scene-зритель без видео, getStreamIDs; ключи `undefined`/`null` — не потоки) ставит тех, кто стримит
-  в комнате, по порядку pc1…pc10, и называет места без вебки; порядок мест правится перетаскиванием
-  карточек `.seat-card[data-seat]` или Alt+↑/↓ (`swapSeats`: компы меняются местами внутри стороны);
-  в поле ID можно вставить ссылку места (берётся push=), введённые вручную ID сразу сверяются с комнатой
-  (`checkTypedIds`: «Сейчас не стримят…»); режим вебок «Онлайн / ЛАН» (`seatsNetMode`, `core.vdoNet`,
-  `lan.net`): в ЛАН ссылки мест получают `&quality&fps`, камеры OBS — свой `&codec` и `&videobitrate`,
-  обе — `&lowlatency` и `&lanonly` по галочкам (`seatsNetQuality/Fps/Codec/Bitrate/Lowlatency/Lanonly`);
-  онлайн — ссылки прежние;
-  предупреждение `seatsClash` при одинаковых паролях и общих ID; «Кадр» у каждого места
+  scene-зритель без видео, getStreamIDs) ставит тех, кто стримит в комнате, по порядку pc1…pc10
+  (место со своим ID не трогает, о нём говорит в тосте);
+  предупреждение `seatsClash` — две стороны на одном потоке (общий ID при одинаковых паролях или
+  один ID в одной комнате), ручные ID считаются как есть; «Кадр» у каждого места
   (`data-seat-frame`, `oneshotPanel.editSeatCamera` — то же окно `cameraDialog`, кадр хранится за
-  компом: `cameraKey` = ['lan', room, id]); «▶ Камеры в OBS» `seatsSendObs` = `live.js sendObs`:
+  компом: `cameraKey` = ['lan', room, id], при смене своего ID кадра переезжает за местом —
+  `moveSeatCamera`); ✎ у места (`oneshotPanel.editSeatPush`) — свой ID потока: автопоиск и ID
+  события обычно правы, это подстраховка; в поле вставляют ссылку компа в любом виде, берётся
+  `push=` (или `view=`, или сам ID) — `core.vdoStreamId`; пусто в окне — снова обычный ID;
+  смена префикса и комнат ручные ID сбрасывает (они про старые потоки, в `confirm` сказано);
+  «▶ Отправить в OBS» `seatsSendObs` = `live.js sendObs` (то же действие и та же
+  надпись, что в «Эфире»):
   в ЛАН без готового матча «Отправить в OBS» шлёт десять камер мест (`seatsPayload`); статус места
   словами (`.seat-state`; в «Эфире» — `.cam-note` у игрока); «Заглушка, когда вебки нет»
   (`seatsPlatePickA/B`, `seatsPlateClearA/B`, `seatsPlateFile`, превью `seatsPlateA/B`): картинка
@@ -109,7 +116,12 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   сверяет у мест пару, статус вебок — `camKey(room, id)` из vdo.js (CamWatch отдаёт и ID, и пару).
   VDO.Ninja добавляет к ID хэш пароля комнаты, а не имя комнаты: без разных паролей pc1 двух
   комнат может оказаться одним потоком — отсюда `seatsClash`.
-  `seatTeam` сажает выбранных, `cameraKey` = ['lan', room, id], ↻/✎ скрыты, ID потоков таблицы не трогаются.
+  `pushes` (необязательное поле конфига, `lanPushes`): свой ID потока места, заданный вручную
+  (✎; `{a: [id|null ×5], b: […]}`) — в `lanSeat` он меняет только `id`, комната и пароль остаются
+  места, пачечная смена префикса/комнат его сбрасывает; пусто — поля в конфиге нет вовсе, и
+  события без ручных ID выглядят как раньше.
+  `seatTeam` сажает выбранных, `cameraKey` = ['lan', room, id], ↻ скрыт, ✎ в «Эфире» правит ID
+  места (не игрока: поток принадлежит компу), ID потоков таблицы не трогаются.
   Фото и лого: `lan-event.js` — без DOM (тесты `test/lan-event.test.js`): `readZip`
   (stored/deflate через DecompressionStream, без ZIP64), `collectTeams`, хранение `AssetStore`:
   IndexedDB `oneshot-lan` под `ownKey(id)` = `#<id>` команды/игрока (`#` не бывает в
@@ -166,6 +178,11 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   реальный код» (таблицы, цвета, пул, рамка, вкладки). Новое, что зависит от турнира, — в манифест, а не в код.
   `docs/design/` — ТЗ дизайнерам по каждой поверхности (бренд-кит, оверлей, страница капитанов, карточка,
   рамка/«Матрица»), общие правила, анкета заказчика, шаблон нового ТЗ.
+- `docs/AGENT_TESTING.md` — как агент проверяет правку: `npm run verify`
+  (`scripts/agent-test.mjs`, реестр `scripts/agent/suites.json`), выбор T0/T1/T2
+  по диффу, отчёт `artifacts/agent/<run>/report.json`, скиллы и защита тестов
+  от ослабления. Новый `test/*.test.js` или `scripts/qa_*.py` обязан попасть в
+  реестр — следит `test/agent-registry.test.js`.
 - `assets/obs-qr.js` — только сайт: локальное чтение QR камерой/из файла,
   парсер native `obsws://host:port/password`, QR связи телефона с доком.
   QR только заполняет ручные поля; локальный адрес — 127.0.0.1 с портом из QR.
@@ -398,7 +415,9 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   демо. Свой README и `scripts/qa_veto_overlay.py` (нужен WebGL).
 - `card.html`, `card.js`, `card.css` — карточка игрока 1920×1080
   (`/card.html?team=…&nick=…`): фон `assets/card/background.jpg`, логотип CyberClash и логотип
-  команды, ник, фото HLTV из `assets/players/players.json`. В OBS JSON
+  команды, ник, фото HLTV из `assets/players/players.json`. `nick` — ник вебки
+  (свой, если задан), `lookup` — ник из состава для фото; без `nickname` адрес
+  прежний. В OBS JSON
   добавляется под каждой камерой только при включённом includeCards
   (`CARD NN | Команда | Ник`); фото и логотип `card.js` выбирает через
   `playerPhoto`/`teamLogo` из `core.js` (их же использует
@@ -470,6 +489,8 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
 ```sh
 npm run check        # синтаксис
 npm test             # тесты node:test
+npm run verify       # T0 + T1 по диффу, отчёт artifacts/agent/<run>/report.json
+npm run verify -- --tier T0   # быстро: синтаксис и unit-тесты
 PORT=3000 node server.js
 python3 scripts/qa_browser.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
 python3 scripts/qa_live.py --url http://127.0.0.1:3000 --chromium /path/to/chrome
@@ -498,10 +519,10 @@ Netlify проверяет локальные фото, докачивает н�
   Галочка includeCards добавляет прямо под камерой источник браузера
   `CARD NN | Команда | Ник` с card.html сайта панели (в артефакте —
   https://oneshot-panel.pages.dev). Выбор не сохраняется в localStorage.
-  Ссылка камеры содержит `&cleanoutput&transparent&cover&scale=100` (scale=100 — полное
-  разрешение камеры, не по размеру окна); у рамки `height` («Во всю высоту, пропорции камеры»,
-  1920×1080, `fit:'contain'`, по умолчанию у REU) `&cover` нет, b64css с object-fit:contain. Числовые
-  сдвиг и зум 1–3 задаёт b64css. CSS scale не заменяет transform VDO. darkmode — только preview. Без видео VDO.Ninja прозрачен, и видна карточка.
+  Ссылка камеры содержит `&cleanoutput&transparent&cover`; числовые
+  сдвиг, зум 1–3 и зеркало (`mirror`) задаёт b64css: у зеркала `scale` с обратным
+  знаком по горизонтали экрана, а при 90°/270° — по вертикали кадра, как и сдвиг.
+  CSS scale не заменяет transform VDO. darkmode — только preview. Без видео VDO.Ninja прозрачен, и видна карточка.
   CARD остаётся без поворота и вписывается в ту же рамку.
   Подложка assets/camera/oneshot-preview.png — только предпросмотр панели,
   её нельзя добавлять в OBS. Iframe preview имеет opacity:0 до ответа VDO
@@ -532,8 +553,8 @@ Netlify проверяет локальные фото, докачивает н�
   cameraFrame и настройки camera игроков. Старое `apply` сохраняет
   прежние full-frame/contain/поворот 0 через legacyCamera; новый отправитель
   показывает понятную ошибку обновления, если старый док не знает
-  apply-camera. При зуме ≠1 панель использует apply-camera-zoom: старое
-  окно с кадрированием не должно молча отбросить zoom. Обновлённое окно
+  apply-camera. При зуме ≠1 или включённом зеркале панель использует apply-camera-zoom:
+  старое окно с кадрированием не должно молча отбросить zoom или зеркало. Обновлённое окно
   принимает оба варианта. Другие сообщения: `veto {id,
   state}`, `hello {id}`, `obs-config {id, url, password}` от панели; `result {id, ok, error|summary}` и
   `presence {ok, obs}` от дока.
@@ -587,8 +608,7 @@ Netlify проверяет локальные фото, докачивает н�
   ltZip ltFolder ltImage ltCardDialog ltCardCanvas ltCardCaption matchesNavBtn matchesView
   lmTemplate lmAdd lmList seatsNavBtn seatsDot seatsView seatsWatch seatsCopyAll seatGrid
   seatsPrefix seatsPassword seatsNewPrefix seatsNote seatsPrefixBox seatsRoomsBox seatsRoomA seatsRoomB
-  seatsPasswordA seatsPasswordB seatsIds seatsIdsB seatsNetBox seatsNetMode seatsNetLan seatsNetQuality
-  seatsNetFps seatsNetCodec seatsNetBitrate seatsNetLowlatency seatsNetLanonly seatsScan seatsClash seatsSendObs seatsPlateA seatsPlateB
+  seatsPasswordA seatsPasswordB seatsIds seatsIdsB seatsScan seatsClash seatsSendObs seatsPlateA seatsPlateB
   seatsDirectorA seatsDirectorB seatsDirectorCopyA seatsDirectorCopyB seatsPlateNameA seatsPlateNameB seatsPlatePickA seatsPlatePickB seatsPlateClearA seatsPlateClearB seatsPlateFile seatsPlatesHeading eventNavBtn eventView evName evAccent
   evDeep evBlack evColorsReset evPreview evExport evImport evStatus evFile evClear footerNote
   serverGuide serverStartCommand serverStartWindows
@@ -602,9 +622,8 @@ Netlify проверяет локальные фото, докачивает н�
   tplNext resetTemplates copyJournal lobbyLog; док: dockPanel dockPanelDot
   dockObs dockObsDot dockForm dockCode dockUrl dockPassword dockLog
 - data-атрибуты (их ставит `app.js`): data-regen data-unregen data-setid (id
-  regen-a-0…regen-b-4) data-copy-team data-map data-player
-  data-reset data-slot data-team data-view data-drag (строка игрока: перетаскивание или Alt+↑/↓
-  меняет игроков двух слотов команды); `live.js`: data-cam (live, off,
+  regen-a-0…regen-b-4) data-copy-team data-map data-player data-cam-nick
+  data-reset data-slot data-team data-view; `live.js`: data-cam (live, off,
   wait, none) на `.player-row`; `lobby.js`: data-match data-pause data-side
   data-resume data-since
 - Карточки команд, строки игроков и карты вето рисует `app.js`

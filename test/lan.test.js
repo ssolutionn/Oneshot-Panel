@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
-  lanConfig, lanCams, vdoRoomOf, eventProfile, parseLanRoster, lanSeatId, seatTeam, lanSeatLinks, LAN_SEATS,
+  lanConfig, lanCams, vdoRoomOf, vdoStreamId, lanSeat, eventProfile, parseLanRoster, lanSeatId, seatTeam, lanSeatLinks, LAN_SEATS,
   lanTeams, lanSchedule, lanId, newLanPrefix, LAN_LIMITS,
-  defaultLineup, validateMatch, selectedPlayers, buildObs, observerText, directorUrl, vdoNet, cameraViewUrl
+  defaultLineup, validateMatch, selectedPlayers, buildObs, observerText, directorUrl
 } from '../core.js';
 
 const template = JSON.parse(fs.readFileSync(new URL('../assets/obs-template.json', import.meta.url), 'utf8'));
@@ -15,7 +15,7 @@ Bravo: b1, b2, b3, b4, b5`;
 
 test('LAN config: needs a short lowercase prefix to switch on', () => {
   assert.deepEqual(lanConfig({ on: true, prefix: 'k7qz', password: ' pw ', teams: [] }),
-    { on: true, prefix: 'k7qz', password: 'pw', cams: null, net: { mode: 'online', quality: '1080', fps: 30, codec: 'h264', bitrate: 8000, lowlatency: true, lanonly: true }, teams: [], matches: [], event: { name: '', accent: '', deep: '', black: '' } });
+    { on: true, prefix: 'k7qz', password: 'pw', cams: null, teams: [], matches: [], event: { name: '', accent: '', deep: '', black: '' } });
   for (const prefix of ['', 'K7QZ', 'a', 'has space', 'x'.repeat(13), 'a-b'])
     assert.equal(lanConfig({ on: true, prefix }).on, false, prefix);
   assert.equal(lanConfig(null).on, false);
@@ -218,23 +218,56 @@ test('new ids and prefixes: short, from the given bytes, never taken', () => {
   assert.equal(lanConfig({ on: true, prefix: newLanPrefix([0, 0]) }).on, true);
 });
 
-test('LAN network mode: online links stay as they were, LAN adds VDO tuning to seats and OBS', () => {
-  const cams = { rooms: ['team1', 'team2'], ids: ['pc1', 'pc2', 'pc3', 'pc4', 'pc5'] };
-  const online = lanSeatLinks(lanConfig({ on: true, prefix: 'k7qz', cams }));
-  assert.equal(online[0].push, 'https://vdo.ninja/?room=team1&broadcast&do&push=pc1');
-  assert.equal(online[0].view, 'https://vdo.ninja/?view=pc1&solo=1&room=team1&codec=h264&cleanoutput&transparent');
-  const lan = lanConfig({ on: true, prefix: 'k7qz', cams, net: { mode: 'lan', quality: '720', fps: 60, codec: 'vp9', bitrate: 12000, lowlatency: true, lanonly: true } });
-  const [seat] = lanSeatLinks(lan);
-  assert.equal(seat.push, 'https://vdo.ninja/?room=team1&broadcast&do&push=pc1&quality=1&fps=60&lowlatency&lanonly');
-  assert.equal(seat.view, 'https://vdo.ninja/?view=pc1&solo=1&room=team1&codec=vp9&cleanoutput&transparent&videobitrate=12000&lowlatency&lanonly');
-  // The tuning goes to OBS with the seated player (JSON and «Отправить в OBS»).
-  const teams = parseLanRoster(ROSTER), keys = defaultLineup(teams[0]);
-  const team = seatTeam(teams[0], 'a', keys, lan);
-  assert.match(cameraViewUrl(team.players[0]), /&codec=vp9&.*&videobitrate=12000&lowlatency&lanonly&cover&scale=100$/);
-  // Junk never reaches a link: numbers are bounded, the rest falls back.
-  assert.deepEqual(vdoNet({ mode: 'lan', quality: '4k', fps: '60&x', codec: 'av1&x=1', bitrate: '9000&x=1', lanonly: 'no' }),
-    { mode: 'lan', quality: '1080', fps: 30, codec: 'h264', bitrate: 8000, lowlatency: true, lanonly: true });
-  assert.equal(vdoNet({ mode: 'lan', bitrate: 999999 }).bitrate, 8000);
-  assert.equal(lanSeatLinks(lanConfig({ on: true, prefix: 'k7qz', cams, net: { mode: 'lan', lanonly: false, lowlatency: false } }))[5].push,
-    'https://vdo.ninja/?room=team2&broadcast&do&push=pc1&quality=0&fps=30');
+// «Компы»: a seat's own stream ID (✎) is the fix for the cases the automatic
+// ones — the event's IDs and «Найти компы» — got wrong. Only push= changes.
+test('a hand-set push: an ID, a push= link or a view= link; nothing else is a stream', () => {
+  assert.equal(vdoStreamId('pc7'), 'pc7');
+  assert.equal(vdoStreamId(' Q-Q '), 'Q_Q');
+  assert.equal(vdoStreamId('https://vdo.ninja/?room=team1&password=p%20w&broadcast&do&push=pc7'), 'pc7');
+  assert.equal(vdoStreamId('?push=pc7&room=team1'), 'pc7');
+  assert.equal(vdoStreamId('push=pc7'), 'pc7');
+  assert.equal(vdoStreamId('https://vdo.ninja/?view=pc9&solo=1&room=team1'), 'pc9');
+  for (const bad of ['', '   ', 'two words', 'https://vdo.ninja/', 'https://vdo.ninja/?director=team1', 'https://vdo.ninja/?room=team1'])
+    assert.equal(vdoStreamId(bad), '', bad);
+});
+
+test('a hand-set push keeps the seat room and password: only the stream ID changes', () => {
+  const PCS = ['pc1', 'pc2', 'pc3', 'pc4', 'pc5'];
+  const lan = lanConfig({ on: true, prefix: 'k7qz', cams: { rooms: ['team1', 'team2'], ids: PCS, passwords: ['', 'pw 2'] },
+    pushes: { a: ['pc7', '', 'Q-Q', null, ' x y '], b: [] } });
+  assert.deepEqual(lan.pushes, { a: ['pc7', null, 'Q_Q', null, null], b: [null, null, null, null, null] });
+  assert.deepEqual(lanSeat(lan, 'a', 0), { room: 'team1', password: '', id: 'pc7' });
+  assert.deepEqual(lanSeat(lan, 'a', 1), { room: 'team1', password: '', id: 'pc2' });
+  assert.equal(lanSeat(lan, 'b', 0).id, 'pc1');
+  const links = lanSeatLinks(lan);
+  assert.equal(links[0].push, 'https://vdo.ninja/?room=team1&broadcast&do&push=pc7');
+  assert.match(links[0].view, /[?&]view=pc7&/);
+  assert.equal(links[9].push, 'https://vdo.ninja/?room=team2&password=pw%202&broadcast&do&push=pc5');
+  // The side's own room and its director link are not the seat's fix.
+  const side = seatTeam({ name: 'T', players: [] }, 'a', [], lan);
+  assert.equal(side.room, 'team1');
+  assert.equal(directorUrl(side), 'https://vdo.ninja/?director=team1');
+  // No hand-set ID anywhere: the event's data is exactly what it was.
+  assert.equal('pushes' in lanConfig({ on: true, prefix: 'k7qz' }), false);
+});
+
+test('a hand-set push goes into OBS and the observer text as that seat', () => {
+  const [alpha, bravo] = parseLanRoster(ROSTER);
+  const keysA = defaultLineup(alpha), keysB = defaultLineup(bravo);
+  const lan = lanConfig({ on: true, prefix: 'k7qz', pushes: { b: [null, 'bravo_b2'] } });
+  const a = seatTeam(alpha, 'a', keysA, lan), b = seatTeam(bravo, 'b', keysB, lan);
+  assert.equal(selectedPlayers(b, keysB)[1].id, 'bravo_b2');
+  assert.equal(validateMatch(a, b, keysA, keysB), '');
+  const cams = buildObs(template, a, b, keysA, keysB, () => crypto.randomUUID()).sources
+    .filter(s => /^CAM /.test(s.name)).sort((x, y) => x.name.localeCompare(y.name));
+  assert.equal(cams[6].name, 'CAM 07 | Bravo | b2');
+  assert.match(cams[6].settings.url, /[?&]view=bravo_b2&solo=1&room=k7qz&/);
+});
+
+test('two seats on one hand-set ID are told, not sent to OBS', () => {
+  const [alpha, bravo] = parseLanRoster(ROSTER);
+  const keysA = defaultLineup(alpha), keysB = defaultLineup(bravo);
+  const lan = lanConfig({ on: true, prefix: 'k7qz', pushes: { a: ['k7qzb1'] } });
+  assert.equal(validateMatch(seatTeam(alpha, 'a', keysA, lan), seatTeam(bravo, 'b', keysB, lan), keysA, keysB),
+    'У каждого из десяти игроков должен быть свой ID видеопотока.');
 });

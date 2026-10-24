@@ -78,22 +78,19 @@ export function watchUrl(room, ids, password = '') {
 // Who publishes in a room (a LAN's director room): a scene viewer without
 // audio or video, asked for its stream IDs until three answers in a row agree
 // or the time is up. Only VDO-safe IDs, in natural order (pc2 before pc10).
-// A peer whose stream ID VDO.Ninja does not know yet comes back keyed
-// "undefined" (or "null", "false"): no such push exists, so it never counts.
 export function scanUrl(room, password = '') {
   const url = new URL(VDO);
   url.search = new URLSearchParams({ room, ...(password ? { password } : {}), label: 'oneshot-scan' }).toString() +
     '&scene&novideo&noaudio&cleanoutput';
   return url.href;
 }
-const NOT_IDS = new Set(['undefined', 'null', 'false', 'true', 'NaN']);
 export function scanRoom(room, password = '', { wait = 12000, every = 1000 } = {}) {
   return new Promise(resolve => {
     const iframe = frame(scanUrl(room, password), 'Поиск компов');
     let last = '', same = 0;
     const listener = event => {
       if (event.source !== iframe.contentWindow || !event.data?.streamIDs || typeof event.data.streamIDs !== 'object') return;
-      const ids = Object.keys(event.data.streamIDs).filter(id => /^[A-Za-z0-9_]{1,40}$/.test(id) && !NOT_IDS.has(id))
+      const ids = Object.keys(event.data.streamIDs).filter(id => /^[A-Za-z0-9_]{1,40}$/.test(id))
         .sort((x, y) => x.localeCompare(y, 'en', { numeric: true }));
       const key = ids.join(',');
       same = ids.length && key === last ? same + 1 : 0;

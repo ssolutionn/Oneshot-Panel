@@ -1,7 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { createServer, eventFile } from '../server.js';
+import { createServer, eventFile, eventChoices } from '../server.js';
+
+test('Event chooser exposes available events and selects by query', async () => {
+  assert.ok(eventChoices().some(event => event.slug === 'reu'));
+  const server = createServer();
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    assert.match(await (await fetch(base + '/event.js')).text(), /oneshotEventChoices/);
+    assert.match(await (await fetch(base + '/event.js?event=reu')).text(), /oneshotEvent/);
+  } finally { server.close(); }
+});
 
 test('Static server serves public files and rejects traversal', async () => {
   const server = createServer();

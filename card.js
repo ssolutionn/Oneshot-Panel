@@ -5,6 +5,8 @@ const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const team = (params.get('team') || '').trim();
 const nick = (params.get('nick') || '').trim();
+// A webcam's own nick may differ from the roster nick the photo is kept under.
+const lookup = (params.get('lookup') || nick).trim();
 // Images: how long data-ready waits for them. Catalogs: a slow venue network
 // must not lose the photo and logo lookup.
 const TIMEOUT = 4500;
@@ -65,7 +67,7 @@ async function render() {
     json('/assets/teams/teams.json'), json('/assets/players/players.json')
   ]);
   const logo = teamLogo(logos, team);
-  const photo = playerPhoto(manifest?.players, team, nick);
+  const photo = playerPhoto(manifest?.players, team, lookup);
   const smallLogo = () => show($('cardLogo').querySelector('img'),
     `/assets/teams/${logo}`, $('cardLogo'));
   const layout = photoShown => {

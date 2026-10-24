@@ -158,6 +158,16 @@ test('card docs: one per player, with that player\'s photo and the team logo', (
   assert.ok(text(docs[cardKey('Team Alpha', 'n1')]).includes(WEBP));
 });
 
+test('card docs: a webcam\'s own nick is shown, while its photo is still found by the roster nick', () => {
+  const assets = normalizeAssets({ photos: { [cardKey('Team Alpha', 'n2')]: PNG } });
+  const docs = cardDocs([{ team: 'Team Alpha', nick: 'Кастом', lookup: 'n2' }], assets);
+  assert.deepEqual(Object.keys(docs), [cardKey('Team Alpha', 'Кастом')]);
+  const text = decodeURIComponent(docs[cardKey('Team Alpha', 'Кастом')].slice(docs[cardKey('Team Alpha', 'Кастом')].indexOf(',') + 1));
+  assert.ok(text.includes('photo-layout'));
+  assert.ok(text.includes(PNG));
+  assert.ok(text.includes('Кастом'));
+});
+
 test('OBS: a ready card page replaces the card address; players without one keep it', () => {
   const [a, b, keysA, keysB] = roster();
   const template = JSON.parse(fs.readFileSync(new URL('../assets/obs-template.json', import.meta.url), 'utf8'));

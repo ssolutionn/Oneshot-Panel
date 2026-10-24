@@ -12,7 +12,7 @@ import { TIMERS } from '../veto-room.js';
 export const EVENT_VERSION = 1;
 export const KINDS = ['sheets', 'manual', 'faceit'];
 export const FORMATS = ['BO1', 'BO2', 'BO3', 'BO5'];
-export const FRAMES = ['inner43', 'full43', 'wide', 'square', 'inner43_over20', 'full43_over20', 'wide_over20', 'square_over20', 'height'];
+export const FRAMES = ['inner43', 'full43', 'wide', 'square', 'inner43_over20', 'full43_over20', 'wide_over20', 'square_over20'];
 export const COLOR_KEYS = ['accent', 'deep', 'black', 'ink', 'muted', 'ban', 'pick', 'decider', 'ct', 't'];
 
 // The panel's tabs, in their order on the page. `default` is what an event gets

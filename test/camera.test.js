@@ -40,7 +40,7 @@ test('camera rotation keeps all four corners exactly inside the chosen frame',()
     const square=cameraGeometry(player,'square');
     assert.deepEqual(square,{rotation,x,y,width:1080,height:1080});
     const document=buildObs(template,a,b,a.players.map(p=>p.key),b.players.map(p=>p.key),undefined,{cameraFrame:'square'});
-    const scene=document.sources.find(s=>s.name==='Игрок 1');
+    const scene=document.sources.find(s=>s.id==='scene'&&s.name.startsWith('1 '));
     const item=scene.settings.items.find(it=>it.name.startsWith('CAM '));
     const plan=slotPlan([{inputKind:'browser_source',sourceName:'CAM old',sceneItemId:1}],
       {...player,team:a.name,slot:1},{cameraFrame:'square'});
@@ -57,7 +57,7 @@ test('a frame with 20 px to spare puts the camera 20 px past the frame on every 
     const inner=cameraFrame(base),rect=cameraFrame(frame);
     assert.deepEqual(rect,{x:inner.x-20,y:inner.y-20,width:inner.width+40,height:inner.height+40});
     const document=buildObs(template,a,b,a.players.map(p=>p.key),b.players.map(p=>p.key),undefined,{cameraFrame:frame});
-    const item=document.sources.find(s=>s.name==='Игрок 1').settings.items.find(it=>it.name.startsWith('CAM '));
+    const item=document.sources.find(s=>s.id==='scene'&&s.name.startsWith('1 ')).settings.items.find(it=>it.name.startsWith('CAM '));
     const plan=slotPlan([{inputKind:'browser_source',sourceName:'CAM old',sceneItemId:1}],{...a.players[0],team:a.name,slot:1},{cameraFrame:frame});
     assert.deepEqual([item.pos,item.bounds],[{x:rect.x,y:rect.y},{x:rect.width,y:rect.height}]);
     assert.deepEqual([plan.camera.transform.positionX,plan.camera.transform.positionY,plan.camera.transform.boundsWidth,plan.camera.transform.boundsHeight],
@@ -76,9 +76,9 @@ test('cover and pan use VDO options with numeric CSS, and screen directions surv
   assert.match(cameraCss({rotation:270,panX:20,panY:70}),/30% 20%/);
   assert.match(cameraCss({rotation:180,panX:20,panY:70}),/80% 30%/);
   assert.deepEqual(normalizeCamera({rotation:'90;bad',panX:Infinity,panY:'0;bad'}),
-    {rotation:0,panX:50,panY:50,zoom:1});
+    {rotation:0,panX:50,panY:50,zoom:1,mirror:false});
   assert.deepEqual(normalizeCamera({rotation:90,panX:-50,panY:400}),
-    {rotation:90,panX:0,panY:100,zoom:1});
+    {rotation:90,panX:0,panY:100,zoom:1,mirror:false});
   assert.deepEqual(cameraFrame('__proto__'),{x:300,y:36,width:1320,height:1008});
   assert.deepEqual(cameraFrame({toString:null}),{x:300,y:36,width:1320,height:1008});
 });
@@ -95,6 +95,25 @@ test('zoom is bounded, remains per player, and reaches preview/export/live URLs'
   assert.match(css,/scale:1.5!important/);
   assert.match(css,/transform-origin:100% 50%/);
   assert.deepEqual(cameraGeometry({camera:{zoom:3}}),{rotation:0,x:300,y:36,width:1320,height:1008});
+});
+
+test('mirror flips the camera along the screen\'s horizontal axis and reaches the OBS URL',()=>{
+  assert.equal(normalizeCamera({mirror:'yes'}).mirror,false,'only a real true mirrors');
+  assert.equal(normalizeCamera({mirror:true}).mirror,true);
+  // Upright: the video flips left-right; zoom keeps its size and the sign.
+  assert.match(cameraCss({mirror:true}),/scale:-1 1!important/);
+  assert.match(cameraCss({mirror:true,zoom:1.5}),/scale:-1.5 1.5!important/);
+  // A half turn keeps the camera's own horizontal axis on screen's horizontal.
+  assert.match(cameraCss({mirror:true,rotation:180}),/scale:-1 1!important/);
+  // A quarter turn puts the camera's own width on the screen's vertical axis.
+  assert.match(cameraCss({mirror:true,rotation:90}),/scale:1 -1!important/);
+  assert.match(cameraCss({mirror:true,rotation:270,zoom:2}),/scale:2 -2!important/);
+  // The same CSS rides in the URL, and the OBS geometry stays untouched.
+  const player={id:'pc1',room:'room'};
+  assert.equal(new URL(cameraViewUrl(player)).searchParams.has('b64css'),false,'nothing changes without a mirror');
+  const mirrored=new URL(cameraViewUrl({...player,camera:{mirror:true}}));
+  assert.match(atob(mirrored.searchParams.get('b64css')),/scale:-1 1!important/);
+  assert.deepEqual(cameraGeometry({camera:{mirror:true}}),{rotation:0,x:300,y:36,width:1320,height:1008});
 });
 
 test('an older panel keeps the previous full-frame and contain behavior through an updated dock',()=>{
@@ -115,7 +134,7 @@ test('JSON export and live OBS apply share camera settings and geometry; cards s
       a.players[0].camera={rotation,panX:20,panY:70};
       const document=buildObs(template,a,b,a.players.map(p=>p.key),b.players.map(p=>p.key),
         undefined,{includeCards:true,cameraFrame:frame});
-      const scene=document.sources.find(s=>s.name==='Игрок 1');
+      const scene=document.sources.find(s=>s.id==='scene'&&s.name.startsWith('1 '));
       const camera=scene.settings.items.find(it=>it.name.startsWith('CAM '));
       const card=scene.settings.items.find(it=>it.name.startsWith('CARD '));
       const source=document.sources.find(s=>s.uuid===camera.source_uuid);
@@ -149,18 +168,16 @@ test('a ready card page (a LAN card, a placeholder) is the frame\'s size, so it 
   assert.deepEqual([plan.card.settings.url,plan.card.settings.width,plan.card.settings.height],[BLANK_CARD,1120,1120]);
 });
 
-test('full-height frame keeps the camera\'s proportions; every OBS camera asks for full resolution',()=>{
-  const player={id:'pc4',room:'team2',camera:{zoom:1.5}};
-  assert.deepEqual(cameraGeometry(player,'height'),{rotation:0,x:0,y:0,width:1920,height:1080});
-  const fit=new URL(cameraViewUrl(player,'height'));
-  assert.equal(fit.searchParams.has('cover'),false);
-  assert.equal(fit.searchParams.get('scale'),'100');
-  assert.match(atob(fit.searchParams.get('b64css')),/object-fit:contain!important/);
-  const covered=new URL(cameraViewUrl(player));
-  assert.ok(covered.searchParams.has('cover') && covered.searchParams.get('scale')==='100');
-  assert.match(atob(covered.searchParams.get('b64css')),/object-fit:cover!important/);
-  const plan=slotPlan([{inputKind:'browser_source',sourceName:'Камера',sceneItemId:1,sceneItemIndex:1}],
-    {slot:9,team:'B',nick:'b4',...player},{cameraFrame:'height'});
-  assert.equal(new URL(plan.camera.settings.url).searchParams.has('cover'),false);
-  assert.deepEqual([plan.camera.transform.positionY,plan.camera.transform.boundsHeight],[0,1080]);
+test('a webcam nickname names its camera and card in OBS; the card keeps the roster nick for the photo',()=>{
+  const a=team('Nick A');
+  const player={...a.players[0],team:a.name,slot:1,nickname:'Кастом'};
+  const plan=slotPlan([
+    {inputKind:'browser_source',sourceName:'CARD 01 | Nick A | Player0',sceneItemId:1,sceneItemIndex:1},
+    {inputKind:'browser_source',sourceName:'CAM 01 | Nick A | Player0',sceneItemId:2,sceneItemIndex:2}
+  ],player,{includeCards:true,cardBase:'https://panel.example'});
+  assert.equal(plan.camera.name,'CAM 01 | Nick A | Кастом');
+  assert.equal(plan.card.name,'CARD 01 | Nick A | Кастом');
+  const url=new URL(plan.card.settings.url);
+  assert.equal(url.searchParams.get('nick'),'Кастом');
+  assert.equal(url.searchParams.get('lookup'),'Player0');
 });

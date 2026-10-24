@@ -17,7 +17,7 @@ const publicFiles = new Set([
   'card.html', 'card.js', 'card.css', 'live.js', 'obs.js', 'vdo.js',
   'lobby.js', 'faceit.js', 'notifications.js', 'notification-worker.js', 'obs-bridge.html', 'obs-bridge.js',
   'veto.html', 'veto.js', 'veto.css', 'veto-room.js', 'veto-watch.js', 'bookmakers.js', 'bookies.js', 'lan.js', 'lan-event.js', 'lan-images.js', 'cs2.js',
-  'oneshot-webcams.js', 'veto-mobile.html'
+  'oneshot-webcams.js', 'veto-mobile.html', 'event-chooser.js'
 ]);
 const mime = {
   '.html': 'text/html; charset=utf-8',
@@ -34,9 +34,21 @@ export function eventFile(slug = '') {
   const chosen = eventSlug({ slug, exists: name => fs.existsSync(file(name)) });
   return eventScript(JSON.parse(fs.readFileSync(file(chosen), 'utf8')));
 }
+
+export function eventChoices() {
+  const dir = path.join(root, 'events');
+  return fs.readdirSync(dir, { withFileTypes: true })
+    .filter(entry => entry.isDirectory() && fs.existsSync(path.join(dir, entry.name, 'event.json')))
+    .map(entry => JSON.parse(fs.readFileSync(path.join(dir, entry.name, 'event.json'), 'utf8')))
+    .map(event => ({ slug: event.slug, name: event.name, short: event.short }));
+}
+
+function chooserScript() {
+  return `window.oneshotEventChoices=Object.freeze(${JSON.stringify(eventChoices())});`;
+}
 // cs2: the referee's journal of a CS2 server on this computer (server/cs2-api.js);
 // off unless given, so tests and plain static hosting never open it.
-export function createServer({cs2 = null, event = eventFile(process.env.EVENT || ''), relayStore = new FileRelayStore(process.env.VETO_RELAY_DIR || path.join(root, '.veto-relay-data')),
+export function createServer({cs2 = null, event = process.env.EVENT ? eventFile(process.env.EVENT) : null, relayStore = new FileRelayStore(process.env.VETO_RELAY_DIR || path.join(root, '.veto-relay-data')),
   shortStore = new FileRelayStore(path.join(process.env.VETO_RELAY_DIR || path.join(root, '.veto-relay-data'),'links'),shortIdValid)} = {}) {
   return http.createServer(async (request, response) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -47,6 +59,11 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
       "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://open.faceit.com https://oneshot-veto.pages.dev https://oneshot-veto.cyberclash.workers.dev ws://127.0.0.1:* ws://localhost:*; frame-src https://vdo.ninja https://cdn-backup.vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
     if (cs2 && await handleCs2(request, response, cs2)) return;
     if (await nodeRelay(request, response, relayStore, shortStore)) return;
+    if (request.url.startsWith('/event-choices.js')) {
+      response.writeHead(200, { 'Content-Type': mime['.js'], 'Cache-Control': 'no-cache' });
+      response.end(request.method === 'HEAD' ? undefined : chooserScript());
+      return;
+    }
     if (!['GET', 'HEAD'].includes(request.method)) {
       response.writeHead(405, { Allow: 'GET, HEAD' });
       response.end();
@@ -90,8 +107,12 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
       const pathname = decodeURIComponent(
         new URL(request.url, 'http://localhost').pathname);
       if (pathname === '/event.js') {
+        const requested = new URL(request.url, 'http://localhost').searchParams.get('event');
+        const cookie = request.headers.cookie?.match(/(?:^|;\s*)oneshot-event=([^;]+)/)?.[1];
+        const saved = cookie ? decodeURIComponent(cookie) : '';
+        const pageEvent = requested ? eventFile(requested) : saved ? eventFile(saved) : event;
         response.writeHead(200, { 'Content-Type': mime['.js'], 'Cache-Control': 'no-cache' });
-        response.end(request.method === 'HEAD' ? undefined : event);
+        response.end(request.method === 'HEAD' ? undefined : (pageEvent || chooserScript()) + chooserScript());
         return;
       }
       const relative = pathname === '/' ? 'index.html' : shortPathValid(pathname)?'veto.html':pathname.slice(1);

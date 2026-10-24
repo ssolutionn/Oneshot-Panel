@@ -232,7 +232,8 @@ export function plateCardUrl(image) {
     `html,body{margin:0;height:100%;overflow:hidden;background:#031b24 url("${image}") center/cover no-repeat}</style></head><body></body></html>`);
 }
 
-// The cards of one match: { [cardKey]: data: URL } for its ten players.
+// The cards of one match: { [cardKey]: data: URL } for its ten players. A
+// webcam's own nick is shown; `lookup` (the roster nick) still finds its photo.
 export function cardDocs(players, assets, colors) {
   const docs = {};
   for (const p of players) {
@@ -240,7 +241,7 @@ export function cardDocs(players, assets, colors) {
     // An event's own teams keep pictures by id (renaming keeps them); older ones by name.
     docs[cardKey(p.team, p.nick)] = eventCardUrl({
       team: p.team, nick: p.nick, colors,
-      photo: p.playerId ? assets.photos[ownKey(p.playerId)] || '' : photoOf(assets, p.team, p.nick),
+      photo: p.playerId ? assets.photos[ownKey(p.playerId)] || '' : photoOf(assets, p.team, p.lookup || p.nick),
       logo: p.teamId ? assets.logos[ownKey(p.teamId)] || '' : logoOf(assets, p.team)
     });
   }

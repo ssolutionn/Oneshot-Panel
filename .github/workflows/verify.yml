@@ -1,0 +1,38 @@
+name: Agent verify
+# Быстрый гейт пульта: T0 на каждом PR. Браузерные сценарии (T1) и настоящий
+# OBS/VDO (T2) остаются в panel-checks и своих workflow — здесь только то,
+# что обязано быть зелёным до любого ревью.
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  t0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Pillow for the LAN import test
+        run: python3 -m pip install pillow
+      - name: T0: syntax, unit tests, registry
+        run: npm run verify -- --tier T0
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-verify
+          path: artifacts/agent/
+          if-no-files-found: ignore
+          retention-days: 7

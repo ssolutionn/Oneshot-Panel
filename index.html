@@ -11,6 +11,7 @@
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
   <script src="/theme.js"></script>
   <script src="/event.js"></script>
+  <script src="/event-chooser.js"></script>
   <link rel="stylesheet" href="/style.css">
   <!-- web-only --><link rel="stylesheet" href="/assets/obs-connection.css"><!-- /web-only -->
 </head>
@@ -50,6 +51,7 @@
     </div>
   </nav>
   <main>
+    <div id="errorBox" class="error-box" role="alert" hidden></div>
     <div id="prepView" role="tabpanel" aria-labelledby="viewPrep">
     <section class="intro" id="webcams" aria-labelledby="workspaceHeading">
       <h1 id="workspaceHeading" class="visually-hidden">Подготовка матча ONESHOT</h1>
@@ -62,8 +64,6 @@
         <span id="syncTime">Составы из Google Sheets</span>
       </div>
     </section>
-
-    <div id="errorBox" class="error-box" role="alert" hidden></div>
 
     <section id="match" class="match-tools" aria-label="Параметры матча">
       <label class="match-picker">
@@ -96,7 +96,7 @@
       </div>
       <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
       <label class="camera-frame-setting">Рамка вебок
-        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option><option value="inner43_over20">Внутренняя рамка +20 px запаса</option><option value="full43_over20">4:3 на всю высоту +20 px запаса</option><option value="wide_over20">Весь холст +20 px запаса</option><option value="square_over20">Квадрат +20 px запаса (1120×1120)</option><option value="height">Во всю высоту, пропорции камеры</option></select>
+        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option><option value="inner43_over20">Внутренняя рамка +20 px запаса</option><option value="full43_over20">4:3 на всю высоту +20 px запаса</option><option value="wide_over20">Весь холст +20 px запаса</option><option value="square_over20">Квадрат +20 px запаса (1120×1120)</option></select>
         <span>Заполнение с обрезкой краёв. «Кадр» под ником — поворот и положение игрока.</span>
       </label>
       <div class="export-meta">
@@ -265,6 +265,12 @@
           </div>
         </div>
         <p id="notifyStatus" class="notification-hint" role="status">Уведомления приходят на этот компьютер, пока панель открыта. Окно можно свернуть.</p>
+         <form id="pushForm" class="manual-push-form" autocomplete="off">
+           <label><span class="mini-label">Ручной пуш</span><input id="pushText" type="text" maxlength="240" placeholder="Текст уведомления" required></label>
+           <label><span class="mini-label">Когда</span><input id="pushAt" type="datetime-local" required></label>
+           <button class="button small" type="submit">Запланировать</button>
+         </form>
+         <ol id="pushList" class="manual-push-list" aria-label="Запланированные уведомления"></ol>
         <form id="lobbyForm" class="lobby-form" autocomplete="off">
           <label class="lobby-url"><span class="mini-label">Ссылка на турнир или комнату матча FACEIT</span>
             <input id="faceitUrl" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="faceit.com/…/championship/… или …/room/1-… (можно несколько)" required></label>
@@ -332,11 +338,11 @@
         <div id="serverGuide" class="event-guide" hidden>
           <p><b>Журнал работает на компе, где запущен сервер CS2.</b> Там панель открывается не с этого сайта, а с самого компа — тогда сервер присылает ей лог: фраги, урон, чат и бомбу по раундам, для споров.</p>
           <ol>
-            <li>Поставь Node.js (20 или новее) и скачай панель: <code>git clone https://github.com/ssolutionn/Oneshot-Panel</code> или ZIP с GitHub.</li>
-            <li>В папке панели: <code id="serverStartCommand">CS2_JOURNAL=1 EVENT=reu npm start</code> (на Windows без WSL — <code id="serverStartWindows">set CS2_JOURNAL=1&amp;&amp; set EVENT=reu&amp;&amp; npm start</code>).</li>
-            <li>Открой на этом компе <code>http://127.0.0.1:3000/#server</code> — там будет эта же вкладка, уже живая.</li>
-            <li>Нажми «Как подключить» и вставь три команды в консоль сервера CS2 (или в конфиг eBot).</li>
-            <li>Чтобы писать в чат сервера из панели, перед запуском задай <code>CS2_RCON_PASSWORD</code> (и <code>CS2_RCON_PORT</code>, если не 27015).</li>
+            <li>Поставь Node.js 22 или новее и скачай панель: <code>git clone https://github.com/ssolutionn/Oneshot-Panel</code> или ZIP с GitHub.</li>
+            <li>В папке панели запусти её с журналом. Linux, macOS и Git Bash: <code id="serverStartCommand">CS2_JOURNAL=1 EVENT=reu npm start</code>. На Windows — в <b>cmd.exe</b> (PowerShell строку с <code>&amp;&amp;</code> не поймёт): <code id="serverStartWindows">set "CS2_JOURNAL=1" &amp;&amp; set "EVENT=reu" &amp;&amp; npm start</code>. В PowerShell: <code id="serverStartPowershell">$env:CS2_JOURNAL='1'; $env:EVENT='reu'; npm start</code>.</li>
+            <li>Чтобы писать в чат сервера из панели, допиши пароль RCON в эту же строку перед <code>npm start</code>: <code>set "CS2_RCON_PASSWORD=пароль"</code> в cmd, <code>$env:CS2_RCON_PASSWORD='пароль'</code> в PowerShell. Кавычки обязательны — иначе <code>&amp;</code> в пароле сломает строку. RCON не на 27015? Так же задай <code>CS2_RCON_PORT</code>.</li>
+            <li>Открой на этом компе <code>http://127.0.0.1:3000/#server</code> — там будет эта же вкладка, уже живая. Порт занят? Задай <code>set "PORT=3001"</code> (в PowerShell <code>$env:PORT='3001'</code>) до запуска и открой адрес с этим портом.</li>
+            <li>Нажми «Как подключить» и вставь три команды в консоль сервера CS2 (или в конфиг eBot на том же компьютере). После перезапуска сервера CS2 команды нужно выполнить снова.</li>
           </ol>
           <p class="muted">Команды и фото с этого сайта на тот комп переносятся файлом: «Событие» → «Скачать файл события», там — «Загрузить файл».</p>
         </div>
@@ -431,7 +437,7 @@
           <div class="event-actions">
             <button id="seatsWatch" class="button small" type="button" aria-pressed="false">Следить за вебками</button>
             <button id="seatsCopyAll" class="button small" type="button"><span aria-hidden="true">⧉</span> Все ссылки</button>
-            <button id="seatsSendObs" class="button small primary" type="button"><span aria-hidden="true">▶</span> Камеры в OBS</button>
+            <button id="seatsSendObs" class="button small primary" type="button" title="В OBS: десять камер мест, а когда матч в эфире — камеры матча"><span aria-hidden="true">▶</span> Отправить в OBS</button>
           </div>
         </div>
         <p class="muted">Вебка принадлежит компу, а не игроку: у каждого места своя постоянная ссылка на весь день. Открой её один раз в браузере на компе и не закрывай. Кто где сидит в текущем матче — выбираешь во вкладке «Эфир». A — места первой команды эфира, B — второй.</p>
@@ -454,20 +460,9 @@
             <span>Директор B: <a id="seatsDirectorB" target="_blank" rel="noreferrer"></a> <button id="seatsDirectorCopyB" class="copy-icon" type="button" aria-label="Копировать ссылку директора B" title="Копировать">⧉</button></span>
           </div>
         </div>
-        <div id="seatsNetBox" class="seat-settings seat-net">
-          <label>Где вебки<select id="seatsNetMode"><option value="online">Онлайн</option><option value="lan">ЛАН — одна локальная сеть</option></select></label>
-          <div id="seatsNetLan" class="seat-net-lan" hidden>
-            <label>Камера на компе<select id="seatsNetQuality"><option value="1080">1080p</option><option value="720">720p</option></select></label>
-            <label>Кадров в секунду<select id="seatsNetFps"><option value="24">24</option><option value="30">30</option><option value="60">60</option></select></label>
-            <label>Кодек в OBS<select id="seatsNetCodec"><option value="h264">H.264</option><option value="vp8">VP8</option><option value="vp9">VP9</option></select></label>
-            <label>Битрейт в OBS, кбит/с<input id="seatsNetBitrate" type="number" min="1000" max="50000" step="500" inputmode="numeric"></label>
-            <label class="seat-net-check"><input id="seatsNetLowlatency" type="checkbox"> Минимальная задержка <span class="muted">(без буфера и обработки звука)</span></label>
-            <label class="seat-net-check"><input id="seatsNetLanonly" type="checkbox"> Только локальная сеть <span class="muted">(без интернета, меньше задержка; OBS и панель — в той же сети)</span></label>
-          </div>
-        </div>
         <div class="seat-plates" aria-labelledby="seatsPlatesHeading">
           <h3 id="seatsPlatesHeading">Заглушка, когда вебки нет</h3>
-          <p class="muted">Картинка встаёт в OBS под камеры команды: пока вебка места не в эфире, видно её, вебка появилась — закрывает. Уходит с «Отправить в OBS» / «Камеры в OBS» и в JSON.</p>
+          <p class="muted">Картинка встаёт в OBS под камеры команды: пока вебка места не в эфире, видно её, вебка появилась — закрывает. Уходит с «Отправить в OBS» и в JSON.</p>
           <div class="seat-plate-row">
             <div class="seat-plate"><canvas id="seatsPlateA" width="240" height="180"></canvas><b id="seatsPlateNameA">A</b>
               <button id="seatsPlatePickA" class="button small" type="button">Загрузить</button><button id="seatsPlateClearA" class="text-button" type="button">Убрать</button></div>
@@ -477,7 +472,7 @@
           <input type="file" id="seatsPlateFile" accept="image/png,image/jpeg,image/webp" hidden>
         </div>
         <p id="seatsNote" class="muted">Префикс и пароль меняют ссылки всех десяти компов: после смены открой новые ссылки на местах.</p>
-        <p id="seatsClash" class="error-box" hidden>У комнат одинаковый пароль (или его нет), а ID компов те же: VDO.Ninja может принять pc1 первой комнаты и pc1 второй за один поток, и второй комп отключится («stream ID is already in use»). Надёжно — дать комнатам разные пароли.</p>
+        <p id="seatsClash" class="error-box" hidden>Два места попали на один поток: одинаковый ID в одной комнате или одинаковый ID в комнатах с одним паролем (или без него). VDO.Ninja примет их за один поток, и второй комп отключится («stream ID is already in use»). Проверь ID, заданные вручную (✎ у места), и пароли комнат.</p>
         <details class="event-guide">
           <summary>Как поставить вебку на комп</summary>
           <ol>
@@ -765,6 +760,8 @@
     <div class="camera-tools">
       <label>Поворот<select id="cameraRotation"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></label>
       <button id="cameraRotate" class="button" type="button">Повернуть ↻ 90°</button>
+      <button id="cameraMirror" class="button camera-mirror" type="button" aria-pressed="false"
+        title="Отразить вебку по горизонтали, как в зеркале">Отразить ↔</button>
       <div class="camera-zoom">
         <button class="button" type="button" data-camera-zoom="-10" aria-label="Отдалить камеру">−</button>
         <label for="cameraZoom">Приблизить <output id="cameraZoomValue" for="cameraZoom">100%</output><input id="cameraZoom" type="range" min="100" max="300" step="5" value="100"></label>

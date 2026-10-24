@@ -1,0 +1,415 @@
+{
+  "version": 1,
+  "meta": {
+    "test": "test/agent-registry.test.js",
+    "runner": "scripts/agent-test.mjs",
+    "description": "Реестр проверок панели: что запускать, когда и чем это считается пройденным. T0 идёт всегда, T1 выбирается по диффу, T2 — только ночью."
+  },
+  "suites": {
+    "syntax": {
+      "title": "Синтаксис всех .js/.mjs",
+      "tier": "T0",
+      "kind": "command",
+      "cmd": ["node", "scripts/check-syntax.mjs"],
+      "timeoutMs": 120000,
+      "select": []
+    },
+    "unit-agent": {
+      "title": "Сам реестр проверок",
+      "tier": "T0",
+      "kind": "node-test",
+      "files": ["test/agent-registry.test.js"],
+      "timeoutMs": 120000,
+      "select": [
+        "scripts/agent-test.mjs",
+        "scripts/check-syntax.mjs",
+        "scripts/agent/**",
+        "test/agent-registry.test.js",
+        "package.json",
+        "package-lock.json"
+      ]
+    },
+    "unit-core": {
+      "title": "Ядро, камера, вид карточек",
+      "tier": "T0",
+      "kind": "node-test",
+      "files": ["test/core.test.js", "test/camera.test.js", "test/veto-appearance.test.js"],
+      "timeoutMs": 240000,
+      "select": ["core.js", "app.js", "index.html", "style.css", "card.html", "card.js", "card.css"]
+    },
+    "unit-veto": {
+      "title": "Комната вето, ссылки, реле, оверлей",
+      "tier": "T0",
+      "kind": "node-test",
+      "files": [
+        "test/veto-room.test.js",
+        "test/veto-watch.test.js",
+        "test/veto-short-links.test.js",
+        "test/veto-relay.test.js",
+        "test/veto-site.test.js",
+        "test/veto-overlay.test.js"
+      ],
+      "timeoutMs": 240000,
+      "select": ["veto.html", "veto.js", "veto.css", "veto-room.js", "veto-watch.js", "assets/veto-*"]
+    },
+    "unit-live": {
+      "title": "Лобби, FACEIT, OBS, VDO, QR",
+      "tier": "T0",
+      "kind": "node-test",
+      "files": ["test/live.test.js", "test/notifications.test.js", "test/obs.test.js", "test/obs-qr.test.js"],
+      "timeoutMs": 240000,
+      "select": ["live.js", "lobby.js", "faceit.js", "obs.js", "vdo.js", "obs-bridge.html", "obs-bridge.js"]
+    },
+    "unit-data": {
+      "title": "Букмекеры и сжатые фикстуры",
+      "tier": "T0",
+      "kind": "node-test",
+      "files": [
+        "test/bookmakers.test.js",
+        "test/bookmaker-history.test.js",
+        "test/bookmaker-transport.test.js",
+        "test/winline.test.js"
+      ],
+      "timeoutMs": 240000,
+      "select": ["bookmakers.js", "bookies.js", "assets/bookmaker-*", "netlify/functions/bookmakers.mjs"]
+    },
+    "unit-lan": {
+      "title": "ЛАН, событие, манифесты",
+      "tier": "T0",
+      "kind": "node-test",
+      "files": ["test/lan.test.js", "test/lan-event.test.js", "test/events.test.js"],
+      "timeoutMs": 240000,
+      "select": ["lan.js", "lan-event.js", "lan-images.js", "events/**"]
+    },
+    "unit-server": {
+      "title": "Статика, заголовки, CS2-журнал",
+      "tier": "T0",
+      "kind": "node-test",
+      "files": [
+        "test/server.test.js",
+        "test/cs2-api.test.js",
+        "test/cs2-archive.test.js",
+        "test/cs2-launch.test.js",
+        "test/cs2-log.test.js",
+        "test/cs2-roster.test.js",
+        "test/cs2-stats.test.js"
+      ],
+      "timeoutMs": 300000,
+      "select": ["server.js", "server/**", "functions/**", "netlify.toml", "_headers", "cs2.js"]
+    },
+    "python-photos": {
+      "title": "Подготовка фото (unittest)",
+      "tier": "T0",
+      "kind": "command",
+      "cmd": ["{python}", "-m", "unittest", "discover", "-s", "test", "-p", "photos_test.py"],
+      "needs": ["python"],
+      "timeoutMs": 120000,
+      "select": []
+    },
+    "python-import": {
+      "title": "Импорт папки события (unittest)",
+      "tier": "T0",
+      "kind": "command",
+      "cmd": ["{python}", "-m", "unittest", "discover", "-s", "test", "-p", "import_event_test.py"],
+      "needs": ["python"],
+      "optionalNeeds": ["pillow"],
+      "timeoutMs": 120000,
+      "select": []
+    },
+    "browser-panel": {
+      "title": "Панель: подготовка, вето, копирование, OBS JSON",
+      "tier": "T1",
+      "kind": "python-qa",
+      "script": "scripts/qa_browser.py",
+      "args": ["--url", "{url}", "--artifacts", "{artifacts}"],
+      "needs": ["python", "playwright"],
+      "timeoutMs": 900000,
+      "server": true,
+      "select": [
+        "core.js",
+        "app.js",
+        "index.html",
+        "style.css",
+        "theme.js",
+        "oneshot-webcams.js",
+        "event-chooser.js",
+        "assets/players/**",
+        "assets/teams/**",
+        "assets/card/**",
+        "scripts/qa_browser.py",
+        "scripts/build_match_packages.mjs"
+      ]
+    },
+    "browser-cards": {
+      "title": "Карточки игроков и каталог фото",
+      "tier": "T1",
+      "kind": "python-qa",
+      "script": "scripts/qa_player_cards.py",
+      "args": ["--url", "{url}", "--artifacts", "{artifacts}"],
+      "needs": ["python", "playwright"],
+      "timeoutMs": 600000,
+      "server": true,
+      "select": [
+        "card.html",
+        "card.js",
+        "card.css",
+        "core.js",
+        "assets/players/**",
+        "assets/teams/**",
+        "assets/card/**",
+        "scripts/qa_player_cards.py",
+        "scripts/build_match_packages.mjs"
+      ]
+    },
+    "browser-live": {
+      "title": "Сайт: вкладки, вебки, лобби, OBS-док",
+      "tier": "T1",
+      "kind": "python-qa",
+      "script": "scripts/qa_live.py",
+      "args": ["--url", "{url}", "--artifacts", "{artifacts}"],
+      "needs": ["python", "playwright"],
+      "timeoutMs": 900000,
+      "server": true,
+      "select": [
+        "live.js",
+        "lobby.js",
+        "faceit.js",
+        "obs.js",
+        "vdo.js",
+        "obs-bridge.html",
+        "obs-bridge.js",
+        "netlify/functions/faceit.mjs",
+        "scripts/qa_live.py"
+      ]
+    },
+    "browser-qr": {
+      "title": "QR камеры и окна Oneshot",
+      "tier": "T1",
+      "kind": "python-qa",
+      "script": "scripts/qa_obs_qr.py",
+      "args": ["--url", "{url}", "--artifacts", "{artifacts}"],
+      "needs": ["python", "playwright"],
+      "timeoutMs": 600000,
+      "server": true,
+      "select": ["assets/obs-qr.js", "obs-bridge.html", "obs-bridge.js", "scripts/qa_obs_qr.py"]
+    },
+    "browser-veto-site": {
+      "title": "Сайт вето капитанов (отдельные браузеры)",
+      "tier": "T1",
+      "kind": "python-qa",
+      "script": "scripts/qa_veto_site.py",
+      "args": ["--url", "{url}", "--artifacts", "{artifacts}"],
+      "needs": ["python", "playwright"],
+      "timeoutMs": 1200000,
+      "server": true,
+      "select": [
+        "veto.html",
+        "veto.js",
+        "veto.css",
+        "veto-room.js",
+        "veto-watch.js",
+        "veto-mobile.html",
+        "assets/veto-short-links.js",
+        "assets/veto-short-protocol.js",
+        "assets/veto-relay-client.js",
+        "assets/veto-relay-links.js",
+        "assets/veto-relay-protocol.js",
+        "server/veto-relay-*",
+        "server/veto-relay/**",
+        "functions/api/veto-*.js",
+        "scripts/qa_veto_site.py"
+      ]
+    },
+    "browser-veto-overlay": {
+      "title": "Оверлей вето (WebGL)",
+      "tier": "T1",
+      "kind": "python-qa",
+      "script": "scripts/qa_veto_overlay.py",
+      "args": ["--url", "{url}", "--output", "{artifacts}"],
+      "needs": ["python", "playwright"],
+      "timeoutMs": 600000,
+      "server": true,
+      "select": ["assets/veto-overlay/**", "scripts/qa_veto_overlay.py"]
+    },
+    "browser-lan": {
+      "title": "ЛАН-событие: команды, матчи, компы",
+      "tier": "T1",
+      "kind": "python-qa",
+      "script": "scripts/qa_lan.py",
+      "args": ["--artifacts", "{artifacts}"],
+      "needs": ["python", "playwright"],
+      "timeoutMs": 900000,
+      "server": false,
+      "select": [
+        "lan.js",
+        "lan-event.js",
+        "lan-images.js",
+        "events/**",
+        "assets/lan-*",
+        "scripts/qa_lan.py",
+        "scripts/import_event_folder.py"
+      ]
+    },
+    "browser-cs2": {
+      "title": "Вкладка «Сервер» и судейский журнал",
+      "tier": "T1",
+      "kind": "python-qa",
+      "script": "scripts/qa_cs2.py",
+      "args": ["--artifacts", "{artifacts}"],
+      "needs": ["python", "playwright"],
+      "timeoutMs": 900000,
+      "server": false,
+      "select": ["cs2.js", "server/cs2-*", "scripts/qa_cs2.py"]
+    },
+    "browser-bookies": {
+      "title": "Вкладка «Букмекеры»",
+      "tier": "T1",
+      "kind": "python-qa",
+      "script": "scripts/qa_bookies.py",
+      "args": ["--url", "{url}", "--artifacts", "{artifacts}"],
+      "needs": ["python", "playwright"],
+      "timeoutMs": 600000,
+      "server": true,
+      "select": [
+        "bookies.js",
+        "bookmakers.js",
+        "netlify/functions/bookmakers.mjs",
+        "functions/api/bookmakers.js",
+        "assets/bookmaker-*",
+        "scripts/qa_bookies.py"
+      ]
+    },
+    "browser-notifications": {
+      "title": "Уведомления браузера",
+      "tier": "T1",
+      "kind": "python-qa",
+      "script": "scripts/qa_notifications.py",
+      "args": ["--url", "{url}"],
+      "needs": ["python", "playwright"],
+      "timeoutMs": 600000,
+      "server": true,
+      "select": ["notifications.js", "notification-worker.js", "scripts/qa_notifications.py"]
+    },
+    "browser-camera": {
+      "title": "Окно «Кадр» и превью камеры",
+      "tier": "T1",
+      "kind": "python-qa",
+      "script": "scripts/qa_camera.py",
+      "args": ["--url", "{url}", "--artifacts", "{artifacts}"],
+      "needs": ["python", "playwright"],
+      "timeoutMs": 600000,
+      "server": true,
+      "select": ["app.js", "live.js", "core.js", "scripts/qa_camera.py"]
+    },
+    "artifact-build": {
+      "title": "Пересборка артефакта Claude",
+      "tier": "T1",
+      "kind": "command",
+      "cmd": ["{python}", "claude-artifact/build_oneshot_artifact.py"],
+      "needs": ["python"],
+      "timeoutMs": 180000,
+      "select": ["index.html", "app.js", "core.js", "style.css", "theme.js", "claude-artifact/**"]
+    },
+    "artifact-drift": {
+      "title": "Артефакт Claude совпадает с исходниками",
+      "tier": "T1",
+      "kind": "command",
+      "cmd": ["git", "diff", "--exit-code", "--", "claude-artifact/oneshot-panel.html"],
+      "timeoutMs": 60000,
+      "select": ["index.html", "app.js", "core.js", "style.css", "theme.js", "claude-artifact/**"]
+    },
+    "veto-build": {
+      "title": "Копия сайта вето собирается без утечек",
+      "tier": "T1",
+      "kind": "command",
+      "cmd": ["node", "scripts/build-veto-site.mjs", "dist-veto"],
+      "timeoutMs": 180000,
+      "select": ["veto.html", "veto.js", "veto.css", "veto-room.js", "vdo.js", "core.js", "scripts/build-veto-site.mjs", "assets/veto-*"]
+    },
+    "veto-sync": {
+      "title": "Копия вето совпадает с репозиторием oneshot-veto",
+      "tier": "T1",
+      "kind": "command",
+      "cmd": ["node", "scripts/check-veto-sync.mjs", "{env:VETO_SYNC_DIR}"],
+      "skipUnlessEnv": "VETO_SYNC_DIR",
+      "timeoutMs": 180000,
+      "select": ["veto.html", "veto.js", "veto.css", "veto-room.js", "scripts/build-veto-site.mjs", "assets/veto-*"]
+    },
+    "t2-camera-loading": {
+      "title": "Белый документ провайдера не виден до видео",
+      "tier": "T2",
+      "kind": "python-qa",
+      "script": "scripts/qa_camera_loading.py",
+      "args": ["--url", "{url}", "--artifacts", "{artifacts}"],
+      "needs": ["python", "playwright"],
+      "optionalNeeds": ["pillow"],
+      "timeoutMs": 900000,
+      "server": true,
+      "select": ["app.js", "live.js", "vdo.js"]
+    },
+    "t2-veto-resilience": {
+      "title": "Медленный сигналинг и очередь HTTP-отправки",
+      "tier": "T2",
+      "kind": "python-qa",
+      "script": "scripts/qa_veto_resilience.py",
+      "args": ["--url", "{url}"],
+      "needs": ["python", "playwright"],
+      "timeoutMs": 900000,
+      "server": true,
+      "select": ["veto-room.js", "veto-watch.js", "assets/veto-relay-*"]
+    },
+    "t2-veto-relay-overlay": {
+      "title": "Оверлей через настоящий HTTP-релей",
+      "tier": "T2",
+      "kind": "python-qa",
+      "script": "scripts/qa_veto_relay_overlay.py",
+      "args": ["--url", "{url}"],
+      "needs": ["python", "playwright"],
+      "timeoutMs": 900000,
+      "server": true,
+      "select": ["assets/veto-overlay/**", "assets/veto-relay-*", "server/veto-relay-*"]
+    },
+    "t2-bookies-api": {
+      "title": "Публичный API букмекеров с сайта",
+      "tier": "T2",
+      "kind": "python-qa",
+      "script": "scripts/qa_bookies_api.py",
+      "args": ["--url", "{url}"],
+      "needs": ["python", "playwright"],
+      "optionalNeeds": ["network"],
+      "timeoutMs": 600000,
+      "server": true,
+      "select": ["netlify/functions/bookmakers.mjs", "bookmakers.js", "server.js"]
+    },
+    "t2-obs-runtime": {
+      "title": "Настоящий OBS/CEF и VDO.Ninja",
+      "tier": "T2",
+      "kind": "command",
+      "cmd": ["{python}", "scripts/qa_obs_runtime.py"],
+      "needs": ["python", "playwright", "websockets"],
+      "optionalNeeds": ["obs", "network"],
+      "timeoutMs": 1800000,
+      "select": ["obs.js", "vdo.js", "live.js", "assets/veto-overlay/**"]
+    },
+    "t2-obs-camera": {
+      "title": "Камеры в настоящем OBS: геометрия и карточки",
+      "tier": "T2",
+      "kind": "command",
+      "cmd": ["{python}", "scripts/qa_camera_obs.py"],
+      "needs": ["python", "playwright", "websockets"],
+      "optionalNeeds": ["obs", "pillow"],
+      "timeoutMs": 1800000,
+      "select": ["core.js", "obs.js", "vdo.js", "card.html", "card.js"]
+    },
+    "t2-relay-cloudflare": {
+      "title": "Cloudflare Pages, workerd и Durable Objects",
+      "tier": "T2",
+      "kind": "command",
+      "cmd": ["{python}", "scripts/qa_veto_relay_cloudflare.py"],
+      "needs": ["python"],
+      "optionalNeeds": ["network"],
+      "timeoutMs": 1800000,
+      "select": ["server/veto-relay-cloudflare.js", "functions/api/veto-relay.js", "server/veto-relay-api.js"]
+    }
+  }
+}

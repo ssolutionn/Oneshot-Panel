@@ -10,7 +10,7 @@ import {notificationPermission,enableNotifications,showNotification,setFlashingT
 
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
-const STORE = 'oneshot-lobby', LOG_STORE = 'oneshot-lobby-log';
+const STORE = 'oneshot-lobby', LOG_STORE = 'oneshot-lobby-log', PUSH_STORE = 'oneshot-manual-pushes';
 // The siren: at most 3 more beeps (1 minute), and it stops as soon as someone looks.
 const POLL = 20000, REPEAT = 20000, REPEAT_LIMIT = 3;
 const lobby = {
@@ -187,6 +187,34 @@ function saveTemplates() {
   write(STORE, { ...read(STORE, {}), delay, templates: { thanks: $('tplThanks').value, next: $('tplNext').value } });
   renderMessages();
 }
+
+// ---------- manual scheduled notifications ----------
+let pushTimer;
+function pushes() { return read(PUSH_STORE, []).filter(p => p.at > Date.now()).sort((a, b) => a.at - b.at); }
+function renderPushes() {
+  const list = pushes();
+  $('pushList').innerHTML = list.length ? list.map(p => `<li><time>${escapeHtml(new Date(p.at).toLocaleString('ru-RU'))}</time> ${escapeHtml(p.text)} <button class="text-button" type="button" data-remove-push="${p.id}">Удалить</button></li>`).join('') : '<li class="muted">Запланированных пушей нет.</li>';
+  clearTimeout(pushTimer);
+  if (list.length) pushTimer = setTimeout(runPushes, Math.max(0, list[0].at - Date.now()));
+}
+async function runPushes() {
+  const now = Date.now(), all = read(PUSH_STORE, []), due = all.filter(p => p.at <= now), future = all.filter(p => p.at > now);
+  write(PUSH_STORE, future);
+  for (const p of due) { alertAdmins(p.text, `manual:${p.id}`, { loud: false }); log(`Ручной пуш: ${p.text}`, 'push'); }
+  renderPushes();
+}
+$('pushForm').addEventListener('submit', event => {
+  event.preventDefault();
+  const text = $('pushText').value.trim(), at = new Date($('pushAt').value).getTime();
+  if (!text || !Number.isFinite(at) || at <= Date.now()) return;
+  write(PUSH_STORE, [...read(PUSH_STORE, []), { id: crypto.randomUUID(), text, at }]);
+  $('pushText').value = ''; $('pushAt').value = '';
+  renderPushes();
+});
+$('pushList').addEventListener('click', event => {
+  const id = event.target.closest('[data-remove-push]')?.dataset.removePush;
+  if (id) { write(PUSH_STORE, read(PUSH_STORE, []).filter(p => p.id !== id)); renderPushes(); }
+});
 
 // ---------- matches ----------
 function renderMatches() {
@@ -416,6 +444,7 @@ $('faceitKey').value = saved.key || '';
 fillTemplatesForm();
 notifyState();
 renderLog();
+renderPushes();
 renderMatches();
 renderMessages();
 start();
