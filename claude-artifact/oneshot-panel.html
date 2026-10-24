@@ -702,6 +702,14 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .seat-rooms { grid-template-columns:repeat(2,minmax(0,1fr)); max-width:760px; }
 .seat-rooms .seat-ids { grid-column:1/-1; }
 .seat-rooms .button { justify-self:start; }
+.seat-net { grid-template-columns:minmax(0,240px) minmax(0,1fr); max-width:760px; }
+.seat-net select,.seat-net-lan input[type=number] { display:block; width:100%; margin-top:6px; padding:9px 10px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font-size:13px; }
+.seat-net-lan { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; align-items:end; }
+.seat-net-lan[hidden] { display:none; }
+.seat-net-check { grid-column:1/-1; display:flex; gap:8px; align-items:baseline; }
+.seat-net-check input { display:inline; width:auto; margin:0; }
+.seat-card[draggable=true] { cursor:grab; }
+.seat-card.drop { outline:2px dashed var(--red); outline-offset:2px; }
 .seat-directors { display:flex; flex-wrap:wrap; gap:6px 18px; font-size:12px; color:var(--muted); }
 .seat-directors span { display:inline-flex; align-items:center; gap:6px; min-width:0; overflow-wrap:anywhere; }
 #seatsClash { margin:10px 0 0; }
@@ -720,6 +728,7 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
   .seat-grid { grid-template-columns:minmax(0,1fr); }
   .seat-settings { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
   .seat-settings .text-button { grid-column:1/-1; justify-self:start; }
+  .seat-net,.seat-net-lan { grid-template-columns:minmax(0,1fr); }
   .em-row { grid-template-columns:20px minmax(0,1fr) 70px; }
   .em-row .em-stage { grid-column:2/-1; grid-row:2; }
   .em-teams { grid-column:1/-1; grid-row:3; }
@@ -730,6 +739,9 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .event-look .lan-colors label { display:flex; align-items:center; gap:8px; font-size:12px; }
 .event-look p.muted,.event-panel .event-guide + p.muted { font-size:12px; line-height:1.6; margin:0; }
 .seat-settings .text-button { justify-self:start; }
+.player-row[draggable=true] { cursor:grab; }
+.player-row.dragging { opacity:.45; }
+.player-row.drag-over { outline:2px dashed var(--red); outline-offset:-2px; }
 body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}.toast{bottom:calc(24px + env(safe-area-inset-bottom,0px))}footer{padding-bottom:max(20px,env(safe-area-inset-bottom,0px))}#pasteArea{min-height:140px}.artifact-download-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.download-note{color:var(--warn-ink)!important;background:var(--warn);border:1px solid var(--warn-line);border-radius:4px;padding:8px 10px;line-height:1.6}@media(max-width:800px){.artifact-download-actions .button{flex:1}.artifact-download-actions{grid-column:1/-1}}.dialog-section{border-top:1px solid var(--line);margin-top:22px}
 </style>
 <a class="skip-link" href="#webcams">К составам команд</a>
@@ -798,7 +810,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
       </div>
       <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
       <label class="camera-frame-setting">Рамка вебок
-        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option><option value="inner43_over20">Внутренняя рамка +20 px запаса</option><option value="full43_over20">4:3 на всю высоту +20 px запаса</option><option value="wide_over20">Весь холст +20 px запаса</option><option value="square_over20">Квадрат +20 px запаса (1120×1120)</option></select>
+        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option><option value="inner43_over20">Внутренняя рамка +20 px запаса</option><option value="full43_over20">4:3 на всю высоту +20 px запаса</option><option value="wide_over20">Весь холст +20 px запаса</option><option value="square_over20">Квадрат +20 px запаса (1120×1120)</option><option value="height">Во всю высоту, пропорции камеры</option></select>
         <span>Заполнение с обрезкой краёв. «Кадр» под ником — поворот и положение игрока.</span>
       </label>
       <div class="export-meta">
@@ -1137,10 +1149,35 @@ function roomPassword(x) {
   return x?.password ? `&password=${encodeURIComponent(x.password)}` : '';
 }
 function viewUrl(p) {
-  return `https://vdo.ninja/?view=${encodeURIComponent(p.id)}&solo=1&room=${encodeURIComponent(p.room)}${roomPassword(p)}&codec=h264&cleanoutput&transparent`;
+  const codec = p.net?.mode === 'lan' ? vdoNet(p.net).codec : 'h264';
+  return `https://vdo.ninja/?view=${encodeURIComponent(p.id)}&solo=1&room=${encodeURIComponent(p.room)}${roomPassword(p)}&codec=${codec}&cleanoutput&transparent${netQuery(p.net, 'view')}`;
 }
 function pushUrl(p) {
-  return `https://vdo.ninja/?room=${encodeURIComponent(p.room)}${roomPassword(p)}&broadcast&do&push=${encodeURIComponent(p.id)}`;
+  return `https://vdo.ninja/?room=${encodeURIComponent(p.room)}${roomPassword(p)}&broadcast&do&push=${encodeURIComponent(p.id)}${netQuery(p.net, 'push')}`;
+}
+// A LAN's VDO.Ninja tuning («Компы», mode «ЛАН»): the seats' PCs send 1080p or
+// 720p at a set frame rate, OBS asks for a codec and bitrate; lowlatency drops
+// the jitter buffer and audio processing on both ends, and with lanonly both
+// ends use only local addresses (no relay over the internet; viewers off this
+// network see nothing). Online: the links stay as they were.
+const VDO_NET_DEFAULT = { mode: 'online', quality: '1080', fps: 30, codec: 'h264', bitrate: 8000, lowlatency: true, lanonly: true };
+function vdoNet(value) {
+  const v = value && typeof value === 'object' ? value : {};
+  return {
+    mode: v.mode === 'lan' ? 'lan' : 'online',
+    quality: v.quality === '720' ? '720' : '1080',
+    fps: [24, 30, 60].includes(v.fps) ? v.fps : VDO_NET_DEFAULT.fps,
+    codec: ['h264', 'vp8', 'vp9'].includes(v.codec) ? v.codec : VDO_NET_DEFAULT.codec,
+    bitrate: Number.isInteger(v.bitrate) && v.bitrate >= 1000 && v.bitrate <= 50000 ? v.bitrate : VDO_NET_DEFAULT.bitrate,
+    lowlatency: v.lowlatency !== false,
+    lanonly: v.lanonly !== false
+  };
+}
+function netQuery(net, side) {
+  if (!net || net.mode !== 'lan') return '';
+  const n = vdoNet(net);
+  return (side === 'push' ? `&quality=${n.quality === '720' ? 1 : 0}&fps=${n.fps}` : `&videobitrate=${n.bitrate}`) +
+    (n.lowlatency ? '&lowlatency' : '') + (n.lanonly ? '&lanonly' : '');
 }
 function directorUrl(team) {
   return `https://vdo.ninja/?director=${encodeURIComponent(team.room)}${roomPassword(team)}`;
@@ -1159,8 +1196,12 @@ const CAMERA_FRAMES = {
   inner43_over20: { x:280, y:16, width:1360, height:1048 },
   full43_over20: { x:220, y:-20, width:1480, height:1120 },
   wide_over20: { x:-20, y:-20, width:1960, height:1120 },
-  square_over20: { x:400, y:-20, width:1120, height:1120 }
+  square_over20: { x:400, y:-20, width:1120, height:1120 },
+  // The whole canvas, but the video keeps its own proportions: it reaches the
+  // top and bottom edges, a 4:3 webcam leaves the sides empty. Nothing is cut.
+  height: { x:0, y:0, width:1920, height:1080, fit:'contain' }
 };
+const fitOf = frame => cameraFrame(frame).fit === 'contain' ? 'contain' : 'cover';
 function cameraFrame(value = DEFAULT_CAMERA_FRAME) {
   return { ...CAMERA_FRAMES[typeof value==='string' && Object.hasOwn(CAMERA_FRAMES,value) ? value : DEFAULT_CAMERA_FRAME] };
 }
@@ -1173,18 +1214,20 @@ function normalizeCamera(value) {
 // VDO's supported cover/base64css URL options and style iframe message use
 // this same CSS. Only normalized numbers enter it. Pan follows screen axes
 // after rotation, rather than making "left" move up on a sideways camera.
-function cameraCss(value) {
+function cameraCss(value, fit = 'cover') {
   const c=normalizeCamera(value);
   let x=c.panX,y=c.panY;
   if(c.rotation===90)[x,y]=[y,100-x];
   else if(c.rotation===180)[x,y]=[100-x,100-y];
   else if(c.rotation===270)[x,y]=[100-y,x];
-  return 'html,body{background:transparent!important;}video{object-fit:cover!important;object-position:'+x+'% '+y+'%!important;scale:'+c.zoom+'!important;transform-origin:'+x+'% '+y+'%!important;}';
+  return 'html,body{background:transparent!important;}video{object-fit:'+(fit==='contain' ? 'contain' : 'cover')+'!important;object-position:'+x+'% '+y+'%!important;scale:'+c.zoom+'!important;transform-origin:'+x+'% '+y+'%!important;}';
 }
-function cameraViewUrl(player) {
-  const c=normalizeCamera(player?.camera);
-  return viewUrl(player)+'&cover'+(c.panX===50 && c.panY===50 && c.zoom===1 ? '' :
-    '&b64css='+encodeURIComponent(btoa(cameraCss(c))));
+// &scale=100: VDO.Ninja asks for the camera's full resolution instead of one
+// sized to the page, which in OBS could come out lower for some sources.
+function cameraViewUrl(player, frame = DEFAULT_CAMERA_FRAME) {
+  const c=normalizeCamera(player?.camera),fit=fitOf(frame);
+  return viewUrl(player)+(fit==='cover' ? '&cover' : '')+'&scale=100'+(c.panX===50 && c.panY===50 && c.zoom===1 ? '' :
+    '&b64css='+encodeURIComponent(btoa(cameraCss(c,fit))));
 }
 function cameraGeometry(player, frame = DEFAULT_CAMERA_FRAME) {
   const rect=cameraFrame(frame),{rotation}=normalizeCamera(player?.camera);
@@ -1315,7 +1358,7 @@ function lanConfig(value) {
   const prefix = typeof v.prefix === 'string' && /^[a-z0-9]{2,12}$/.test(v.prefix) ? v.prefix : '';
   const password = typeof v.password === 'string' ? line(v.password).slice(0, 40) : '';
   const teams = Array.isArray(v.teams) ? lanTeamsOf(v.teams) : lanTeamsOf(teamsFromText(typeof v.text === 'string' ? v.text.slice(0, 20000) : ''));
-  return { on: v.on === true && Boolean(prefix), prefix, password, cams: lanCams(v.cams), teams, matches: lanMatchesOf(v.matches, teams), event: eventProfile(v.event) };
+  return { on: v.on === true && Boolean(prefix), prefix, password, cams: lanCams(v.cams), net: vdoNet(v.net), teams, matches: lanMatchesOf(v.matches, teams), event: eventProfile(v.event) };
 }
 // A new id for a team, player or match; random bytes from the caller.
 function lanId(bytes, taken = []) {
@@ -1407,8 +1450,9 @@ function lanSeatId(prefix, side, index) {
 // Where seat `index` of a side streams: its room, the room's password, its ID.
 function lanSeat(lan, side, index) {
   const s = side === 'b' ? 1 : 0;
-  if (lan.cams) return { room: lan.cams.rooms[s], password: lan.cams.passwords[s], id: (s && lan.cams.idsB || lan.cams.ids)[index] };
-  return { room: lan.prefix, password: lan.password || '', id: lanSeatId(lan.prefix, side, index) };
+  const net = lan.net?.mode === 'lan' ? { net: vdoNet(lan.net) } : {};
+  if (lan.cams) return { room: lan.cams.rooms[s], password: lan.cams.passwords[s], id: (s && lan.cams.idsB || lan.cams.ids)[index], ...net };
+  return { room: lan.prefix, password: lan.password || '', id: lanSeatId(lan.prefix, side, index), ...net };
 }
 // The team as it sits this match: players picked for its seats get that
 // seat's stream; everyone else has none.
@@ -1606,7 +1650,7 @@ function buildObs(template, a, b, ka, kb,
     item.name = browser.name;
     const geometry=cameraGeometry(p,frame);
     Object.assign(browser.settings, {
-      url: cameraViewUrl(p), width:geometry.width, height:geometry.height
+      url: cameraViewUrl(p,frame), width:geometry.width, height:geometry.height
     });
     const slot = String(i + 1).padStart(2, '0');
     names.set(browser.name, `CAM ${slot} | ${p.team} | ${p.nick}`);
@@ -2041,7 +2085,7 @@ function editorPlayer() {
 }
 function cameraPreviewStyle(camera) {
   // Only the video paints above our backdrop, including while VDO connects.
-  return cameraCss(camera)+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
+  return cameraCss(camera,cameraFrame(state.cameraFrame).fit==='contain' ? 'contain' : 'cover')+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
 }
 function cameraPreviewLoading(loading) {
   $('cameraPreviewBox').dataset.loading=String(loading);
@@ -2123,7 +2167,7 @@ function openCamera(side,slot,seat=false) {
   cameraPreview.title='Предпросмотр камеры '+player.nick;
   cameraPreview.allow='autoplay';
   cameraPreview.referrerPolicy='no-referrer';
-  const url=new URL(cameraViewUrl(player));
+  const url=new URL(cameraViewUrl(player,state.cameraFrame));
   url.searchParams.set('b64css',btoa(cameraPreviewStyle(player.camera)));
   url.searchParams.set('darkmode','');url.searchParams.set('noaudio','');
   cameraPreview.src=url.href;
@@ -2614,7 +2658,8 @@ function render() {
       </div>
       <div class="camera-list">${Array.from({ length: 5 }, (_, i) => {
         const player = team.players.find(p => p.key === keys[i]);
-        return `<div class="player-row">
+        return `<div class="player-row" draggable="true" tabindex="0" data-drag="${side}${i}"
+          title="Перетащи на другой слот этой команды (или Alt+↑/↓), чтобы поменять игроков местами">
           <span class="slot-number">${String(index * 5 + i + 1).padStart(2, '0')}</span>
           <div class="player-info">
             <select data-player="${side}" data-slot="${i}" aria-label="Игрок ${index * 5 + i + 1}">
@@ -2682,6 +2727,41 @@ function render() {
         [Number(el.dataset.slot)] = el.value;
       render();
     }));
+  // Two slots of one team swap players: drag a row onto another (or Alt+↑/↓).
+  // On a LAN a slot is a seat, so this reseats the two players.
+  let dragged='';
+  const swapSlots=(side,from,to)=>{
+    const keys=state[side==='a' ? 'keysA' : 'keysB'];
+    [keys[from],keys[to]]=[keys[to],keys[from]];
+    render();
+    document.querySelector(`.player-row[data-drag="${side}${to}"]`)?.focus();
+    toast(`Слоты ${from+1} и ${to+1} поменялись игроками.`);
+  };
+  $('teamGrid').querySelectorAll('.player-row[data-drag]').forEach(row => {
+    const side=row.dataset.drag[0],slot=Number(row.dataset.drag.slice(1));
+    row.addEventListener('dragstart',event=>{
+      if(event.target!==row)return;
+      dragged=row.dataset.drag;
+      event.dataTransfer.effectAllowed='move';
+      event.dataTransfer.setData('text/plain',dragged);
+      row.classList.add('dragging');
+    });
+    row.addEventListener('dragend',()=>{dragged='';document.querySelectorAll('.player-row.drag-over,.player-row.dragging').forEach(r=>r.classList.remove('drag-over','dragging'));});
+    row.addEventListener('dragover',event=>{if(dragged[0]===side && dragged!==row.dataset.drag){event.preventDefault();row.classList.add('drag-over');}});
+    row.addEventListener('dragleave',()=>row.classList.remove('drag-over'));
+    row.addEventListener('drop',event=>{
+      event.preventDefault();
+      row.classList.remove('drag-over');
+      if(dragged[0]===side && dragged!==row.dataset.drag)swapSlots(side,Number(dragged.slice(1)),slot);
+    });
+    row.addEventListener('keydown',event=>{
+      if(event.target!==row || !event.altKey || !['ArrowUp','ArrowDown'].includes(event.key))return;
+      const to=slot+(event.key==='ArrowUp' ? -1 : 1);
+      if(to<0 || to>4)return;
+      event.preventDefault();
+      swapSlots(side,slot,to);
+    });
+  });
   $('teamGrid').querySelectorAll('[data-reset]').forEach(el =>
     el.addEventListener('click', () => {
       const side = el.dataset.reset;

@@ -164,7 +164,7 @@ function editorPlayer() {
 }
 function cameraPreviewStyle(camera) {
   // Only the video paints above our backdrop, including while VDO connects.
-  return cameraCss(camera)+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
+  return cameraCss(camera,cameraFrame(state.cameraFrame).fit==='contain' ? 'contain' : 'cover')+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
 }
 function cameraPreviewLoading(loading) {
   $('cameraPreviewBox').dataset.loading=String(loading);
@@ -246,7 +246,7 @@ function openCamera(side,slot,seat=false) {
   cameraPreview.title='Предпросмотр камеры '+player.nick;
   cameraPreview.allow='autoplay';
   cameraPreview.referrerPolicy='no-referrer';
-  const url=new URL(cameraViewUrl(player));
+  const url=new URL(cameraViewUrl(player,state.cameraFrame));
   url.searchParams.set('b64css',btoa(cameraPreviewStyle(player.camera)));
   url.searchParams.set('darkmode','');url.searchParams.set('noaudio','');
   cameraPreview.src=url.href;
@@ -702,7 +702,8 @@ function render() {
       </div>
       <div class="camera-list">${Array.from({ length: 5 }, (_, i) => {
         const player = team.players.find(p => p.key === keys[i]);
-        return `<div class="player-row">
+        return `<div class="player-row" draggable="true" tabindex="0" data-drag="${side}${i}"
+          title="Перетащи на другой слот этой команды (или Alt+↑/↓), чтобы поменять игроков местами">
           <span class="slot-number">${String(index * 5 + i + 1).padStart(2, '0')}</span>
           <div class="player-info">
             <select data-player="${side}" data-slot="${i}" aria-label="Игрок ${index * 5 + i + 1}">
@@ -770,6 +771,41 @@ function render() {
         [Number(el.dataset.slot)] = el.value;
       render();
     }));
+  // Two slots of one team swap players: drag a row onto another (or Alt+↑/↓).
+  // On a LAN a slot is a seat, so this reseats the two players.
+  let dragged='';
+  const swapSlots=(side,from,to)=>{
+    const keys=state[side==='a' ? 'keysA' : 'keysB'];
+    [keys[from],keys[to]]=[keys[to],keys[from]];
+    render();
+    document.querySelector(`.player-row[data-drag="${side}${to}"]`)?.focus();
+    toast(`Слоты ${from+1} и ${to+1} поменялись игроками.`);
+  };
+  $('teamGrid').querySelectorAll('.player-row[data-drag]').forEach(row => {
+    const side=row.dataset.drag[0],slot=Number(row.dataset.drag.slice(1));
+    row.addEventListener('dragstart',event=>{
+      if(event.target!==row)return;
+      dragged=row.dataset.drag;
+      event.dataTransfer.effectAllowed='move';
+      event.dataTransfer.setData('text/plain',dragged);
+      row.classList.add('dragging');
+    });
+    row.addEventListener('dragend',()=>{dragged='';document.querySelectorAll('.player-row.drag-over,.player-row.dragging').forEach(r=>r.classList.remove('drag-over','dragging'));});
+    row.addEventListener('dragover',event=>{if(dragged[0]===side && dragged!==row.dataset.drag){event.preventDefault();row.classList.add('drag-over');}});
+    row.addEventListener('dragleave',()=>row.classList.remove('drag-over'));
+    row.addEventListener('drop',event=>{
+      event.preventDefault();
+      row.classList.remove('drag-over');
+      if(dragged[0]===side && dragged!==row.dataset.drag)swapSlots(side,Number(dragged.slice(1)),slot);
+    });
+    row.addEventListener('keydown',event=>{
+      if(event.target!==row || !event.altKey || !['ArrowUp','ArrowDown'].includes(event.key))return;
+      const to=slot+(event.key==='ArrowUp' ? -1 : 1);
+      if(to<0 || to>4)return;
+      event.preventDefault();
+      swapSlots(side,slot,to);
+    });
+  });
   $('teamGrid').querySelectorAll('[data-reset]').forEach(el =>
     el.addEventListener('click', () => {
       const side = el.dataset.reset;

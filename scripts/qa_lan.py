@@ -211,6 +211,17 @@ async def event_address(browser, base, out):
     # A substitute takes seat A2: the stream stays with the seat.
     await page.select_option('[data-player="a"][data-slot="1"]', label="sub1 (запасной)")
     await expect(team_rows.nth(1)).to_contain_text("view=pc2&solo=1&room=team1")
+    # Dragging a row onto another swaps the two players' seats (and Alt+↑ swaps back).
+    first = lambda slot: page.locator(f'[data-player="a"][data-slot="{slot}"] option:checked')
+    a1 = await first(0).inner_text()
+    await page.locator('.player-row[data-drag="a0"]').drag_to(page.locator('.player-row[data-drag="a1"]'))
+    await expect(first(0)).to_have_text(re.compile("^sub1"))
+    await expect(first(1)).to_have_text(a1)
+    await expect(team_rows.nth(1)).to_contain_text("view=pc2&solo=1&room=team1")
+    await page.locator('.player-row[data-drag="a1"]').focus()
+    await page.keyboard.press("Alt+ArrowUp")
+    await expect(first(1)).to_have_text(re.compile("^sub1"))
+    await expect(page.locator('.player-row[data-drag="a0"]')).to_be_focused()
     await page.click("#tabObserver")
     observer = await page.input_value("#output")
     assert "2. Альфа — sub1" in observer and "6. Браво — b1" in observer, observer
@@ -434,7 +445,7 @@ async def previous_version_pictures(browser, base):
 
 SCAN_VDO = """<!doctype html><script>
 const q = new URLSearchParams(location.search);
-const rooms = { team1: ['pc3', 'cam_old', 'pc1', 'pc2', 'pc5', 'pc4'], dota2: ['pc10', 'pc6', 'pc7', 'pc8', 'pc9', 'pc11'] };
+const rooms = { team1: ['pc3', 'cam_old', 'undefined', 'pc1', 'pc2', 'pc5', 'pc4'], dota2: ['pc10', 'pc6', 'pc7', 'pc8', 'pc9', 'pc11'] };
 const ids = q.get('label') === 'oneshot-scan' ? rooms[q.get('room')] || [] : (q.get('view') || '').split(',').filter(Boolean);
 addEventListener('message', e => { if ((e.data || {}).getStreamIDs) parent.postMessage({ streamIDs: Object.fromEntries(ids.map(id => [id, id])) }, '*'); });
 </script>"""
@@ -446,10 +457,10 @@ async def director_rooms(browser, base):
     await ctx.route("https://vdo.ninja/**", lambda route: route.fulfill(content_type="text/html", body=SCAN_VDO))
     page = await ctx.new_page()
     page.on("dialog", lambda dialog: asyncio.ensure_future(dialog.accept()))
-    # A frame picked earlier in this browser gives way once to the event's (+20 px to spare).
+    # A frame picked earlier in this browser gives way once to the event's (full height, camera's proportions).
     await page.add_init_script("if (!sessionStorage.getItem('framed')) { sessionStorage.setItem('framed', '1'); localStorage.setItem('oneshot-camera-frame-v1', JSON.stringify('inner43')); }")
     await page.goto(base + "/#seats")
-    assert await page.input_value("#cameraFrame") == "inner43_over20"
+    assert await page.input_value("#cameraFrame") == "height"
     await page.click("#seatsNavBtn")
     await page.fill("#seatsRoomB", "https://vdo.ninja/?director=dota2&password=qq")
     await page.dispatch_event("#seatsRoomB", "change")
@@ -465,6 +476,32 @@ async def director_rooms(browser, base):
     await expect(page.locator("#toast")).to_contain_text("team1/cam_old")
     await expect(page.locator(".seat-card").nth(5)).to_contain_text("?room=dota2&password=qq&broadcast&do&push=pc6")
     await expect(page.locator("#seatsClash")).to_be_hidden()
+    # A peer VDO.Ninja has no stream ID for yet ("undefined") is no PC.
+    await expect(page.locator("#toast")).not_to_contain_text("undefined")
+    # Seats reorder by dragging (and Alt+↓): the PCs swap, the room stays the side's.
+    await page.locator('.seat-card[data-seat="a0"]').drag_to(page.locator('.seat-card[data-seat="a1"]'))
+    await expect(page.locator("#seatsIds")).to_have_value("pc2, pc1, pc3, pc4, pc5")
+    await expect(page.locator("#seatsIdsB")).to_have_value("pc6, pc7, pc8, pc9, pc10")
+    await page.locator('.seat-card[data-seat="a0"]').focus()
+    await page.keyboard.press("Alt+ArrowDown")
+    await expect(page.locator("#seatsIds")).to_have_value("pc1, pc2, pc3, pc4, pc5")
+    await expect(page.locator('.seat-card[data-seat="a1"]')).to_be_focused()
+    # A typed ID no PC streams is called out right away.
+    await page.fill("#seatsIds", "pc1, pc2, pc3, pc4, https://vdo.ninja/?room=team1&push=pc9")
+    await page.locator("#seatsIds").blur()
+    await expect(page.locator("#seatsIds")).to_have_value("pc1, pc2, pc3, pc4, pc9")
+    await expect(page.locator("#toast")).to_contain_text("Сейчас не стримят: team1/pc9", timeout=20000)
+    await page.fill("#seatsIds", "pc1, pc2, pc3, pc4, pc5")
+    await page.locator("#seatsIds").blur()
+    await expect(page.locator("#seatsIds")).to_have_value("pc1, pc2, pc3, pc4, pc5")
+    # LAN mode: the seats' links and OBS get VDO.Ninja's local-network tuning.
+    await expect(page.locator("#seatsNetLan")).to_be_hidden()
+    await page.select_option("#seatsNetMode", "lan")
+    await expect(page.locator("#seatsNetLan")).to_be_visible()
+    await expect(page.locator(".seat-card").nth(0)).to_contain_text("push=pc1&quality=0&fps=30&lowlatency&lanonly")
+    await page.fill("#seatsNetBitrate", "12000")
+    await page.locator("#seatsNetBitrate").blur()
+    await expect(page.locator(".seat-card").nth(0)).to_contain_text("push=pc1&quality=0&fps=30&lowlatency&lanonly")
     # «Кадр» of a seat nobody sits at yet: kept for that PC (room and ID).
     await page.click('[data-seat-frame="b0"]')
     await expect(page.locator("#cameraHeading")).to_have_text("Кадр: B1 · dota2 / pc6")
@@ -496,10 +533,13 @@ async def director_rooms(browser, base):
     await expect(page.locator("#toast")).to_contain_text("OBS обновлён: 10 камер", timeout=20000)
     urls = {name: v.get("url", "") for name, v in obs.inputs.items()}
     assert "view=pc1&solo=1&room=team1&" in urls["CAM 01 | team1 | pc1"], urls
+    # Full height, the camera's own proportions, full resolution, LAN tuning.
+    assert "&videobitrate=12000&lowlatency&lanonly&scale=100" in urls["CAM 02 | team1 | pc2"] and "cover" not in urls["CAM 02 | team1 | pc2"], urls
+    assert obs.inputs["CAM 09 | dota2 | pc9"]["height"] == 1080, obs.inputs["CAM 09 | dota2 | pc9"]
     import base64 as _b64
     from urllib.parse import parse_qs, urlsplit
     css = _b64.b64decode(parse_qs(urlsplit(urls["CAM 01 | team1 | pc1"]).query)["b64css"][0]).decode()
-    assert "scale:1.1!" in css and "object-position:40% 50%" in css, css
+    assert "scale:1.1!" in css and "object-position:40% 50%" in css and "object-fit:contain" in css, css
     assert "b64css" not in urls["CAM 02 | team1 | pc2"], urls["CAM 02 | team1 | pc2"]
     assert "view=pc6&solo=1&room=dota2&password=qq&" in urls["CAM 06 | dota2 | pc6"], urls
     cards = {name: v for name, v in obs.inputs.items() if name.startswith("CARD ")}

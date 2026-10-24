@@ -84,7 +84,7 @@ function matchPayload() {
   const players = [
     ...s.playersA.map(p => ({ ...p, team: s.a.name })),
     ...s.playersB.map(p => ({ ...p, team: s.b.name }))
-  ].map((p, i) => ({ slot: i + 1, team: p.team, nick: p.nick, id: p.id, room: p.room, password: p.password || '', camera:p.camera }));
+  ].map((p, i) => ({ slot: i + 1, team: p.team, nick: p.nick, id: p.id, room: p.room, password: p.password || '', camera:p.camera, ...(p.net ? { net: p.net } : {}) }));
   return { title: `${s.a.name} vs ${s.b.name}`, match: { players, includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame, cardDocs: panel.cardDocs() } };
 }
 // A LAN without a match on air yet: the ten seats' cameras alone, named by
@@ -97,7 +97,8 @@ function seatsPayload() {
   const players = lanSeatLinks(lan).map((seat, i) => ({
     slot: i + 1, team: names[i < 5 ? 0 : 1] || seat.room, nick: seated[i]?.nick || seat.id,
     // The frame belongs to the PC: the same one whoever sits there, nobody included.
-    id: seat.id, room: seat.room, password: seat.password || '', camera: panel.seatCamera(i < 5 ? 'a' : 'b', i % 5)
+    id: seat.id, room: seat.room, password: seat.password || '', camera: panel.seatCamera(i < 5 ? 'a' : 'b', i % 5),
+    ...(seat.net ? { net: seat.net } : {})
   }));
   // A side's placeholder goes under its cameras; the other side's cards are blank.
   const plates = [panel.plate('a'), panel.plate('b')];

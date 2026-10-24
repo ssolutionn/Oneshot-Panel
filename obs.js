@@ -133,7 +133,7 @@ export function slotPlan(sceneItems, player, { includeCards = false, cardBase = 
     scene,
     camera: {
       item: camera, name: `CAM ${slot} | ${player.team} | ${player.nick}`,
-      settings: {url:legacyCamera ? viewUrl(player) : cameraViewUrl(player),width:geometry.width,height:geometry.height},
+      settings: {url:legacyCamera ? viewUrl(player) : cameraViewUrl(player,frame),width:geometry.width,height:geometry.height},
       transform:{...FIT,positionX:geometry.x,positionY:geometry.y,rotation:geometry.rotation,
         boundsWidth:geometry.width,boundsHeight:geometry.height}
     },

@@ -96,7 +96,7 @@
       </div>
       <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
       <label class="camera-frame-setting">Рамка вебок
-        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option><option value="inner43_over20">Внутренняя рамка +20 px запаса</option><option value="full43_over20">4:3 на всю высоту +20 px запаса</option><option value="wide_over20">Весь холст +20 px запаса</option><option value="square_over20">Квадрат +20 px запаса (1120×1120)</option></select>
+        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option><option value="inner43_over20">Внутренняя рамка +20 px запаса</option><option value="full43_over20">4:3 на всю высоту +20 px запаса</option><option value="wide_over20">Весь холст +20 px запаса</option><option value="square_over20">Квадрат +20 px запаса (1120×1120)</option><option value="height">Во всю высоту, пропорции камеры</option></select>
         <span>Заполнение с обрезкой краёв. «Кадр» под ником — поворот и положение игрока.</span>
       </label>
       <div class="export-meta">
@@ -452,6 +452,17 @@
           <div class="seat-ids seat-directors">
             <span>Директор A: <a id="seatsDirectorA" target="_blank" rel="noreferrer"></a> <button id="seatsDirectorCopyA" class="copy-icon" type="button" aria-label="Копировать ссылку директора A" title="Копировать">⧉</button></span>
             <span>Директор B: <a id="seatsDirectorB" target="_blank" rel="noreferrer"></a> <button id="seatsDirectorCopyB" class="copy-icon" type="button" aria-label="Копировать ссылку директора B" title="Копировать">⧉</button></span>
+          </div>
+        </div>
+        <div id="seatsNetBox" class="seat-settings seat-net">
+          <label>Где вебки<select id="seatsNetMode"><option value="online">Онлайн</option><option value="lan">ЛАН — одна локальная сеть</option></select></label>
+          <div id="seatsNetLan" class="seat-net-lan" hidden>
+            <label>Камера на компе<select id="seatsNetQuality"><option value="1080">1080p</option><option value="720">720p</option></select></label>
+            <label>Кадров в секунду<select id="seatsNetFps"><option value="24">24</option><option value="30">30</option><option value="60">60</option></select></label>
+            <label>Кодек в OBS<select id="seatsNetCodec"><option value="h264">H.264</option><option value="vp8">VP8</option><option value="vp9">VP9</option></select></label>
+            <label>Битрейт в OBS, кбит/с<input id="seatsNetBitrate" type="number" min="1000" max="50000" step="500" inputmode="numeric"></label>
+            <label class="seat-net-check"><input id="seatsNetLowlatency" type="checkbox"> Минимальная задержка <span class="muted">(без буфера и обработки звука)</span></label>
+            <label class="seat-net-check"><input id="seatsNetLanonly" type="checkbox"> Только локальная сеть <span class="muted">(без интернета, меньше задержка; OBS и панель — в той же сети)</span></label>
           </div>
         </div>
         <div class="seat-plates" aria-labelledby="seatsPlatesHeading">

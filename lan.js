@@ -3,7 +3,7 @@
 // «Матчи», «Компы» and «Событие». app.js keeps the data (window.oneshotPanel
 // .lan / setLan); here it is edited right where it is shown. Names and nicks
 // from people go into the page as text only.
-import { lanSeatLinks, lanCams, vdoRoomOf, directorUrl, lanId, newLanPrefix, personKey, cardKey, LAN_LIMITS, LAN_SEATS, MATCH_FORMATS } from './core.js';
+import { lanSeatLinks, lanCams, vdoNet, vdoRoomOf, directorUrl, lanId, newLanPrefix, personKey, cardKey, LAN_LIMITS, LAN_SEATS, MATCH_FORMATS } from './core.js';
 import { camKey, scanRoom } from './vdo.js';
 import { showView, camStatus, sendObs } from './live.js';
 import { DEFAULT_TOURNAMENT } from './assets/veto-short-links.js';
@@ -480,6 +480,16 @@ function renderSeats() {
       $(`seatsDirector${suffix}`).textContent = url;
     }
   }
+  // Online or one local network: on a LAN the links carry VDO.Ninja's tuning.
+  const net = vdoNet(lan.net);
+  fill('seatsNetMode', net.mode);
+  fill('seatsNetQuality', net.quality);
+  fill('seatsNetBitrate', String(net.bitrate));
+  fill('seatsNetFps', String(net.fps));
+  fill('seatsNetCodec', net.codec);
+  $('seatsNetLowlatency').checked = net.lowlatency;
+  $('seatsNetLanonly').checked = net.lanonly;
+  $('seatsNetLan').hidden = net.mode !== 'lan';
   $('seatsNote').textContent = lan.cams ? 'Комнаты, пароли и ID меняют ссылки компов и камер в OBS: после смены открой новые ссылки на местах и скачай JSON заново.' :
     'Префикс и пароль меняют ссылки всех десяти компов: после смены открой новые ссылки на местах.';
   $('seatsClash').hidden = !lan.cams || lan.cams.passwords[0] !== lan.cams.passwords[1] ||
@@ -498,7 +508,26 @@ function renderSeats() {
       const state = { live: 'В ЭФИРЕ', off: plate ? 'НЕТ ВЕБКИ · в OBS заглушка' : 'НЕТ ВЕБКИ', wait: 'ПРОВЕРЯЕМ…', none: 'статус выключен' }[cam];
       if (cam === 'live') live++;
       const who = (s ? snapshot.playersB : snapshot.playersA)?.[i]?.nick || '';
-      return el('div', { class: 'seat-card', 'data-seat-cam': cam },
+      // With the event's own rooms a PC can move to another seat of its side:
+      // drag the card (or Alt+↑/↓) — the cards swap their PCs.
+      const movable = Boolean(lan.cams);
+      return el('div', { class: 'seat-card', 'data-seat-cam': cam, 'data-seat': `${side}${i}`,
+        ...(movable ? {
+          draggable: true, tabIndex: 0, title: 'Перетащи на другое место этой команды (или Alt+↑/↓), чтобы поменять компы местами',
+          ondragstart: event => { dragSeat = { side, index: i }; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', `${side}${i}`); },
+          ondragend: () => { dragSeat = null; document.querySelectorAll('.seat-card.drop').forEach(card => card.classList.remove('drop')); },
+          ondragover: event => { if (dragSeat?.side === side && dragSeat.index !== i) { event.preventDefault(); event.currentTarget.classList.add('drop'); } },
+          ondragleave: event => event.currentTarget.classList.remove('drop'),
+          ondrop: event => { event.preventDefault(); event.currentTarget.classList.remove('drop'); if (dragSeat?.side === side) swapSeats(side, dragSeat.index, i); },
+          onkeydown: event => {
+            if (!event.altKey || !['ArrowUp', 'ArrowDown'].includes(event.key) || event.target !== event.currentTarget) return;
+            const to = i + (event.key === 'ArrowUp' ? -1 : 1);
+            if (to < 0 || to >= LAN_SEATS) return;
+            event.preventDefault();
+            swapSeats(side, i, to);
+            document.querySelector(`.seat-card[data-seat="${side}${to}"]`)?.focus();
+          }
+        } : {}) },
         el('b', { class: 'seat-name', text: link?.seat || `${side.toUpperCase()}${i + 1}` }),
         el('i', { class: 'seat-dot', 'aria-hidden': 'true' }),
         el('span', { class: 'seat-who', text: who || 'место свободно' }),
@@ -524,7 +553,7 @@ function changeCams() {
     if (found) $(room).value = found.room;
     return found?.room || '';
   });
-  const list = id => $(id).value.split(/[\s,;]+/).filter(Boolean);
+  const list = id => $(id).value.split(/[\s,;]+/).filter(Boolean).map(seatIdOf);
   const cams = lanCams({
     rooms, passwords: [$('seatsPasswordA').value, $('seatsPasswordB').value],
     ids: list('seatsIds'), idsB: list('seatsIdsB').length ? list('seatsIdsB') : undefined
@@ -538,7 +567,58 @@ function changeCams() {
   draft.cams = cams;
   commit(true);
   panel().toast('Готово: открой новые ссылки на компах и скачай JSON для OBS заново.');
+  checkTypedIds(cams);
 }
+// Two seats of one side swap their PCs (room stays the side's): who sits where
+// and each PC's «Кадр» follow the PC, the tabs on the PCs stay as they are.
+let dragSeat = null;
+function swapSeats(side, from, to) {
+  const lan = panel().lan();
+  if (!lan.cams || from === to) return;
+  const key = side === 'a' ? 'ids' : 'idsB';
+  const ids = [...(side === 'a' ? lan.cams.ids : lan.cams.idsB || lan.cams.ids)];
+  [ids[from], ids[to]] = [ids[to], ids[from]];
+  const cams = lanCams({ ...lan.cams, idsB: lan.cams.idsB || lan.cams.ids, [key]: ids });
+  if (!cams) return;
+  draft.cams = cams;
+  commit(true);
+  const label = side.toUpperCase();
+  panel().toast(`${label}${from + 1} ⇄ ${label}${to + 1}: теперь ${ids[from]} — место ${label}${from + 1}, ${ids[to]} — место ${label}${to + 1}. Отправь камеры в OBS заново.`);
+}
+// A pasted seat link instead of an ID: its push= is the PC's ID.
+function seatIdOf(text) {
+  try {
+    const url = new URL(text);
+    if (url.protocol === 'https:' && /(^|\.)vdo\.ninja$/.test(url.hostname)) return url.searchParams.get('push') || url.searchParams.get('id') || text;
+  } catch { /* not a link: the ID itself */ }
+  return text;
+}
+// Typed IDs that no PC streams right now: a seat with such an ID shows nothing
+// in OBS. Said after the change, so a typo is caught before the broadcast.
+async function checkTypedIds(cams) {
+  const found = await Promise.all([0, 1].map(i => scanRoom(cams.rooms[i], cams.passwords[i], { wait: 8000 })));
+  const now = panel().lan().cams;
+  if (JSON.stringify(now) !== JSON.stringify(cams)) return;
+  const missing = [[0, cams.ids], [1, cams.idsB || cams.ids]].flatMap(([i, ids]) =>
+    ids.filter(id => !found[i].includes(id)).map(id => `${cams.rooms[i]}/${id}`));
+  if (missing.length) panel().toast(`Сейчас не стримят: ${missing.join(', ')}. Проверь ID (или «Найти компы»), иначе эти места в OBS пустые.`);
+}
+function changeNet() {
+  const lan = panel().lan();
+  const net = vdoNet({
+    mode: $('seatsNetMode').value, quality: $('seatsNetQuality').value,
+    fps: Number($('seatsNetFps').value), codec: $('seatsNetCodec').value,
+    bitrate: Number($('seatsNetBitrate').value), lowlatency: $('seatsNetLowlatency').checked, lanonly: $('seatsNetLanonly').checked
+  });
+  if (JSON.stringify(net) === JSON.stringify(vdoNet(lan.net))) return;
+  if (String(net.bitrate) !== $('seatsNetBitrate').value) panel().toast('Битрейт: от 1000 до 50000 кбит/с — оставлен ' + net.bitrate + '.');
+  const links = net.mode === 'lan' || vdoNet(lan.net).mode === 'lan';
+  if (links && !window.confirm('Поменяются ссылки компов и камер в OBS: открой новые ссылки на местах и отправь камеры в OBS заново. Продолжить?')) { renderSeats(); return; }
+  draft.net = net;
+  commit(true);
+  panel().toast(net.mode === 'lan' ? 'ЛАН: открой новые ссылки на компах и отправь камеры в OBS.' : 'Онлайн: ссылки компов снова обычные — открой их на местах.');
+}
+
 // ---------- placeholders: a side's picture under its cameras in OBS ----------
 const PLATE = { a: '#plate-a', b: '#plate-b' };
 const plateImage = side => store?.assets.logos[PLATE[side]] || '';
@@ -601,8 +681,13 @@ async function scanCams() {
     const cams = lanCams({ ...lan.cams, ids: a.ids, idsB: b.ids });
     if (cams && JSON.stringify(cams) !== JSON.stringify(lan.cams)) { draft.cams = cams; commit(true); }
     const spare = [...a.spare.map(id => `${lan.cams.rooms[0]}/${id}`), ...b.spare.map(id => `${lan.cams.rooms[1]}/${id}`)];
+    // A seat no PC streams to keeps its ID, but is named: OBS shows nothing there.
+    const empty = [['A', a.ids, found[0]], ['B', b.ids, found[1]]].flatMap(([side, ids, live]) =>
+      ids.map((id, i) => live.includes(id) ? '' : `${side}${i + 1}`).filter(Boolean));
     panel().toast(lan.cams.rooms.map((room, i) => `${room}: ${found[i].join(', ') || 'никого'}`).join(' · ') +
-      (spare.length ? ` · лишние потоки, на места не ставлю: ${spare.join(', ')}` : ''));
+      (empty.length ? ` · без вебки: ${empty.join(', ')}` : '') +
+      (spare.length ? ` · лишние потоки, на места не ставлю: ${spare.join(', ')}` : '') +
+      ' · порядок мест можно поправить перетаскиванием.');
   } finally {
     $('seatsScan').disabled = false;
     renderSeats();
@@ -740,6 +825,7 @@ function start() {
   $('seatsNewPrefix').addEventListener('click', () => changeSeats(newLanPrefix(random(4)), panel().lan().password));
   for (const id of ['seatsRoomA', 'seatsRoomB', 'seatsPasswordA', 'seatsPasswordB', 'seatsIds', 'seatsIdsB']) $(id).addEventListener('change', changeCams);
   $('seatsScan').addEventListener('click', scanCams);
+  for (const id of ['seatsNetMode', 'seatsNetQuality', 'seatsNetFps', 'seatsNetCodec', 'seatsNetBitrate', 'seatsNetLowlatency', 'seatsNetLanonly']) $(id).addEventListener('change', changeNet);
   for (const suffix of ['A', 'B']) $(`seatsDirectorCopy${suffix}`).addEventListener('click', () => {
     const url = $(`seatsDirector${suffix}`).href;
     if (url) panel().copy(url);

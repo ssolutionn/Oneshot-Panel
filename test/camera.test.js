@@ -148,3 +148,19 @@ test('a ready card page (a LAN card, a placeholder) is the frame\'s size, so it 
   const plan=slotPlan([{inputKind:'browser_source',sourceName:'CAM old',sceneItemId:1}],{...b.players[0],team:b.name,slot:6},{includeCards:true,cameraFrame:'square_over20',cardDocs:docs});
   assert.deepEqual([plan.card.settings.url,plan.card.settings.width,plan.card.settings.height],[BLANK_CARD,1120,1120]);
 });
+
+test('full-height frame keeps the camera\'s proportions; every OBS camera asks for full resolution',()=>{
+  const player={id:'pc4',room:'team2',camera:{zoom:1.5}};
+  assert.deepEqual(cameraGeometry(player,'height'),{rotation:0,x:0,y:0,width:1920,height:1080});
+  const fit=new URL(cameraViewUrl(player,'height'));
+  assert.equal(fit.searchParams.has('cover'),false);
+  assert.equal(fit.searchParams.get('scale'),'100');
+  assert.match(atob(fit.searchParams.get('b64css')),/object-fit:contain!important/);
+  const covered=new URL(cameraViewUrl(player));
+  assert.ok(covered.searchParams.has('cover') && covered.searchParams.get('scale')==='100');
+  assert.match(atob(covered.searchParams.get('b64css')),/object-fit:cover!important/);
+  const plan=slotPlan([{inputKind:'browser_source',sourceName:'Камера',sceneItemId:1,sceneItemIndex:1}],
+    {slot:9,team:'B',nick:'b4',...player},{cameraFrame:'height'});
+  assert.equal(new URL(plan.camera.settings.url).searchParams.has('cover'),false);
+  assert.deepEqual([plan.camera.transform.positionY,plan.camera.transform.boundsHeight],[0,1080]);
+});

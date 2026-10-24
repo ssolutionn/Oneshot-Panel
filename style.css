@@ -631,6 +631,14 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .seat-rooms { grid-template-columns:repeat(2,minmax(0,1fr)); max-width:760px; }
 .seat-rooms .seat-ids { grid-column:1/-1; }
 .seat-rooms .button { justify-self:start; }
+.seat-net { grid-template-columns:minmax(0,240px) minmax(0,1fr); max-width:760px; }
+.seat-net select,.seat-net-lan input[type=number] { display:block; width:100%; margin-top:6px; padding:9px 10px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font-size:13px; }
+.seat-net-lan { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; align-items:end; }
+.seat-net-lan[hidden] { display:none; }
+.seat-net-check { grid-column:1/-1; display:flex; gap:8px; align-items:baseline; }
+.seat-net-check input { display:inline; width:auto; margin:0; }
+.seat-card[draggable=true] { cursor:grab; }
+.seat-card.drop { outline:2px dashed var(--red); outline-offset:2px; }
 .seat-directors { display:flex; flex-wrap:wrap; gap:6px 18px; font-size:12px; color:var(--muted); }
 .seat-directors span { display:inline-flex; align-items:center; gap:6px; min-width:0; overflow-wrap:anywhere; }
 #seatsClash { margin:10px 0 0; }
@@ -649,6 +657,7 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
   .seat-grid { grid-template-columns:minmax(0,1fr); }
   .seat-settings { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
   .seat-settings .text-button { grid-column:1/-1; justify-self:start; }
+  .seat-net,.seat-net-lan { grid-template-columns:minmax(0,1fr); }
   .em-row { grid-template-columns:20px minmax(0,1fr) 70px; }
   .em-row .em-stage { grid-column:2/-1; grid-row:2; }
   .em-teams { grid-column:1/-1; grid-row:3; }
@@ -659,3 +668,6 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .event-look .lan-colors label { display:flex; align-items:center; gap:8px; font-size:12px; }
 .event-look p.muted,.event-panel .event-guide + p.muted { font-size:12px; line-height:1.6; margin:0; }
 .seat-settings .text-button { justify-self:start; }
+.player-row[draggable=true] { cursor:grab; }
+.player-row.dragging { opacity:.45; }
+.player-row.drag-over { outline:2px dashed var(--red); outline-offset:-2px; }

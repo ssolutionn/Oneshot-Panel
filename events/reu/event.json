@@ -10,5 +10,5 @@
     "server": true, "obs": true, "settings": true, "lobby": false, "bookmakers": false
   },
   "veto": { "format": "BO3", "timerMinutes": 5, "tournament": "ЛАН РЭУ им. Плеханова" },
-  "cameras": { "frame": "inner43_over20", "rooms": ["team1", "team2"], "ids": ["pc1", "pc2", "pc3", "pc4", "pc5"] }
+  "cameras": { "frame": "height", "rooms": ["team1", "team2"], "ids": ["pc1", "pc2", "pc3", "pc4", "pc5"] }
 }

@@ -67,7 +67,14 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   занятыми и нет; ссылки; `seatsPrefix`/`seatsPassword`, или у события свои комнаты — `seatsRoomA/B`,
   `seatsPasswordA/B`, `seatsIds`/`seatsIdsB`; в поле комнаты можно вставить ссылку директора —
   `vdoRoomOf` берёт комнату и пароль; ссылки директоров комнат — `seatsDirectorA/B` (`directorUrl`, копировать — `seatsDirectorCopyA/B`); «Найти компы» `seatsScan` — `vdo.js scanRoom` (скрытый
-  scene-зритель без видео, getStreamIDs) ставит тех, кто стримит в комнате, по порядку pc1…pc10;
+  scene-зритель без видео, getStreamIDs; ключи `undefined`/`null` — не потоки) ставит тех, кто стримит
+  в комнате, по порядку pc1…pc10, и называет места без вебки; порядок мест правится перетаскиванием
+  карточек `.seat-card[data-seat]` или Alt+↑/↓ (`swapSeats`: компы меняются местами внутри стороны);
+  в поле ID можно вставить ссылку места (берётся push=), введённые вручную ID сразу сверяются с комнатой
+  (`checkTypedIds`: «Сейчас не стримят…»); режим вебок «Онлайн / ЛАН» (`seatsNetMode`, `core.vdoNet`,
+  `lan.net`): в ЛАН ссылки мест получают `&quality&fps`, камеры OBS — свой `&codec` и `&videobitrate`,
+  обе — `&lowlatency` и `&lanonly` по галочкам (`seatsNetQuality/Fps/Codec/Bitrate/Lowlatency/Lanonly`);
+  онлайн — ссылки прежние;
   предупреждение `seatsClash` при одинаковых паролях и общих ID; «Кадр» у каждого места
   (`data-seat-frame`, `oneshotPanel.editSeatCamera` — то же окно `cameraDialog`, кадр хранится за
   компом: `cameraKey` = ['lan', room, id]); «▶ Камеры в OBS» `seatsSendObs` = `live.js sendObs`:
@@ -491,7 +498,9 @@ Netlify проверяет локальные фото, докачивает н�
   Галочка includeCards добавляет прямо под камерой источник браузера
   `CARD NN | Команда | Ник` с card.html сайта панели (в артефакте —
   https://oneshot-panel.pages.dev). Выбор не сохраняется в localStorage.
-  Ссылка камеры содержит `&cleanoutput&transparent&cover`; числовые
+  Ссылка камеры содержит `&cleanoutput&transparent&cover&scale=100` (scale=100 — полное
+  разрешение камеры, не по размеру окна); у рамки `height` («Во всю высоту, пропорции камеры»,
+  1920×1080, `fit:'contain'`, по умолчанию у REU) `&cover` нет, b64css с object-fit:contain. Числовые
   сдвиг и зум 1–3 задаёт b64css. CSS scale не заменяет transform VDO. darkmode — только preview. Без видео VDO.Ninja прозрачен, и видна карточка.
   CARD остаётся без поворота и вписывается в ту же рамку.
   Подложка assets/camera/oneshot-preview.png — только предпросмотр панели,
@@ -578,7 +587,8 @@ Netlify проверяет локальные фото, докачивает н�
   ltZip ltFolder ltImage ltCardDialog ltCardCanvas ltCardCaption matchesNavBtn matchesView
   lmTemplate lmAdd lmList seatsNavBtn seatsDot seatsView seatsWatch seatsCopyAll seatGrid
   seatsPrefix seatsPassword seatsNewPrefix seatsNote seatsPrefixBox seatsRoomsBox seatsRoomA seatsRoomB
-  seatsPasswordA seatsPasswordB seatsIds seatsIdsB seatsScan seatsClash seatsSendObs seatsPlateA seatsPlateB
+  seatsPasswordA seatsPasswordB seatsIds seatsIdsB seatsNetBox seatsNetMode seatsNetLan seatsNetQuality
+  seatsNetFps seatsNetCodec seatsNetBitrate seatsNetLowlatency seatsNetLanonly seatsScan seatsClash seatsSendObs seatsPlateA seatsPlateB
   seatsDirectorA seatsDirectorB seatsDirectorCopyA seatsDirectorCopyB seatsPlateNameA seatsPlateNameB seatsPlatePickA seatsPlatePickB seatsPlateClearA seatsPlateClearB seatsPlateFile seatsPlatesHeading eventNavBtn eventView evName evAccent
   evDeep evBlack evColorsReset evPreview evExport evImport evStatus evFile evClear footerNote
   serverGuide serverStartCommand serverStartWindows
@@ -593,7 +603,8 @@ Netlify проверяет локальные фото, докачивает н�
   dockObs dockObsDot dockForm dockCode dockUrl dockPassword dockLog
 - data-атрибуты (их ставит `app.js`): data-regen data-unregen data-setid (id
   regen-a-0…regen-b-4) data-copy-team data-map data-player
-  data-reset data-slot data-team data-view; `live.js`: data-cam (live, off,
+  data-reset data-slot data-team data-view data-drag (строка игрока: перетаскивание или Alt+↑/↓
+  меняет игроков двух слотов команды); `live.js`: data-cam (live, off,
   wait, none) на `.player-row`; `lobby.js`: data-match data-pause data-side
   data-resume data-since
 - Карточки команд, строки игроков и карты вето рисует `app.js`
