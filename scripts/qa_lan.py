@@ -434,7 +434,7 @@ async def previous_version_pictures(browser, base):
 
 SCAN_VDO = """<!doctype html><script>
 const q = new URLSearchParams(location.search);
-const rooms = { team1: ['pc3', 'pc1', 'pc2', 'pc5', 'pc4'], dota2: ['pc10', 'pc6', 'pc7', 'pc8', 'pc9', 'pc11'] };
+const rooms = { team1: ['pc3', 'cam_old', 'pc1', 'pc2', 'pc5', 'pc4'], dota2: ['pc10', 'pc6', 'pc7', 'pc8', 'pc9', 'pc11'] };
 const ids = q.get('label') === 'oneshot-scan' ? rooms[q.get('room')] || [] : (q.get('view') || '').split(',').filter(Boolean);
 addEventListener('message', e => { if ((e.data || {}).getStreamIDs) parent.postMessage({ streamIDs: Object.fromEntries(ids.map(id => [id, id])) }, '*'); });
 </script>"""
@@ -458,6 +458,8 @@ async def director_rooms(browser, base):
     await expect(page.locator("#seatsIdsB")).to_have_value("pc6, pc7, pc8, pc9, pc10", timeout=20000)
     await expect(page.locator("#seatsIds")).to_have_value("pc1, pc2, pc3, pc4, pc5")
     await expect(page.locator("#toast")).to_contain_text("pc11")
+    # A stray stream in team1 (a webcam left on) moves no seat: pc1…pc5 stay on A1…A5.
+    await expect(page.locator("#toast")).to_contain_text("team1/cam_old")
     await expect(page.locator(".seat-card").nth(5)).to_contain_text("?room=dota2&password=qq&broadcast&do&push=pc6")
     await expect(page.locator("#seatsClash")).to_be_hidden()
     # «Кадр» of a seat nobody sits at yet: kept for that PC (room and ID).

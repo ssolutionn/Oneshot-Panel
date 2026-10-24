@@ -565,7 +565,7 @@ function paintCams() {
       if (!note) {
         note = document.createElement('span');
         note.className = 'cam-note';
-        row.querySelector('.player-subline')?.before(note);
+        row.querySelector('.player-subline')?.prepend(note);
       }
       note.dataset.cam = state || 'none';
       note.hidden = !on || !player;

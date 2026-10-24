@@ -579,8 +579,14 @@ async function clearPlate(side) {
   renderSeats();
 }
 
-// «Найти компы»: who streams in each room right now becomes that room's PCs, in
-// natural order (pc1, pc2 … pc10); seats nobody streams to keep their old IDs.
+// «Найти компы»: a seat keeps its ID while that PC streams; only a seat whose
+// PC is silent takes a stream no seat has yet. Nothing ever moves to another
+// seat: a stray webcam left on in the room must not shift pc3 onto seat 4.
+function seatsFromScan(found, old) {
+  const next = [...old], spare = found.filter(id => !old.includes(id));
+  for (let i = 0; i < next.length && spare.length; i++) if (!found.includes(next[i])) next[i] = spare.shift();
+  return { ids: next, spare };
+}
 async function scanCams() {
   const lan = panel().lan();
   if (!lan.cams) return;
@@ -591,16 +597,12 @@ async function scanCams() {
     if (!found[0].length && !found[1].length) {
       return panel().toast('В комнатах никого: на компах должна быть открыта ссылка места и нажат «Start».');
     }
-    const fill = (ids, old) => {
-      const next = ids.slice(0, LAN_SEATS);
-      for (const id of old) if (next.length < LAN_SEATS && !next.includes(id)) next.push(id);
-      return next;
-    };
-    const cams = lanCams({ ...lan.cams, ids: fill(found[0], lan.cams.ids), idsB: fill(found[1], lan.cams.idsB || lan.cams.ids) });
-    const extra = found.flatMap((ids, i) => ids.slice(LAN_SEATS).map(id => `${lan.cams.rooms[i]}/${id}`));
+    const a = seatsFromScan(found[0], lan.cams.ids), b = seatsFromScan(found[1], lan.cams.idsB || lan.cams.ids);
+    const cams = lanCams({ ...lan.cams, ids: a.ids, idsB: b.ids });
     if (cams && JSON.stringify(cams) !== JSON.stringify(lan.cams)) { draft.cams = cams; commit(true); }
+    const spare = [...a.spare.map(id => `${lan.cams.rooms[0]}/${id}`), ...b.spare.map(id => `${lan.cams.rooms[1]}/${id}`)];
     panel().toast(lan.cams.rooms.map((room, i) => `${room}: ${found[i].join(', ') || 'никого'}`).join(' · ') +
-      (extra.length ? ` · не влезли (больше пяти): ${extra.join(', ')}` : ''));
+      (spare.length ? ` · лишние потоки, на места не ставлю: ${spare.join(', ')}` : ''));
   } finally {
     $('seatsScan').disabled = false;
     renderSeats();
