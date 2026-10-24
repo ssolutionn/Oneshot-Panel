@@ -1,7 +1,7 @@
 // obs-websocket v5 (built into OBS 28+) and the steps that point an already
 // imported Oneshot collection at a new match. No DOM: the panel, the OBS dock
 // (obs-bridge.html) and the tests share it.
-import { viewUrl, cameraViewUrl, cameraGeometry, cameraFrame, DEFAULT_CAMERA_FRAME, cardUrl, cardKey, readyCard, DEFAULT_CARD_BASE } from './core.js';
+import { viewUrl, cameraViewUrl, cameraGeometry, cameraFrame, DEFAULT_CAMERA_FRAME, cardUrl, cardKey, readyCard, DEFAULT_CARD_BASE, matrixTile } from './core.js';
 
 export const OBS_DEFAULT_URL = 'ws://127.0.0.1:4455';
 export const VETO_EVENT = 'oneshot-veto';
@@ -218,7 +218,20 @@ export async function applyMatch(obs, match, onProgress = () => {}) {
     await applySlot(obs, plan);
     onProgress(index + 1, plans.length);
   }
+  await alignMatrix(obs);
   return { slots: plans.length, cards: plans.filter(p => p.card).length };
+}
+// «Матрица» gets the JSON's equal tiles (core.matrixTile), so a collection
+// imported before keeps no larger 9 and 10. No «Матрица» — nothing to do.
+async function alignMatrix(obs) {
+  let items;
+  try { ({ sceneItems: items } = await obs.request('GetSceneItemList', { sceneName: 'Матрица' })); } catch { return; }
+  for (const item of items || []) {
+    const tile = matrixTile(Number(/^Игрок (\d+)$/.exec(item.sourceName || '')?.[1]) - 1);
+    if (!tile) continue;
+    await obs.request('SetSceneItemTransform', { sceneName: 'Матрица', sceneItemId: item.sceneItemId,
+      sceneItemTransform: { ...FIT, positionX: tile.x, positionY: tile.y, boundsWidth: tile.width, boundsHeight: tile.height } });
+  }
 }
 
 // The veto overlay (assets/veto-overlay/overlay.html) listens for this obs-browser event.

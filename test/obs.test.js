@@ -209,3 +209,17 @@ test('The dock takes OBS settings from a panel only for its own computer', () =>
     assert.throws(() => loopbackObsUrl(bad), /своём компьютере|Неверный адрес/, bad);
   }
 });
+
+test('Sending a match makes the ten «Матрица» tiles equal (the template had 9 and 10 twice as large)', async () => {
+  const obs = await mockObs();
+  obs.state.scenes.set('Матрица', Array.from({ length: 10 }, (_, i) => ({ sceneItemId: 50 + i, sourceName: `Игрок ${i + 1}`, inputKind: 'scene', enabled: true })));
+  const client = await new ObsClient(obs.url, '').connect();
+  try {
+    await applyMatch(client, { players: players() });
+    const tiles = obs.state.scenes.get('Матрица').map(it => it.transform);
+    assert.ok(tiles.every(t => t.boundsWidth === 384 && t.boundsHeight === 216 && t.boundsType === 'OBS_BOUNDS_SCALE_INNER'));
+    assert.deepEqual(tiles.map(t => [t.positionX, t.positionY]), [
+      [0, 324], [384, 324], [768, 324], [1152, 324], [1536, 324],
+      [0, 540], [384, 540], [768, 540], [1152, 540], [1536, 540]]);
+  } finally { client.close(); await obs.close(); }
+});

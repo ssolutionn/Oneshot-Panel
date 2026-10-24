@@ -716,14 +716,8 @@ export function buildObs(template, a, b, ka, kb,
     const scene = byId.get(item.source_uuid);
     const slot = /^Игрок (\d+)$/.exec(scene?.name || '');
     if (!slot) continue;
-    const index = Number(slot[1]) - 1;
-    if (index >= 0 && index < 8) {
-      fitItem(item, (index % 4) * 480,
-        Math.floor(index / 4) * 270, 480, 270);
-    }
-    if (index === 8 || index === 9) {
-      fitItem(item, (index - 8) * 960, 540, 960, 540);
-    }
+    const tile = matrixTile(Number(slot[1]) - 1);
+    if (tile) fitItem(item, tile.x, tile.y, tile.width, tile.height);
   }
 
   const uuidMap = new Map(d.sources.map(s => [s.uuid, uuidFn()]));
@@ -739,6 +733,15 @@ export function buildObs(template, a, b, ka, kb,
   d.name = `${a.name} vs ${b.name}`;
   d.resolution = { x: 1920, y: 1080 };
   return remap(d);
+}
+
+// «Матрица»: ten equal 16:9 tiles, a row per team (1–5, 6–10), in the middle of
+// the canvas. Equal on purpose: the template's larger 9 and 10 seemed to zoom
+// in when the picture switched to them.
+export const MATRIX_TILE = { width: 384, height: 216 };
+export function matrixTile(index) {
+  if (!Number.isInteger(index) || index < 0 || index > 9) return null;
+  return { x: (index % 5) * MATRIX_TILE.width, y: 540 - MATRIX_TILE.height + Math.floor(index / 5) * MATRIX_TILE.height, ...MATRIX_TILE };
 }
 
 export const MAP_POOL = [
