@@ -5,7 +5,7 @@
 // from people go into the page as text only.
 import { lanSeatLinks, lanCams, vdoRoomOf, lanId, newLanPrefix, personKey, cardKey, LAN_LIMITS, LAN_SEATS, MATCH_FORMATS } from './core.js';
 import { camKey, scanRoom } from './vdo.js';
-import { showView, camStatus } from './live.js';
+import { showView, camStatus, sendObs } from './live.js';
 import { DEFAULT_TOURNAMENT } from './assets/veto-short-links.js';
 import {
   readZip, collectTeams, AssetStore, indexedAssets, normalizeAssets, cardDocs, paletteFrom, DEFAULT_COLORS, ownKey
@@ -497,7 +497,9 @@ function renderSeats() {
         el('span', { class: 'seat-who', text: who || 'место свободно' }),
         el('code', { class: 'seat-link', text: link?.push || '' }),
         el('button', { type: 'button', class: 'copy-icon', text: '⧉', title: `Копировать ссылку места ${link?.seat || ''}`,
-          'aria-label': `Копировать ссылку места ${link?.seat || ''}`, disabled: !link, onclick: () => panel().copy(link.push) }));
+          'aria-label': `Копировать ссылку места ${link?.seat || ''}`, disabled: !link, onclick: () => panel().copy(link.push) }),
+        el('button', { type: 'button', class: 'link-button seat-frame', text: 'Кадр', 'data-seat-frame': `${side}${i}`,
+          title: `Поворот, сдвиг и зум вебки места ${link?.seat || ''}`, disabled: !link, onclick: () => panel().editSeatCamera(side, i) }));
     })));
   $('seatGrid').replaceChildren(...columns);
   const watching = $('watchCams')?.checked;
@@ -686,6 +688,8 @@ function start() {
   $('seatsNewPrefix').addEventListener('click', () => changeSeats(newLanPrefix(random(4)), panel().lan().password));
   for (const id of ['seatsRoomA', 'seatsRoomB', 'seatsPasswordA', 'seatsPasswordB', 'seatsIds', 'seatsIdsB']) $(id).addEventListener('change', changeCams);
   $('seatsScan').addEventListener('click', scanCams);
+  // The ten webcams (or the match on air, when there is one) straight into OBS.
+  $('seatsSendObs').addEventListener('click', () => sendObs());
   // Webcam dots in «Эфир» (live.js) are the seats' too.
   document.addEventListener('oneshot:cams', () => { if (!$('seatsView').hidden) renderSeats(); });
 

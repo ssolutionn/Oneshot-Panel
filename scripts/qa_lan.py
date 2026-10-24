@@ -458,6 +458,22 @@ async def director_rooms(browser, base):
     await expect(page.locator("#toast")).to_contain_text("pc11")
     await expect(page.locator(".seat-card").nth(5)).to_contain_text("?room=dota2&password=qq&broadcast&do&push=pc6")
     await expect(page.locator("#seatsClash")).to_be_hidden()
+    # «Кадр» of a seat nobody sits at yet: kept for that PC (room and ID).
+    await page.click('[data-seat-frame="b0"]')
+    await expect(page.locator("#cameraHeading")).to_have_text("Кадр: B1 · dota2 / pc6")
+    await page.click("#cameraRotate")
+    await page.click("#closeCamera")
+    frames = await page.evaluate("JSON.parse(localStorage.getItem('oneshot-camera-settings-v1'))")
+    assert frames['["lan","dota2","pc6"]']["rotation"] == 90, frames
+    # No match yet: «Камеры в OBS» still sends the ten seats' cameras straight into OBS.
+    obs = MockObs()
+    await page.route_web_socket(OBS_URL, obs.handler)
+    await page.evaluate("localStorage.setItem('oneshot-obs', JSON.stringify({mode: 'direct', url: 'ws://127.0.0.1:4455', password: 'pw'}))")
+    await page.click("#seatsSendObs")
+    await expect(page.locator("#toast")).to_contain_text("OBS обновлён: 10 камер", timeout=20000)
+    urls = {name: v.get("url", "") for name, v in obs.inputs.items()}
+    assert "view=pc1&solo=1&room=team1&" in urls["CAM 01 | team1 | pc1"], urls
+    assert "view=pc6&solo=1&room=dota2&password=qq&" in urls["CAM 06 | dota2 | pc6"], urls
     await no_sideways(page, "«Компы» with rooms")
     await ctx.close()
 

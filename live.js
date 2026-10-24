@@ -87,6 +87,21 @@ function matchPayload() {
   ].map((p, i) => ({ slot: i + 1, team: p.team, nick: p.nick, id: p.id, room: p.room, password: p.password || '', camera:p.camera }));
   return { title: `${s.a.name} vs ${s.b.name}`, match: { players, includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame, cardDocs: panel.cardDocs() } };
 }
+// A LAN without a match on air yet: the ten seats' cameras alone, named by
+// who sits there (or the room and PC), so OBS shows the webcams right away.
+function seatsPayload() {
+  const lan = panel.lan(), s = panel.snapshot();
+  if (!lan.on) throw new Error(s.matchError || 'Выбери матч.');
+  const seated = [...s.playersA, ...s.playersB];
+  const names = [s.a?.name, s.b?.name];
+  const players = lanSeatLinks(lan).map((seat, i) => ({
+    slot: i + 1, team: names[i < 5 ? 0 : 1] || seat.room, nick: seated[i]?.nick || seat.id,
+    id: seat.id, room: seat.room, password: seat.password || '', camera: seated[i]?.id === seat.id ? seated[i].camera : undefined
+  }));
+  return { title: `Камеры: ${lan.cams?.rooms.join(' и ') || lan.prefix}`, match: { players, includeCards: false, cardBase: cardBase(), cameraFrame: s.cameraFrame, cardDocs: {} } };
+}
+// What «Отправить в OBS» sends: the match on air, or on a LAN the seats' cameras.
+const obsPayload = () => panel.snapshot().matchError && panel.lan().on ? seatsPayload() : matchPayload();
 function obsJson() {
   const s = panel.snapshot();
   if (!s.template) throw new Error(s.templateError || 'Шаблон OBS ещё загружается.');
@@ -450,10 +465,11 @@ $('cameraApplyObs').addEventListener('click',()=>{
   $('cameraDialog').close();
   $('sendObsBtn').click();
 });
-$('sendObsBtn').addEventListener('click', async () => {
+$('sendObsBtn').addEventListener('click', () => sendObs());
+export async function sendObs() {
   if (sendingMatch) return;
   let payload;
-  try { payload = matchPayload(); } catch (error) { return panel.toast(error.message); }
+  try { payload = obsPayload(); } catch (error) { return panel.toast(error.message); }
   if (!obsSettings().configured) {
     return openObsSettings();
   }
@@ -474,10 +490,10 @@ $('sendObsBtn').addEventListener('click', async () => {
     panel.showError(lastObsError);
   } finally {
     sendingMatch = false;
-    button.disabled = !!panel.snapshot().matchError;
+    button.disabled = !!panel.snapshot().matchError && !panel.lan().on;
     renderObsState();
   }
-});
+}
 // ↻ next to a player made a new stream ID: the camera in OBS still has the
 // old one until the match is sent again.
 document.addEventListener('oneshot:stream-id', event => {
@@ -724,8 +740,9 @@ setInterval(() => {
 // ---------- follow the panel ----------
 function onChange() {
   const s = panel.snapshot();
-  $('sendObsBtn').disabled = sendingMatch || !!s.matchError;
-  $('cameraApplyObs').disabled = sendingMatch || !!s.matchError;
+  // On a LAN it also works before a match: then it sends the seats' cameras.
+  $('sendObsBtn').disabled = sendingMatch || (!!s.matchError && !panel.lan().on);
+  $('cameraApplyObs').disabled = sendingMatch || (!!s.matchError && !panel.lan().on);
   $('copyJsonBtn').disabled = !!s.matchError || !s.template;
   syncWatcher();
   sendVeto();

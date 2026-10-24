@@ -601,7 +601,7 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .seat-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
 .seat-column { display:grid; gap:6px; min-width:0; }
 .seat-column h3 { margin:0 0 2px; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.seat-card { display:grid; grid-template-columns:30px 10px minmax(0,1fr) auto; grid-template-areas:'seat dot who copy' 'link link link link'; align-items:center; gap:4px 8px; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--field); }
+.seat-card { display:grid; grid-template-columns:30px 10px minmax(0,1fr) auto auto; grid-template-areas:'seat dot who frame copy' 'link link link link link'; align-items:center; gap:4px 8px; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--field); }
 .seat-name { grid-area:seat; font-size:13px; }
 .seat-dot { grid-area:dot; width:9px; height:9px; border-radius:50%; background:var(--btn-line); }
 .seat-card[data-seat-cam=live] .seat-dot { background:var(--success); }
@@ -609,6 +609,7 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .seat-card[data-seat-cam=wait] .seat-dot { background:var(--warn-line); }
 .seat-who { grid-area:who; font-size:12px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .seat-card .copy-icon { grid-area:copy; }
+.seat-card .seat-frame { grid-area:frame; font-size:12px; }
 .seat-link { grid-area:link; color:var(--muted); font-size:10px; }
 .seat-settings { display:grid; grid-template-columns:minmax(0,180px) minmax(0,240px) auto; align-items:end; gap:12px; margin-top:14px; font-size:12px; }
 #seatsNote { margin-top:8px; font-size:11px; }

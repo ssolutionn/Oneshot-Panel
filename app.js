@@ -6,7 +6,7 @@ import {
   observerText, playerText, buildObs, safeFilename, validateMetadata,
   CAMERA_FRAMES, DEFAULT_CAMERA_FRAME, cameraFrame, normalizeCamera, cameraCss, cameraViewUrl,
   MAP_POOL, VETO_RULES, validateVeto, appendVeto, vetoText,
-  lanConfig, lanCams, lanTeams, lanSchedule, newLanPrefix, seatTeam
+  lanConfig, lanCams, lanSeat, lanTeams, lanSchedule, newLanPrefix, seatTeam
 } from './core.js';
 
 const $ = id => document.getElementById(id);
@@ -136,13 +136,20 @@ function applyIds() {
 }
 const CAMERA_STORE='oneshot-camera-settings-v1';
 function cameraKey(player) {
-  // On a LAN the framing belongs to the seat's webcam, whoever sits there.
-  if(state.lan.on)return JSON.stringify(['lan',player.id]);
+  // On a LAN the framing belongs to the seat's webcam, whoever sits there: its
+  // room and ID (two rooms may both have a pc1).
+  if(state.lan.on)return JSON.stringify(['lan',player.room,player.id]);
   return JSON.stringify([state.source.id,state.source.gid,player.key]);
 }
 let cameraEditor=null,cameraPreview=null,cameraPreviewTimer,cameraPreviewPoll,cameraPreviewCss='',cameraPreviewAck=false,cameraPreviewRequest='',cameraPreviewSequence=0;
+// A LAN seat's webcam on its own («Компы»): framed before anyone sits there.
+function seatPlayer(side,index) {
+  const seat=lanSeat(state.lan,side,index);
+  return {...seat,nick:seat.id,camera:normalizeCamera(state.cameras[cameraKey(seat)])};
+}
 function editorPlayer() {
-  const player=cameraEditor ? chosen(cameraEditor.side)[cameraEditor.slot] : null;
+  const player=!cameraEditor ? null : cameraEditor.seat ? seatPlayer(cameraEditor.side,cameraEditor.slot) :
+    chosen(cameraEditor.side)[cameraEditor.slot];
   return player && cameraKey(player)===cameraEditor.key ? player : null;
 }
 function cameraPreviewStyle(camera) {
@@ -214,14 +221,14 @@ function saveCamera(patch) {
   render();
   updateCameraPreview();
   $('cameraSaveHint').textContent=kept ?
-    'Сохранено для игрока. Настройки попадут в следующий JSON и отправку в OBS.' :
+    `Сохранено для ${state.lan.on ? 'компа' : 'игрока'}. Настройки попадут в следующий JSON и отправку в OBS.` :
     'Настройки работают сейчас. Браузер запретил сохранение для следующего открытия.';
 }
-function openCamera(side,slot) {
-  const player=chosen(side)[slot];
+function openCamera(side,slot,seat=false) {
+  const player=seat ? seatPlayer(side,slot) : chosen(side)[slot];
   if(!player)return;
-  cameraEditor={side,slot,key:cameraKey(player)};
-  $('cameraHeading').textContent='Кадр: '+getTeam(side).name+' / '+player.nick;
+  cameraEditor={side,slot,seat,key:cameraKey(player)};
+  $('cameraHeading').textContent='Кадр: '+(seat ? `${side.toUpperCase()}${slot+1} · ${player.room} / ${player.id}` : getTeam(side).name+' / '+player.nick);
   $('cameraSaveHint').textContent='Предпросмотр без звука. Игрок должен включить свою вебку.';
   cameraPreview=document.createElement('iframe');
   cameraPreviewCss='';
@@ -357,6 +364,8 @@ function notify() {
 }
 window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next),
   lan: () => ({ ...state.lan }), setLan,
+  // «Кадр» of a LAN seat's webcam (side 'a'|'b', seat 0–4), from «Компы».
+  editSeatCamera: (side, index) => { if (state.lan.on && ['a', 'b'].includes(side) && index >= 0 && index < 5) openCamera(side, index, true); },
   // lan.js registers the maker of self-contained cards (photos inside).
   setCardDocs: provider => { cardDocsProvider = provider; }, cardDocs: () => cardDocsNow() };
 let cardDocsProvider = null;

@@ -672,7 +672,7 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .seat-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
 .seat-column { display:grid; gap:6px; min-width:0; }
 .seat-column h3 { margin:0 0 2px; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.seat-card { display:grid; grid-template-columns:30px 10px minmax(0,1fr) auto; grid-template-areas:'seat dot who copy' 'link link link link'; align-items:center; gap:4px 8px; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--field); }
+.seat-card { display:grid; grid-template-columns:30px 10px minmax(0,1fr) auto auto; grid-template-areas:'seat dot who frame copy' 'link link link link link'; align-items:center; gap:4px 8px; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--field); }
 .seat-name { grid-area:seat; font-size:13px; }
 .seat-dot { grid-area:dot; width:9px; height:9px; border-radius:50%; background:var(--btn-line); }
 .seat-card[data-seat-cam=live] .seat-dot { background:var(--success); }
@@ -680,6 +680,7 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .seat-card[data-seat-cam=wait] .seat-dot { background:var(--warn-line); }
 .seat-who { grid-area:who; font-size:12px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .seat-card .copy-icon { grid-area:copy; }
+.seat-card .seat-frame { grid-area:frame; font-size:12px; }
 .seat-link { grid-area:link; color:var(--muted); font-size:10px; }
 .seat-settings { display:grid; grid-template-columns:minmax(0,180px) minmax(0,240px) auto; align-items:end; gap:12px; margin-top:14px; font-size:12px; }
 #seatsNote { margin-top:8px; font-size:11px; }
@@ -1986,13 +1987,20 @@ function applyIds() {
 }
 const CAMERA_STORE='oneshot-camera-settings-v1';
 function cameraKey(player) {
-  // On a LAN the framing belongs to the seat's webcam, whoever sits there.
-  if(state.lan.on)return JSON.stringify(['lan',player.id]);
+  // On a LAN the framing belongs to the seat's webcam, whoever sits there: its
+  // room and ID (two rooms may both have a pc1).
+  if(state.lan.on)return JSON.stringify(['lan',player.room,player.id]);
   return JSON.stringify([state.source.id,state.source.gid,player.key]);
 }
 let cameraEditor=null,cameraPreview=null,cameraPreviewTimer,cameraPreviewPoll,cameraPreviewCss='',cameraPreviewAck=false,cameraPreviewRequest='',cameraPreviewSequence=0;
+// A LAN seat's webcam on its own («Компы»): framed before anyone sits there.
+function seatPlayer(side,index) {
+  const seat=lanSeat(state.lan,side,index);
+  return {...seat,nick:seat.id,camera:normalizeCamera(state.cameras[cameraKey(seat)])};
+}
 function editorPlayer() {
-  const player=cameraEditor ? chosen(cameraEditor.side)[cameraEditor.slot] : null;
+  const player=!cameraEditor ? null : cameraEditor.seat ? seatPlayer(cameraEditor.side,cameraEditor.slot) :
+    chosen(cameraEditor.side)[cameraEditor.slot];
   return player && cameraKey(player)===cameraEditor.key ? player : null;
 }
 function cameraPreviewStyle(camera) {
@@ -2064,14 +2072,14 @@ function saveCamera(patch) {
   render();
   updateCameraPreview();
   $('cameraSaveHint').textContent=kept ?
-    'Сохранено для игрока. Настройки попадут в следующий JSON и отправку в OBS.' :
+    `Сохранено для ${state.lan.on ? 'компа' : 'игрока'}. Настройки попадут в следующий JSON и отправку в OBS.` :
     'Настройки работают сейчас. Браузер запретил сохранение для следующего открытия.';
 }
-function openCamera(side,slot) {
-  const player=chosen(side)[slot];
+function openCamera(side,slot,seat=false) {
+  const player=seat ? seatPlayer(side,slot) : chosen(side)[slot];
   if(!player)return;
-  cameraEditor={side,slot,key:cameraKey(player)};
-  $('cameraHeading').textContent='Кадр: '+getTeam(side).name+' / '+player.nick;
+  cameraEditor={side,slot,seat,key:cameraKey(player)};
+  $('cameraHeading').textContent='Кадр: '+(seat ? `${side.toUpperCase()}${slot+1} · ${player.room} / ${player.id}` : getTeam(side).name+' / '+player.nick);
   $('cameraSaveHint').textContent='Предпросмотр без звука. Игрок должен включить свою вебку.';
   cameraPreview=document.createElement('iframe');
   cameraPreviewCss='';
@@ -2207,6 +2215,8 @@ function notify() {
 }
 window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next),
   lan: () => ({ ...state.lan }), setLan,
+  // «Кадр» of a LAN seat's webcam (side 'a'|'b', seat 0–4), from «Компы».
+  editSeatCamera: (side, index) => { if (state.lan.on && ['a', 'b'].includes(side) && index >= 0 && index < 5) openCamera(side, index, true); },
   // lan.js registers the maker of self-contained cards (photos inside).
   setCardDocs: provider => { cardDocsProvider = provider; }, cardDocs: () => cardDocsNow() };
 let cardDocsProvider = null;

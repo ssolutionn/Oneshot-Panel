@@ -68,7 +68,10 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   `seatsPasswordA/B`, `seatsIds`/`seatsIdsB`; в поле комнаты можно вставить ссылку директора —
   `vdoRoomOf` берёт комнату и пароль; «Найти компы» `seatsScan` — `vdo.js scanRoom` (скрытый
   scene-зритель без видео, getStreamIDs) ставит тех, кто стримит в комнате, по порядку pc1…pc10;
-  предупреждение `seatsClash` при одинаковых паролях и общих ID; смена — с
+  предупреждение `seatsClash` при одинаковых паролях и общих ID; «Кадр» у каждого места
+  (`data-seat-frame`, `oneshotPanel.editSeatCamera` — то же окно `cameraDialog`, кадр хранится за
+  компом: `cameraKey` = ['lan', room, id]); «▶ Камеры в OBS» `seatsSendObs` = `live.js sendObs`:
+  в ЛАН без готового матча «Отправить в OBS» шлёт десять камер мест (`seatsPayload`); смена — с
   подтверждением), «Событие» (`evName`,
   цвета `evAccent/evDeep/evBlack` с превью `evPreview`, файл события `evExport`/`evImport`
   — `{format:'oneshot-event', v:1, lan, assets}`, в нём пароль комнаты; `evClear`). Правки — в
@@ -92,7 +95,7 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   сверяет у мест пару, статус вебок — `camKey(room, id)` из vdo.js (CamWatch отдаёт и ID, и пару).
   VDO.Ninja добавляет к ID хэш пароля комнаты, а не имя комнаты: без разных паролей pc1 двух
   комнат может оказаться одним потоком — отсюда `seatsClash`.
-  `seatTeam` сажает выбранных, `cameraKey` = ['lan', id], ↻/✎ скрыты, ID потоков таблицы не трогаются.
+  `seatTeam` сажает выбранных, `cameraKey` = ['lan', room, id], ↻/✎ скрыты, ID потоков таблицы не трогаются.
   Фото и лого: `lan-event.js` — без DOM (тесты `test/lan-event.test.js`): `readZip`
   (stored/deflate через DecompressionStream, без ZIP64), `collectTeams`, хранение `AssetStore`:
   IndexedDB `oneshot-lan` под `ownKey(id)` = `#<id>` команды/игрока (`#` не бывает в
@@ -566,7 +569,7 @@ Netlify проверяет локальные фото, докачивает н�
   ltZip ltFolder ltImage ltCardDialog ltCardCanvas ltCardCaption matchesNavBtn matchesView
   lmTemplate lmAdd lmList seatsNavBtn seatsDot seatsView seatsWatch seatsCopyAll seatGrid
   seatsPrefix seatsPassword seatsNewPrefix seatsNote seatsPrefixBox seatsRoomsBox seatsRoomA seatsRoomB
-  seatsPasswordA seatsPasswordB seatsIds seatsIdsB seatsScan seatsClash eventNavBtn eventView evName evAccent
+  seatsPasswordA seatsPasswordB seatsIds seatsIdsB seatsScan seatsClash seatsSendObs eventNavBtn eventView evName evAccent
   evDeep evBlack evColorsReset evPreview evExport evImport evStatus evFile evClear footerNote
   serverGuide serverStartCommand serverStartWindows
   serverNavBtn serverDot serverView serverHeading serverSetup serverCopyRound serverStatus
