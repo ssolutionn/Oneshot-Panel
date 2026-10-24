@@ -1945,8 +1945,18 @@ function sourceTag() {
 }
 const savedMatch = readStorage('oneshot-webcam-match-v1');
 const savedCameraFrame=readStorage('oneshot-camera-frame-v1');
-if(typeof savedCameraFrame==='string' && Object.hasOwn(CAMERA_FRAMES,savedCameraFrame))state.cameraFrame=savedCameraFrame;
-else if(Object.hasOwn(CAMERA_FRAMES,globalThis.oneshotEvent?.cameras?.frame))state.cameraFrame=globalThis.oneshotEvent.cameras.frame;
+// A LAN event's frame wins once each time the event changes it (REU: +20 px to
+// spare); after that a frame picked here stays until the event changes again.
+const eventCameraFrame=globalThis.oneshotEvent?.cameras?.frame;
+const eventFrameNew=globalThis.oneshotEvent?.kind==='manual' && Object.hasOwn(CAMERA_FRAMES,eventCameraFrame) &&
+  readStorage('oneshot-camera-frame-event')!==eventCameraFrame;
+if(eventFrameNew){
+  state.cameraFrame=eventCameraFrame;
+  writeStorage('oneshot-camera-frame-v1',eventCameraFrame);
+  writeStorage('oneshot-camera-frame-event',eventCameraFrame);
+}
+else if(typeof savedCameraFrame==='string' && Object.hasOwn(CAMERA_FRAMES,savedCameraFrame))state.cameraFrame=savedCameraFrame;
+else if(Object.hasOwn(CAMERA_FRAMES,eventCameraFrame))state.cameraFrame=eventCameraFrame;
 $('cameraFrame').value=state.cameraFrame;
 if (savedMatch && savedMatch.source === sourceTag()) {
   for (const key of ['a', 'b', 'matchKey']) {

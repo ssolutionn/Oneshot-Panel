@@ -446,7 +446,10 @@ async def director_rooms(browser, base):
     await ctx.route("https://vdo.ninja/**", lambda route: route.fulfill(content_type="text/html", body=SCAN_VDO))
     page = await ctx.new_page()
     page.on("dialog", lambda dialog: asyncio.ensure_future(dialog.accept()))
+    # A frame picked earlier in this browser gives way once to the event's (+20 px to spare).
+    await page.add_init_script("if (!sessionStorage.getItem('framed')) { sessionStorage.setItem('framed', '1'); localStorage.setItem('oneshot-camera-frame-v1', JSON.stringify('inner43')); }")
     await page.goto(base + "/#seats")
+    assert await page.input_value("#cameraFrame") == "inner43_over20"
     await page.click("#seatsNavBtn")
     await page.fill("#seatsRoomB", "https://vdo.ninja/?director=dota2&password=qq")
     await page.dispatch_event("#seatsRoomB", "change")
