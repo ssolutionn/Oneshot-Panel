@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "slug": "new-dota-lan",
+  "name": "Новый Dota ЛАН",
+  "kind": "manual",
+  "language": "ru",
+  "modules": {
+    "teams": true, "matches": true, "cameras": true, "veto": false, "seats": true,
+    "server": false, "obs": true, "settings": true, "lobby": false, "bookmakers": false
+  },
+  "cameras": { "frame": "square" }
+}

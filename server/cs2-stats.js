@@ -220,7 +220,7 @@ function analyze(events, game) {
 export function playerStats(events, game = lastGame(events)) {
   const { players } = analyze(events, game);
   return players
-    .filter(player => player.kills || player.deaths || player.damage || player.plants || player.defuses || player.assists)
+    .filter(player => player.kills || player.deaths || player.damage || player.friendlyDamage || player.plants || player.defuses || player.assists)
     .sort((a, b) => b.kills - a.kills || b.damage - a.damage || b.assists - a.assists ||
       a.name.localeCompare(b.name, 'ru'))
     .map(({ key, ...player }) => ({ ...player, headshotRate: player.kills ? Math.round(player.headshots * 100 / player.kills) : 0,

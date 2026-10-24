@@ -120,7 +120,10 @@ async function start() {
   }
   let local = false;
   try { local = Boolean((await (await api('/api/cs2-status')).json())?.ok); } catch { /* not the local panel */ }
-  $('serverGuide').hidden = local || !guide;
+  // A LAN event without a CS2 server (a Dota LAN) never shows the tab, even with
+  // a journal running; an online event (CyberClash) shows it when the journal does.
+  if (!guide && event?.kind === 'manual') { $('serverNavBtn').hidden = true; return; }
+  $('serverGuide').hidden = local;
   for (const id of ['serverSetup', 'serverCopyRound', 'serverSayForm', 'serverStatus', 'serverRounds', 'serverLog']) $(id).hidden = !local;
   document.querySelector('#serverView .cs2-filters').hidden = !local;
   if (!local) return;

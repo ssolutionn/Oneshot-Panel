@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="referrer" content="no-referrer">
+  <title>Мобильное вето · Oneshot</title>
+  <link rel="icon" type="image/png" sizes="256x256" href="/assets/favicon-night.png">
+  <link rel="stylesheet" href="/veto.css">
+  <style>
+    /* Mobile-first enhancements for captains on phones */
+    body { -webkit-tap-highlight-color: transparent; }
+    .vt-main { padding: 12px 16px 40px; max-width: 100%; }
+    .vt-map-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 12px; }
+    @media (min-width: 600px) { .vt-map-grid { grid-template-columns: repeat(3, 1fr); } }
+    .vt-map { aspect-ratio: 16/10; border-radius: 10px; overflow: hidden; position: relative; }
+    .vt-mobile-banner { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; text-align: center; }
+    .vt-mobile-banner h2 { font-size: 16px; margin: 0 0 4px; }
+    .vt-mobile-banner p { font-size: 13px; color: var(--muted); margin: 0; }
+  </style>
+  <script type="module" src="/veto.js"></script>
+</head>
+<body class="mobile-veto-view">
+  <div class="vt-smoke-background" aria-hidden="true"></div>
+  <header class="vt-top" style="min-height: 64px; padding: 12px 16px;">
+    <div class="vt-heading">
+      <span class="vt-eyebrow" id="vtEyebrow">МОБИЛЬНОЕ ВЕТО · ONESHOT</span>
+      <h1 id="vtTitle" style="font-size: 20px;">Выбор карт</h1>
+    </div>
+    <div class="vt-clock" id="vtClock" hidden>
+      <span class="vt-clock-time" id="vtClockTime" style="font-size: 18px;">5:00</span>
+    </div>
+  </header>
+
+  <main class="vt-main">
+    <div class="vt-mobile-banner" id="vtMobileBanner">
+      <h2 id="vtTurnTitle">Ожидание подключения...</h2>
+      <p id="vtTurnSub">Капитаны подключаются к комнате вето</p>
+    </div>
+
+    <p class="vt-error" id="vtError" role="alert" hidden></p>
+    <p class="vt-note" id="vtLinkStatus" role="status" hidden>Открываем ссылку капитана...</p>
+
+    <!-- Room container populated by veto.js -->
+    <div id="vtRoomContainer"></div>
+  </main>
+</body>
+</html>

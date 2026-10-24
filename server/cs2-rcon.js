@@ -31,7 +31,7 @@ export function readPackets(buffer) {
 export function rconExec({ host = '127.0.0.1', port = 27015, password, command, timeout = 4000, settle = 300 }) {
   return new Promise((resolve, reject) => {
     if (!password) return reject(new Error('Пароль RCON не задан (переменная CS2_RCON_PASSWORD).'));
-    const socket = net.connect({ host, port });
+    const socket = net.connect({ host: host || '127.0.0.1', port: Number(port) || 27015 });
     let pending = Buffer.alloc(0), authed = false, answer = '', timer, finished = false;
     const done = (error, value) => {
       if (finished) return;

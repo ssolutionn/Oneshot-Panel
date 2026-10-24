@@ -776,7 +776,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
       </div>
       <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
       <label class="camera-frame-setting">Рамка вебок
-        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option></select>
+        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option></select>
         <span>Заполнение с обрезкой краёв. «Кадр» под ником — поворот и положение игрока.</span>
       </label>
       <div class="export-meta">
@@ -1126,7 +1126,10 @@ const CAMERA_FRAMES = {
   // Key kept for saved settings: fields 300 px left/right and 36 px top/bottom.
   inner43: { x:300, y:36, width:1320, height:1008 },
   full43: { x:240, y:0, width:1440, height:1080 },
-  wide: { x:0, y:0, width:1920, height:1080 }
+  wide: { x:0, y:0, width:1920, height:1080 },
+  // A square crop is centered on the 1920×1080 canvas. OBS can place this
+  // source anywhere later without stretching it.
+  square: { x:420, y:0, width:1080, height:1080 }
 };
 function cameraFrame(value = DEFAULT_CAMERA_FRAME) {
   return { ...CAMERA_FRAMES[typeof value==='string' && Object.hasOwn(CAMERA_FRAMES,value) ? value : DEFAULT_CAMERA_FRAME] };
@@ -1156,6 +1159,12 @@ function cameraViewUrl(player) {
 function cameraGeometry(player, frame = DEFAULT_CAMERA_FRAME) {
   const rect=cameraFrame(frame),{rotation}=normalizeCamera(player?.camera);
   const quarter=rotation===90 || rotation===270;
+  if (frame === 'square') return {
+    rotation,
+    x: rect.x + (rotation === 90 || rotation === 180 ? rect.width : 0),
+    y: rect.y + (rotation === 180 || rotation === 270 ? rect.height : 0),
+    width: rect.width, height: rect.height
+  };
   return {rotation,
     x:rect.x+(rotation===90 || rotation===180 ? rect.width : 0),
     y:rect.y+(rotation===180 || rotation===270 ? rect.height : 0),
@@ -1863,6 +1872,7 @@ function sourceTag() {
 const savedMatch = readStorage('oneshot-webcam-match-v1');
 const savedCameraFrame=readStorage('oneshot-camera-frame-v1');
 if(typeof savedCameraFrame==='string' && Object.hasOwn(CAMERA_FRAMES,savedCameraFrame))state.cameraFrame=savedCameraFrame;
+else if(Object.hasOwn(CAMERA_FRAMES,globalThis.oneshotEvent?.cameras?.frame))state.cameraFrame=globalThis.oneshotEvent.cameras.frame;
 $('cameraFrame').value=state.cameraFrame;
 if (savedMatch && savedMatch.source === sourceTag()) {
   for (const key of ['a', 'b', 'matchKey']) {

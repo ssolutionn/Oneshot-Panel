@@ -219,7 +219,10 @@ export const CAMERA_FRAMES = {
   // Key kept for saved settings: fields 300 px left/right and 36 px top/bottom.
   inner43: { x:300, y:36, width:1320, height:1008 },
   full43: { x:240, y:0, width:1440, height:1080 },
-  wide: { x:0, y:0, width:1920, height:1080 }
+  wide: { x:0, y:0, width:1920, height:1080 },
+  // A square crop is centered on the 1920×1080 canvas. OBS can place this
+  // source anywhere later without stretching it.
+  square: { x:420, y:0, width:1080, height:1080 }
 };
 export function cameraFrame(value = DEFAULT_CAMERA_FRAME) {
   return { ...CAMERA_FRAMES[typeof value==='string' && Object.hasOwn(CAMERA_FRAMES,value) ? value : DEFAULT_CAMERA_FRAME] };
@@ -249,6 +252,12 @@ export function cameraViewUrl(player) {
 export function cameraGeometry(player, frame = DEFAULT_CAMERA_FRAME) {
   const rect=cameraFrame(frame),{rotation}=normalizeCamera(player?.camera);
   const quarter=rotation===90 || rotation===270;
+  if (frame === 'square') return {
+    rotation,
+    x: rect.x + (rotation === 90 || rotation === 180 ? rect.width : 0),
+    y: rect.y + (rotation === 180 || rotation === 270 ? rect.height : 0),
+    width: rect.width, height: rect.height
+  };
   return {rotation,
     x:rect.x+(rotation===90 || rotation===180 ? rect.width : 0),
     y:rect.y+(rotation===180 || rotation===270 ? rect.height : 0),

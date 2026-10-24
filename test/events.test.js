@@ -73,6 +73,15 @@ test('templates: LAN and blank are ready as they are; the sheets one waits for r
   assert.deepEqual(validateEvent(json('events/_templates/lan.json')).errors, []);
   assert.deepEqual(validateEvent(json('events/_templates/blank.json')).errors, []);
   assert.deepEqual(enabledModules(loadEvent(json('events/_templates/lan.json'))), ['teams', 'matches', 'cameras', 'veto', 'server', 'seats', 'obs', 'settings']);
+  // Dota LAN shares the existing five-per-side webcam seats, but must not
+  // expose the CS2-only journal or veto over the CS2 map pool.
+  const dota = json('events/_templates/dota-lan.json');
+  assert.deepEqual(validateEvent(dota).errors, []);
+  const dotaEvent = loadEvent(dota);
+  const dotaModules = enabledModules(dotaEvent);
+  assert.deepEqual(dotaModules, ['teams', 'matches', 'cameras', 'seats', 'obs', 'settings']);
+  assert.equal(dotaEvent.cameras.frame, 'square');
+  assert.ok(!dotaModules.includes('server') && !dotaModules.includes('veto'));
   const sheets = json('events/_templates/sheets-tournament.json');
   const { errors } = validateEvent(sheets);
   assert.deepEqual(errors.map(e => e.split(':')[0]), ['source.roster', 'source.schedule']);

@@ -30,6 +30,25 @@ test('camera rotation keeps all four corners exactly inside the chosen frame',()
   }
   assert.deepEqual(cameraFrame('full43'),{x:240,y:0,width:1440,height:1080});
   assert.deepEqual(cameraFrame('wide'),{x:0,y:0,width:1920,height:1080});
+  assert.deepEqual(cameraFrame('square'),{x:420,y:0,width:1080,height:1080});
+  const a=team('Square A'),b=team('Square B');
+  for (const rotation of [0, 90, 180, 270]) {
+    const player={...a.players[0],camera:{rotation}};
+    a.players[0].camera=player.camera;
+    const x = rotation === 90 || rotation === 180 ? 1500 : 420;
+    const y = rotation === 180 || rotation === 270 ? 1080 : 0;
+    const square=cameraGeometry(player,'square');
+    assert.deepEqual(square,{rotation,x,y,width:1080,height:1080});
+    const document=buildObs(template,a,b,a.players.map(p=>p.key),b.players.map(p=>p.key),undefined,{cameraFrame:'square'});
+    const scene=document.sources.find(s=>s.name==='Игрок 1');
+    const item=scene.settings.items.find(it=>it.name.startsWith('CAM '));
+    const plan=slotPlan([{inputKind:'browser_source',sourceName:'CAM old',sceneItemId:1}],
+      {...player,team:a.name,slot:1},{cameraFrame:'square'});
+    assert.deepEqual(item.pos,{x,y});
+    assert.deepEqual(item.bounds,{x:1080,y:1080});
+    assert.deepEqual([plan.camera.transform.positionX,plan.camera.transform.positionY], [x,y]);
+    assert.deepEqual([plan.camera.transform.boundsWidth,plan.camera.transform.boundsHeight], [1080,1080]);
+  }
 });
 
 test('cover and pan use VDO options with numeric CSS, and screen directions survive rotation',()=>{
@@ -76,7 +95,7 @@ test('an older panel keeps the previous full-frame and contain behavior through 
 });
 
 test('JSON export and live OBS apply share camera settings and geometry; cards stay upright',()=>{
-  for(const frame of ['inner43','full43','wide']){
+  for(const frame of ['inner43','full43','wide','square']){
     for(const rotation of [0,90,180,270]){
       const a=team('A'),b=team('B');
       a.players[0].camera={rotation,panX:20,panY:70};
