@@ -449,6 +449,10 @@
           <label class="seat-ids">ID компов A <span class="muted">(пять, через запятую)</span><input id="seatsIds" autocomplete="off" spellcheck="false" maxlength="220"></label>
           <label class="seat-ids">ID компов B <span class="muted">(пусто — как у A)</span><input id="seatsIdsB" autocomplete="off" spellcheck="false" maxlength="220"></label>
           <button id="seatsScan" class="button small seat-ids" type="button">Найти компы в комнатах</button>
+          <div class="seat-ids seat-directors">
+            <span>Директор A: <a id="seatsDirectorA" target="_blank" rel="noreferrer"></a> <button id="seatsDirectorCopyA" class="copy-icon" type="button" aria-label="Копировать ссылку директора A" title="Копировать">⧉</button></span>
+            <span>Директор B: <a id="seatsDirectorB" target="_blank" rel="noreferrer"></a> <button id="seatsDirectorCopyB" class="copy-icon" type="button" aria-label="Копировать ссылку директора B" title="Копировать">⧉</button></span>
+          </div>
         </div>
         <div class="seat-plates" aria-labelledby="seatsPlatesHeading">
           <h3 id="seatsPlatesHeading">Заглушка, когда вебки нет</h3>

@@ -630,6 +630,8 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .seat-rooms { grid-template-columns:minmax(0,180px) minmax(0,240px); }
 .seat-rooms .seat-ids { grid-column:1/-1; }
 .seat-rooms .button { justify-self:start; }
+.seat-directors { display:flex; flex-wrap:wrap; gap:6px 18px; font-size:12px; }
+.seat-directors span { display:inline-flex; align-items:center; gap:6px; min-width:0; overflow-wrap:anywhere; }
 #seatsClash { margin:10px 0 0; }
 @media(max-width:900px) {
   .em-row { grid-template-columns:24px 96px minmax(0,1fr) 76px; }

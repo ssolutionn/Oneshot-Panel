@@ -452,6 +452,8 @@ async def director_rooms(browser, base):
     await page.dispatch_event("#seatsRoomB", "change")
     await expect(page.locator("#seatsRoomB")).to_have_value("dota2")
     assert await page.input_value("#seatsPasswordB") == "qq"
+    await expect(page.locator("#seatsDirectorA")).to_have_attribute("href", "https://vdo.ninja/?director=team1")
+    await expect(page.locator("#seatsDirectorB")).to_have_attribute("href", "https://vdo.ninja/?director=dota2&password=qq")
     await page.click("#seatsScan")
     await expect(page.locator("#seatsIdsB")).to_have_value("pc6, pc7, pc8, pc9, pc10", timeout=20000)
     await expect(page.locator("#seatsIds")).to_have_value("pc1, pc2, pc3, pc4, pc5")

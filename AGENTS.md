@@ -66,7 +66,7 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   `live.js camStatus()` / событие `oneshot:cams` — в ЛАН live.js следит за всеми 10 потоками мест,
   занятыми и нет; ссылки; `seatsPrefix`/`seatsPassword`, или у события свои комнаты — `seatsRoomA/B`,
   `seatsPasswordA/B`, `seatsIds`/`seatsIdsB`; в поле комнаты можно вставить ссылку директора —
-  `vdoRoomOf` берёт комнату и пароль; «Найти компы» `seatsScan` — `vdo.js scanRoom` (скрытый
+  `vdoRoomOf` берёт комнату и пароль; ссылки директоров комнат — `seatsDirectorA/B` (`directorUrl`, копировать — `seatsDirectorCopyA/B`); «Найти компы» `seatsScan` — `vdo.js scanRoom` (скрытый
   scene-зритель без видео, getStreamIDs) ставит тех, кто стримит в комнате, по порядку pc1…pc10;
   предупреждение `seatsClash` при одинаковых паролях и общих ID; «Кадр» у каждого места
   (`data-seat-frame`, `oneshotPanel.editSeatCamera` — то же окно `cameraDialog`, кадр хранится за
@@ -577,7 +577,7 @@ Netlify проверяет локальные фото, докачивает н�
   lmTemplate lmAdd lmList seatsNavBtn seatsDot seatsView seatsWatch seatsCopyAll seatGrid
   seatsPrefix seatsPassword seatsNewPrefix seatsNote seatsPrefixBox seatsRoomsBox seatsRoomA seatsRoomB
   seatsPasswordA seatsPasswordB seatsIds seatsIdsB seatsScan seatsClash seatsSendObs seatsPlateA seatsPlateB
-  seatsPlateNameA seatsPlateNameB seatsPlatePickA seatsPlatePickB seatsPlateClearA seatsPlateClearB seatsPlateFile seatsPlatesHeading eventNavBtn eventView evName evAccent
+  seatsDirectorA seatsDirectorB seatsDirectorCopyA seatsDirectorCopyB seatsPlateNameA seatsPlateNameB seatsPlatePickA seatsPlatePickB seatsPlateClearA seatsPlateClearB seatsPlateFile seatsPlatesHeading eventNavBtn eventView evName evAccent
   evDeep evBlack evColorsReset evPreview evExport evImport evStatus evFile evClear footerNote
   serverGuide serverStartCommand serverStartWindows
   serverNavBtn serverDot serverView serverHeading serverSetup serverCopyRound serverStatus

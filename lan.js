@@ -3,7 +3,7 @@
 // «Матчи», «Компы» and «Событие». app.js keeps the data (window.oneshotPanel
 // .lan / setLan); here it is edited right where it is shown. Names and nicks
 // from people go into the page as text only.
-import { lanSeatLinks, lanCams, vdoRoomOf, lanId, newLanPrefix, personKey, cardKey, LAN_LIMITS, LAN_SEATS, MATCH_FORMATS } from './core.js';
+import { lanSeatLinks, lanCams, vdoRoomOf, directorUrl, lanId, newLanPrefix, personKey, cardKey, LAN_LIMITS, LAN_SEATS, MATCH_FORMATS } from './core.js';
 import { camKey, scanRoom } from './vdo.js';
 import { showView, camStatus, sendObs } from './live.js';
 import { DEFAULT_TOURNAMENT } from './assets/veto-short-links.js';
@@ -473,6 +473,12 @@ function renderSeats() {
     fill('seatsPasswordA', lan.cams.passwords[0]); fill('seatsPasswordB', lan.cams.passwords[1]);
     fill('seatsIds', lan.cams.ids.join(', '));
     fill('seatsIdsB', lan.cams.idsB?.join(', ') || '');
+    // Each room's director link, to open the room in VDO.Ninja.
+    for (const [i, suffix] of [[0, 'A'], [1, 'B']]) {
+      const url = directorUrl({ room: lan.cams.rooms[i], password: lan.cams.passwords[i] });
+      $(`seatsDirector${suffix}`).href = url;
+      $(`seatsDirector${suffix}`).textContent = url;
+    }
   }
   $('seatsNote').textContent = lan.cams ? 'Комнаты, пароли и ID меняют ссылки компов и камер в OBS: после смены открой новые ссылки на местах и скачай JSON заново.' :
     'Префикс и пароль меняют ссылки всех десяти компов: после смены открой новые ссылки на местах.';
@@ -732,6 +738,10 @@ function start() {
   $('seatsNewPrefix').addEventListener('click', () => changeSeats(newLanPrefix(random(4)), panel().lan().password));
   for (const id of ['seatsRoomA', 'seatsRoomB', 'seatsPasswordA', 'seatsPasswordB', 'seatsIds', 'seatsIdsB']) $(id).addEventListener('change', changeCams);
   $('seatsScan').addEventListener('click', scanCams);
+  for (const suffix of ['A', 'B']) $(`seatsDirectorCopy${suffix}`).addEventListener('click', () => {
+    const url = $(`seatsDirector${suffix}`).href;
+    if (url) panel().copy(url);
+  });
   for (const [side, suffix] of [['a', 'A'], ['b', 'B']]) {
     $(`seatsPlatePick${suffix}`).addEventListener('click', () => { plateSide = side; $('seatsPlateFile').click(); });
     $(`seatsPlateClear${suffix}`).addEventListener('click', () => clearPlate(side));
