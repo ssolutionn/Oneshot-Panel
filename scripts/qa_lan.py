@@ -483,6 +483,11 @@ async def director_rooms(browser, base):
     await expect(page.locator("#seatsPlateNameB")).not_to_contain_text("нет картинки", timeout=15000)
     await expect(page.locator("#seatsPlateClearB")).to_be_enabled()
     await expect(page.locator("#seatsPlateClearA")).to_be_disabled()
+    # Zoom and pan of an empty seat's PC go to OBS with the seats (nobody sits there yet).
+    await page.click('[data-seat-frame="a0"]')
+    await page.click('[data-camera-zoom="10"]')
+    await page.click('[data-camera-pan="panX:-10"]')
+    await page.click("#closeCamera")
     # No match yet: «Камеры в OBS» still sends the ten seats' cameras straight into OBS.
     obs = MockObs()
     await page.route_web_socket(OBS_URL, obs.handler)
@@ -491,6 +496,11 @@ async def director_rooms(browser, base):
     await expect(page.locator("#toast")).to_contain_text("OBS обновлён: 10 камер", timeout=20000)
     urls = {name: v.get("url", "") for name, v in obs.inputs.items()}
     assert "view=pc1&solo=1&room=team1&" in urls["CAM 01 | team1 | pc1"], urls
+    import base64 as _b64
+    from urllib.parse import parse_qs, urlsplit
+    css = _b64.b64decode(parse_qs(urlsplit(urls["CAM 01 | team1 | pc1"]).query)["b64css"][0]).decode()
+    assert "scale:1.1!" in css and "object-position:40% 50%" in css, css
+    assert "b64css" not in urls["CAM 02 | team1 | pc2"], urls["CAM 02 | team1 | pc2"]
     assert "view=pc6&solo=1&room=dota2&password=qq&" in urls["CAM 06 | dota2 | pc6"], urls
     cards = {name: v for name, v in obs.inputs.items() if name.startswith("CARD ")}
     b_card = unquote(cards["CARD 06 | dota2 | pc6"]["url"])

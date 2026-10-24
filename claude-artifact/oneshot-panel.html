@@ -2249,6 +2249,8 @@ function notify() {
 window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next),
   lan: () => ({ ...state.lan }), setLan,
   // «Кадр» of a LAN seat's webcam (side 'a'|'b', seat 0–4), from «Компы».
+  // The frame saved for a seat's PC («Кадр» in «Компы»), for sending the seats alone.
+  seatCamera: (side, index) => state.lan.on ? seatPlayer(side, index).camera : undefined,
   editSeatCamera: (side, index) => { if (state.lan.on && ['a', 'b'].includes(side) && index >= 0 && index < 5) openCamera(side, index, true); },
   // lan.js registers the maker of self-contained cards (photos inside).
   setCardDocs: provider => { cardDocsProvider = provider; }, cardDocs: () => cardDocsNow(),

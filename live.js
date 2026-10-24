@@ -96,7 +96,8 @@ function seatsPayload() {
   const names = [s.a?.name, s.b?.name];
   const players = lanSeatLinks(lan).map((seat, i) => ({
     slot: i + 1, team: names[i < 5 ? 0 : 1] || seat.room, nick: seated[i]?.nick || seat.id,
-    id: seat.id, room: seat.room, password: seat.password || '', camera: seated[i]?.id === seat.id ? seated[i].camera : undefined
+    // The frame belongs to the PC: the same one whoever sits there, nobody included.
+    id: seat.id, room: seat.room, password: seat.password || '', camera: panel.seatCamera(i < 5 ? 'a' : 'b', i % 5)
   }));
   // A side's placeholder goes under its cameras; the other side's cards are blank.
   const plates = [panel.plate('a'), panel.plate('b')];
