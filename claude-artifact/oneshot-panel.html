@@ -1708,13 +1708,12 @@ function buildObs(template, a, b, ka, kb,
   return remap(d);
 }
 
-// «Матрица»: 1–8 in a 480×270 grid on top; 9 and 10 the same size, each in the
-// middle of the bottom half it used to fill (a larger 9 and 10 looked like a
-// zoom when the picture switched to them).
+// «Матрица» as in the template: 1–8 in a 480×270 grid on top, 9 and 10 each
+// filling its half of the bottom (960×540).
 function matrixTile(index) {
   if (!Number.isInteger(index) || index < 0 || index > 9) return null;
   return index < 8 ? { x: (index % 4) * 480, y: Math.floor(index / 4) * 270, width: 480, height: 270 } :
-    { x: 240 + (index - 8) * 960, y: 675, width: 480, height: 270 };
+    { x: (index - 8) * 960, y: 540, width: 960, height: 540 };
 }
 
 const MAP_POOL = [

@@ -210,7 +210,7 @@ test('The dock takes OBS settings from a panel only for its own computer', () =>
   }
 });
 
-test('Sending a match puts the «Матрица» tiles where the JSON has them: 9 and 10 the size of the rest', async () => {
+test('Sending a match puts the «Матрица» tiles where the JSON has them: 1–8 small, 9 and 10 large', async () => {
   const obs = await mockObs();
   obs.state.scenes.set('Матрица', Array.from({ length: 10 }, (_, i) => ({ sceneItemId: 50 + i, sourceName: `Игрок ${i + 1}`, inputKind: 'scene', enabled: true })));
   const client = await new ObsClient(obs.url, '').connect();
@@ -220,6 +220,6 @@ test('Sending a match puts the «Матрица» tiles where the JSON has them:
     assert.deepEqual(tiles.map(t => [t.positionX, t.positionY, t.boundsWidth, t.boundsHeight]), [
       [0, 0, 480, 270], [480, 0, 480, 270], [960, 0, 480, 270], [1440, 0, 480, 270],
       [0, 270, 480, 270], [480, 270, 480, 270], [960, 270, 480, 270], [1440, 270, 480, 270],
-      [240, 675, 480, 270], [1200, 675, 480, 270]]);
+      [0, 540, 960, 540], [960, 540, 960, 540]]);
   } finally { client.close(); await obs.close(); }
 });
