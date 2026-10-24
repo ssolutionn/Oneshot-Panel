@@ -221,8 +221,8 @@ export async function applyMatch(obs, match, onProgress = () => {}) {
   await alignMatrix(obs);
   return { slots: plans.length, cards: plans.filter(p => p.card).length };
 }
-// «Матрица» gets the JSON's equal tiles (core.matrixTile), so a collection
-// imported before keeps no larger 9 and 10. No «Матрица» — nothing to do.
+// «Матрица» gets the JSON's tiles back (core.matrixTile): a send from the
+// short-lived equal-tiles version had moved them. No «Матрица» — nothing to do.
 async function alignMatrix(obs) {
   let items;
   try { ({ sceneItems: items } = await obs.request('GetSceneItemList', { sceneName: 'Матрица' })); } catch { return; }

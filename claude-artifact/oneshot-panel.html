@@ -1664,13 +1664,12 @@ function buildObs(template, a, b, ka, kb,
   return remap(d);
 }
 
-// «Матрица»: ten equal 16:9 tiles, a row per team (1–5, 6–10), in the middle of
-// the canvas. Equal on purpose: the template's larger 9 and 10 seemed to zoom
-// in when the picture switched to them.
-const MATRIX_TILE = { width: 384, height: 216 };
+// «Матрица» as it always was: 1–8 in a 480×270 grid on top, 9 and 10 at
+// 960×540 below.
 function matrixTile(index) {
   if (!Number.isInteger(index) || index < 0 || index > 9) return null;
-  return { x: (index % 5) * MATRIX_TILE.width, y: 540 - MATRIX_TILE.height + Math.floor(index / 5) * MATRIX_TILE.height, ...MATRIX_TILE };
+  return index < 8 ? { x: (index % 4) * 480, y: Math.floor(index / 4) * 270, width: 480, height: 270 } :
+    { x: (index - 8) * 960, y: 540, width: 960, height: 540 };
 }
 
 const MAP_POOL = [

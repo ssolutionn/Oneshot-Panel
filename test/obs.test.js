@@ -210,16 +210,16 @@ test('The dock takes OBS settings from a panel only for its own computer', () =>
   }
 });
 
-test('Sending a match makes the ten «Матрица» tiles equal (the template had 9 and 10 twice as large)', async () => {
+test('Sending a match puts the «Матрица» tiles where the JSON has them: 1–8 small, 9 and 10 large', async () => {
   const obs = await mockObs();
   obs.state.scenes.set('Матрица', Array.from({ length: 10 }, (_, i) => ({ sceneItemId: 50 + i, sourceName: `Игрок ${i + 1}`, inputKind: 'scene', enabled: true })));
   const client = await new ObsClient(obs.url, '').connect();
   try {
     await applyMatch(client, { players: players() });
     const tiles = obs.state.scenes.get('Матрица').map(it => it.transform);
-    assert.ok(tiles.every(t => t.boundsWidth === 384 && t.boundsHeight === 216 && t.boundsType === 'OBS_BOUNDS_SCALE_INNER'));
-    assert.deepEqual(tiles.map(t => [t.positionX, t.positionY]), [
-      [0, 324], [384, 324], [768, 324], [1152, 324], [1536, 324],
-      [0, 540], [384, 540], [768, 540], [1152, 540], [1536, 540]]);
+    assert.deepEqual(tiles.map(t => [t.positionX, t.positionY, t.boundsWidth, t.boundsHeight]), [
+      [0, 0, 480, 270], [480, 0, 480, 270], [960, 0, 480, 270], [1440, 0, 480, 270],
+      [0, 270, 480, 270], [480, 270, 480, 270], [960, 270, 480, 270], [1440, 270, 480, 270],
+      [0, 540, 960, 540], [960, 540, 960, 540]]);
   } finally { client.close(); await obs.close(); }
 });

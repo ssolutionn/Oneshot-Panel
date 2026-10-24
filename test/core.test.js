@@ -532,14 +532,3 @@ test('teamHltv: the team page from hltv.json, names as in teamLogo, only hltv.or
   assert.equal(teamHltv(null, 'UPGRADE'), '');
   for (const url of Object.values(pages)) assert.match(url, /^https:\/\/www\.hltv\.org\/team\/\d+\/[a-z0-9-]+$/);
 });
-
-test('«Матрица» in the JSON: ten equal tiles, a row per team', () => {
-  const result = buildObs(template, ...fixture(), uuidFn());
-  const byId = new Map(result.sources.map(s => [s.uuid, s.name]));
-  const items = result.sources.find(s => s.name === 'Матрица').settings.items
-    .filter(it => /^Игрок \d+$/.test(byId.get(it.source_uuid) || ''));
-  assert.equal(items.length, 10);
-  assert.ok(items.every(it => it.bounds.x === 384 && it.bounds.y === 216));
-  const slot9 = items.find(it => byId.get(it.source_uuid) === 'Игрок 9');
-  assert.deepEqual(slot9.pos, { x: 1152, y: 540 });
-});
