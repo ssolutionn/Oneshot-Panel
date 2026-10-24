@@ -441,11 +441,13 @@
           <button id="seatsNewPrefix" class="text-button" type="button">Новый префикс</button>
         </div>
         <div id="seatsRoomsBox" class="seat-settings seat-rooms" hidden>
-          <label>Комната A<input id="seatsRoomA" autocomplete="off" spellcheck="false" maxlength="40"></label>
+          <label>Комната A <span class="muted">(или ссылка директора)</span><input id="seatsRoomA" autocomplete="off" spellcheck="false" maxlength="300"></label>
           <label>Пароль A <span class="muted">(необязательно)</span><input id="seatsPasswordA" autocomplete="off" spellcheck="false" maxlength="40"></label>
-          <label>Комната B<input id="seatsRoomB" autocomplete="off" spellcheck="false" maxlength="40"></label>
+          <label>Комната B <span class="muted">(или ссылка директора)</span><input id="seatsRoomB" autocomplete="off" spellcheck="false" maxlength="300"></label>
           <label>Пароль B <span class="muted">(необязательно)</span><input id="seatsPasswordB" autocomplete="off" spellcheck="false" maxlength="40"></label>
-          <label class="seat-ids">ID компов <span class="muted">(пять, через запятую; одинаковые в обеих комнатах)</span><input id="seatsIds" autocomplete="off" spellcheck="false" maxlength="220"></label>
+          <label class="seat-ids">ID компов A <span class="muted">(пять, через запятую)</span><input id="seatsIds" autocomplete="off" spellcheck="false" maxlength="220"></label>
+          <label class="seat-ids">ID компов B <span class="muted">(пусто — как у A)</span><input id="seatsIdsB" autocomplete="off" spellcheck="false" maxlength="220"></label>
+          <button id="seatsScan" class="button small seat-ids" type="button">Найти компы в комнатах</button>
         </div>
         <p id="seatsNote" class="muted">Префикс и пароль меняют ссылки всех десяти компов: после смены открой новые ссылки на местах.</p>
         <p id="seatsClash" class="error-box" hidden>У комнат одинаковый пароль (или его нет), а ID компов те же: VDO.Ninja может принять pc1 первой комнаты и pc1 второй за один поток, и второй комп отключится («stream ID is already in use»). Надёжно — дать комнатам разные пароли.</p>

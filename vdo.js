@@ -75,6 +75,40 @@ export function watchUrl(room, ids, password = '') {
   return url.href;
 }
 
+// Who publishes in a room (a LAN's director room): a scene viewer without
+// audio or video, asked for its stream IDs until three answers in a row agree
+// or the time is up. Only VDO-safe IDs, in natural order (pc2 before pc10).
+export function scanUrl(room, password = '') {
+  const url = new URL(VDO);
+  url.search = new URLSearchParams({ room, ...(password ? { password } : {}), label: 'oneshot-scan' }).toString() +
+    '&scene&novideo&noaudio&cleanoutput';
+  return url.href;
+}
+export function scanRoom(room, password = '', { wait = 12000, every = 1000 } = {}) {
+  return new Promise(resolve => {
+    const iframe = frame(scanUrl(room, password), 'Поиск компов');
+    let last = '', same = 0;
+    const listener = event => {
+      if (event.source !== iframe.contentWindow || !event.data?.streamIDs || typeof event.data.streamIDs !== 'object') return;
+      const ids = Object.keys(event.data.streamIDs).filter(id => /^[A-Za-z0-9_]{1,40}$/.test(id))
+        .sort((x, y) => x.localeCompare(y, 'en', { numeric: true }));
+      const key = ids.join(',');
+      same = ids.length && key === last ? same + 1 : 0;
+      last = key;
+      if (same >= 2) done();
+    };
+    const timer = setInterval(() => iframe.contentWindow?.postMessage({ getStreamIDs: true }, '*'), every);
+    const limit = setTimeout(done, wait);
+    function done() {
+      clearInterval(timer); clearTimeout(limit);
+      removeEventListener('message', listener);
+      iframe.remove();
+      resolve(last ? last.split(',') : []);
+    }
+    addEventListener('message', listener);
+  });
+}
+
 function frame(src, title) {
   const iframe = document.createElement('iframe');
   iframe.src = src;

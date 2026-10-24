@@ -3,8 +3,8 @@
 // «Матчи», «Компы» and «Событие». app.js keeps the data (window.oneshotPanel
 // .lan / setLan); here it is edited right where it is shown. Names and nicks
 // from people go into the page as text only.
-import { lanSeatLinks, lanCams, lanId, newLanPrefix, personKey, cardKey, LAN_LIMITS, LAN_SEATS, MATCH_FORMATS } from './core.js';
-import { camKey } from './vdo.js';
+import { lanSeatLinks, lanCams, vdoRoomOf, lanId, newLanPrefix, personKey, cardKey, LAN_LIMITS, LAN_SEATS, MATCH_FORMATS } from './core.js';
+import { camKey, scanRoom } from './vdo.js';
 import { showView, camStatus } from './live.js';
 import { DEFAULT_TOURNAMENT } from './assets/veto-short-links.js';
 import {
@@ -473,10 +473,12 @@ function renderSeats() {
     fill('seatsRoomA', lan.cams.rooms[0]); fill('seatsRoomB', lan.cams.rooms[1]);
     fill('seatsPasswordA', lan.cams.passwords[0]); fill('seatsPasswordB', lan.cams.passwords[1]);
     fill('seatsIds', lan.cams.ids.join(', '));
+    fill('seatsIdsB', lan.cams.idsB?.join(', ') || '');
   }
   $('seatsNote').textContent = lan.cams ? 'Комнаты, пароли и ID меняют ссылки компов и камер в OBS: после смены открой новые ссылки на местах и скачай JSON заново.' :
     'Префикс и пароль меняют ссылки всех десяти компов: после смены открой новые ссылки на местах.';
-  $('seatsClash').hidden = !lan.cams || lan.cams.passwords[0] !== lan.cams.passwords[1];
+  $('seatsClash').hidden = !lan.cams || lan.cams.passwords[0] !== lan.cams.passwords[1] ||
+    !(lan.cams.idsB || lan.cams.ids).some(id => lan.cams.ids.includes(id));
   const snapshot = panel().snapshot();
   const cams = camStatus();
   const links = lan.prefix ? lanSeatLinks(lan) : [];
@@ -505,17 +507,54 @@ function renderSeats() {
 }
 function changeCams() {
   const lan = panel().lan();
-  const cams = lanCams({
-    rooms: [$('seatsRoomA').value.trim(), $('seatsRoomB').value.trim()],
-    passwords: [$('seatsPasswordA').value, $('seatsPasswordB').value],
-    ids: $('seatsIds').value.split(/[\s,;]+/).filter(Boolean)
+  // A pasted director link gives the room and, when it has one, the password.
+  const rooms = [['seatsRoomA', 'seatsPasswordA'], ['seatsRoomB', 'seatsPasswordB']].map(([room, password]) => {
+    const found = vdoRoomOf($(room).value);
+    if (found?.password !== null && found?.password !== undefined) $(password).value = found.password;
+    if (found) $(room).value = found.room;
+    return found?.room || '';
   });
+  const list = id => $(id).value.split(/[\s,;]+/).filter(Boolean);
+  const cams = lanCams({
+    rooms, passwords: [$('seatsPasswordA').value, $('seatsPasswordB').value],
+    ids: list('seatsIds'), idsB: list('seatsIdsB').length ? list('seatsIdsB') : undefined
+  });
+  if (list('seatsIdsB').length && !cams?.idsB && list('seatsIdsB').join() !== list('seatsIds').join()) {
+    renderSeats(); return panel().toast('ID компов B: пять разных, латиница, цифры, _ (или пусто — как у A).');
+  }
   if (JSON.stringify(cams) === JSON.stringify(lan.cams)) return;
   if (!cams) { renderSeats(); return panel().toast('Нужны две разные комнаты и пять разных ID компов: латиница, цифры, _.'); }
   if (!window.confirm('Поменяются ссылки компов и камер в OBS: старые вкладки на местах перестанут попадать в эфир. Продолжить?')) { renderSeats(); return; }
   draft.cams = cams;
   commit(true);
   panel().toast('Готово: открой новые ссылки на компах и скачай JSON для OBS заново.');
+}
+// «Найти компы»: who streams in each room right now becomes that room's PCs, in
+// natural order (pc1, pc2 … pc10); seats nobody streams to keep their old IDs.
+async function scanCams() {
+  const lan = panel().lan();
+  if (!lan.cams) return;
+  $('seatsScan').disabled = true;
+  $('seatsNote').textContent = `Ищем компы в комнатах ${lan.cams.rooms.join(' и ')}… до 12 секунд.`;
+  try {
+    const found = await Promise.all([0, 1].map(i => scanRoom(lan.cams.rooms[i], lan.cams.passwords[i])));
+    if (!found[0].length && !found[1].length) {
+      return panel().toast('В комнатах никого: на компах должна быть открыта ссылка места и нажат «Start».');
+    }
+    const fill = (ids, old) => {
+      const next = ids.slice(0, LAN_SEATS);
+      for (const id of old) if (next.length < LAN_SEATS && !next.includes(id)) next.push(id);
+      return next;
+    };
+    const cams = lanCams({ ...lan.cams, ids: fill(found[0], lan.cams.ids), idsB: fill(found[1], lan.cams.idsB || lan.cams.ids) });
+    const extra = found.flatMap((ids, i) => ids.slice(LAN_SEATS).map(id => `${lan.cams.rooms[i]}/${id}`));
+    if (cams && JSON.stringify(cams) !== JSON.stringify(lan.cams)) { draft.cams = cams; commit(true); }
+    panel().toast(lan.cams.rooms.map((room, i) => `${room}: ${found[i].join(', ') || 'никого'}`).join(' · ') +
+      (extra.length ? ` · не влезли (больше пяти): ${extra.join(', ')}` : ''));
+  } finally {
+    $('seatsScan').disabled = false;
+    renderSeats();
+  }
 }
 function changeSeats(prefix, password) {
   const lan = panel().lan();
@@ -645,7 +684,8 @@ function start() {
   $('seatsPrefix').addEventListener('change', () => changeSeats($('seatsPrefix').value.trim().toLowerCase(), panel().lan().password));
   $('seatsPassword').addEventListener('change', () => changeSeats(panel().lan().prefix, $('seatsPassword').value));
   $('seatsNewPrefix').addEventListener('click', () => changeSeats(newLanPrefix(random(4)), panel().lan().password));
-  for (const id of ['seatsRoomA', 'seatsRoomB', 'seatsPasswordA', 'seatsPasswordB', 'seatsIds']) $(id).addEventListener('change', changeCams);
+  for (const id of ['seatsRoomA', 'seatsRoomB', 'seatsPasswordA', 'seatsPasswordB', 'seatsIds', 'seatsIdsB']) $(id).addEventListener('change', changeCams);
+  $('seatsScan').addEventListener('click', scanCams);
   // Webcam dots in «Эфир» (live.js) are the seats' too.
   document.addEventListener('oneshot:cams', () => { if (!$('seatsView').hidden) renderSeats(); });
 

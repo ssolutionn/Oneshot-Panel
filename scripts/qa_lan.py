@@ -102,6 +102,7 @@ async def run(args):
             await sheets_address(browser, sheets_base)
             await old_roster_moves_over(browser, base)
             await previous_version_pictures(browser, base)
+            await director_rooms(browser, base)
             await browser.close()
     finally:
         event_panel.kill()
@@ -109,7 +110,7 @@ async def run(args):
     print("PASS: LAN event panel: the address decides the event, teams/logos/photos edited in place, rename keeps "
           "photos and the match, Drive ZIP, matches and «В эфир», seats and substitutes, OBS JSON and dock cards, "
           "«Компы», «Событие» (name, colours, file out and in), «Сервер» guide, old roster moves over, pictures of the "
-          "previous version keep their teams, reload, 375 px")
+          "previous version keep their teams, director links and «Найти компы», «Кадр», reload, 375 px")
 
 
 async def new_context(browser, **options):
@@ -240,6 +241,11 @@ async def event_address(browser, base, out):
     cards_json = {s["name"]: s["settings"]["url"] for s in data["sources"] if s["name"].startswith("CARD ")}
     first = unquote(cards_json["CARD 01 | Альфа Про | nick1"])
     assert first.startswith("data:text/html;charset=utf-8,") and "data:image/webp;base64," in first and "data:image/png;base64," in first
+    # «Кадр» works on a LAN too: the frame window opens for a seated player.
+    await page.click("#camera-a-0")
+    await expect(page.locator("#cameraDialog")).to_be_visible()
+    await page.click("#closeCamera")
+    await expect(page.locator("#cameraDialog")).to_be_hidden()
     await page.screenshot(path=str(out / "lan-efir.png"), full_page=True)
 
     # ---- the same cards through the OBS dock, also to a dock that was reloaded ----
@@ -424,6 +430,35 @@ async def previous_version_pictures(browser, base):
     assert logos.get("#xq2") == bravo_new, "the older name-keyed logo beat the team's own"
     assert not ({"t1", "xq2", "bravo"} & set(logos)) and "t1p1" not in photos, (list(logos), list(photos))
     await expect(page.locator(".lt-card").nth(1).locator(".lt-logo")).not_to_have_class(re.compile("filled"))
+    await ctx.close()
+
+SCAN_VDO = """<!doctype html><script>
+const q = new URLSearchParams(location.search);
+const rooms = { team1: ['pc3', 'pc1', 'pc2', 'pc5', 'pc4'], dota2: ['pc10', 'pc6', 'pc7', 'pc8', 'pc9', 'pc11'] };
+const ids = q.get('label') === 'oneshot-scan' ? rooms[q.get('room')] || [] : (q.get('view') || '').split(',').filter(Boolean);
+addEventListener('message', e => { if ((e.data || {}).getStreamIDs) parent.postMessage({ streamIDs: Object.fromEntries(ids.map(id => [id, id])) }, '*'); });
+</script>"""
+
+
+async def director_rooms(browser, base):
+    """A director link pasted into «Компы» gives the room; «Найти компы» takes who streams there."""
+    ctx, _ = await new_context(browser)
+    await ctx.route("https://vdo.ninja/**", lambda route: route.fulfill(content_type="text/html", body=SCAN_VDO))
+    page = await ctx.new_page()
+    page.on("dialog", lambda dialog: asyncio.ensure_future(dialog.accept()))
+    await page.goto(base + "/#seats")
+    await page.click("#seatsNavBtn")
+    await page.fill("#seatsRoomB", "https://vdo.ninja/?director=dota2&password=qq")
+    await page.dispatch_event("#seatsRoomB", "change")
+    await expect(page.locator("#seatsRoomB")).to_have_value("dota2")
+    assert await page.input_value("#seatsPasswordB") == "qq"
+    await page.click("#seatsScan")
+    await expect(page.locator("#seatsIdsB")).to_have_value("pc6, pc7, pc8, pc9, pc10", timeout=20000)
+    await expect(page.locator("#seatsIds")).to_have_value("pc1, pc2, pc3, pc4, pc5")
+    await expect(page.locator("#toast")).to_contain_text("pc11")
+    await expect(page.locator(".seat-card").nth(5)).to_contain_text("?room=dota2&password=qq&broadcast&do&push=pc6")
+    await expect(page.locator("#seatsClash")).to_be_hidden()
+    await no_sideways(page, "«Компы» with rooms")
     await ctx.close()
 
 

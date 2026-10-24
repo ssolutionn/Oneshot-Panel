@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
-  lanConfig, lanCams, eventProfile, parseLanRoster, lanSeatId, seatTeam, lanSeatLinks, LAN_SEATS,
+  lanConfig, lanCams, vdoRoomOf, eventProfile, parseLanRoster, lanSeatId, seatTeam, lanSeatLinks, LAN_SEATS,
   lanTeams, lanSchedule, lanId, newLanPrefix, LAN_LIMITS,
   defaultLineup, validateMatch, selectedPlayers, buildObs, observerText, directorUrl
 } from '../core.js';
@@ -111,6 +111,23 @@ test('LAN rooms: a room per side and the same PCs in each (REU: team1/team2, pc1
     assert.equal(lanCams(bad), null, JSON.stringify(bad));
   assert.equal(lanSeatLinks(lanConfig({ on: true, prefix: 'k7qz', cams: { rooms: ['a'], ids: [] } }))[0].push,
     'https://vdo.ninja/?room=k7qz&broadcast&do&push=k7qza1');
+});
+
+test('LAN rooms: a director link gives the room and password; the second room may name its PCs', () => {
+  assert.deepEqual(vdoRoomOf('https://vdo.ninja/?director=team1'), { room: 'team1', password: null });
+  assert.deepEqual(vdoRoomOf(' https://vdo.ninja/?director=team2&password=x%20y '), { room: 'team2', password: 'x y' });
+  assert.deepEqual(vdoRoomOf('https://vdo.ninja/?room=dota_a&broadcast&push=pc1'), { room: 'dota_a', password: null });
+  assert.deepEqual(vdoRoomOf('team1'), { room: 'team1', password: null });
+  for (const bad of ['http://vdo.ninja/?director=team1', 'https://evil.example/?director=team1', 'https://vdo.ninja/?director=a%20b', 'team 1'])
+    assert.equal(vdoRoomOf(bad), null, bad);
+  const lan = lanConfig({ on: true, prefix: 'k7qz', cams: { rooms: ['team1', 'team2'],
+    ids: ['pc1', 'pc2', 'pc3', 'pc4', 'pc5'], idsB: ['pc6', 'pc7', 'pc8', 'pc9', 'pc10'] } });
+  const links = lanSeatLinks(lan);
+  assert.equal(links[4].push, 'https://vdo.ninja/?room=team1&broadcast&do&push=pc5');
+  assert.equal(links[5].push, 'https://vdo.ninja/?room=team2&broadcast&do&push=pc6');
+  // The same list twice is just the shared one; a bad second list is dropped.
+  assert.equal(lanCams({ rooms: ['a1', 'b1'], ids: ['p1', 'p2', 'p3', 'p4', 'p5'], idsB: ['p1', 'p2', 'p3', 'p4', 'p5'] }).idsB, undefined);
+  assert.equal(lanCams({ rooms: ['a1', 'b1'], ids: ['p1', 'p2', 'p3', 'p4', 'p5'], idsB: ['x1', 'x1'] }).idsB, undefined);
 });
 
 test('event profile: a name and three hex colours, nothing else gets through', () => {

@@ -352,14 +352,28 @@ function teamsFromText(text) {
 export const VDO_NAME = /^[A-Za-z0-9_]{1,40}$/;
 // The event's own rooms and PCs, or null (then the prefix makes them): two
 // different rooms, five different PCs, a password per room (may be empty).
+// The second room's PCs (idsB) may have their own names; none = the same.
 export function lanCams(value) {
   const v = value && typeof value === 'object' ? value : {};
   const names = (list, size) => Array.isArray(list) && list.length === size && list.every(x => typeof x === 'string' && VDO_NAME.test(x)) &&
     new Set(list).size === size ? [...list] : null;
-  const rooms = names(v.rooms, 2), ids = names(v.ids, LAN_SEATS);
+  const rooms = names(v.rooms, 2), ids = names(v.ids, LAN_SEATS), idsB = names(v.idsB, LAN_SEATS);
   if (!rooms || !ids) return null;
   const passwords = [0, 1].map(i => typeof v.passwords?.[i] === 'string' ? line(v.passwords[i]).slice(0, 40) : '');
-  return { rooms, ids, passwords };
+  return { rooms, ids, ...(idsB && idsB.join() !== ids.join() ? { idsB } : {}), passwords };
+}
+// A room typed or pasted: its name, or a VDO.Ninja link (a director's, a
+// guest's) with the room and, when there is one, its password.
+export function vdoRoomOf(text) {
+  const value = line(text);
+  if (VDO_NAME.test(value)) return { room: value, password: null };
+  let url;
+  try { url = new URL(value); } catch { return null; }
+  if (url.protocol !== 'https:' || !/(^|\.)vdo\.ninja$/.test(url.hostname)) return null;
+  const q = url.searchParams, room = q.get('director') || q.get('dir') || q.get('room') || q.get('r') || '';
+  if (!VDO_NAME.test(room)) return null;
+  const password = q.get('password') ?? q.get('pw') ?? q.get('p');
+  return { room, password: password === null ? null : line(password).slice(0, 40) };
 }
 export function lanConfig(value) {
   const v = value && typeof value === 'object' ? value : {};
@@ -458,7 +472,7 @@ export function lanSeatId(prefix, side, index) {
 // Where seat `index` of a side streams: its room, the room's password, its ID.
 export function lanSeat(lan, side, index) {
   const s = side === 'b' ? 1 : 0;
-  if (lan.cams) return { room: lan.cams.rooms[s], password: lan.cams.passwords[s], id: lan.cams.ids[index] };
+  if (lan.cams) return { room: lan.cams.rooms[s], password: lan.cams.passwords[s], id: (s && lan.cams.idsB || lan.cams.ids)[index] };
   return { room: lan.prefix, password: lan.password || '', id: lanSeatId(lan.prefix, side, index) };
 }
 // The team as it sits this match: players picked for its seats get that
