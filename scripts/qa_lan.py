@@ -208,7 +208,9 @@ async def event_address(browser, base, out):
     await expect(team_rows.nth(0)).to_contain_text("view=pc1&solo=1&room=team1")
     await expect(team_rows.nth(5)).to_contain_text("view=pc1&solo=1&room=team2")
     await expect(team_rows.nth(9)).to_contain_text("view=pc5&solo=1&room=team2")
-    assert await page.locator("[data-regen], [data-setid]").count() == 0
+    # ↻ (a new link for a player) has no place on a LAN; ✎ sets the ID a seat's PC really streams.
+    assert await page.locator("[data-regen]").count() == 0
+    assert await page.locator("[data-setid]").count() == 10
     await expect(page.locator("#teamGrid [data-lan-logo] canvas")).to_have_count(1)  # Альфа has a logo, Браво not
     # A substitute takes seat A2: the stream stays with the seat.
     await page.select_option('[data-player="a"][data-slot="1"]', label="sub1 (запасной)")
@@ -284,7 +286,8 @@ async def event_address(browser, base, out):
     await page.click("#seatsNavBtn")
     seat_cards = page.locator(".seat-card")
     await expect(seat_cards).to_have_count(10)
-    await expect(seat_cards.nth(1)).to_contain_text("sub1")
+    # Who sits there: the seat's nick field shows it until a nick of its own is typed.
+    await expect(seat_cards.nth(1).locator(".seat-nick")).to_have_attribute("placeholder", "sub1")
     await expect(seat_cards.nth(9)).to_contain_text("?room=team2&broadcast&do&push=pc5")
     await page.click("#seatsCopyAll")
     copied = await page.evaluate("navigator.clipboard.readText()")
@@ -473,7 +476,7 @@ async def previous_version_pictures(browser, base):
 SCAN_VDO = """<!doctype html><script>
 const q = new URLSearchParams(location.search);
 const rooms = { team1: ['pc3', 'cam_old', 'undefined', 'pc1', 'pc2', 'pc5', 'pc4'], dota2: ['pc10', 'pc6', 'pc7', 'pc8', 'pc9', 'pc11'] };
-const ids = q.get('label') === 'oneshot-scan' ? rooms[q.get('room')] || [] : (q.get('view') || '').split(',').filter(Boolean);
+const ids = q.get('label') === 'oneshot-scan' ? rooms[q.get('room')] || [] : (q.get('view') || '').split(',').filter(id => id && !id.startsWith('absent_'));
 addEventListener('message', e => { if ((e.data || {}).getStreamIDs) parent.postMessage({ streamIDs: Object.fromEntries(ids.map(id => [id, id])) }, '*'); });
 </script>"""
 
@@ -558,7 +561,6 @@ async def director_rooms(browser, base):
     await expect(page.locator("#cameraPlate")).to_be_visible()
     assert await page.locator(".camera-preview-stage").evaluate(
         "el=>getComputedStyle(el,'::after').content") == "none", "«Ожидаем видео…» still covers the placeholder"
-    await page.screenshot(path=str(out / "camera-placeholder.png"))
     await page.click("#closeCamera")
     # Back to its usual stream, so the rest of the run sends the ten seats as before.
     await page.evaluate("() => { window.__prompt = window.prompt; window.prompt = () => ''; }")
