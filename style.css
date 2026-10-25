@@ -615,7 +615,7 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .lt-name:focus,.lt-nick:focus { border-color:var(--field-line); background:var(--field); outline:none; }
 .lt-warn { margin:0; padding:8px 12px; font-size:11px; color:var(--warn-ink); background:var(--warn); }
 .lt-players { list-style:none; margin:0; padding:6px 8px; display:grid; gap:2px; }
-.lt-player { display:grid; grid-template-columns:auto minmax(0,1fr) auto auto; align-items:center; gap:8px; padding:3px 4px; border-radius:6px; }
+.lt-player { display:grid; grid-template-columns:auto minmax(0,1fr) auto auto auto; align-items:center; gap:8px; padding:3px 4px; border-radius:6px; }
 .lt-player:hover { background:var(--hover); }
 .lt-nick { width:100%; min-width:0; padding:6px 8px; border:1px solid transparent; border-radius:5px; background:transparent; color:var(--ink); font-size:13px; font-weight:600; }
 .lt-name::placeholder,.lt-nick::placeholder { color:var(--muted); opacity:.55; font-weight:500; }
@@ -635,6 +635,7 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .lt-slot.drop,.lt-slot:hover { border-color:var(--red); color:var(--ink); }
 .lt-logo { width:88px; height:88px; }
 .lt-photo { width:56px; height:56px; border-radius:50%; }
+.lt-plate { width:64px; height:36px; border-radius:4px; }
 .lt-clear { position:absolute; top:-6px; right:-6px; display:none; width:20px; height:20px; padding:0; border:1px solid var(--line); border-radius:50%; background:var(--surface); color:var(--muted); font-size:13px; line-height:1; cursor:pointer; }
 .lt-slot-wrap.filled:hover .lt-clear,.lt-slot-wrap.filled:focus-within .lt-clear { display:grid; place-items:center; }
 .lt-empty { grid-column:1/-1; padding:28px 16px; text-align:center; border:1px dashed var(--line); border-radius:8px; list-style:none; }
@@ -733,7 +734,7 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
   .event-title { display:none; }
   .event-panel { padding:0 12px 12px; }
   .lt-grid { grid-template-columns:minmax(0,1fr); }
-  .lt-player { grid-template-columns:auto minmax(0,1fr) auto; }
+  .lt-player { grid-template-columns:auto minmax(0,1fr) auto auto; }
   .lt-card-btn { display:none; }
   .seat-grid { grid-template-columns:minmax(0,1fr); }
   .seat-settings { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }

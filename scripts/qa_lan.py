@@ -165,6 +165,10 @@ async def event_address(browser, base, out):
     await cards.nth(0).locator(".lt-photo").first.dispatch_event("drop", {"dataTransfer": drop})
     await expect(cards.nth(0).locator(".lt-photo").first).to_have_class(re.compile("filled"), timeout=15000)
     assert await page.locator("img[src^='data:']").count() == 0, "data: images would break the CSP"
+    # A placeholder of one player's own (instead of the webcam), next to the photo.
+    plate_drop = await page.evaluate_handle(DROP, [base64.b64encode(png((640, 360), transparent=False, color=(250, 200, 0))).decode(), "b1-plate.png"])
+    await cards.nth(1).locator(".lt-plate").first.dispatch_event("drop", {"dataTransfer": plate_drop})
+    await expect(cards.nth(1).locator(".lt-plate").first).to_have_class(re.compile("filled"), timeout=15000)
     # The card of a player, as OBS will show it.
     await cards.nth(0).locator(".lt-player").first.hover()
     await cards.nth(0).locator(".lt-card-btn").first.click()
@@ -183,8 +187,10 @@ async def event_address(browser, base, out):
     await expect(cards.nth(2).locator(".lt-name")).to_have_value("Team Alpha")
     assert [await cards.nth(2).locator(".lt-nick").nth(i).input_value() for i in range(5)] == ["n1", "n2", "n3", "n4", "n5"]
     stored = await page.evaluate(INDEXED)
-    assert len(stored["photos"]) == 11 and len(stored["logos"]) == 2, (len(stored["photos"]), len(stored["logos"]))
-    assert all(v.startswith("data:image/") and len(v) < 120000 for v in [*stored["photos"].values(), *stored["logos"].values()])
+    # A player's placeholder (#plate:<id>) sits with the logos but is no logo: a bigger JPEG.
+    logos = {k: v for k, v in stored["logos"].items() if not k.startswith("#plate")}
+    assert len(stored["photos"]) == 11 and len(logos) == 2, (len(stored["photos"]), list(stored["logos"]))
+    assert all(v.startswith("data:image/") and len(v) < 120000 for v in [*stored["photos"].values(), *logos.values()])
     assert await page.evaluate("localStorage.getItem('oneshot-lan-assets-v1')") is None
 
     # ---- matches: the template, a time, a format, «В эфир» ----
@@ -245,6 +251,10 @@ async def event_address(browser, base, out):
     cards_json = {s["name"]: s["settings"]["url"] for s in data["sources"] if s["name"].startswith("CARD ")}
     first = unquote(cards_json["CARD 01 | Альфа Про | nick1"])
     assert first.startswith("data:text/html;charset=utf-8,") and "data:image/webp;base64," in first and "data:image/png;base64," in first
+    # b1's own placeholder stands under b1's camera; the others keep their cards.
+    b1 = unquote(cards_json["CARD 06 | Браво | b1"])
+    assert "<title>Заглушка</title>" in b1 and "data:image/jpeg;base64," in b1, b1[:200]
+    assert "<title>Заглушка</title>" not in unquote(cards_json["CARD 07 | Браво | b2"])
     # «Кадр» works on a LAN too: the frame window opens for a seated player.
     await page.click("#camera-a-0")
     await expect(page.locator("#cameraDialog")).to_be_visible()

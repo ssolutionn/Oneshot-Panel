@@ -215,7 +215,7 @@ let cameraEditor=null,cameraPreview=null,cameraPreviewTimer,cameraPreviewPoll,ca
 // lan.js gives the side's placeholder picture. Neither exists in the artifact.
 let camStateProvider=null,plateImageProvider=null;
 const camState=player=>camStateProvider ? camStateProvider(player) : 'none';
-const plateImageOf=side=>state.lan.on && plateImageProvider ? plateImageProvider(side)||'' : '';
+const plateImageOf=(side,playerId='')=>state.lan.on && plateImageProvider ? plateImageProvider(side,playerId)||'' : '';
 // A LAN seat's webcam on its own («Компы»): framed before anyone sits there.
 function seatPlayer(side,index) {
   const seat=lanSeat(state.lan,side,index);
@@ -279,7 +279,7 @@ function paintCameraStage() {
   // «Была недавно» is not in the air either: the frame shows the same picture,
   // and the seat badges keep the yellow wording.
   const absent=cam==='off'||cam==='recent';
-  const found=absent&&cameraEditor ? plateImageOf(cameraEditor.side) : '';
+  const found=absent&&cameraEditor ? plateImageOf(cameraEditor.side,player?.playerId) : '';
   // Only our own encoded pictures: anything else is no placeholder at all.
   const plate=typeof found==='string'&&found.startsWith('data:image/') ? found : '';
   const shown=Boolean(plate)&&plate!==cameraPlateBroken;
@@ -594,15 +594,18 @@ window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, se
   // lan.js registers the maker of self-contained cards (photos inside).
   setCardDocs: provider => { cardDocsProvider = provider; }, cardDocs: () => cardDocsNow(),
   // lan.js: a side's placeholder card page («Компы»), '' when there is none.
-  setPlates: provider => { platesProvider = provider; notify(); }, plate: side => plateOf(side),
+  setPlates: (provider, anyPlayer) => { platesProvider = provider; playerPlatesProvider = anyPlayer || null; notify(); },
+  plate: (side, playerId) => plateOf(side, playerId),
   // live.js: the webcam status «Кадр» follows ('live' | 'wait' | 'off' | 'none').
   setCamStatus: provider => { camStateProvider = typeof provider === 'function' ? provider : null; if (cameraEditor) paintCameraStage(); },
   // lan.js: that placeholder's picture, shown in «Кадр» while the webcam is absent.
   setPlateImages: provider => { plateImageProvider = typeof provider === 'function' ? provider : null; if (cameraEditor) paintCameraStage(); } };
-let cardDocsProvider = null, platesProvider = null;
-const plateOf = side => state.lan.on && platesProvider ? platesProvider(side) || '' : '';
-// Cards go to OBS with the checkbox, or on a LAN whenever a side has a placeholder.
-const cardsOn = () => $('includeCards').checked || Boolean(plateOf('a') || plateOf('b'));
+let cardDocsProvider = null, platesProvider = null, playerPlatesProvider = null;
+// A player's own placeholder (lan.js, «Команды»), else the side's.
+const plateOf = (side, playerId = '') => state.lan.on && platesProvider ? platesProvider(side, playerId) || '' : '';
+// Cards go to OBS with the checkbox, or on a LAN whenever a side or a player has a placeholder.
+const cardsOn = () => $('includeCards').checked || Boolean(plateOf('a') || plateOf('b')) ||
+  Boolean(state.lan.on && playerPlatesProvider?.());
 // LAN cards with their photos inside, for the players of the current match. A
 // side with a placeholder gets it under every camera (seen while a webcam has
 // no video); with cards off, the other side's cards show nothing.
@@ -613,8 +616,8 @@ function cardDocsNow() {
     chosen(side).filter(Boolean).map(p => ({ team: getTeam(side).name, nick: displayNick(p), lookup: p.nick,
       teamId: getTeam(side).teamId, playerId: p.playerId })))) : {};
   for (const side of ['a', 'b']) {
-    const plate = plateOf(side);
     for (const p of chosen(side).filter(Boolean)) {
+      const plate = plateOf(side, p.playerId);
       const key = cardKey(getTeam(side).name, displayNick(p));
       if (plate) docs[key] = plate;
       else if (!cards) docs[key] = BLANK_CARD;

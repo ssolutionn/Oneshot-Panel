@@ -121,6 +121,11 @@ function setStatus(id, text, bad = false) {
 // ---------- «Команды» ----------
 let pickTarget = null;
 const imageFile = file => file && (/^image\/(png|jpe?g|webp)$/.test(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name || ''));
+// A player's own placeholder (instead of the webcam, under their camera in OBS)
+// sits with the logos under #plate:<player id> — no team or player key has a colon.
+const playerPlateKey = id => `#plate:${id}`;
+const shelfOf = (assets, kind) => kind === 'photo' ? assets.photos : assets.logos;
+const assetKey = (kind, id) => kind === 'plate' ? playerPlateKey(id) : ownKey(id);
 async function setImage(target, file) {
   if (!imageFile(file)) {
     setStatus('ltStatus', /heic|heif/i.test(`${file?.type} ${file?.name}`) ?
@@ -129,19 +134,22 @@ async function setImage(target, file) {
   }
   setStatus('ltStatus', 'Обрабатываем картинку…');
   try {
-    const { url, warning } = await processImage(file, target.kind);
-    const stored = await changeAssets(assets => { (target.kind === 'logo' ? assets.logos : assets.photos)[ownKey(target.id)] = url; });
+    const { url, warning } = target.kind === 'plate' ? { url: await processPlate(file), warning: '' } : await processImage(file, target.kind);
+    const stored = await changeAssets(assets => { shelfOf(assets, target.kind)[assetKey(target.kind, target.id)] = url; });
     if (!stored) throw new Error('браузеру не хватило места');
-    setStatus('ltStatus', warning ? `Готово, но картинка ${warning}: фон останется на карточке.` : 'Готово.', Boolean(warning));
+    setStatus('ltStatus', warning ? `Готово, но картинка ${warning}: фон останется на карточке.` :
+      target.kind === 'plate' ? 'Заглушка игрока готова: она встанет под его камеру в OBS — отправь камеры заново.' : 'Готово.', Boolean(warning));
     paintSlots();
     paintLogos();
     paintPreview();
+    if (target.kind === 'plate') platesChanged();
   } catch (error) { setStatus('ltStatus', `Не получилось: ${error.message}.`, true); }
 }
 async function clearImage(target) {
-  await changeAssets(assets => { delete (target.kind === 'logo' ? assets.logos : assets.photos)[ownKey(target.id)]; });
+  await changeAssets(assets => { delete shelfOf(assets, target.kind)[assetKey(target.kind, target.id)]; });
   paintSlots();
   paintLogos();
+  if (target.kind === 'plate') platesChanged();
 }
 // A logo or photo square: click to choose, drop a file on it, or paste.
 function slot(kind, id, label) {
@@ -152,7 +160,8 @@ function slot(kind, id, label) {
     ondragover: event => { event.preventDefault(); button.classList.add('drop'); },
     ondragleave: () => button.classList.remove('drop'),
     ondrop: event => { event.preventDefault(); button.classList.remove('drop'); setImage({ kind, id }, event.dataTransfer.files[0]); }
-  }, el('canvas', { width: kind === 'logo' ? 176 : 112, height: kind === 'logo' ? 176 : 112 }), el('span', { class: 'lt-slot-empty', text: kind === 'logo' ? 'Лого' : '+ фото' }));
+  }, el('canvas', { width: kind === 'logo' ? 176 : kind === 'plate' ? 160 : 112, height: kind === 'logo' ? 176 : kind === 'plate' ? 90 : 112 }),
+  el('span', { class: 'lt-slot-empty', text: { logo: 'Лого', photo: '+ фото', plate: 'заглушка' }[kind] }));
   return el('span', { class: 'lt-slot-wrap' }, button,
     el('button', { type: 'button', class: 'lt-clear', 'aria-label': `Убрать: ${label}`, title: 'Убрать картинку', text: '×', onclick: () => clearImage({ kind, id }) }));
 }
@@ -160,7 +169,7 @@ async function paintSlots() {
   await loaded;
   for (const button of $('ltGrid').querySelectorAll('[data-slot-kind]')) {
     const { slotKind: kind, slotId: id } = button.dataset;
-    const image = kind === 'logo' ? logoOf(id) : photoOf(id);
+    const image = kind === 'logo' ? logoOf(id) : kind === 'plate' ? playerPlate(id) : photoOf(id);
     const shown = image ? await drawThumb(button.querySelector('canvas'), image, kind === 'photo' ? 'head' : 'contain') : false;
     if (!image) button.querySelector('canvas').getContext('2d').clearRect(0, 0, 999, 999);
     button.classList.toggle('filled', shown);
@@ -183,6 +192,7 @@ function playerRow(team, player, index) {
   });
   return el('li', { class: 'lt-player', 'data-player-id': player.id },
     slot('photo', player.id, `Фото ${player.nick || `игрока ${index + 1}`}`), nick,
+    slot('plate', player.id, `Заглушка вместо вебки ${player.nick || `игрока ${index + 1}`}`),
     el('button', { type: 'button', class: 'text-button lt-card-btn', text: 'Карточка', title: 'Как игрок выглядит на карточке в OBS',
       onclick: () => openCard(team.id, player.id) }),
     el('button', { type: 'button', class: 'icon-button lt-remove', text: '×', 'aria-label': `Убрать игрока ${player.nick || index + 1}`,
@@ -543,8 +553,8 @@ function renderSeats() {
     ...Array.from({ length: LAN_SEATS }, (_, i) => {
       const link = links[s * LAN_SEATS + i];
       const cam = seatCamState(cams, link);
-      const state = seatCamLabel(cam, Boolean(plateImage(side)));
       const seated = (s ? snapshot.playersB : snapshot.playersA)?.[i];
+      const state = seatCamLabel(cam, Boolean(plateImage(side, seated?.playerId)));
       const who = displayNick(seated) || '';
       const nick = panel().camNick(side, i);
       const seatName = link?.seat || `${side.toUpperCase()}${i + 1}`;
@@ -593,12 +603,12 @@ const seatCamLabel = (cam, plate) =>
 // typed or a seat being dragged survives the update.
 function paintSeatCam() {
   const lan = panel().lan();
-  const cams = camStatus();
+  const cams = camStatus(), snapshot = panel().snapshot();
   let live = 0;
   $('seatGrid').querySelectorAll('.seat-column').forEach((column, s) => {
     const side = s ? 'b' : 'a';
-    const plate = Boolean(plateImage(side));
     column.querySelectorAll('.seat-card').forEach((card, i) => {
+      const plate = Boolean(plateImage(side, (s ? snapshot.playersB : snapshot.playersA)?.[i]?.playerId));
       const cam = seatCamState(cams, lanSeat(lan, side, i));
       if (cam === 'live') live++;
       if (card.dataset.seatCam !== cam) card.dataset.seatCam = cam;
@@ -781,22 +791,34 @@ function initSeatDrag() {
 }
 
 // ---------- placeholders: a side's picture under its cameras in OBS ----------
+// A player's own placeholder («Команды», next to the photo) wins over the side's.
 const PLATE = { a: '#plate-a', b: '#plate-b' };
-const plateImage = side => store?.assets.logos[PLATE[side]] || '';
+const sidePlate = side => store?.assets.logos[PLATE[side]] || '';
+const playerPlate = id => (id && store?.assets.logos[playerPlateKey(id)]) || '';
+const plateImage = (side, playerId = '') => playerPlate(playerId) || sidePlate(side);
 // «Кадр» (app.js) shows this picture inside the frame while the webcam is absent.
 panel().setPlateImages?.(plateImage);
 const plateDocs = new Map();
-function plateDoc(side) {
-  const image = plateImage(side);
+function plateDoc(side, playerId = '') {
+  const image = plateImage(side, playerId);
   if (!image) return '';
-  if (!plateDocs.has(image)) { plateDocs.clear(); plateDocs.set(image, plateCardUrl(image)); }
+  if (!plateDocs.has(image)) plateDocs.set(image, plateCardUrl(image));
   return plateDocs.get(image);
+}
+// Whether any player of the event has a placeholder of their own.
+const anyPlayerPlate = () => Object.keys(store?.assets.logos || {}).some(key => key.startsWith('#plate:'));
+function platesChanged() {
+  // Pages of pictures no longer used are dropped; the ones in use are made again.
+  const used = new Set(Object.entries(store?.assets.logos || {}).filter(([key]) => key.startsWith('#plate')).map(([, url]) => url));
+  for (const image of plateDocs.keys()) if (!used.has(image)) plateDocs.delete(image);
+  panel().setPlates(plateDoc, anyPlayerPlate);
+  renderSeats();
 }
 let plateSide = 'a';
 function paintPlates() {
   const lan = panel().lan();
   for (const [side, suffix] of [['a', 'A'], ['b', 'B']]) {
-    const image = plateImage(side);
+    const image = sidePlate(side);
     $(`seatsPlateName${suffix}`).textContent = `Команда ${suffix}${lan.cams ? ` · ${lan.cams.rooms[side === 'a' ? 0 : 1]}` : ''}${image ? '' : ' · нет картинки'}`;
     $(`seatsPlateClear${suffix}`).disabled = !image;
     const canvas = $(`seatsPlate${suffix}`);
@@ -809,17 +831,15 @@ async function setPlate(side, file) {
   try {
     const url = await processPlate(file);
     if (!await changeAssets(assets => { assets.logos[PLATE[side]] = url; })) throw new Error('браузеру не хватило места');
-    panel().setPlates(plateDoc);
     paintPlates();
-    renderSeats();
+    platesChanged();
     panel().toast(`Заглушка команды ${side.toUpperCase()} готова: отправь камеры в OBS.`);
   } catch (error) { panel().toast(`Заглушка не загрузилась: ${error.message}.`); }
 }
 async function clearPlate(side) {
   await changeAssets(assets => { delete assets.logos[PLATE[side]]; });
-  panel().setPlates(plateDoc);
   paintPlates();
-  renderSeats();
+  platesChanged();
 }
 
 // «Найти компы»: a seat keeps its ID while that PC streams; only a seat whose
@@ -940,7 +960,7 @@ function renderAll() {
   fillEvent();
   renderTeams();
   renderMatches();
-  panel().setPlates(plateDoc);
+  panel().setPlates(plateDoc, anyPlayerPlate);
   paintPlates();
   renderSeats();
   paintLogos();
@@ -950,7 +970,7 @@ function renderAll() {
 // ---------- wiring ----------
 function start() {
   store = new AssetStore({ db: globalThis.indexedDB ? indexedAssets() : null });
-  loaded = store.load().then(migrateAssets).then(() => { renderTeams(); paintLogos(); paintPreview(); panel().setPlates(plateDoc); paintPlates(); });
+  loaded = store.load().then(migrateAssets).then(() => { renderTeams(); paintLogos(); paintPreview(); panel().setPlates(plateDoc, anyPlayerPlate); paintPlates(); });
   // OBS gets every card as one page with its photo inside.
   panel().setCardDocs(players => cardDocs(players, store.assets, palette()));
   $('ltAddTeam').addEventListener('click', addTeam);

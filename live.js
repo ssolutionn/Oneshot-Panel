@@ -108,9 +108,10 @@ function seatsPayload() {
     };
   });
   // A side's placeholder goes under its cameras; the other side's cards are blank.
-  const plates = [panel.plate('a'), panel.plate('b')];
+  // A seated player's own placeholder goes under their camera instead.
+  const plates = players.map((p, i) => panel.plate(i < 5 ? 'a' : 'b', seated[i]?.playerId));
   const cards = plates.some(Boolean);
-  const cardDocs = cards ? Object.fromEntries(players.map((p, i) => [cardKey(p.team, p.nick), plates[i < 5 ? 0 : 1] || BLANK_CARD])) : {};
+  const cardDocs = cards ? Object.fromEntries(players.map((p, i) => [cardKey(p.team, p.nick), plates[i] || BLANK_CARD])) : {};
   return { title: `Камеры: ${lan.cams?.rooms.join(' и ') || lan.prefix}`, match: { players, includeCards: cards, cardBase: cardBase(), cameraFrame: s.cameraFrame, cardDocs } };
 }
 // The collection OBS imports once: the same scenes, filled with the ten seats'
@@ -661,8 +662,8 @@ function paintCams() {
       note.hidden = !on || !player;
       note.textContent = {
         live: 'ВЕБКА В ЭФИРЕ', wait: 'ПРОВЕРЯЕМ ВЕБКУ…',
-        recent: panel.plate(side) ? 'БЫЛА НЕДАВНО · в OBS заглушка' : 'ВЕБКА БЫЛА НЕДАВНО',
-        off: panel.plate(side) ? 'НЕТ ВЕБКИ · в OBS заглушка' : 'НЕТ ВЕБКИ'
+        recent: panel.plate(side, player?.playerId) ? 'БЫЛА НЕДАВНО · в OBS заглушка' : 'ВЕБКА БЫЛА НЕДАВНО',
+        off: panel.plate(side, player?.playerId) ? 'НЕТ ВЕБКИ · в OBS заглушка' : 'НЕТ ВЕБКИ'
       }[state] || '';
       if (player) total++;
       if (state === 'live') { up++; teamUp++; }

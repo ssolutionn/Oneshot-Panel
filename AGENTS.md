@@ -117,6 +117,10 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   стороны (`lan-images processPlate` — JPEG ≤ 380 000 символов, IndexedDB `logos['#plate-a'|'#plate-b']`)
   → `lan-event plateCardUrl` (страница только с картинкой, cover) → `oneshotPanel.setPlates`/`plate`;
   саму картинку «Кадр» берёт через `setPlateImages`/`plateImage` (canvas `cameraPlate` в рамке);
+  у игрока может быть своя заглушка — квадрат `.lt-plate` (`slot('plate', playerId)`) рядом с фото
+  в «Командах», `logos['#plate:<playerId>']`, тот же `processPlate`; она важнее заглушки стороны
+  (`plateImage(side, playerId)`, `oneshotPanel.plate(side, playerId)`, `setPlates(provider, anyPlayer)`)
+  и едет под камеру игрока, на каком бы месте он ни сидел;
   с заглушкой CARD включаются сами (`cardsOn`), под камерами этой стороны — заглушка, у другой при
   выключенных карточках — пустая `BLANK_CARD`; готовая страница (`readyCard`) в OBS размером с рамку,
   сайтовая card.html — 1920×1080; смена — с
