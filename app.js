@@ -78,12 +78,18 @@ const EVENT_CAMS = EVENT_LAN ? lanCams(globalThis.oneshotEvent?.cameras) : null;
 const EVENT_NET = globalThis.oneshotEvent?.cameras?.net;
 const eventNet = EVENT_NET ? { ...EVENT_NET, mode: EVENT_NET.mode || (EVENT_LAN ? 'lan' : 'online') } :
   (EVENT_LAN ? { mode: 'lan' } : null);
-const netNew = Boolean(eventNet && !savedLan?.net);
+// A saved choice wins inside one event; opening another event applies its own
+// mode once, so online CyberClash does not leave REU without LAN-only.
+const NET_EVENT_STORE = 'oneshot-lan-net-event';
+const netEventTag = JSON.stringify([globalThis.oneshotEvent?.slug || '', EVENT_NET?.mode || '', EVENT_LAN]);
+const eventNetNew = Boolean(eventNet) && readStorage(NET_EVENT_STORE) !== netEventTag;
+const netNew = Boolean(eventNet && (!savedLan?.net || eventNetNew));
 if (EVENT_LAN !== state.lan.on || (EVENT_CAMS && !state.lan.cams) || netNew) {
   state.lan = lanConfig({ ...state.lan, on: EVENT_LAN, cams: state.lan.cams || EVENT_CAMS,
-    net: savedLan?.net || eventNet || state.lan.net,
+    net: eventNetNew ? eventNet : (savedLan?.net || eventNet || state.lan.net),
     prefix: state.lan.prefix || newLanPrefix(crypto.getRandomValues(new Uint8Array(4))) });
   writeStorage(LAN_STORE, state.lan);
+  if (eventNetNew) writeStorage(NET_EVENT_STORE, netEventTag);
 }
 // A saved match belongs to the data source it was picked from.
 function sourceTag() {
@@ -205,6 +211,11 @@ function setCamNick(side, slot, value) {
   renderOutput();
 }
 let cameraEditor=null,cameraPreview=null,cameraPreviewTimer,cameraPreviewPoll,cameraPreviewCss='',cameraPreviewAck=false,cameraPreviewRequest='',cameraPreviewSequence=0;
+// live.js asks the same question «Компы» и «Эфир» do ('live' | 'wait' | 'off');
+// lan.js gives the side's placeholder picture. Neither exists in the artifact.
+let camStateProvider=null,plateImageProvider=null;
+const camState=player=>camStateProvider ? camStateProvider(player) : 'none';
+const plateImageOf=side=>state.lan.on && plateImageProvider ? plateImageProvider(side)||'' : '';
 // A LAN seat's webcam on its own («Компы»): framed before anyone sits there.
 function seatPlayer(side,index) {
   const seat=lanSeat(state.lan,side,index);
@@ -223,6 +234,74 @@ function cameraPreviewStyle(camera) {
 function cameraPreviewLoading(loading) {
   $('cameraPreviewBox').dataset.loading=String(loading);
   $('cameraPreviewBox').parentElement.dataset.loading=String(loading);
+}
+// The frame shows what OBS shows under the camera: while the webcam is absent
+// (status 'off'), the side's placeholder instead of an endless «Ожидаем видео…».
+// The picture stays inside the unrotated frame, like the CARD source in OBS.
+// It is a canvas: the page's CSP has img-src 'self', so a data: background
+// would be blocked — the bytes go straight into a bitmap (as lan-images does).
+let cameraPlateImage='',cameraPlateBroken='',cameraPlateRequest=0;
+async function paintCameraPlate(plate) {
+  const canvas=$('cameraPlate');
+  const rect=cameraFrame(state.cameraFrame);
+  // The frame's own size, so the picture is not stretched by a 4:3 or square frame.
+  const geometry=`${plate}|${rect.width}x${rect.height}`;
+  const request=++cameraPlateRequest;
+  if(!plate||plate===cameraPlateBroken){canvas.hidden=true;cameraPlateImage='';return;}
+  if(cameraPlateImage!==geometry){
+    try{
+      const mime=plate.slice(5,plate.indexOf(';'));
+      const bytes=Uint8Array.from(atob(plate.slice(plate.indexOf(',')+1)),c=>c.charCodeAt(0));
+      const bitmap=await createImageBitmap(new Blob([bytes],{type:mime}));
+      if(request!==cameraPlateRequest){bitmap.close();return;}
+      const scale=Math.max(rect.width/bitmap.width,rect.height/bitmap.height);
+      const width=bitmap.width*scale,height=bitmap.height*scale;
+      canvas.width=rect.width;canvas.height=rect.height;
+      canvas.getContext('2d').drawImage(bitmap,(rect.width-width)/2,(rect.height-height)/2,width,height);
+      bitmap.close();
+      cameraPlateImage=geometry;
+      cameraPlateBroken='';
+    }catch{
+      if(request!==cameraPlateRequest)return;
+      // No picture after all: the frame says so in words instead of staying blank.
+      cameraPlateBroken=plate;
+      cameraPlateImage='';
+      $('cameraPreviewBox').dataset.plate=$('cameraPreviewBox').parentElement.dataset.plate='false';
+      canvas.hidden=true;
+      return;
+    }
+  }
+  canvas.hidden=false;
+}
+function paintCameraStage() {
+  const player=editorPlayer(),box=$('cameraPreviewBox'),stage=box.parentElement;
+  const cam=player ? camState(player) : 'none';
+  // «Была недавно» is not in the air either: the frame shows the same picture,
+  // and the seat badges keep the yellow wording.
+  const absent=cam==='off'||cam==='recent';
+  const found=absent&&cameraEditor ? plateImageOf(cameraEditor.side) : '';
+  // Only our own encoded pictures: anything else is no placeholder at all.
+  const plate=typeof found==='string'&&found.startsWith('data:image/') ? found : '';
+  const shown=Boolean(plate)&&plate!==cameraPlateBroken;
+  box.dataset.cam=stage.dataset.cam=cam;
+  box.dataset.plate=stage.dataset.plate=String(shown);
+  paintCameraPlate(plate);
+  // In words too: the picture alone does not say whether the webcam is away for
+  // a second or gone, and the operator is looking at this window.
+  const note=$('cameraState');
+  if(note){
+    const side=cameraEditor?.side?.toUpperCase()||'';
+    const text={
+      live:'Вебка в эфире.',
+      wait:'Проверяем вебку…',
+      recent:shown ? `Вебка была недавно — в кадре заглушка${side?` команды ${side}`:''}.` :
+        'Вебка была недавно — сейчас её нет.',
+      off:shown ? `Вебки нет — в кадре заглушка${side?` команды ${side}`:''}.` : 'Вебки нет.'
+    }[cam]||'';
+    note.dataset.kind=cam;
+    note.textContent=text;
+    note.hidden=!text;
+  }
 }
 function probeCameraPreview() {
   const player=editorPlayer();
@@ -260,6 +339,7 @@ function updateCameraPreview() {
   const player=editorPlayer();
   if(!player){$('cameraDialog').close();return;}
   const config=normalizeCamera(player.camera),rect=cameraFrame(state.cameraFrame);
+  paintCameraStage();
   $('cameraRotation').value=String(config.rotation);
   $('cameraZoom').value=String(Math.round(config.zoom*100));
   $('cameraZoomValue').value=Math.round(config.zoom*100)+'%';
@@ -313,7 +393,7 @@ function openCamera(side,slot,seat=false) {
       updateCameraPreview();
     }
   });
-  $('cameraPreviewBox').replaceChildren(cameraPreview);
+  $('cameraPreviewBox').replaceChildren($('cameraPlate'),cameraPreview);
   cameraPreviewPoll=setInterval(probeCameraPreview,1000);
   $('cameraDialog').showModal();
   updateCameraPreview();
@@ -325,6 +405,8 @@ $('cameraDialog').addEventListener('close',()=>{
   cameraPreviewTimer=null;
   cameraPreview?.remove();cameraPreview=null;cameraEditor=null;
 });
+// «Компы»/«Эфир» just learned whether the webcam is in the air: the frame follows.
+document.addEventListener('oneshot:cams',()=>{if(cameraEditor)paintCameraStage();});
 $('cameraRotation').addEventListener('change',()=>saveCamera({rotation:Number($('cameraRotation').value)}));
 $('cameraRotate').addEventListener('click',()=>{
   const player=editorPlayer();if(player)saveCamera({rotation:(normalizeCamera(player.camera).rotation+90)%360});
@@ -452,6 +534,22 @@ function chosen(side) {
   return selectedPlayers(getTeam(side),
     state[side === 'a' ? 'keysA' : 'keysB']);
 }
+// Two slots of one team swap their players: the cameras stay at the seats, the
+// players move between them. On a LAN that is the seating order; online it is
+// the same slot order OBS and the observer text use.
+function swapPlayerSlots(side, from, to) {
+  if (!['a', 'b'].includes(side) || from === to || from < 0 || to < 0 || from > 4 || to > 4) return;
+  const keys = state[side === 'a' ? 'keysA' : 'keysB'];
+  [keys[from], keys[to]] = [keys[to], keys[from]];
+  render();
+  const row = $('teamGrid').querySelector(`.player-row[data-player-side="${side}"][data-player-slot="${to}"]`);
+  if (row) {
+    row.classList.add('swapped');
+    row.focus({ preventScroll: true });
+    setTimeout(() => row.classList.remove('swapped'), 420);
+  }
+  toast(`Слоты ${from + 1} и ${to + 1} поменялись игроками. Для OBS — «Отправить в OBS» заново.`);
+}
 function valid() {
   return validateMatch(getTeam('a'), getTeam('b'),
     state.keysA, state.keysB);
@@ -481,6 +579,8 @@ function notify() {
 window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next),
   // A file handed in by live.js (the seats' collection) is saved like our own.
   download: file => directDownload(file),
+  // live.js just added an export source: re-check «Скачать JSON» and its hint.
+  refreshExport: () => renderOutput(),
   lan: () => ({ ...state.lan }), setLan,
   // «Ник» of a webcam (a seat in «Компы», a slot in «Эфир»): read and write.
   camNick: (side, index) => camNickValue(side, index, chosen(side)[index]),
@@ -494,7 +594,11 @@ window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, se
   // lan.js registers the maker of self-contained cards (photos inside).
   setCardDocs: provider => { cardDocsProvider = provider; }, cardDocs: () => cardDocsNow(),
   // lan.js: a side's placeholder card page («Компы»), '' when there is none.
-  setPlates: provider => { platesProvider = provider; notify(); }, plate: side => plateOf(side) };
+  setPlates: provider => { platesProvider = provider; notify(); }, plate: side => plateOf(side),
+  // live.js: the webcam status «Кадр» follows ('live' | 'wait' | 'off' | 'none').
+  setCamStatus: provider => { camStateProvider = typeof provider === 'function' ? provider : null; if (cameraEditor) paintCameraStage(); },
+  // lan.js: that placeholder's picture, shown in «Кадр» while the webcam is absent.
+  setPlateImages: provider => { plateImageProvider = typeof provider === 'function' ? provider : null; if (cameraEditor) paintCameraStage(); } };
 let cardDocsProvider = null, platesProvider = null;
 const plateOf = side => state.lan.on && platesProvider ? platesProvider(side) || '' : '';
 // Cards go to OBS with the checkbox, or on a LAN whenever a side has a placeholder.
@@ -818,7 +922,9 @@ function render() {
         const player = team.players.find(p => p.key === keys[i]);
         const nick = camNickValue(side, i, player);
         const nickHint = player ? player.nick : (state.lan.on ? 'Ник вебки' : 'Сначала выбери игрока');
-        return `<div class="player-row">
+        return `<div class="player-row" data-player-side="${side}" data-player-slot="${i}" tabindex="0"
+          title="Перетащи за ⠿ на другой слот этой команды (или Alt+↑/↓), чтобы поменять игроков местами">
+          <span class="player-grip" draggable="true" aria-hidden="true" title="Перетащи на другой слот">⠿</span>
           <span class="slot-number">${String(index * 5 + i + 1).padStart(2, '0')}</span>
           <div class="player-info">
             <select data-player="${side}" data-slot="${i}" aria-label="Игрок ${index * 5 + i + 1}">
@@ -900,6 +1006,50 @@ function render() {
   $('teamGrid').querySelectorAll('[data-cam-nick]').forEach(el =>
     el.addEventListener('input', () =>
       setCamNick(el.dataset.camNick, Number(el.dataset.slot), el.value)));
+  // Two players of one team swap slots by dragging the ⠿ handle (or Alt+↑/↓).
+  // Only the handle starts a drag, so selects and the camera nick keep working.
+  let dragPlayer = '';
+  const clearPlayerDrag = () => {
+    dragPlayer = '';
+    $('teamGrid').querySelectorAll('.player-row.dragging,.player-row.drop')
+      .forEach(row => row.classList.remove('dragging', 'drop'));
+  };
+  $('teamGrid').querySelectorAll('.player-row[data-player-side]').forEach(row => {
+    const side = row.dataset.playerSide, slot = Number(row.dataset.playerSlot);
+    const grip = row.querySelector('.player-grip');
+    grip?.addEventListener('dragstart', event => {
+      dragPlayer = `${side}${slot}`;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', dragPlayer);
+      row.classList.add('dragging');
+    });
+    row.addEventListener('dragover', event => {
+      if (!dragPlayer || dragPlayer[0] !== side || dragPlayer === `${side}${slot}`) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      row.classList.add('drop');
+    });
+    row.addEventListener('dragleave', event => {
+      if (!row.contains(event.relatedTarget)) row.classList.remove('drop');
+    });
+    row.addEventListener('drop', event => {
+      event.preventDefault();
+      row.classList.remove('drop');
+      if (!dragPlayer || dragPlayer[0] !== side) return clearPlayerDrag();
+      const from = Number(dragPlayer.slice(1));
+      clearPlayerDrag();
+      if (from !== slot) swapPlayerSlots(side, from, slot);
+    });
+    row.addEventListener('dragend', clearPlayerDrag);
+    row.addEventListener('keydown', event => {
+      if (!event.altKey || !['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+      if (event.target !== row && event.target !== grip) return;
+      const to = slot + (event.key === 'ArrowUp' ? -1 : 1);
+      if (to < 0 || to > 4) return;
+      event.preventDefault();
+      swapPlayerSlots(side, slot, to);
+    });
+  });
   $('teamGrid').querySelectorAll('[data-reset]').forEach(el =>
     el.addEventListener('click', () => {
       const side = el.dataset.reset;

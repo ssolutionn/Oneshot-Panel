@@ -37,6 +37,7 @@ async def main(args):
         await panel.goto(base)
         await expect(panel.locator("#syncTitle")).to_contain_text("команд из таблицы",timeout=15000)
         await panel.click("#vetoNavBtn")
+        await panel.evaluate("() => { document.getElementById('cvSettings').open = true; }")
         await panel.fill("#cvSite",args.veto_site or base+"/veto.html")
         await panel.locator("#cvSite").dispatch_event("change")
         await panel.select_option("#cvTransport","server")

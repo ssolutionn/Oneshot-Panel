@@ -1,6 +1,5 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
-import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { bookmakersResponse } from './netlify/functions/bookmakers.mjs';
@@ -9,9 +8,11 @@ import { nodeRelay } from './server/veto-relay-node.mjs';
 import { FileRelayStore } from './server/veto-relay-file.js';
 import {shortIdValid,shortPathValid} from './assets/veto-short-protocol.js';
 import { createCs2, handleCs2, loadToken } from './server/cs2-api.js';
-import { eventScript, eventSlug } from './events/event-script.js';
+import { eventsScript, eventSlug } from './events/event-script.js';
+import { eventFolderExists, readManifest, readManifests } from './events/manifests.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
+const eventsDir = path.join(root, 'events');
 const publicFiles = new Set([
   'index.html', 'app.js', 'core.js', 'style.css', 'theme.js',
   'card.html', 'card.js', 'card.css', 'live.js', 'obs.js', 'vdo.js',
@@ -27,24 +28,17 @@ const mime = {
   '.json': 'application/json; charset=utf-8',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml'
 };
-// The page's /event.js (events/event-script.js): which event this panel is.
-// EVENT=reu npm start opens the panel of events/reu; CyberClash by default.
+// The page's /event.js (events/event-script.js): the events this panel can open
+// and which one this address is. EVENT=reu npm start opens events/reu;
+// CyberClash by default. The page itself picks by ?event= and the chooser's
+// cookie, so a static build (public/event.js) chooses the same way.
 export function eventFile(slug = '') {
-  const file = name => path.join(root, 'events', name, 'event.json');
-  const chosen = eventSlug({ slug, exists: name => fs.existsSync(file(name)) });
-  return eventScript(JSON.parse(fs.readFileSync(file(chosen), 'utf8')));
+  const chosen = eventSlug({ slug, exists: name => eventFolderExists(eventsDir, name) });
+  return readManifest(eventsDir, chosen);
 }
 
-export function eventChoices() {
-  const dir = path.join(root, 'events');
-  return fs.readdirSync(dir, { withFileTypes: true })
-    .filter(entry => entry.isDirectory() && fs.existsSync(path.join(dir, entry.name, 'event.json')))
-    .map(entry => JSON.parse(fs.readFileSync(path.join(dir, entry.name, 'event.json'), 'utf8')))
-    .map(event => ({ slug: event.slug, name: event.name, short: event.short }));
-}
-
-function chooserScript() {
-  return `window.oneshotEventChoices=Object.freeze(${JSON.stringify(eventChoices())});`;
+function chooserPage(defaultSlug) {
+  return eventsScript(readManifests(eventsDir), { defaultSlug });
 }
 // cs2: the referee's journal of a CS2 server on this computer (server/cs2-api.js);
 // off unless given, so tests and plain static hosting never open it.
@@ -59,11 +53,6 @@ export function createServer({cs2 = null, event = process.env.EVENT ? eventFile(
       "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://open.faceit.com https://oneshot-veto.pages.dev https://oneshot-veto.cyberclash.workers.dev ws://127.0.0.1:* ws://localhost:*; frame-src https://vdo.ninja https://cdn-backup.vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
     if (cs2 && await handleCs2(request, response, cs2)) return;
     if (await nodeRelay(request, response, relayStore, shortStore)) return;
-    if (request.url.startsWith('/event-choices.js')) {
-      response.writeHead(200, { 'Content-Type': mime['.js'], 'Cache-Control': 'no-cache' });
-      response.end(request.method === 'HEAD' ? undefined : chooserScript());
-      return;
-    }
     if (!['GET', 'HEAD'].includes(request.method)) {
       response.writeHead(405, { Allow: 'GET, HEAD' });
       response.end();
@@ -108,11 +97,10 @@ export function createServer({cs2 = null, event = process.env.EVENT ? eventFile(
         new URL(request.url, 'http://localhost').pathname);
       if (pathname === '/event.js') {
         const requested = new URL(request.url, 'http://localhost').searchParams.get('event');
-        const cookie = request.headers.cookie?.match(/(?:^|;\s*)oneshot-event=([^;]+)/)?.[1];
-        const saved = cookie ? decodeURIComponent(cookie) : '';
-        const pageEvent = requested ? eventFile(requested) : saved ? eventFile(saved) : event;
+        // A bad ?event= is an error in words, not a silent fallback: 404, like a missing file.
+        const chosen = requested ? eventFile(requested) : event;
         response.writeHead(200, { 'Content-Type': mime['.js'], 'Cache-Control': 'no-cache' });
-        response.end(request.method === 'HEAD' ? undefined : (pageEvent || chooserScript()) + chooserScript());
+        response.end(request.method === 'HEAD' ? undefined : chooserPage(chosen?.slug));
         return;
       }
       const relative = pathname === '/' ? 'index.html' : shortPathValid(pathname)?'veto.html':pathname.slice(1);

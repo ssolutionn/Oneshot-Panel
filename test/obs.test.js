@@ -22,6 +22,9 @@ function mockObs({ password = '', scenes = 10, cameraName = i => `Камера $
   const items = scene => state.scenes.get(scene).map((it, index) => ({ ...it, sceneItemIndex: index }));
   const salt = 'c2FsdA==', challenge = 'Y2hhbGxlbmdl';
   const handlers = {
+    GetSceneList() {
+      return { scenes: [...state.scenes.keys()].map((sceneName, sceneIndex) => ({ sceneName, sceneIndex })) };
+    },
     GetSceneItemList({ sceneName }) {
       if (!state.scenes.has(sceneName)) throw [600, 'No source was found'];
       return { sceneItems: items(sceneName) };
@@ -145,7 +148,7 @@ test('Sending a match updates cameras and puts cards right under them', async ()
       assert.equal(obs.state.inputs.get(camera).settings.css, 'keep');
       assert.equal(obs.state.inputs.get(card).settings.url, cardUrl(p, 'https://panel.example'));
       for (const it of obs.state.scenes.get(`Игрок ${p.slot}`).slice(2)) {
-        assert.equal(it.transform.boundsWidth, 1320);
+        assert.equal(it.transform.boundsWidth, 1920);
         assert.equal(it.transform.boundsType, 'OBS_BOUNDS_SCALE_INNER');
       }
     }
@@ -164,6 +167,27 @@ test('Sending a match updates cameras and puts cards right under them', async ()
     await emitVeto(client, { maps: [] });
     assert.deepEqual(obs.state.vendor[0], { vendorName: 'obs-browser', requestType: 'emit_event',
       requestData: { event_name: VETO_EVENT, event_data: { maps: [] } } });
+  } finally {
+    client.close();
+    obs.close();
+  }
+});
+
+test('A collection with the webcam nick in its scene names still takes the match', async () => {
+  // Our JSON export names the scenes «1 Ник stream0» (the nick leads), while an
+  // older collection imported from the template keeps «Игрок 1». Both must work.
+  const obs = await mockObs();
+  const renamed = [...obs.state.scenes].map(([name, items]) => {
+    const slot = Number(name.replace('Игрок ', ''));
+    return [`${slot} Ник ${players()[slot - 1].nick}`, items];
+  });
+  obs.state.scenes.clear();
+  for (const [name, items] of renamed) obs.state.scenes.set(name, items);
+  const client = await new ObsClient(obs.url, '').connect();
+  try {
+    assert.deepEqual(await applyMatch(client, { players: players() }), { slots: 10, cards: 0 });
+    assert.deepEqual(ordered(obs, renamed[0][0]).slice(2), ['CAM 01 | A | nick0']);
+    assert.ok(obs.state.log.includes('SetSceneItemTransform'));
   } finally {
     client.close();
     obs.close();
@@ -221,5 +245,7 @@ test('Sending a match puts the «Матрица» tiles where the JSON has them:
       [0, 0, 480, 270], [480, 0, 480, 270], [960, 0, 480, 270], [1440, 0, 480, 270],
       [0, 270, 480, 270], [480, 270, 480, 270], [960, 270, 480, 270], [1440, 270, 480, 270],
       [0, 540, 960, 540], [960, 540, 960, 540]]);
+    // A stale 0.5 scale from the old template must not shrink 9/10 further.
+    assert.ok(tiles.every(t => t.scaleX === 1 && t.scaleY === 1));
   } finally { client.close(); await obs.close(); }
 });

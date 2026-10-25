@@ -137,7 +137,7 @@ async def run():
                     assert reply["d"]["requestStatus"]["result"],reply
                     return reply["d"].get("responseData",{})
 
-        async def picture(slot,label,expected=(300,36,1620,1044)):
+        async def picture(slot,label,expected=(0,0,1920,1080)):
             await request("SetCurrentProgramScene",{"sceneName":"Игрок "+str(slot)})
             camera_name=next(p['name'] for p in data['document']['sources'] if p['name'].startswith(f'CAM {slot:02} '))
             print('CAMERA_ACTIVITY',slot,await request('GetSourceActive',{'sourceName':camera_name}),flush=True)

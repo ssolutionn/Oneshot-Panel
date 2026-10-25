@@ -535,16 +535,19 @@ export function lanSchedule(lan) {
     matchId: m.id, key: JSON.stringify(['lan-match', m.id])
   }));
 }
+// «Команда: ник1, ник2, …» per line; nicknames are optional («Команда» alone is
+// a team whose lineup is filled in later, or never: a LAN's seats do not need
+// players). Comments (#) and empty lines are skipped, bad lines are reported.
 export function parseLanRoster(text) {
   const teams = [], skipped = [], names = new Set();
   String(text ?? '').split(/\r?\n/).forEach((raw, index) => {
     const row = line(raw);
     if (!row || row.startsWith('#')) return;
     const at = row.indexOf(':');
-    const name = at > 0 ? line(row.slice(0, at)) : '';
+    const name = at === -1 ? row : line(row.slice(0, at));
     const nicks = at > 0 ? row.slice(at + 1).split(',').map(line).filter(Boolean) : [];
-    if (!name || !nicks.length) {
-      skipped.push(`строка ${index + 1}: нужно «Команда: ник1, ник2, …»`);
+    if (!name) {
+      skipped.push(`строка ${index + 1}: нужно название команды`);
       return;
     }
     if (name.length > 60 || names.has(name.toLowerCase())) {
@@ -567,8 +570,32 @@ export function parseLanRoster(text) {
     teams.push({ name, room: '', password: '', players, sourceRow: index + 1 });
   });
   teams.skipped = skipped;
-  if (!teams.length) throw new Error('Добавь команды в окне «ЛАН»: одна строка — «Команда: ник1, ник2, …».');
+  if (!teams.length) throw new Error('Добавь команды в режиме ЛАН: одна строка — «Команда» или «Команда: ник1, ник2, …».');
   return teams;
+}
+// «Команды» → «Вписать списком»: the typed roster joins the cards already on the
+// panel. A team whose name is already there stays as it is — its logo, photos and
+// lineup survive — and both limits hold. `makeId` gives the new teams and players
+// their ids (random on the panel). Returns the teams to keep, what was added and
+// every line that was skipped, as parseLanRoster reports them.
+export function addLanRoster(teams, text, makeId, limits = LAN_LIMITS) {
+  const roster = parseLanRoster(text);
+  const next = Array.isArray(teams) ? teams.slice() : [];
+  const taken = new Set(next.map(t => personKey(t?.name)).filter(Boolean));
+  const skipped = [...roster.skipped];
+  const added = { teams: 0, players: 0 };
+  for (const found of roster) {
+    const key = personKey(found.name);
+    if (key && taken.has(key)) { skipped.push(`${found.name}: такая команда уже есть`); continue; }
+    if (next.length >= limits.teams) { skipped.push(`${found.name}: больше ${limits.teams} команд не помещается`); continue; }
+    const players = found.players.slice(0, limits.players).map(p => ({ id: makeId(), nick: p.nick }));
+    if (found.players.length > limits.players) skipped.push(`${found.name}: в команде больше ${limits.players} игроков`);
+    next.push({ id: makeId(), name: found.name, players });
+    if (key) taken.add(key);
+    added.teams += 1;
+    added.players += players.length;
+  }
+  return { teams: next, added, skipped };
 }
 export function lanSeatId(prefix, side, index) {
   return vdoId(`${prefix}${side}${index + 1}`);
@@ -851,7 +878,7 @@ export function buildObs(template, a, b, ka, kb,
 }
 
 // «Матрица» as in the template: 1–8 in a 480×270 grid on top, 9 and 10 each
-// filling its half of the bottom (960×540).
+// filling its half of the bottom (960×540), so the tiles cover 1920×1080.
 export function matrixTile(index) {
   if (!Number.isInteger(index) || index < 0 || index > 9) return null;
   return index < 8 ? { x: (index % 4) * 480, y: Math.floor(index / 4) * 270, width: 480, height: 270 } :

@@ -170,13 +170,19 @@ export class VdoLink {
 }
 
 // Which stream IDs of the selected match are publishing. One viewer per team
-// room; getStreamIDs is polled because join/leave events can be missed.
+// room; getStreamIDs is asked every second because join/leave events can be
+// missed and a badge that lags is read as a wrong one.
 export const camKey = (room, id) => `${room}/${id}`;
+// A webcam that answered a moment ago but is not publishing now is marked
+// «была недавно»: a stream that just dropped must not read as «нет вебки» on
+// the first answer, and a flapping room list must not blink the badge.
+export const RECENT_MS = 20000;
 export class CamWatch {
-  constructor(onChange, interval = 4000) {
-    Object.assign(this, { onChange, interval });
+  constructor(onChange, interval = 1000, recentMs = RECENT_MS) {
+    Object.assign(this, { onChange, interval, recentMs });
     this.rooms = new Map();
     this.live = new Set();
+    this.recent = new Set();
     this.listener = event => this.receive(event);
     addEventListener('message', this.listener);
     this.timer = setInterval(() => this.poll(), interval);
@@ -195,7 +201,7 @@ export class CamWatch {
     for (const [room, ids] of wanted) {
       if (!this.rooms.has(room)) {
         this.rooms.set(room, {
-          room, ids, password: passwords.get(room), live: new Set(), answered: false,
+          room, ids, password: passwords.get(room), live: new Set(), seen: new Map(), answered: false,
           iframe: frame(watchUrl(room, ids, passwords.get(room)), 'Статус вебок')
         });
       }
@@ -206,14 +212,25 @@ export class CamWatch {
     const entry = [...this.rooms.values()].find(e => e.iframe.contentWindow === event.source);
     if (!entry || !event.data || typeof event.data !== 'object') return;
     const data = event.data;
-    if (data.streamIDs && typeof data.streamIDs === 'object') {
-      entry.answered = true;
-      entry.live = new Set(streamIdsOf(data.streamIDs).filter(id => entry.ids.includes(id)));
-    } else if (data.action === 'view-connection' && entry.ids.includes(data.streamID)) {
-      // The data channel to a viewed stream opened (true) or closed (false).
-      if (data.value === false) entry.live.delete(data.streamID);
-      else entry.live.add(data.streamID);
-    } else return;
+    // Only the room's own list decides who is publishing. «view-connection» of a
+    // scene viewer flickers while it opens and drops connections to streams that
+    // are not there: a badge that blinks between «нет вебки» and «в эфире» is
+    // worse than one that is a second late, so that message is not presence.
+    if (!data.streamIDs || typeof data.streamIDs !== 'object') return;
+    const next = streamIdsOf(data.streamIDs).filter(id => entry.ids.includes(id));
+    // Every answer that names a stream is remembered for «была недавно», even
+    // one that does not confirm a state: that is exactly the flapping reply.
+    const now = Date.now();
+    for (const id of next) entry.seen.set(id, now);
+    const same = ids => ids.length === entry.live.size && ids.every(id => entry.live.has(id));
+    const first = !entry.answered;
+    entry.answered = true;
+    if (first) entry.live = new Set(next);
+    else if (same(next)) entry.pending = null;
+    // A change is shown only when two answers in a row agree: one odd reply
+    // (a stream still listed for a moment after it left) must not blink.
+    else if (entry.pending && entry.pending.length === next.length && entry.pending.every(id => next.includes(id))) entry.live = new Set(next);
+    else entry.pending = next;
     this.update();
   }
   poll() {
@@ -221,15 +238,21 @@ export class CamWatch {
       entry.iframe.contentWindow?.postMessage({ getStreamIDs: true }, '*');
     }
   }
-  // onChange(live, checking): checking lists stream IDs whose room has not
-  // answered yet, so the panel can say "проверяем" instead of "нет камеры".
+  // onChange(live, recent, checking): live is who publishes now; recent is who
+  // was named by the room not long ago (RECENT_MS) and is not live any more;
+  // checking lists stream IDs whose room has not answered yet, so the panel can
+  // say "проверяем" instead of "нет камеры".
   // Each ID is there as itself and as camKey(room, id): two rooms may use the
   // same IDs (a LAN's pc1…pc5 in each team's room).
   update() {
     const entries = [...this.rooms.values()];
     const keys = (e, ids) => [...ids].flatMap(id => [id, camKey(e.room, id)]);
     this.live = new Set(entries.flatMap(e => keys(e, e.live)));
-    this.onChange(this.live, new Set(entries.filter(e => !e.answered).flatMap(e => keys(e, e.ids))));
+    const now = Date.now();
+    this.recent = new Set(entries.flatMap(e => keys(e,
+      [...e.seen].filter(([id, at]) => !e.live.has(id) && now - at < this.recentMs).map(([id]) => id))));
+    this.onChange(this.live, this.recent,
+      new Set(entries.filter(e => !e.answered).flatMap(e => keys(e, e.ids))));
   }
   stop() {
     clearInterval(this.timer);
@@ -237,5 +260,6 @@ export class CamWatch {
     for (const entry of this.rooms.values()) entry.iframe.remove();
     this.rooms.clear();
     this.live = new Set();
+    this.recent = new Set();
   }
 }

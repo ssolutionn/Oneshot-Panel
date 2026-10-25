@@ -245,9 +245,10 @@ async def run(args):
             items = scene["settings"]["items"]
             item = next(it for it in items if it["name"].startswith("CAM "))
             assert item["rot"] == 0
-            assert item["bounds"] == {"x": 1320, "y": 1008}
-            assert item["pos"] == {"x":300,"y":36}
-            assert by_id[item["source_uuid"]]["settings"]["width"] == 1320
+            assert item["bounds"] == {"x": 1920, "y": 1080}
+            assert item["pos"] == {"x":0,"y":0}
+            assert by_id[item["source_uuid"]]["settings"]["width"] == 1920
+            assert "&scale=100" in by_id[item["source_uuid"]]["settings"]["url"]
             assert "&transparent" in by_id[item["source_uuid"]]["settings"]["url"]
             # The player card is right under the camera, served by this site.
             card = items[items.index(item) - 1]

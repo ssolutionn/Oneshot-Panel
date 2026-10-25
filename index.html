@@ -96,8 +96,8 @@
       </div>
       <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
       <label class="camera-frame-setting">Рамка вебок
-        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option><option value="inner43_over20">Внутренняя рамка +20 px запаса</option><option value="full43_over20">4:3 на всю высоту +20 px запаса</option><option value="wide_over20">Весь холст +20 px запаса</option><option value="square_over20">Квадрат +20 px запаса (1120×1120)</option></select>
-        <span>Заполнение с обрезкой краёв. «Кадр» под ником — поворот и положение игрока.</span>
+        <select id="cameraFrame"><option value="fullheight">Во всю высоту, пропорции камеры</option><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option><option value="inner43_over20">Внутренняя рамка +20 px запаса</option><option value="full43_over20">4:3 на всю высоту +20 px запаса</option><option value="wide_over20">Весь холст +20 px запаса</option><option value="square_over20">Квадрат +20 px запаса (1120×1120)</option></select>
+        <span>По умолчанию вебка растягивается до верхней и нижней границ сцены, сохраняя свои пропорции (без обрезки). «Кадр» под ником — поворот и положение игрока.</span>
       </label>
       <div class="export-meta">
         <p id="exportHint">10 вебок, сцены «Игрок 1–10» и «Матрица»</p>
@@ -173,61 +173,14 @@
     </div>
 
     <!-- web-only --><div id="vetoView" class="veto-view" role="tabpanel" aria-labelledby="vetoNavBtn" hidden>
-      <section id="cvLive" class="veto-panel cv-live" aria-labelledby="cvLiveHeading">
-        <div class="panel-heading">
-          <div><span class="eyebrow">CAPTAINS' ROOM · LIVE</span><h2 id="cvLiveHeading">Вето капитанов вживую</h2></div>
-          <span id="cvLiveState" class="cv-live-state" data-state="off">нет комнаты</span>
-        </div>
-        <div id="cvAlert" class="cv-alert" role="alert" hidden>
-          <b id="cvAlertText"></b>
-          <button id="cvAlertOk" class="button small primary" type="button">Понял, иду</button>
-        </div>
-        <p id="cvLiveEmpty" class="cv-intro">Нажми «Создать ссылки» в блоке «Вето для капитанов» ниже — панель сама подключится к этой комнате, вставлять ничего не надо. Здесь будет видно, кто из капитанов зашёл, монетка, каждый ход и вызов админа, а ходы сами попадут в вето панели и в оверлей OBS.</p>
-        <div id="cvRoom" class="cv-room" hidden>
-          <div class="cv-teams">
-            <div id="cvTeam0" class="cv-team" data-online="no"><i aria-hidden="true"></i><b></b><span></span></div>
-            <span class="cv-vs" aria-hidden="true">VS</span>
-            <div id="cvTeam1" class="cv-team" data-online="no"><i aria-hidden="true"></i><b></b><span></span></div>
-            <span id="cvClock" class="cv-clock" hidden></span>
-          </div>
-          <p id="cvStage" class="cv-stage" role="status" aria-live="polite"></p>
-          <ol id="cvMoves" class="cv-moves" aria-label="Ходы капитанов"></ol>
-          <label class="check cv-sync"><input id="cvSync" type="checkbox" checked autocomplete="off"> Переносить ходы капитанов в вето панели и в оверлей OBS</label>
-          <p id="cvSyncNote" class="cv-status"></p>
-          <div class="cv-room-actions">
-            <button id="cvCopyResult" class="button small primary" type="button" hidden>⧉ Текст HLTV из комнаты</button>
-            <button id="cvRestart" class="button small" type="button" title="Тестовое или сорванное вето: новая комната и новые ссылки капитанам, вето панели с нуля">↺ Начать вето заново</button>
-            <a id="cvAdminOpen" class="button small" target="_blank" rel="noopener" hidden>Админская ссылка ↗</a>
-            <button id="cvWatchStop" class="button small" type="button" hidden>← К комнате из панели</button>
-          </div>
-        </div>
-        <details id="cvWatchMore" class="cv-watch-more">
-          <summary>Ссылки делали на сайте вето, а не в панели? Вставь ссылку той комнаты</summary>
-          <div class="cv-watch">
-            <label>Любая ссылка комнаты (капитана, зрителей или админа)<input id="cvWatchLink" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://…#v=…"></label>
-            <button id="cvWatchGo" class="button small" type="button">Следить</button>
-          </div>
-        </details>
-      </section>
       <section id="captainVeto" class="veto-panel captain-veto" aria-labelledby="captainVetoHeading">
         <div class="panel-heading">
           <div><span class="eyebrow">CAPTAINS' VETO</span><h2 id="captainVetoHeading">Вето для капитанов</h2></div>
           <a id="playerVeto" class="text-button" href="https://oneshot-veto.pages.dev/" target="_blank" rel="noopener">Сайт вето ↗</a>
         </div>
-        <p class="cv-intro">Капитаны банят сами на своём сайте. По умолчанию — монетка; можно назначить команду выбирать порядок вето. Команды — из выбранного матча. Текст для HLTV видит только админская ссылка.</p>
-        <div class="cv-settings">
-          <label>Турнир<input id="cvTournament" value="CyberClash" maxlength="60" required autocomplete="off"></label>
-          <label>Формат<select id="cvFormat"><option>BO1</option><option>BO2</option><option selected>BO3</option><option>BO5</option></select></label>
-          <label>Таймер<select id="cvTimer">
-            <option value="5" selected>5 минут</option><option value="3">3 минуты</option><option value="7">7 минут</option>
-            <option value="10">10 минут</option><option value="15">15 минут</option><option value="0">Без таймера</option>
-          </select></label>
-          <label>Первый пик (в BO1 — первый бан)<select id="cvStart"><option value="coin" selected>Монетка (по умолчанию)</option><option value="0">Первая команда</option><option value="1">Вторая команда</option></select></label>
-          <label>Связь при создании комнаты<select id="cvTransport"><option value="vdo" selected>VDO.Ninja</option><option value="server">Наш сервер</option></select></label>
-          <label>Сообщения капитанам<select id="cvLang"><option value="en" selected>English</option><option value="ru">Русский</option></select></label>
+        <div class="cv-start">
+          <p class="cv-start-teams"><b id="cvTeams">Матч не выбран</b><span>Ссылки — капитанам в личку; текст для HLTV видит только админская ссылка.</span></p>
           <button id="cvCreate" class="button primary" type="button">Создать ссылки</button>
-          <label class="cv-site">Адрес сайта вето <small>(отдельный от панели — игроки не видят адрес панели)</small>
-            <input id="cvSite" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://oneshot-veto.pages.dev/"></label>
         </div>
         <p id="cvStatus" class="cv-status" role="status" aria-live="polite"></p>
         <div id="cvLinks" class="cv-links" hidden>
@@ -253,6 +206,58 @@
             <a id="cvOpen" class="button small primary" target="_blank" rel="noopener">Открыть вето ↗</a></span>
           </article>
         </div>
+        <details id="cvSettings" class="cv-settings-more">
+          <summary>Настройки комнаты<span id="cvSummary" class="cv-summary"></span></summary>
+          <div class="cv-settings">
+            <label>Турнир<input id="cvTournament" value="CyberClash" maxlength="60" required autocomplete="off"></label>
+            <label>Формат<select id="cvFormat"><option>BO1</option><option>BO2</option><option selected>BO3</option><option>BO5</option></select></label>
+            <label>Таймер<select id="cvTimer">
+              <option value="5" selected>5 минут</option><option value="3">3 минуты</option><option value="7">7 минут</option>
+              <option value="10">10 минут</option><option value="15">15 минут</option><option value="0">Без таймера</option>
+            </select></label>
+            <label>Первый пик (в BO1 — первый бан)<select id="cvStart"><option value="coin" selected>Монетка (по умолчанию)</option><option value="0">Первая команда</option><option value="1">Вторая команда</option></select></label>
+            <label>Связь при создании комнаты<select id="cvTransport"><option value="vdo" selected>VDO.Ninja</option><option value="server">Наш сервер</option></select></label>
+            <label>Сообщения капитанам<select id="cvLang"><option value="en" selected>English</option><option value="ru">Русский</option></select></label>
+            <label class="cv-site">Адрес сайта вето <small>(отдельный от панели — игроки не видят адрес панели)</small>
+              <input id="cvSite" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://oneshot-veto.pages.dev/"></label>
+          </div>
+        </details>
+      </section>
+      <section id="cvLive" class="veto-panel cv-live" aria-labelledby="cvLiveHeading">
+        <div class="panel-heading">
+          <div><span class="eyebrow">CAPTAINS' ROOM · LIVE</span><h2 id="cvLiveHeading">Вето капитанов вживую</h2></div>
+          <span id="cvLiveState" class="cv-live-state" data-state="off">нет комнаты</span>
+        </div>
+        <div id="cvAlert" class="cv-alert" role="alert" hidden>
+          <b id="cvAlertText"></b>
+          <button id="cvAlertOk" class="button small primary" type="button">Понял, иду</button>
+        </div>
+        <p id="cvLiveEmpty" class="cv-intro">Нажми «Создать ссылки» в блоке «Вето для капитанов» — панель сама подключится к этой комнате, вставлять ничего не надо. Здесь будет видно, кто из капитанов зашёл, монетка, каждый ход и вызов админа, а ходы сами попадут в вето панели и в оверлей OBS.</p>
+        <div id="cvRoom" class="cv-room" hidden>
+          <div class="cv-teams">
+            <div id="cvTeam0" class="cv-team" data-online="no"><i aria-hidden="true"></i><b></b><span></span></div>
+            <span class="cv-vs" aria-hidden="true">VS</span>
+            <div id="cvTeam1" class="cv-team" data-online="no"><i aria-hidden="true"></i><b></b><span></span></div>
+            <span id="cvClock" class="cv-clock" hidden></span>
+          </div>
+          <p id="cvStage" class="cv-stage" role="status" aria-live="polite"></p>
+          <ol id="cvMoves" class="cv-moves" aria-label="Ходы капитанов"></ol>
+          <label class="check cv-sync"><input id="cvSync" type="checkbox" checked autocomplete="off"> Переносить ходы капитанов в вето панели и в оверлей OBS</label>
+          <p id="cvSyncNote" class="cv-status"></p>
+          <div class="cv-room-actions">
+            <button id="cvCopyResult" class="button small primary" type="button" hidden>⧉ Текст HLTV из комнаты</button>
+            <button id="cvRestart" class="button small" type="button" title="Тестовое или сорванное вето: новая комната и новые ссылки капитанам, вето панели с нуля">↺ Начать вето заново</button>
+            <a id="cvAdminOpen" class="button small" target="_blank" rel="noopener" hidden>Админская ссылка ↗</a>
+            <button id="cvWatchStop" class="button small" type="button" hidden>← К комнате из панели</button>
+          </div>
+        </div>
+        <details id="cvWatchMore" class="cv-watch-more">
+          <summary>Ссылки делали на сайте вето, а не в панели? Вставь ссылку той комнаты</summary>
+          <div class="cv-watch">
+            <label>Любая ссылка комнаты (капитана, зрителей или админа)<input id="cvWatchLink" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://…#v=…"></label>
+            <button id="cvWatchGo" class="button small" type="button">Следить</button>
+          </div>
+        </details>
       </section>
     </div><!-- /web-only -->
     <!-- web-only --><div id="lobbyView" class="lobby" role="tabpanel" aria-labelledby="viewLobby" hidden>
@@ -400,6 +405,14 @@
           </div>
         </div>
         <p class="muted">Всё правится прямо в карточке: название — в шапке, ник — в строке игрока. Лого и фото — нажми на квадрат или перетащи туда картинку (PNG с прозрачным фоном, как «Скопировать объект» на iPhone; фон обрежется сам). Первые пять — основной состав, дальше запасные.</p>
+        <details class="lt-bulk">
+          <summary>Вписать команды списком</summary>
+          <p class="muted">Одна строка — одна команда: «Название: ник1, ник2, …» (не больше 12 ников, первые пять — основа). Ники можно не писать — строка «Название» добавит команду без игроков, их впишешь в карточке. Строки с # не читаются; команды, которые уже есть, остаются как были.</p>
+          <textarea id="ltBulk" rows="6" spellcheck="false" aria-label="Команды списком: одна строка — Название или Название: ник1, ник2, …" placeholder="Team Alpha: nick1, nick2, nick3, nick4, nick5&#10;Team Bravo: b1, b2, b3, b4, b5, запасной&#10;Team Charlie"></textarea>
+          <div class="lt-bulk-actions">
+            <button id="ltBulkAdd" class="button small primary" type="button" title="Добавить строки к командам (Ctrl+Enter)">Добавить</button>
+          </div>
+        </details>
         <p id="ltStatus" class="event-status" role="status" aria-live="polite"></p>
         <ul id="ltLog" class="lan-import-log"></ul>
         <div id="ltGrid" class="lt-grid"></div>
@@ -461,6 +474,18 @@
             <span>Директор B: <a id="seatsDirectorB" target="_blank" rel="noreferrer"></a> <button id="seatsDirectorCopyB" class="copy-icon" type="button" aria-label="Копировать ссылку директора B" title="Копировать">⧉</button></span>
           </div>
         </div>
+        <div id="seatsNetBox" class="seat-settings seat-net">
+          <label>Где вебки<select id="seatsNetMode"><option value="online">Онлайн</option><option value="lan">ЛАН — одна локальная сеть</option></select></label>
+          <div class="seat-net-fields">
+            <label>Камера на компе<select id="seatsNetQuality"><option value="720">720p</option><option value="1080">1080p</option></select></label>
+            <label>Кадров в секунду<select id="seatsNetFps"><option value="24">24</option><option value="30">30</option><option value="60">60</option></select></label>
+            <label>Кодек в OBS<select id="seatsNetCodec"><option value="h264">H.264</option><option value="vp8">VP8</option><option value="vp9">VP9</option></select></label>
+            <label>Битрейт в OBS, кбит/с<input id="seatsNetBitrate" type="number" min="1000" max="50000" step="500" inputmode="numeric"></label>
+            <label class="seat-net-check"><input id="seatsNetLowlatency" type="checkbox"> Минимальная задержка <span class="muted">(без буфера; звук на вебке лучше выключить)</span></label>
+            <label class="seat-net-check"><input id="seatsNetLanonly" type="checkbox"> Только локальная сеть <span class="muted">(в онлайн-режиме выключено)</span></label>
+          </div>
+        </div>
+        <p id="seatsNetNote" class="muted">Преднастройка: 720p, 30 кадров/с, H.264, 5000 кбит/с. В ЛАНе — минимальная задержка и только локальная сеть; онлайн — те же параметры без локальной сети. После смены открой новые ссылки на компах и отправь камеры в OBS заново.</p>
         <div class="seat-plates" aria-labelledby="seatsPlatesHeading">
           <h3 id="seatsPlatesHeading">Заглушка, когда вебки нет</h3>
           <p class="muted">Картинка встаёт в OBS под камеры команды: пока вебка места не в эфире, видно её, вебка появилась — закрывает. Уходит с «Отправить в OBS» и в JSON.</p>
@@ -474,6 +499,7 @@
         </div>
         <p id="seatsNote" class="muted">Префикс и пароль меняют ссылки всех десяти компов: после смены открой новые ссылки на местах.</p>
         <p id="seatsClash" class="error-box" hidden>Два места попали на один поток: одинаковый ID в одной комнате или одинаковый ID в комнатах с одним паролем (или без него). VDO.Ninja примет их за один поток, и второй комп отключится («stream ID is already in use»). Проверь ID, заданные вручную (✎ у места), и пароли комнат.</p>
+        <p id="seatsMissing" class="error-box" role="status" hidden></p>
         <details class="event-guide">
           <summary>Как поставить вебку на комп</summary>
           <ol>
@@ -757,7 +783,8 @@
 
   <dialog id="cameraDialog" class="camera-dialog" aria-labelledby="cameraHeading">
     <div class="dialog-head"><h2 id="cameraHeading">Кадр камеры</h2><button id="closeCamera" class="icon-button" type="button" aria-label="Закрыть">×</button></div>
-    <div class="camera-preview-stage"><div id="cameraPreviewBox" class="camera-preview-box" data-rotation="0"></div></div>
+    <div class="camera-preview-stage"><div id="cameraPreviewBox" class="camera-preview-box" data-rotation="0"><canvas id="cameraPlate" class="camera-plate" width="1920" height="1080" aria-hidden="true" hidden></canvas></div></div>
+    <p id="cameraState" class="camera-state" role="status" hidden></p>
     <div class="camera-tools">
       <label>Поворот<select id="cameraRotation"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></label>
       <button id="cameraRotate" class="button" type="button">Повернуть ↻ 90°</button>

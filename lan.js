@@ -3,7 +3,7 @@
 // «Матчи», «Компы» and «Событие». app.js keeps the data (window.oneshotPanel
 // .lan / setLan); here it is edited right where it is shown. Names and nicks
 // from people go into the page as text only.
-import { lanSeat, lanSeatLinks, lanCams, vdoRoomOf, directorUrl, lanId, newLanPrefix, personKey, cardKey, LAN_LIMITS, LAN_SEATS, MATCH_FORMATS, displayNick } from './core.js';
+import { lanSeat, lanSeatLinks, lanCams, vdoNet, vdoRoomOf, vdoStreamId, lanPushes, directorUrl, lanId, newLanPrefix, personKey, cardKey, LAN_LIMITS, LAN_SEATS, MATCH_FORMATS, displayNick, addLanRoster } from './core.js';
 import { camKey, scanRoom } from './vdo.js';
 import { showView, camStatus, sendObs } from './live.js';
 import { DEFAULT_TOURNAMENT } from './assets/veto-short-links.js';
@@ -244,7 +244,7 @@ function renderTeams() {
   const cards = draft.teams.map(team => teamCard(team, repeated.has(team.id)));
   $('ltGrid').replaceChildren(...(cards.length ? cards : [el('div', { class: 'lt-empty' },
     el('p', { text: 'Пока нет ни одной команды.' }),
-    el('p', { class: 'muted', text: 'Нажми «+ Команда» и впиши название и ники — или загрузи папку с Drive, и всё заполнится само.' }))]));
+    el('p', { class: 'muted', text: 'Нажми «+ Команда» и впиши название и ники, вставь список строкой на команду — или загрузи папку с Drive, и всё заполнится само.' }))]));
   $('ltAddTeam').disabled = draft.teams.length >= LAN_LIMITS.teams;
   paintSlots();
 }
@@ -256,6 +256,28 @@ function addTeam() {
   commit(true);
   renderTeams();
   $('ltGrid').querySelector(`[data-team-id="${team.id}"] .lt-name`)?.focus();
+}
+// «Вписать списком»: one line per team («Команда» или «Команда: ник1, ник2, …»)
+// joins the cards that are already there; a name that is taken stays untouched,
+// so its logo, photos and lineup survive. The lines that did not fit are told here.
+function addRoster() {
+  const text = $('ltBulk').value;
+  if (!text.trim()) return setStatus('ltStatus', 'Впиши хотя бы одну строку — «Команда» или «Команда: ник1, ник2, …».', true);
+  let result;
+  try { result = addLanRoster(draft.teams, text, newId); }
+  catch (error) { return setStatus('ltStatus', error.message, true); }
+  const { added, skipped } = result;
+  const notes = skipped.length ?
+    ` Пропущено: ${skipped.slice(0, 4).join('; ')}${skipped.length > 4 ? ` и ещё ${skipped.length - 4}` : ''}.` : '';
+  if (!added.teams) return setStatus('ltStatus', `Новых команд нет.${notes}`, Boolean(skipped.length));
+  draft.teams = result.teams;
+  commit(true);
+  $('ltBulk').value = '';
+  renderTeams();
+  renderMatches(); // the new names are choices in «Матчи»
+  setStatus('ltStatus', added.players ?
+    `Добавлено команд: ${added.teams}, игроков: ${added.players}.${notes}` :
+    `Добавлено команд: ${added.teams} — ники игроков можно вписать в карточках.${notes}`, Boolean(skipped.length));
 }
 function addPlayer(teamId) {
   const team = teamOf(teamId);
@@ -495,6 +517,17 @@ function renderSeats() {
       $(`seatsDirector${suffix}`).textContent = url;
     }
   }
+  // VDO.Ninja tuning: 720p/30/H.264/5000 by default, low latency everywhere.
+  // The mode decides «Только локальная сеть»; online never asks for it.
+  const net = vdoNet(lan.net);
+  fill('seatsNetMode', net.mode);
+  fill('seatsNetQuality', net.quality);
+  fill('seatsNetFps', String(net.fps));
+  fill('seatsNetCodec', net.codec);
+  fill('seatsNetBitrate', String(net.bitrate));
+  if (document.activeElement !== $('seatsNetLowlatency')) $('seatsNetLowlatency').checked = net.lowlatency;
+  if (document.activeElement !== $('seatsNetLanonly')) $('seatsNetLanonly').checked = net.lanonly;
+  $('seatsNetLanonly').disabled = net.mode !== 'lan';
   const ownPush = (sd, i) => Boolean(lan.pushes?.[sd]?.[i]);
   const own = ['a', 'b'].some(sd => Array.from({ length: LAN_SEATS }, (_, i) => ownPush(sd, i)).some(Boolean));
   $('seatsNote').textContent = (lan.cams ? 'Комнаты, пароли и ID меняют ссылки компов и камер в OBS: после смены открой новые ссылки на местах и скачай JSON заново.' :
@@ -505,22 +538,20 @@ function renderSeats() {
   const snapshot = panel().snapshot();
   const cams = camStatus();
   const links = lan.prefix ? lanSeatLinks(lan) : [];
-  let live = 0;
   const columns = ['a', 'b'].map((side, s) => el('div', { class: 'seat-column' },
     el('h3', { text: `${side.toUpperCase()} · ${(s ? snapshot.b : snapshot.a)?.name || (s ? 'вторая команда' : 'первая команда')}` }),
     ...Array.from({ length: LAN_SEATS }, (_, i) => {
       const link = links[s * LAN_SEATS + i];
-      const key = link && camKey(link.room, link.id);
-      const cam = !cams.on || !link ? 'none' : cams.live.has(key) ? 'live' : cams.checking.has(key) ? 'wait' : 'off';
-      const plate = Boolean(plateImage(side));
-      const state = { live: 'В ЭФИРЕ', off: plate ? 'НЕТ ВЕБКИ · в OBS заглушка' : 'НЕТ ВЕБКИ', wait: 'ПРОВЕРЯЕМ…', none: 'статус выключен' }[cam];
-      if (cam === 'live') live++;
+      const cam = seatCamState(cams, link);
+      const state = seatCamLabel(cam, Boolean(plateImage(side)));
       const seated = (s ? snapshot.playersB : snapshot.playersA)?.[i];
       const who = displayNick(seated) || '';
       const nick = panel().camNick(side, i);
       const seatName = link?.seat || `${side.toUpperCase()}${i + 1}`;
       return el('div', { class: 'seat-card', 'data-seat-cam': cam,
+        ...(lan.cams ? { 'data-seat': `${side}${i}`, tabIndex: 0 } : {}),
         ...(ownPush(side, i) ? { 'data-seat-push': 'own' } : {}) },
+        ...(lan.cams ? [el('span', { class: 'seat-grip', draggable: true, title: 'Перетащи на другое место этой команды (или Alt+↑/↓), чтобы поменять компы местами', text: '⠿' })] : []),
         el('b', { class: 'seat-name', text: link?.seat || `${side.toUpperCase()}${i + 1}` }),
         el('i', { class: 'seat-dot', 'aria-hidden': 'true' }),
         el('input', {
@@ -546,6 +577,36 @@ function renderSeats() {
           title: `Поворот, сдвиг и зум вебки места ${link?.seat || ''}`, disabled: !link, onclick: () => panel().editSeatCamera(side, i) }));
     })));
   $('seatGrid').replaceChildren(...columns);
+  paintSeatCam();
+}
+// What the watcher (live.js) says about the seat's stream: its room and ID.
+function seatCamState(cams, link) {
+  const key = link && camKey(link.room, link.id);
+  return !cams.on || !link ? 'none' : cams.live.has(key) ? 'live' : cams.checking.has(key) ? 'wait' :
+    cams.recent.has(key) ? 'recent' : 'off';
+}
+const seatCamLabel = (cam, plate) =>
+  ({ live: 'В ЭФИРЕ', recent: plate ? 'БЫЛА НЕДАВНО · в OBS заглушка' : 'БЫЛА НЕДАВНО',
+    off: plate ? 'НЕТ ВЕБКИ · в OBS заглушка' : 'НЕТ ВЕБКИ', wait: 'ПРОВЕРЯЕМ…', none: 'статус выключен' })[cam];
+// live.js asks VDO.Ninja again every second and tells us through «oneshot:cams»:
+// the badges change in place, without rebuilding the grid, so a nick being
+// typed or a seat being dragged survives the update.
+function paintSeatCam() {
+  const lan = panel().lan();
+  const cams = camStatus();
+  let live = 0;
+  $('seatGrid').querySelectorAll('.seat-column').forEach((column, s) => {
+    const side = s ? 'b' : 'a';
+    const plate = Boolean(plateImage(side));
+    column.querySelectorAll('.seat-card').forEach((card, i) => {
+      const cam = seatCamState(cams, lanSeat(lan, side, i));
+      if (cam === 'live') live++;
+      if (card.dataset.seatCam !== cam) card.dataset.seatCam = cam;
+      const label = card.querySelector('.seat-state');
+      const text = seatCamLabel(cam, plate);
+      if (label && label.textContent !== text) label.textContent = text;
+    });
+  });
   const watching = $('watchCams')?.checked;
   $('seatsWatch').setAttribute('aria-pressed', String(Boolean(watching)));
   $('seatsWatch').textContent = watching ? `Вебки: ${live} из 10 в эфире` : 'Следить за вебками';
@@ -560,7 +621,9 @@ function changeCams() {
     if (found) $(room).value = found.room;
     return found?.room || '';
   });
-  const list = id => $(id).value.split(/[\s,;]+/).filter(Boolean);
+  // A pasted seat link gives its push=; a bare ID stays as typed. VDO's
+  // placeholder keys ("undefined"/"null") are not IDs and are dropped here.
+  const list = id => $(id).value.split(/[\s,;]+/).filter(Boolean).map(vdoStreamId).filter(Boolean);
   const cams = lanCams({
     rooms, passwords: [$('seatsPasswordA').value, $('seatsPasswordB').value],
     ids: list('seatsIds'), idsB: list('seatsIdsB').length ? list('seatsIdsB') : undefined
@@ -572,14 +635,156 @@ function changeCams() {
   if (!cams) { renderSeats(); return panel().toast('Нужны две разные комнаты и пять разных ID компов: латиница, цифры, _.'); }
   if (!window.confirm('Поменяются ссылки компов и камер в OBS: старые вкладки на местах перестанут попадать в эфир.' +
     dropPushes(lan) + ' Продолжить?')) { renderSeats(); return; }
+  const idsChanged = JSON.stringify([lan.cams?.rooms, lan.cams?.ids, lan.cams?.idsB || null]) !==
+    JSON.stringify([cams.rooms, cams.ids, cams.idsB || null]);
   draft.cams = cams;
   draft.pushes = null;
   commit(true);
   panel().toast('Готово: открой новые ссылки на компах и скачай JSON для OBS заново.');
+  if (idsChanged) checkTypedIds(cams);
 }
+// A typed ID that no PC streams right now: the seat would be empty in OBS.
+// The save already happened (the PCs may start later); say it in words and
+// leave the note until the next successful check or «Найти компы».
+async function checkTypedIds(cams) {
+  const box = $('seatsMissing');
+  if (!box || !cams) return;
+  try {
+    const found = await Promise.all([0, 1].map(i => scanRoom(cams.rooms[i], cams.passwords[i], { wait: 8000 })));
+    const now = panel().lan();
+    if (!now.cams || JSON.stringify(now.cams) !== JSON.stringify(cams)) return;
+    const missing = lanSeatLinks(now).filter(seat => {
+      const room = cams.rooms.indexOf(seat.room);
+      return room >= 0 && !found[room].includes(seat.id);
+    }).map(seat => `${seat.room}/${seat.id}`);
+    if (!missing.length) { box.hidden = true; box.textContent = ''; return; }
+    box.hidden = false;
+    box.textContent = `Сейчас не стримят: ${missing.join(', ')}. Запусти ссылки на компах или исправь ID — иначе эти места в OBS будут пустыми.`;
+    panel().toast(`Не в эфире: ${missing.join(', ')}`, 7000);
+  } catch { /* the scan is a hint, not a save blocker */ }
+}
+// Two seats of one side swap their PCs: the room stays the side's, the camera
+// frame and a hand-set ID follow the PC. The players keep their slots; this is
+// how the operator fixes the order «Найти компы» guessed after the scan.
+function swapSeats(side, from, to) {
+  const lan = panel().lan();
+  if (!lan.cams || from === to || from < 0 || to < 0 || from >= LAN_SEATS || to >= LAN_SEATS) return;
+  const ids = [...(side === 'a' ? lan.cams.ids : lan.cams.idsB || lan.cams.ids)];
+  [ids[from], ids[to]] = [ids[to], ids[from]];
+  const cams = { ...lan.cams, [side === 'a' ? 'ids' : 'idsB']: ids };
+  if (side === 'b' && !lan.cams.idsB) cams.idsB = [...ids];
+  const next = lanCams(cams);
+  if (!next) return;
+  // A hand-set ID belongs to the PC: it travels with the webcam.
+  const pushes = { a: Array(LAN_SEATS).fill(null), b: Array(LAN_SEATS).fill(null), ...(lan.pushes || {}) };
+  const list = Array.from({ length: LAN_SEATS }, (_, i) => pushes[side]?.[i] || null);
+  [list[from], list[to]] = [list[to], list[from]];
+  pushes[side] = list;
+  draft.cams = next;
+  draft.pushes = lanPushes(pushes) ? pushes : null;
+  commit(true);
+  const target = $('seatGrid').querySelector(`.seat-card[data-seat="${side}${to}"]`);
+  if (target) {
+    target.classList.add('swapped');
+    target.focus({ preventScroll: true });
+    setTimeout(() => target.classList.remove('swapped'), 420);
+  }
+  panel().toast(`${side.toUpperCase()}${from + 1} ⇄ ${side.toUpperCase()}${to + 1}: компы поменялись местами. Отправь камеры в OBS заново.`);
+}
+// VDO tuning in «Компы»: the preset is 720p/30/H.264/5000, low latency on.
+// LAN also keeps the media on the local network; online always clears lanonly.
+function changeNet() {
+  const lan = panel().lan();
+  const mode = $('seatsNetMode').value === 'lan' ? 'lan' : 'online';
+  const net = vdoNet({
+    mode,
+    quality: $('seatsNetQuality').value,
+    fps: Number($('seatsNetFps').value),
+    codec: $('seatsNetCodec').value,
+    bitrate: Number($('seatsNetBitrate').value),
+    lowlatency: $('seatsNetLowlatency').checked,
+    lanonly: mode === 'lan' ? $('seatsNetLanonly').checked : false
+  });
+  if (String(net.bitrate) !== $('seatsNetBitrate').value) {
+    panel().toast(`Битрейт: 1000–50000 кбит/с — оставлен ${net.bitrate}.`);
+  }
+  if (JSON.stringify(net) === JSON.stringify(vdoNet(lan.net))) {
+    $('seatsNetBitrate').value = String(net.bitrate);
+    return;
+  }
+  draft.net = net;
+  commit(true);
+  renderSeats();
+  $('seatsNetBitrate').value = String(net.bitrate);
+  panel().toast(net.mode === 'lan' ?
+    `ЛАН: ${net.quality}p/${net.fps}, минимальная задержка и только локальная сеть. Открой новые ссылки на компах и отправь камеры в OBS заново.` :
+    `Онлайн: ${net.quality}p/${net.fps}, ${net.codec.toUpperCase()}, ${net.bitrate} кбит/с; локальная сеть выключена. Открой новые ссылки и отправь камеры в OBS заново.`);
+}
+function netModeChanged() {
+  const lanMode = $('seatsNetMode').value === 'lan';
+  $('seatsNetLowlatency').checked = true;
+  $('seatsNetLanonly').checked = lanMode;
+  $('seatsNetLanonly').disabled = !lanMode;
+  changeNet();
+}
+// Drag a seat by its ⠿ handle (or Alt+↑/↓). Only the handle starts a drag, so
+// the nick field and the buttons keep working; members of one side only.
+function initSeatDrag() {
+  const grid = $('seatGrid');
+  let from = null;
+  const clear = () => {
+    from = null;
+    grid.querySelectorAll('.seat-card.dragging,.seat-card.drop')
+      .forEach(card => card.classList.remove('dragging', 'drop'));
+  };
+  grid.addEventListener('dragstart', event => {
+    const grip = event.target.closest?.('.seat-grip');
+    const card = grip?.closest('.seat-card');
+    if (!card?.dataset.seat) { event.preventDefault(); return; }
+    from = { side: card.dataset.seat[0], index: Number(card.dataset.seat.slice(1)) };
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', card.dataset.seat);
+    card.classList.add('dragging');
+  });
+  grid.addEventListener('dragover', event => {
+    const card = event.target.closest?.('.seat-card');
+    if (!card?.dataset.seat || !from || card.dataset.seat[0] !== from.side ||
+        card.dataset.seat === `${from.side}${from.index}`) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    card.classList.add('drop');
+  });
+  grid.addEventListener('dragleave', event => {
+    const card = event.target.closest?.('.seat-card');
+    if (card && !card.contains(event.relatedTarget)) card.classList.remove('drop');
+  });
+  grid.addEventListener('drop', event => {
+    const card = event.target.closest?.('.seat-card');
+    if (!card?.dataset.seat || !from || card.dataset.seat[0] !== from.side) return clear();
+    event.preventDefault();
+    const to = Number(card.dataset.seat.slice(1));
+    const { side, index } = from;
+    clear();
+    if (index !== to) swapSeats(side, index, to);
+  });
+  grid.addEventListener('dragend', clear);
+  grid.addEventListener('keydown', event => {
+    const card = event.target.closest?.('.seat-card');
+    if (!card?.dataset.seat || !event.altKey || !['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    if (event.target !== card && !event.target.classList?.contains('seat-grip')) return;
+    const side = card.dataset.seat[0], index = Number(card.dataset.seat.slice(1));
+    const to = index + (event.key === 'ArrowUp' ? -1 : 1);
+    if (to < 0 || to >= LAN_SEATS) return;
+    event.preventDefault();
+    swapSeats(side, index, to);
+  });
+}
+
 // ---------- placeholders: a side's picture under its cameras in OBS ----------
 const PLATE = { a: '#plate-a', b: '#plate-b' };
 const plateImage = side => store?.assets.logos[PLATE[side]] || '';
+// «Кадр» (app.js) shows this picture inside the frame while the webcam is absent.
+panel().setPlateImages?.(plateImage);
 const plateDocs = new Map();
 function plateDoc(side) {
   const image = plateImage(side);
@@ -640,6 +845,7 @@ async function scanCams() {
   const lan = panel().lan();
   if (!lan.cams) return;
   $('seatsScan').disabled = true;
+  if ($('seatsMissing')) $('seatsMissing').hidden = true;
   $('seatsNote').textContent = `Ищем компы в комнатах ${lan.cams.rooms.join(' и ')}… до 12 секунд.`;
   try {
     const found = await Promise.all([0, 1].map(i => scanRoom(lan.cams.rooms[i], lan.cams.passwords[i])));
@@ -748,6 +954,11 @@ function start() {
   // OBS gets every card as one page with its photo inside.
   panel().setCardDocs(players => cardDocs(players, store.assets, palette()));
   $('ltAddTeam').addEventListener('click', addTeam);
+  $('ltBulkAdd').addEventListener('click', addRoster);
+  // Ctrl+Enter (Cmd+Enter on a Mac) adds the list without reaching for the button.
+  $('ltBulk').addEventListener('keydown', event => {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); addRoster(); }
+  });
   $('ltPickZip').addEventListener('click', () => $('ltZip').click());
   $('ltPickFolder').addEventListener('click', () => $('ltFolder').click());
   $('ltZip').addEventListener('change', async () => {
@@ -797,6 +1008,10 @@ function start() {
   $('seatsNewPrefix').addEventListener('click', () => changeSeats(newLanPrefix(random(4)), panel().lan().password));
   for (const id of ['seatsRoomA', 'seatsRoomB', 'seatsPasswordA', 'seatsPasswordB', 'seatsIds', 'seatsIdsB']) $(id).addEventListener('change', changeCams);
   $('seatsScan').addEventListener('click', scanCams);
+  $('seatsNetMode').addEventListener('change', netModeChanged);
+  for (const id of ['seatsNetQuality', 'seatsNetFps', 'seatsNetCodec', 'seatsNetBitrate', 'seatsNetLowlatency', 'seatsNetLanonly'])
+    $(id).addEventListener('change', changeNet);
+  initSeatDrag();
   for (const suffix of ['A', 'B']) $(`seatsDirectorCopy${suffix}`).addEventListener('click', () => {
     const url = $(`seatsDirector${suffix}`).href;
     if (url) panel().copy(url);
@@ -812,9 +1027,10 @@ function start() {
   });
   // The ten webcams (or the match on air, when there is one) straight into OBS.
   $('seatsSendObs').addEventListener('click', () => sendObs());
-  // Webcam dots in «Эфир» (live.js) are the seats' too.
+  // Webcam dots in «Эфир» (live.js) are the seats' too: live.js re-asks
+  // VDO.Ninja every second and the badges follow in place.
   document.addEventListener('oneshot:cams', () => {
-    if (!seatNickTyping && !$('seatsView').hidden) renderSeats();
+    if (!$('seatsView').hidden) paintSeatCam();
   });
 
   $('evName').addEventListener('input', () => { draft.event.name = $('evName').value; commit(); });

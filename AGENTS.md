@@ -40,9 +40,12 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   и событие `oneshot:change` для `live.js` и `lobby.js`; сам их не знает
   (в артефакте Claude их нет).
 - `live.js` — только сайт: вкладки (Подготовка, Вето, Лобби, OBS, Букмекеры), «Отправить в OBS», «Копировать JSON»,
-  вкладку «Вето» (`vetoNavBtn`, `vetoView`: живая комната капитанов `cvLive`,
-  затем `#veto` — live.js переносит его туда из «Подготовки», в артефакте он
-  остаётся на месте, — затем блок ссылок `captainVeto`),
+  вкладку «Вето» (`vetoNavBtn`, `vetoView`: блок ссылок `captainVeto` с матчем и
+  «Создать ссылки» наверху, настройки комнаты — в свёрнутом `cvSettings`;
+  затем живая комната капитанов `cvLive`; затем `#veto` — live.js переносит
+  его туда из «Подготовки», в артефакте он остаётся на месте. Как только в
+  комнате появляется капитан (или сделан ход), `paintWatch` поднимает `cvLive`
+  над `captainVeto` — во время вето главное комната, до него — ссылки),
   вкладку «OBS» (`obsNavBtn` — четвёртая вкладка, `obsView`: форма «Подключение к OBS» и
   пошаговая инструкция `.obs-manual`), статус вебок, живое вето в OBS и ссылка на оверлей.
   localStorage: `oneshot-obs` (режим, код связи, адрес и пароль OBS),
@@ -53,9 +56,16 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   оформление формы и подсказок — `assets/obs-connection.css`.
 - Событие адреса: `event.js` (классический скрипт в `<head>` после theme.js) задаёт
   `window.oneshotEvent` и `data-kind`/`data-event` на `<html>` до первой отрисовки. Его пишет
-  `events/event-script.js` (`eventScript`, `eventSlug`): сборка — `node scripts/event-config.mjs >
-  public/event.js` (EVENT или ветка Pages с папкой `events/<ветка>/`, иначе cyberclash), локально —
-  `server.js` по `EVENT` (`eventFile`). В event.js нет таблиц и секретов. `kind: manual` (ЛАН) —
+  `events/event-script.js` (`eventsScript`, `eventSlug`; манифесты читает `events/manifests.js`):
+  сборка — `node scripts/event-config.mjs > public/event.js` (EVENT или ветка Pages с папкой
+  `events/<ветка>/`, иначе cyberclash), локально — `server.js` по `EVENT` (`eventFile`).
+  В event.js нет таблиц и секретов. Файл несёт все ивенты панели (`window.oneshotEvents`, список
+  для окна выбора — `window.oneshotEventChoices`) и выбирает один: `?event=<slug>`, затем cookie
+  `oneshot-event` (её ставит `event-chooser.js` — кнопка «Выбрать событие» в шапке), затем событие
+  адреса. Поэтому одно и то же событие открывается и на статическом сайте, и локально, а адрес
+  панели не меняется. В корне лежит такая же копия (`npm run event`, всегда событие по умолчанию):
+  папку можно открыть простой статикой без сервера, а `test/events.test.js` роняет тесты, если
+  копия отстала от манифестов. `kind: manual` (ЛАН) —
   панель события; любое другое — прежняя панель, LAN выключен даже если в хранилище он включён.
   Вкладки по модулям манифеста (`live.js` `MODULE_TABS`, порядок — `MODULES` в
   events/schema.js, тест сверяет порядок на странице): teams `teamsNavBtn`, matches `matchesNavBtn`,
@@ -64,12 +74,16 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   показывает вкладки события (`data-tabs=ready` после live.js).
 - `lan.js` — только сайт, только событие `kind: manual`: вкладки «Команды» (`ltGrid`, карточка
   на команду: название и ники — поля прямо в карточке, лого/фото — квадраты `[data-slot-kind]`:
-  клик, перетаскивание, Ctrl+V; рисуются на canvas `drawThumb`, CSP не меняется; «Папка с Drive»
+  клик, перетаскивание, Ctrl+V; рисуются на canvas `drawThumb`, CSP не меняется; «Вписать списком»
+  `ltBulk` — textarea, одна строка «Команда: ник1, ник2, …» (ники необязательны: «Команда» —
+  карточка без игроков, `core.parseLanRoster`), Ctrl+Enter, `core.addLanRoster`
+  добавляет к карточкам, уже взятые имена и лимиты пропускает; «Папка с Drive»
   / «ZIP»; «Карточка» — превью OBS в `ltCardDialog`), «Матчи» (`lmList`, `em-*`: время, стадия,
   команды по id, формат; «2 полуфинала + финал»; «▶ В эфир» выбирает матч в `matchSelect` и
   открывает «Эфир»), «Компы» (`seatGrid`: 10 мест, кто сидит, статус вебки
   `live.js camStatus()` / событие `oneshot:cams` — в ЛАН live.js следит за всеми 10 потоками мест,
-  занятыми и нет; `input.seat-nick` — свой «Ник» вебки места (`oneshotPanel.camNick`/`setCamNick`,
+  занятыми и нет, и спрашивает комнаты раз в секунду; карточки мест перекрашиваются на месте,
+  без перестройки сетки; `input.seat-nick` — свой «Ник» вебки места (`oneshotPanel.camNick`/`setCamNick`,
   пусто — кто сидит; ввод не перерисовывает сетку); ссылки; `seatsPrefix`/`seatsPassword`, или у события свои комнаты — `seatsRoomA/B`,
   `seatsPasswordA/B`, `seatsIds`/`seatsIdsB`; в поле комнаты можно вставить ссылку директора —
   `vdoRoomOf` берёт комнату и пароль; ссылки директоров комнат — `seatsDirectorA/B` (`directorUrl`, копировать — `seatsDirectorCopyA/B`); «Найти компы» `seatsScan` — `vdo.js scanRoom` (скрытый
@@ -83,13 +97,26 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   события обычно правы, это подстраховка; в поле вставляют ссылку компа в любом виде, берётся
   `push=` (или `view=`, или сам ID) — `core.vdoStreamId`; пусто в окне — снова обычный ID;
   смена префикса и комнат ручные ID сбрасывает (они про старые потоки, в `confirm` сказано);
+  перетаскивание за `.seat-grip` (или Alt+↑/↓ на карточке) меняет компы двух мест одной
+  стороны (`swapSeats`: ID и ручной push едут вместе, «Кадр» — по room/id; анимация
+  `.dragging`/`.drop`/`.swapped`); `seatsNetMode` — «Онлайн»/«ЛАН», поля
+  `seatsNetQuality`/`Fps`/`Codec`/`Bitrate`/`Lowlatency`/`Lanonly`; `core.vdoNet`
+  нормализует (по умолчанию 720p/30/H.264/5000, lowlatency on; LAN — ещё lanonly on,
+  онлайн — всегда off); `core.viewUrl`/`pushUrl` добавляют эти параметры только когда
+  у места есть `net`; `seatsMissing` — ID, которых сейчас нет в комнате (проверка
+  `checkTypedIds` после ручной смены ID);
   «▶ Отправить в OBS» `seatsSendObs` = `live.js sendObs` (то же действие и та же
-  надпись, что в «Эфире»):
+  надпись, что в «Эфире»): «↓ JSON» `seatsJson` = `live.js seatsObs` — та же коллекция
+  сцен, но с десятью камерами мест, для импорта в OBS до матча (`seatsObs` подставляет
+  места вместо двух команд, имена сцен и URL — из шаблона; файл `Камеры_<событие>.json`
+  скачивает `panel.download` из app.js); «Скачать JSON» в «Эфире» без матча отдаёт его же
+  (`panel.seatsJsonFile`);
   в ЛАН без готового матча «Отправить в OBS» шлёт десять камер мест (`seatsPayload`); статус места
   словами (`.seat-state`; в «Эфире» — `.cam-note` у игрока); «Заглушка, когда вебки нет»
   (`seatsPlatePickA/B`, `seatsPlateClearA/B`, `seatsPlateFile`, превью `seatsPlateA/B`): картинка
   стороны (`lan-images processPlate` — JPEG ≤ 380 000 символов, IndexedDB `logos['#plate-a'|'#plate-b']`)
   → `lan-event plateCardUrl` (страница только с картинкой, cover) → `oneshotPanel.setPlates`/`plate`;
+  саму картинку «Кадр» берёт через `setPlateImages`/`plateImage` (canvas `cameraPlate` в рамке);
   с заглушкой CARD включаются сами (`cardsOn`), под камерами этой стороны — заглушка, у другой при
   выключенных карточках — пустая `BLANK_CARD`; готовая страница (`readyCard`) в OBS размером с рамку,
   сайтовая card.html — 1920×1080; смена — с
@@ -202,8 +229,13 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   или скрываются), `emitVeto` — событие obs-browser `oneshot-veto`.
   Покрыт `test/obs.test.js` (мок obs-websocket на сокетах Node).
 - `vdo.js` — скрытые iframe VDO.Ninja. `CamWatch`: зритель
-  `?room&scene&view=id1,id2&novideo&noaudio`, кто публикуется (getStreamIDs,
-  view-connection). `VdoLink`: канал панели и дока OBS — док публикует
+  `?room&scene&view=id1,id2&novideo&noaudio`, кто публикуется: только ответ
+  getStreamIDs раз в секунду, и смена статуса — по двум одинаковым ответам
+  (view-connection сцены мигает при подключении к несуществующим потокам и
+  присутствием не считается). Поток, названный комнатой недавно
+  (`RECENT_MS` 20 с), а сейчас не публикующийся, — не «нет вебки», а жёлтое
+  «была недавно» (`recent`: `oneshotPanel.setCamStatus` → 'recent', подписи в
+  `paintCams`/`seatCamLabel`, в «Кадре» та же заглушка). `VdoLink`: канал панели и дока OBS — док публикует
   поток только с данными (`push`), панели его смотрят (`view`); ID потока и
   пароль VDO.Ninja выводятся из кода связи, сообщения запечатаны AES-GCM
   (PBKDF2 от кода). Комната с `&dataonly` на выпущенном VDO.Ninja не
@@ -315,7 +347,8 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   секрет капитана отбрасывается, хранится только админская ссылка) как
   админская ссылка: два скрытых view-iframe VDO.Ninja на потоки капитанов,
   только слушает; первый сигналинг ждёт 30 с, повторные попытки — 60/90 с, потерю уже работающего
-  viewer определяет через 15 с.
+  viewer определяет через 15 с. `liftRoom` в `paintWatch` держит комнату
+  сверху вкладки, пока в ней есть капитан или ход; до этого сверху ссылки.
   Кто online (по потоку, не по from), монетка, ходы со
   временем, таймер, «Позвать админа» (баннер `cvAlert`, звук, бейдж
   `vetoBadge`, мигающий title, уведомление браузера, если разрешено).
@@ -511,15 +544,20 @@ Netlify проверяет локальные фото, докачивает н�
 - Текст обсерверу: только порядок слотов `N. Команда — Ник`, без ссылок.
 - Имя JSON без пробелов: `16-00_Группа-B_КомандаA_vs_КомандаB.json`.
 - OBS JSON: сцены «Игрок 1–10» и «Матрица», холст 1920×1080,
-  по умолчанию видео заполняет внутреннюю рамку 1320×1008 (300,36)
-  с обрезкой краёв. core.cameraGeometry и obs.slotPlan должны совпадать:
+  по умолчанию видео занимает всю высоту (`fullheight`, 0,0 → 1920×1080)
+  и сохраняет пропорции камеры: 4:3 оставляет прозрачные поля по бокам,
+  обрезки нет. core.cameraGeometry и obs.slotPlan должны совпадать:
   поворот 0/90/180/270, при 90/270 viewport переставляет ширину и высоту.
+  Старые рамки (`inner43` 1320×1008 и другие) остаются выбираемыми.
   Новые UUID при каждом экспорте; источники
   называются `CAM NN | Команда | Ник`. По умолчанию экспорт без карточек.
   Галочка includeCards добавляет прямо под камерой источник браузера
   `CARD NN | Команда | Ник` с card.html сайта панели (в артефакте —
   https://oneshot-panel.pages.dev). Выбор не сохраняется в localStorage.
-  Ссылка камеры содержит `&cleanoutput&transparent&cover`; числовые
+  Ссылка камеры содержит `&cleanoutput&transparent&scale=100`; у рамки с
+  обрезкой ещё `&cover`, у `fullheight` — `object-fit:contain` в b64css.
+  `scale=100` не даёт VDO.Ninja уменьшать входящее разрешение под окно OBS
+  (из-за этого вебки 9/10 могли приходить мыльнее остальных). Числовые
   сдвиг, зум 1–3 и зеркало (`mirror`) задаёт b64css: у зеркала `scale` с обратным
   знаком по горизонтали экрана, а при 90°/270° — по вертикали кадра, как и сдвиг.
   CSS scale не заменяет transform VDO. darkmode — только preview. Без видео VDO.Ninja прозрачен, и видна карточка.
@@ -531,6 +569,14 @@ Netlify проверяет локальные фото, докачивает н�
   стиль отправляется до запроса stats и повторяется до подтверждения.
   В preview скрыт интерфейс VDO, виден только video; disconnect снова
   закрывает iframe подложкой. Таймер останавливается при закрытии «Кадра».
+  Если вебка точно не в эфире (статус «НЕТ ВЕБКИ»: комната CamWatch ответила,
+  потока нет) или была там недавно («БЫЛА НЕДАВНО», жёлтый), «Кадр» не ждёт
+  видео, а показывает заглушку стороны из «Компов»:
+  canvas `cameraPlate` в рамке, без поворота, как CARD под камерой в OBS
+  (CSP `img-src 'self'` не пускает data:, пиксели идут через createImageBitmap).
+  Без заглушки — подпись «Нет вебки» / «Была недавно». Статус отдаёт `oneshotPanel.setCamStatus`
+  (live.js), картинку — `setPlateImages` (lan.js); в артефакте их нет.
+  Регрессия — qa_lan.py (место с ручным ID `absent_4` и заглушка B).
   Регрессия белого документа/позднего API — qa_camera_loading.py в Firefox,
   Chromium и WebKit; реальный API получает локальное WebRTC-видео.
   notifications.js/notification-worker.js (и общий мигающий заголовок `setFlashingTitle`: сирена
@@ -545,8 +591,10 @@ Netlify проверяет локальные фото, докачивает н�
   Inferno, Mirage, Nuke. Текст HLTV строками вида `X removed Map`,
   `X pick Map (Y CT)` или `(Y T)` — сторона соперника, последняя —
   `Map was left over`.
-- «Отправить в OBS» меняет только сцены «Игрок 1–10» уже импортированной
+- «Отправить в OBS» меняет только сцены уже импортированной
   коллекции (и положение их плиток в «Матрице», если она есть — `obs.js alignMatrix`);
+  сцена ищется по `GetSceneList`: «Игрок N» (шаблон) или «N Ник pc» (JSON с ником),
+  поэтому старая коллекция и свежий импорт работают одинаково;
   нет сцены — понятная ошибка до первого изменения. Имена
   источников те же, что в JSON.
 - Сообщения моста (запечатаны): `apply-camera {id, title, match}` включает
@@ -601,14 +649,15 @@ Netlify проверяет локальные фото, докачивает н�
   obsDialog obsForm closeObs vetoBroadcast overlaySizeHint obsBridgeFields obsDockUrl copyDockUrl obsCode
   newObsCode obsRemotePort obsRemotePassword sendObsConfig obsRemoteResult
   obsBridgeStatus obsCodeInput applyObsCode shareDockUrl obsDockMessage
-  obsRemoteBox obsMore playerVeto captainVeto cvFormat cvTimer cvLang cvCreate
+  obsRemoteBox obsMore playerVeto captainVeto cvTeams cvSettings cvFormat cvTimer cvLang cvCreate
   cvStatus cvSite cvLinks cvNameA cvNameB cvMsgA cvMsgB cvMsgS cvMsgO cvOpen bookies bookiesCheck bookiesTable
   bookiesStatus bookiesCopy bookiesCsv
-  eventTitle teamsNavBtn teamsView ltPickFolder ltPickZip ltAddTeam ltStatus ltLog ltGrid
+  eventTitle teamsNavBtn teamsView ltPickFolder ltPickZip ltAddTeam ltBulk ltBulkAdd ltStatus ltLog ltGrid
   ltZip ltFolder ltImage ltCardDialog ltCardCanvas ltCardCaption matchesNavBtn matchesView
   lmTemplate lmAdd lmList seatsNavBtn seatsDot seatsView seatsWatch seatsCopyAll seatGrid
   seatsPrefix seatsPassword seatsNewPrefix seatsNote seatsPrefixBox seatsRoomsBox seatsRoomA seatsRoomB
-  seatsPasswordA seatsPasswordB seatsIds seatsIdsB seatsScan seatsClash seatsSendObs seatsPlateA seatsPlateB
+  seatsPasswordA seatsPasswordB seatsIds seatsIdsB seatsScan seatsClash seatsMissing seatsNetBox seatsNetMode
+  seatsNetQuality seatsNetFps seatsNetCodec seatsNetBitrate seatsNetLowlatency seatsNetLanonly seatsNetNote seatsJson seatsSendObs seatsPlateA seatsPlateB
   seatsDirectorA seatsDirectorB seatsDirectorCopyA seatsDirectorCopyB seatsPlateNameA seatsPlateNameB seatsPlatePickA seatsPlatePickB seatsPlateClearA seatsPlateClearB seatsPlateFile seatsPlatesHeading eventNavBtn eventView evName evAccent
   evDeep evBlack evColorsReset evPreview evExport evImport evStatus evFile evClear footerNote
   serverGuide serverStartCommand serverStartWindows

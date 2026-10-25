@@ -43,8 +43,9 @@ const MODULE_TABS = { teams: 'teamsNavBtn', matches: 'matchesNavBtn', cameras: '
 if (EVENT) for (const [module, tab] of Object.entries(MODULE_TABS)) $(tab).hidden = !EVENT.modules?.[module];
 if (EVENT?.kind === 'manual') $('viewPrep').textContent = 'Эфир';
 document.documentElement.dataset.tabs = 'ready';
-// On the site the panel's veto has a tab of its own, under the captains' room
-// (the Claude artifact keeps it on the one page).
+// On the site the panel's veto has a tab of its own: the captains' links
+// first, then their room, then this veto panel (the Claude artifact keeps
+// everything on the one page).
 $('cvLive').after($('veto'));
 export function showView(name, focus = false) {
   for (const [view, tab, pane] of views) {
@@ -85,7 +86,7 @@ function matchPayload() {
     ...s.playersA.map(p => ({ ...p, team: s.a.name })),
     ...s.playersB.map(p => ({ ...p, team: s.b.name }))
   ].map((p, i) => ({ slot: i + 1, team: p.team, nick: p.nick, nickname: p.nickname || '',
-    id: p.id, room: p.room, password: p.password || '', camera:p.camera }));
+    id: p.id, room: p.room, password: p.password || '', camera:p.camera, ...(p.net ? { net: p.net } : {}) }));
   return { title: `${s.a.name} vs ${s.b.name}`, match: { players, includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame, cardDocs: panel.cardDocs() } };
 }
 // A LAN without a match on air yet: the ten seats' cameras alone, named by
@@ -101,7 +102,9 @@ function seatsPayload() {
     return {
       slot: i + 1, team: names[i < 5 ? 0 : 1] || seat.room, nick,
       // The frame belongs to the PC: the same one whoever sits there, nobody included.
-      id: seat.id, room: seat.room, password: seat.password || '', camera: panel.seatCamera(side, i % 5)
+      // The VDO tuning belongs to the seats' links in the same way.
+      id: seat.id, room: seat.room, password: seat.password || '', camera: panel.seatCamera(side, i % 5),
+      ...(seat.net ? { net: seat.net } : {})
     };
   });
   // A side's placeholder goes under its cameras; the other side's cards are blank.
@@ -149,6 +152,8 @@ panel.seatsJsonFile = () => {
   return s.matchError && panel.lan().on && s.template ? seatsJsonFile() : null;
 };
 panel.seatsJsonName = seatsJsonName;
+// app.js has already drawn «Скачать JSON» by now: let it see the new source.
+panel.refreshExport?.();
 $('seatsJson').addEventListener('click', () => {
   try {
     panel.download(seatsJsonFile());
@@ -586,7 +591,7 @@ $('copyJsonBtn').addEventListener('click', () => {
 });
 
 // ---------- webcam status ----------
-let watcher = null, live = new Set(), checking = new Set();
+let watcher = null, live = new Set(), recent = new Set(), checking = new Set();
 function camGroups(s) {
   const groups = new Map();
   const add = (room, password, id) => {
@@ -601,14 +606,24 @@ function camGroups(s) {
   return [...groups.values()];
 }
 // The webcam status by camKey(room, id), for «Компы» (lan.js); oneshot:cams on each change.
+// `recent` — the webcam was in the air not long ago and is not any more («была недавно»).
 export function camStatus() {
-  return { on: Boolean(watcher), live: new Set(live), checking: new Set(checking) };
+  return { on: Boolean(watcher), live: new Set(live), recent: new Set(recent), checking: new Set(checking) };
 }
+// «Кадр» asks the same question «Компы» и «Эфир» ask: an absent webcam must show
+// the side's placeholder there at once, not wait for video that will not come.
+panel.setCamStatus?.(player => {
+  const status = camStatus();
+  if (!status.on || !player?.room || !player?.id) return 'none';
+  const key = camKey(player.room, player.id);
+  return status.live.has(key) ? 'live' : status.checking.has(key) ? 'wait' :
+    status.recent.has(key) ? 'recent' : 'off';
+});
 function paintCams() {
   const s = panel.snapshot();
   const on = !!watcher;
   const sides = [['a', s.playersA], ['b', s.playersB]];
-  let total = 0, up = 0, pending = 0;
+  let total = 0, up = 0, pending = 0, gone = 0;
   for (const [side, players] of sides) {
     const card = document.querySelector(`[data-team="${side}"]`)?.closest('.team-card');
     if (!card) continue;
@@ -630,7 +645,8 @@ function paintCams() {
       }
       // By room and ID: on a LAN both teams' rooms may have a pc1.
       const key = player && camKey(player.room, player.id);
-      const state = !on || !player ? '' : live.has(key) ? 'live' : checking.has(key) ? 'wait' : 'off';
+      const state = !on || !player ? '' : live.has(key) ? 'live' : checking.has(key) ? 'wait' :
+        recent.has(key) ? 'recent' : 'off';
       dot.className = 'cam-dot ' + state;
       dot.hidden = !on;
       row.dataset.cam = state || 'none';
@@ -643,10 +659,15 @@ function paintCams() {
       }
       note.dataset.cam = state || 'none';
       note.hidden = !on || !player;
-      note.textContent = { live: 'ВЕБКА В ЭФИРЕ', wait: 'ПРОВЕРЯЕМ ВЕБКУ…', off: panel.plate(side) ? 'НЕТ ВЕБКИ · в OBS заглушка' : 'НЕТ ВЕБКИ' }[state] || '';
+      note.textContent = {
+        live: 'ВЕБКА В ЭФИРЕ', wait: 'ПРОВЕРЯЕМ ВЕБКУ…',
+        recent: panel.plate(side) ? 'БЫЛА НЕДАВНО · в OBS заглушка' : 'ВЕБКА БЫЛА НЕДАВНО',
+        off: panel.plate(side) ? 'НЕТ ВЕБКИ · в OBS заглушка' : 'НЕТ ВЕБКИ'
+      }[state] || '';
       if (player) total++;
       if (state === 'live') { up++; teamUp++; }
       if (state === 'wait') pending++;
+      if (state === 'recent') gone++;
     });
     count.hidden = !on;
     count.textContent = `${teamUp}/${players.filter(Boolean).length}`;
@@ -656,7 +677,11 @@ function paintCams() {
   if (!on) label.textContent = 'Статус вебок выключен';
   else if (!total) label.textContent = 'Выбери игроков';
   else if (pending) label.textContent = `Проверяем… ${up}/${total} в эфире`;
-  else {
+  else if (gone) {
+    const missing = total - up - gone;
+    label.textContent = `${missing ? `Нет камеры: ${missing} · ` : ''}Была недавно: ${gone} · ${up}/${total} в эфире`;
+    label.classList.add('recent');
+  } else {
     label.textContent = up === total ? `Все вебки на месте · ${up}/${total}` : `Нет камеры: ${total - up} · ${up}/${total} в эфире`;
     label.classList.add(up === total ? 'all' : 'missing');
   }
@@ -665,8 +690,9 @@ function paintCams() {
 function syncWatcher() {
   const s = panel.snapshot();
   if ($('watchCams').checked) {
-    watcher ||= new CamWatch((nowLive, nowChecking) => {
+    watcher ||= new CamWatch((nowLive, nowRecent, nowChecking) => {
       live = nowLive;
+      recent = nowRecent;
       checking = nowChecking;
       paintCams();
     });
@@ -675,6 +701,7 @@ function syncWatcher() {
     watcher.stop();
     watcher = null;
     live = new Set();
+    recent = new Set();
     checking = new Set();
   }
   paintCams();
@@ -849,6 +876,7 @@ function playerVetoLink(s) {
   params.set('tournament',$('cvTournament').value.trim()||tournamentDefault());
   params.set('start', $('cvStart').value);
   $('playerVeto').href = vetoSite() + '#new&' + params;
+  cvSummary();
 }
 
 // ---------- captains' veto ----------
@@ -908,11 +936,17 @@ function cvStatus(text, kind = '') {
   $('cvStatus').textContent = text;
   $('cvStatus').dataset.kind = kind;
 }
+// What the folded settings will make the next links with.
+function cvSummary() {
+  $('cvSummary').textContent = `${$('cvFormat').value} · ${$('cvTimer').selectedOptions[0]?.textContent || ''}`;
+}
 function captainVeto(s) {
+  $('cvTeams').textContent = s.a?.name && s.b?.name ? `${s.a.name} vs ${s.b.name}` : 'Матч не выбран';
   for (const [team, name] of [s.a?.name, s.b?.name].entries()) {
     $('cvStart').options[team + 1].textContent = `${name || (team ? 'Вторая команда' : 'Первая команда')} — первый пик`;
   }
   if (!cv.touched && s.veto?.format) $('cvFormat').value = s.veto.format;
+  cvSummary();
   const match = cvMatch(s);
   const last = read(CV_STORE)?.last;
   if (cv.made?.match === match) return;
@@ -1072,6 +1106,14 @@ function moveText(names, move) {
   if (move.kind === 'side') return `${names[move.team]} — ${move.value} на ${move.map}`;
   return `${names[move.team]} — ${move.kind === 'ban' ? 'BAN' : 'PICK'} ${move.value}`;
 }
+// The «Вето» tab's two direct children swap places: the links for a match that
+// has not started, the room once the captains are in it. The panel's veto
+// (#veto) always stays last, and the Claude artifact has no such tab at all.
+function liftRoom(first) {
+  const view = $('vetoView'), top = first ? $('cvLive') : $('captainVeto');
+  if (view.firstElementChild === top || top.contains(document.activeElement)) return;
+  view.insertBefore(top, view.firstElementChild);
+}
 function paintWatch() {
   const live = watch.live;
   const [ring] = watch.ringing.values();
@@ -1085,6 +1127,7 @@ function paintWatch() {
   $('cvAdminOpen').hidden = !live;
   if (watch.adminLink) $('cvAdminOpen').href = watch.adminLink;
   if (!live) {
+    liftRoom(false);
     $('cvLiveState').dataset.state = 'off';
     return setText($('cvLiveState'), 'нет комнаты');
   }
@@ -1093,6 +1136,7 @@ function paintWatch() {
   try { state = live.state; } catch { return; }
   const turn = nextTurn(room, state);
   const online = [0, 1].map(team => live.online(team));
+  liftRoom(online.some(Boolean) || state.first !== null || state.actions.length > 0);
   for (const team of [0, 1]) {
     const card = $('cvTeam' + team);
     card.dataset.online = online[team] ? 'yes' : 'no';

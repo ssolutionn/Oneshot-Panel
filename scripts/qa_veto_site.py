@@ -742,6 +742,7 @@ async def run(args):
         await expect(panel.locator("#syncTitle")).to_contain_text("команд из таблицы", timeout=wait)
         await panel.click("#vetoNavBtn")
         await expect(panel.locator("#cvLiveEmpty")).to_be_visible()
+        await panel.evaluate("() => { document.getElementById('cvSettings').open = true; }")
         await panel.fill("#cvSite", base + "/veto.html")
         await panel.locator("#cvSite").dispatch_event("change")
         await panel.select_option("#cvLang", "ru")

@@ -107,7 +107,9 @@ events/
 
   "veto":    { "pool": ["Ancient","Anubis","Cache","Dust2","Inferno","Mirage","Nuke"],
                "format": "BO3", "timerMinutes": 5, "tournament": "CyberClash" },
-  "cameras": { "frame": "inner43" },        // 1320×1008 по центру холста
+  "cameras": { "frame": "fullheight",       // вся высота, пропорции камеры
+               "net": { "mode": "online" } }, // 720p/30/H.264/5000; LAN — ещё lanonly
+
   "lobby":   { "faceit": true },
   "bookmakers": { "match": ["CyberClash"] },
 

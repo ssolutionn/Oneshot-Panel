@@ -8,6 +8,7 @@ export const VETO_EVENT = 'oneshot-veto';
 
 const FIT = {
   positionX: 0, positionY: 0, rotation: 0, alignment: 5,
+  scaleX: 1, scaleY: 1,
   boundsType: 'OBS_BOUNDS_SCALE_INNER', boundsAlignment: 0,
   boundsWidth: 1920, boundsHeight: 1080,
   cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0
@@ -120,8 +121,8 @@ export class ObsClient {
 
 // What one "Игрок N" scene needs. Cameras keep their source; the card (CARD)
 // sits right under the camera when cards are on and is hidden when they are off.
-export function slotPlan(sceneItems, player, { includeCards = false, cardBase = DEFAULT_CARD_BASE, cameraFrame: frame = DEFAULT_CAMERA_FRAME, legacyCamera = false, cardDocs = {} } = {}) {
-  const scene = `Игрок ${player.slot}`;
+export function slotPlan(sceneItems, player, { includeCards = false, cardBase = DEFAULT_CARD_BASE, cameraFrame: frame = DEFAULT_CAMERA_FRAME, legacyCamera = false, cardDocs = {}, scene: sceneName = '' } = {}) {
+  const scene = sceneName || `Игрок ${player.slot}`;
   const browsers = (sceneItems || []).filter(it => it.inputKind === 'browser_source');
   const card = browsers.find(it => /^CARD /.test(it.sourceName));
   const camera = browsers.find(it => !/^CARD /.test(it.sourceName));
@@ -134,7 +135,7 @@ export function slotPlan(sceneItems, player, { includeCards = false, cardBase = 
     scene,
     camera: {
       item: camera, name: `CAM ${slot} | ${player.team} | ${nick}`,
-      settings: {url:legacyCamera ? viewUrl(player) : cameraViewUrl(player),width:geometry.width,height:geometry.height},
+      settings: {url:legacyCamera ? viewUrl(player) : cameraViewUrl(player,frame),width:geometry.width,height:geometry.height},
       transform:{...FIT,positionX:geometry.x,positionY:geometry.y,rotation:geometry.rotation,
         boundsWidth:geometry.width,boundsHeight:geometry.height}
     },
@@ -203,17 +204,31 @@ async function applySlot(obs, plan) {
   await obs.request('SetSceneItemTransform', { sceneName: scene, sceneItemId: cardId, sceneItemTransform: card.transform });
 }
 
+// An imported collection names its scenes «Игрок N» (the template) or «N Ник pcN»
+// (our JSON export, which puts the webcam's nick first). Both have to be found.
+function sceneFor(names, slot) {
+  if (names.includes(`Игрок ${slot}`)) return `Игрок ${slot}`;
+  return names.find(name => new RegExp(`^${slot}\\s`).test(name)) || `Игрок ${slot}`;
+}
+async function importedScenes(obs) {
+  try {
+    const { scenes } = await obs.request('GetSceneList');
+    return (scenes || []).map(scene => scene.sceneName).filter(Boolean);
+  } catch { return []; }
+}
 // match: { players: [{ slot, team, nick, id, room }], includeCards, cardBase }.
 export async function applyMatch(obs, match, onProgress = () => {}) {
+  const scenes = await importedScenes(obs);
   const plans = [];
   for (const player of match.players) {
+    const scene = sceneFor(scenes, player.slot);
     let items;
     try {
-      ({ sceneItems: items } = await obs.request('GetSceneItemList', { sceneName: `Игрок ${player.slot}` }));
+      ({ sceneItems: items } = await obs.request('GetSceneItemList', { sceneName: scene }));
     } catch {
       throw new Error(`В OBS нет сцены «Игрок ${player.slot}». Импортируй коллекцию из JSON один раз.`);
     }
-    plans.push(slotPlan(items, player, match));
+    plans.push(slotPlan(items, player, { ...match, scene }));
   }
   for (const [index, plan] of plans.entries()) {
     await applySlot(obs, plan);
@@ -228,7 +243,8 @@ async function alignMatrix(obs) {
   let items;
   try { ({ sceneItems: items } = await obs.request('GetSceneItemList', { sceneName: 'Матрица' })); } catch { return; }
   for (const item of items || []) {
-    const tile = matrixTile(Number(/^Игрок (\d+)$/.exec(item.sourceName || '')?.[1]) - 1);
+    const slot = Number(/^(?:Игрок\s+)?(\d+)(?:\s|$)/.exec(item.sourceName || '')?.[1]) - 1;
+    const tile = matrixTile(slot);
     if (!tile) continue;
     await obs.request('SetSceneItemTransform', { sceneName: 'Матрица', sceneItemId: item.sceneItemId,
       sceneItemTransform: { ...FIT, positionX: tile.x, positionY: tile.y, boundsWidth: tile.width, boundsHeight: tile.height } });

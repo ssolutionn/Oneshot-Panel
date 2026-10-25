@@ -5,8 +5,9 @@ CyberClash (the sheets panel must stay exactly as it was). Google Sheets is
 unreachable on purpose, VDO.Ninja is a blank page, obs-websocket is a mock.
 
 Checks: the address decides the event (tabs, title, no Sheets); teams, names,
-logos and photos edited in place (click, drop), renaming keeps photos and the
-match; Drive ZIP import; the old text roster and its photos move over; matches
+logos and photos edited in place (click, drop), teams typed as a list of lines;
+renaming keeps photos and the match; Drive ZIP import; the old text roster and
+its photos move over; matches
 and «В эфир»; seats, substitutes, observer text, OBS JSON with the cards; the
 cards through the OBS dock (also after a reload of the dock); «Компы»;
 «Событие»: name, colours, the event file out and in; «Сервер» explains itself
@@ -99,6 +100,7 @@ async def run(args):
         async with async_playwright() as p:
             browser = await p.chromium.launch(executable_path=args.chromium, headless=True)
             await event_address(browser, base, out)
+            await bulk_roster(browser, base, out)
             await sheets_address(browser, sheets_base)
             await old_roster_moves_over(browser, base)
             await previous_version_pictures(browser, base)
@@ -107,10 +109,10 @@ async def run(args):
     finally:
         event_panel.kill()
         sheets_panel.kill()
-    print("PASS: LAN event panel: the address decides the event, teams/logos/photos edited in place, rename keeps "
-          "photos and the match, Drive ZIP, matches and «В эфир», seats and substitutes, OBS JSON and dock cards, "
-          "«Компы», «Событие» (name, colours, file out and in), «Сервер» guide, old roster moves over, pictures of the "
-          "previous version keep their teams, director links and «Найти компы», «Кадр», reload, 375 px")
+    print("PASS: LAN event panel: the address decides the event, teams/logos/photos edited in place, «Вписать команды "
+          "списком», rename keeps photos and the match, Drive ZIP, matches and «В эфир», seats and substitutes, OBS JSON "
+          "and dock cards, «Компы», «Событие» (name, colours, file out and in), «Сервер» guide, old roster moves over, "
+          "pictures of the previous version keep their teams, director links and «Найти компы», «Кадр», reload, 375 px")
 
 
 async def new_context(browser, **options):
@@ -361,6 +363,42 @@ async def event_address(browser, base, out):
     await ctx.close()
 
 
+async def bulk_roster(browser, base, out):
+    """«Вписать команды списком»: a line per team joins the cards, a taken name stays as it was."""
+    ctx, _ = await new_context(browser)
+    page = await ctx.new_page()
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    await page.goto(base)
+    await page.click(".lt-bulk summary")
+    await page.fill("#ltBulk", "Alpha: a1, a2\nBravo: b1\n# заметка")
+    await page.click("#ltBulkAdd")
+    cards = page.locator(".lt-card")
+    await expect(cards).to_have_count(2)
+    await expect(cards.nth(0).locator(".lt-name")).to_have_value("Alpha")
+    assert [await cards.nth(0).locator(".lt-nick").nth(i).input_value() for i in range(2)] == ["a1", "a2"]
+    await expect(page.locator("#ltStatus")).to_have_text("Добавлено команд: 2, игроков: 3.")
+    # Ctrl+Enter does the same. A name that is already there keeps its players.
+    await page.fill("#ltBulk", "alpha: x1\nCharlie: c1")
+    await page.locator("#ltBulk").press("Control+Enter")
+    await expect(cards).to_have_count(3)
+    await expect(cards.nth(0).locator(".lt-nick").first).to_have_value("a1")
+    await expect(page.locator("#ltStatus")).to_contain_text("Добавлено команд: 1, игроков: 1.")
+    await expect(page.locator("#ltStatus")).to_contain_text("alpha: такая команда уже есть")
+    assert await page.input_value("#ltBulk") == ""
+    # A line without nicknames adds the team alone: its lineup waits on the card.
+    await page.fill("#ltBulk", "Delta\nEcho: e1")
+    await page.click("#ltBulkAdd")
+    await expect(cards).to_have_count(5)
+    await expect(cards.nth(3).locator(".lt-name")).to_have_value("Delta")
+    assert await cards.nth(3).locator(".lt-nick").count() == 0
+    await expect(page.locator("#ltStatus")).to_contain_text("Добавлено команд: 2, игроков: 1.")
+    await page.screenshot(path=str(out / "lan-bulk.png"), full_page=True)
+    await no_sideways(page, "«Вписать команды списком»")
+    assert not errors, errors
+    await ctx.close()
+
+
 async def sheets_address(browser, base):
     """CyberClash stays the sheets panel: no event tabs, and LAN left on by the old dialog is switched off."""
     ctx, _ = await new_context(browser)
@@ -434,7 +472,7 @@ async def previous_version_pictures(browser, base):
 
 SCAN_VDO = """<!doctype html><script>
 const q = new URLSearchParams(location.search);
-const rooms = { team1: ['pc3', 'cam_old', 'pc1', 'pc2', 'pc5', 'pc4'], dota2: ['pc10', 'pc6', 'pc7', 'pc8', 'pc9', 'pc11'] };
+const rooms = { team1: ['pc3', 'cam_old', 'undefined', 'pc1', 'pc2', 'pc5', 'pc4'], dota2: ['pc10', 'pc6', 'pc7', 'pc8', 'pc9', 'pc11'] };
 const ids = q.get('label') === 'oneshot-scan' ? rooms[q.get('room')] || [] : (q.get('view') || '').split(',').filter(Boolean);
 addEventListener('message', e => { if ((e.data || {}).getStreamIDs) parent.postMessage({ streamIDs: Object.fromEntries(ids.map(id => [id, id])) }, '*'); });
 </script>"""
@@ -446,10 +484,10 @@ async def director_rooms(browser, base):
     await ctx.route("https://vdo.ninja/**", lambda route: route.fulfill(content_type="text/html", body=SCAN_VDO))
     page = await ctx.new_page()
     page.on("dialog", lambda dialog: asyncio.ensure_future(dialog.accept()))
-    # A frame picked earlier in this browser gives way once to the event's (+20 px to spare).
+    # A frame picked earlier in this browser gives way once to the event's full-height frame.
     await page.add_init_script("if (!sessionStorage.getItem('framed')) { sessionStorage.setItem('framed', '1'); localStorage.setItem('oneshot-camera-frame-v1', JSON.stringify('inner43')); }")
     await page.goto(base + "/#seats")
-    assert await page.input_value("#cameraFrame") == "inner43_over20"
+    assert await page.input_value("#cameraFrame") == "fullheight"
     await page.click("#seatsNavBtn")
     await page.fill("#seatsRoomB", "https://vdo.ninja/?director=dota2&password=qq")
     await page.dispatch_event("#seatsRoomB", "change")
@@ -463,8 +501,30 @@ async def director_rooms(browser, base):
     await expect(page.locator("#toast")).to_contain_text("pc11")
     # A stray stream in team1 (a webcam left on) moves no seat: pc1…pc5 stay on A1…A5.
     await expect(page.locator("#toast")).to_contain_text("team1/cam_old")
-    await expect(page.locator(".seat-card").nth(5)).to_contain_text("?room=dota2&password=qq&broadcast&do&push=pc6")
+    await expect(page.locator(".seat-card").nth(5)).to_contain_text("?room=dota2&password=qq&broadcast&do&push=pc6&quality=1&fps=30&lowlatency&lanonly")
     await expect(page.locator("#seatsClash")).to_be_hidden()
+    # A peer VDO.Ninja has no real ID for must not become a seat or a link.
+    await expect(page.locator("#toast")).not_to_contain_text("undefined")
+    # LAN is the default for the event: 720p/30, low latency and LAN-only.
+    assert await page.input_value("#seatsNetMode") == "lan"
+    assert await page.input_value("#seatsNetQuality") == "720"
+    assert await page.input_value("#seatsNetFps") == "30"
+    assert await page.input_value("#seatsNetCodec") == "h264"
+    assert await page.input_value("#seatsNetBitrate") == "5000"
+    assert await page.is_checked("#seatsNetLowlatency") and await page.is_checked("#seatsNetLanonly")
+    # Seats reorder by dragging the ⠿ handle; the PCs and their frames follow.
+    await page.locator('.seat-card[data-seat="a0"] .seat-grip').drag_to(page.locator('.seat-card[data-seat="a1"]'))
+    await expect(page.locator("#seatsIds")).to_have_value("pc2, pc1, pc3, pc4, pc5")
+    await page.locator('.seat-card[data-seat="a0"]').focus()
+    await page.keyboard.press("Alt+ArrowDown")
+    await expect(page.locator("#seatsIds")).to_have_value("pc1, pc2, pc3, pc4, pc5")
+    # Online keeps the same preset but never asks for LAN-only.
+    await page.select_option("#seatsNetMode", "online")
+    await expect(page.locator("#seatsNetLanonly")).not_to_be_checked()
+    await expect(page.locator("#seatsNetLanonly")).to_be_disabled()
+    await expect(page.locator(".seat-card").nth(0)).to_contain_text("&quality=1&fps=30&lowlatency")
+    await expect(page.locator(".seat-card").nth(0)).not_to_contain_text("lanonly")
+    await page.select_option("#seatsNetMode", "lan")
     # «Кадр» of a seat nobody sits at yet: kept for that PC (room and ID).
     await page.click('[data-seat-frame="b0"]')
     await expect(page.locator("#cameraHeading")).to_have_text("Кадр: B1 · dota2 / pc6")
@@ -483,6 +543,28 @@ async def director_rooms(browser, base):
     await expect(page.locator("#seatsPlateNameB")).not_to_contain_text("нет картинки", timeout=15000)
     await expect(page.locator("#seatsPlateClearB")).to_be_enabled()
     await expect(page.locator("#seatsPlateClearA")).to_be_disabled()
+    # A webcam the watcher knows is absent (its seat says so in words) must show
+    # the side's placeholder in «Кадр» at once, not wait for video forever.
+    await page.evaluate("() => { window.__prompt = window.prompt; window.prompt = () => 'absent_4'; }")
+    await page.click('.seat-card[data-seat="b0"] .seat-push')
+    await page.evaluate("() => { window.prompt = window.__prompt; }")
+    await expect(page.locator('.seat-card[data-seat="b0"] .seat-state')).to_have_text(
+        "НЕТ ВЕБКИ · в OBS заглушка", timeout=30000)
+    await page.click('[data-seat-frame="b0"]')
+    await expect(page.locator("#cameraPreviewBox")).to_have_attribute("data-cam", "off")
+    await expect(page.locator("#cameraPreviewBox")).to_have_attribute("data-loading", "true")
+    await expect(page.locator("#cameraPreviewBox")).to_have_attribute("data-plate", "true")
+    await expect(page.locator("#cameraState")).to_have_text("Вебки нет — в кадре заглушка команды B.")
+    await expect(page.locator("#cameraPlate")).to_be_visible()
+    assert await page.locator(".camera-preview-stage").evaluate(
+        "el=>getComputedStyle(el,'::after').content") == "none", "«Ожидаем видео…» still covers the placeholder"
+    await page.screenshot(path=str(out / "camera-placeholder.png"))
+    await page.click("#closeCamera")
+    # Back to its usual stream, so the rest of the run sends the ten seats as before.
+    await page.evaluate("() => { window.__prompt = window.prompt; window.prompt = () => ''; }")
+    await page.click('.seat-card[data-seat="b0"] .seat-push')
+    await page.evaluate("() => { window.prompt = window.__prompt; }")
+    await expect(page.locator('.seat-card[data-seat="b0"] .seat-state')).to_have_text("В ЭФИРЕ", timeout=30000)
     # Zoom and pan of an empty seat's PC go to OBS with the seats (nobody sits there yet).
     await page.click('[data-seat-frame="a0"]')
     await page.click('[data-camera-zoom="10"]')
@@ -496,11 +578,15 @@ async def director_rooms(browser, base):
     await expect(page.locator("#toast")).to_contain_text("OBS обновлён: 10 камер", timeout=20000)
     urls = {name: v.get("url", "") for name, v in obs.inputs.items()}
     assert "view=pc1&solo=1&room=team1&" in urls["CAM 01 | team1 | pc1"], urls
+    assert "scale=100" in urls["CAM 01 | team1 | pc1"] and "&cover" not in urls["CAM 01 | team1 | pc1"], urls
     import base64 as _b64
     from urllib.parse import parse_qs, urlsplit
     css = _b64.b64decode(parse_qs(urlsplit(urls["CAM 01 | team1 | pc1"]).query)["b64css"][0]).decode()
-    assert "scale:1.1!" in css and "object-position:40% 50%" in css, css
-    assert "b64css" not in urls["CAM 02 | team1 | pc2"], urls["CAM 02 | team1 | pc2"]
+    assert "scale:1.1!" in css and "object-position:40% 50%" in css and "object-fit:contain" in css, css
+    # Every seat gets full height and the same source size; 9/10 are not special.
+    assert "b64css" in urls["CAM 02 | team1 | pc2"] and "scale=100" in urls["CAM 02 | team1 | pc2"], urls["CAM 02 | team1 | pc2"]
+    assert obs.inputs["CAM 09 | dota2 | pc9"]["height"] == 1080, obs.inputs["CAM 09 | dota2 | pc9"]
+    assert obs.inputs["CAM 10 | dota2 | pc10"]["width"] == 1920, obs.inputs["CAM 10 | dota2 | pc10"]
     assert "view=pc6&solo=1&room=dota2&password=qq&" in urls["CAM 06 | dota2 | pc6"], urls
     cards = {name: v for name, v in obs.inputs.items() if name.startswith("CARD ")}
     b_card = unquote(cards["CARD 06 | dota2 | pc6"]["url"])

@@ -238,8 +238,9 @@ async def run(args):
         await page.keyboard.press("ArrowLeft")
         await expect(page.locator("#vetoView")).to_be_visible()
         await expect(page.locator("#vetoNavBtn")).to_be_focused()
-        # The panel's veto moved here, under the captains' room; the links block follows.
-        await expect(page.locator("#vetoView > #cvLive + #veto + #captainVeto")).to_be_visible()
+        # The links that start a veto come first, then the captains' room, then
+        # the panel's veto (live.js lifts the room once the captains are in).
+        await expect(page.locator("#vetoView > #captainVeto + #cvLive + #veto")).to_be_visible()
         await expect(page.locator("#cvLiveEmpty")).to_be_visible()
         await page.keyboard.press("ArrowLeft")
         await expect(page.locator("#prepView")).to_be_visible()
@@ -320,7 +321,7 @@ async def run(args):
         scene = [it["sourceName"] for it in obs.scenes["Игрок 6"]]
         assert scene[0].startswith("CARD 06 | HYPERSPIRIT | ") and scene[1].startswith("CAM 06 | HYPERSPIRIT | "), scene
         camera = obs.inputs[scene[1]]
-        assert camera["url"].endswith("&cleanoutput&transparent&cover") and camera["width"] == 1320
+        assert "&scale=100" in camera["url"] and "&cover" not in camera["url"] and camera["width"] == 1920
         assert obs.inputs[scene[0]]["url"].startswith(base + "/card.html?team=HYPERSPIRIT")
         obs.block_next = True
         await page.click("#sendObsBtn")
@@ -462,6 +463,8 @@ async def run(args):
         player_veto = await page.get_attribute("#playerVeto", "href")
         assert player_veto.startswith("https://oneshot-veto.pages.dev/#new&a=6yuBoJlbl&b=HYPERSPIRIT&f=BO"), player_veto
         # Captains' veto block: links for the selected match, the admin's apart.
+        # The settings that change once a match are folded away above the links.
+        await page.evaluate("() => { document.getElementById('cvSettings').open = true; }")
         await page.select_option("#cvTimer", "3")
         await page.select_option("#cvLang", "ru")
         await page.click("#cvCreate")
@@ -491,6 +494,7 @@ async def run(args):
         await expect(page.locator("#cvMsgA")).to_have_value(re.compile(r"https://oneshot-veto\.pages\.dev/#v="))
         await expect(page.locator("#cvAdminOpen")).to_have_attribute("href", admin_link)
         await expect(page.locator("#cvLang")).to_have_value("en")
+        await page.evaluate("() => { document.getElementById('cvSettings').open = true; }")
         await page.fill("#cvSite", "https://veto.example.org/x?y=1#z")
         await page.locator("#cvSite").dispatch_event("change")
         await page.click("#cvCreate")

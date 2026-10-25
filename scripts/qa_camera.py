@@ -52,20 +52,21 @@ async def run(args):
         preview_release=asyncio.Event()
         if not args.real_provider:
             async def preview_route(route):
-                if '&cover' in route.request.url: await preview_release.wait()
-                await route.fulfill(content_type='text/html',body=CAMERA_HTML if '&cover' in route.request.url else FAKE_VDO)
+                preview = '&cover' in route.request.url or '&scale=100' in route.request.url
+                if preview: await preview_release.wait()
+                await route.fulfill(content_type='text/html',body=CAMERA_HTML if preview else FAKE_VDO)
             await context.route("https://vdo.ninja/**",preview_route)
         page=await context.new_page()
         errors,previews=[],[]
         page.on("pageerror",lambda error:errors.append(str(error)))
-        page.on("request",lambda req:previews.append(req.url) if req.url.startswith("https://vdo.ninja/") and "&cover" in req.url else None)
+        page.on("request",lambda req:previews.append(req.url) if req.url.startswith("https://vdo.ninja/") and ("&cover" in req.url or "&scale=100" in req.url) else None)
         obs=MockObs()
         await page.route_web_socket(OBS_URL,obs.handler)
         await page.goto(args.url)
         await expect(page.locator("#syncTitle")).to_contain_text("команд из таблицы")
         options=await page.locator("#matchSelect option").evaluate_all("els=>els.filter(e=>e.value).map(e=>e.value)")
         await page.select_option("#matchSelect",options[0])
-        await expect(page.locator("#cameraFrame")).to_have_value("inner43")
+        await expect(page.locator("#cameraFrame")).to_have_value("fullheight")
         await page.locator('[data-camera="a"][data-slot="0"]').click()
         await expect(page.locator("#cameraDialog")).to_be_visible()
         if not args.real_provider:
@@ -78,7 +79,7 @@ async def run(args):
             frame=await handle.content_frame()
             await frame.wait_for_url("https://vdo.ninja/**",wait_until="domcontentloaded",timeout=60000)
             await frame.wait_for_function("() => typeof window.onmessage==='function'",timeout=60000)
-            assert await frame.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--fit-style').trim()")=="cover"
+            assert await frame.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--fit-style').trim()")=="contain"
             await frame.evaluate("""poster=>{
               const video=document.createElement('video');
               video.id='cameraQaMedia';video.poster=poster;
@@ -142,7 +143,7 @@ async def run(args):
         video=page.frame_locator("#cameraPreviewBox iframe").locator("video")
         await expect(video).to_be_visible()
         await expect(page.locator('#cameraPreviewBox')).to_have_attribute('data-loading','false')
-        await expect(video).to_have_css("object-fit","cover")
+        await expect(video).to_have_css("object-fit","contain")
         await page.locator('[data-camera-pan="panX:-10"]').click()
         await expect(video).to_have_css("object-position","40% 50%")
         await page.click("#cameraRotate")
@@ -176,15 +177,15 @@ async def run(args):
         transforms=[r["requestData"] for r in obs.requests if r["requestType"]=="SetSceneItemTransform"]
         transform=next(r["sceneItemTransform"] for r in transforms if r["sceneName"]=="Игрок 2")
         assert {k:transform[k] for k in ("positionX","positionY","rotation","boundsWidth","boundsHeight")}=={
-            "positionX":1620,"positionY":36,"rotation":90,"boundsWidth":1008,"boundsHeight":1320}
+            "positionX":1920,"positionY":0,"rotation":90,"boundsWidth":1080,"boundsHeight":1920}
         async with page.expect_download() as info:
             await page.click("#downloadBtn")
         data=json.loads((await (await info.value).path()).read_text())
         scene=next(s for s in data["sources"] if s["name"]=="Игрок 2")
         item=next(i for i in scene["settings"]["items"] if i["name"].startswith("CAM "))
         source=next(s for s in data["sources"] if s["uuid"]==item["source_uuid"])
-        assert item["rot"]==90 and item["pos"]=={"x":1620,"y":36}
-        assert source["settings"]["width"]==1008 and source["settings"]["height"]==1320
+        assert item["rot"]==90 and item["pos"]=={"x":1920,"y":0}
+        assert source["settings"]["width"]==1080 and source["settings"]["height"]==1920
         assert "&b64css=" in source["settings"]["url"]
         from urllib.parse import parse_qs,urlsplit
         css=base64.b64decode(parse_qs(urlsplit(source['settings']['url']).query)['b64css'][0]).decode()

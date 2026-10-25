@@ -7,7 +7,7 @@ import {
 } from '../faceit.js';
 import faceitProxy from '../netlify/functions/faceit.mjs';
 import { onRequest as cloudflareFaceit } from '../functions/api/faceit.js';
-import { newBridgeCode, normalizeCode, bridgeSecrets, seal, unseal, bridgeUrl, watchUrl } from '../vdo.js';
+import { newBridgeCode, normalizeCode, bridgeSecrets, seal, unseal, bridgeUrl, watchUrl, streamIdsOf, CamWatch, RECENT_MS } from '../vdo.js';
 
 const CHAMP = '8f2a5c1e-1234-4abc-9def-0123456789ab';
 const raw = (over = {}) => ({
@@ -333,4 +333,97 @@ test('matchEvents: reload at a map point stays quiet', () => {
   const reloadedWon = state([13, 10]);
   assert.deepEqual(matchEvents(null, reloadedWon), []);
   assert.deepEqual(matchEvents(reloadedWon, state([13, 10])), []);
+});
+
+test('VDO scan: placeholder peer keys are never stream IDs', () => {
+  assert.deepEqual(streamIdsOf({
+    undefined: {}, null: {}, false: {}, true: {}, NaN: {}, pc10: {}, pc2: {}, pc1: {}, 'bad-id': {}
+  }), ['pc1', 'pc2', 'pc10'], 'natural order, only real IDs');
+  assert.deepEqual(streamIdsOf({ pc1: false, pc2: true }), ['pc2'], 'a closed stream is not live');
+  assert.deepEqual(streamIdsOf(null), []);
+  assert.deepEqual(streamIdsOf('streamIDs'), []);
+});
+
+test('CamWatch: the room is asked about its streams every second', () => {
+  // Join/leave events can be missed: a stale «нет вебки» badge is worse than
+  // one extra getStreamIDs a second, so the poll runs at 1000 ms.
+  const saved = { add: globalThis.addEventListener, remove: globalThis.removeEventListener, timer: globalThis.setInterval };
+  const timers = [];
+  globalThis.addEventListener = () => {};
+  globalThis.removeEventListener = () => {};
+  globalThis.setInterval = (callback, every) => { timers.push(every); return 0; };
+  try {
+    const watcher = new CamWatch(() => {});
+    assert.equal(watcher.interval, 1000);
+    assert.deepEqual(timers, [1000]);
+  } finally {
+    globalThis.addEventListener = saved.add;
+    globalThis.removeEventListener = saved.remove;
+    globalThis.setInterval = saved.timer;
+  }
+});
+
+test('CamWatch: the room list decides presence; a blinking badge is not shown', () => {
+  // A scene viewer's «view-connection» fires while it opens and drops connections
+  // to streams that are not there: trusting it made «НЕТ ВЕБКИ» blink to
+  // «В ЭФИРЕ» once a second. Only two agreeing room answers may change a badge,
+  // and a stream that is not publishing any more is «была недавно», not «нет».
+  const saved = { add: globalThis.addEventListener, remove: globalThis.removeEventListener, timer: globalThis.setInterval };
+  globalThis.addEventListener = () => {};
+  globalThis.removeEventListener = () => {};
+  globalThis.setInterval = () => 0;
+  try {
+    const seen = [];
+    const watcher = new CamWatch((live, recent, checking) => {
+      seen.push({
+        live: [...live].filter(id => !id.includes('/')).sort(),
+        recent: [...recent].filter(id => !id.includes('/')).sort(),
+        checking: [...checking]
+      });
+    });
+    assert.equal(watcher.recentMs, RECENT_MS);
+    const source = {};
+    watcher.rooms.set('team1', {
+      room: 'team1', ids: ['pc1', 'pc2'], password: '', live: new Set(), seen: new Map(), answered: false,
+      iframe: { contentWindow: source }
+    });
+    const answer = ids => watcher.receive({
+      source, data: { streamIDs: Object.fromEntries(ids.map(id => [id, id])) }
+    });
+    answer(['pc1']);
+    assert.deepEqual(seen.at(-1), { live: ['pc1'], recent: [], checking: [] }, 'the first answer is shown at once');
+    // A connection event is not presence: it invented no stream.
+    watcher.receive({ source, data: { action: 'view-connection', value: true, streamID: 'pc2' } });
+    assert.deepEqual(seen.at(-1), { live: ['pc1'], recent: [], checking: [] }, 'view-connection must not add a stream');
+    // One answer without pc1 is not enough to hide it; the second agreeing one is.
+    answer([]);
+    assert.deepEqual(seen.at(-1).live, ['pc1'], 'one odd answer must not blink');
+    answer([]);
+    assert.deepEqual(seen.at(-1).live, [], 'two agreeing answers hide the stream');
+    assert.deepEqual(seen.at(-1).recent, ['pc1'], 'a stream that just left is «была недавно»');
+    // The way back takes two agreeing answers too, and a connection event does not shorten it.
+    answer(['pc1']);
+    assert.deepEqual(seen.at(-1).live, [], 'one answer must not bring the stream back');
+    watcher.receive({ source, data: { action: 'view-connection', value: true, streamID: 'pc1' } });
+    assert.deepEqual(seen.at(-1).live, [], 'view-connection must not bring it back either');
+    answer(['pc1']);
+    assert.deepEqual(seen.at(-1), { live: ['pc1'], recent: [], checking: [] }, 'two agreeing answers bring it back');
+    assert.deepEqual(seen.at(-1).checking, []);
+    // «Недавно» expires: with no memory window the same answers give «нет вебки».
+    const cold = new CamWatch(() => {}, 1000, 0);
+    cold.rooms.set('team1', {
+      room: 'team1', ids: ['pc1'], password: '', live: new Set(), seen: new Map(), answered: false,
+      iframe: { contentWindow: source }
+    });
+    const coldAnswer = ids => cold.receive({ source, data: { streamIDs: Object.fromEntries(ids.map(id => [id, id])) } });
+    coldAnswer(['pc1']);
+    coldAnswer([]);
+    coldAnswer([]);
+    assert.deepEqual([...cold.recent].filter(id => !id.includes('/')), [], 'without the window it is plainly absent');
+    assert.deepEqual([...cold.live], []);
+  } finally {
+    globalThis.addEventListener = saved.add;
+    globalThis.removeEventListener = saved.remove;
+    globalThis.setInterval = saved.timer;
+  }
 });

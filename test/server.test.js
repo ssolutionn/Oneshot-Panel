@@ -1,17 +1,58 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import { createServer, eventFile, eventChoices } from '../server.js';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import { createServer, eventFile } from '../server.js';
 
-test('Event chooser exposes available events and selects by query', async () => {
-  assert.ok(eventChoices().some(event => event.slug === 'reu'));
+// event.js runs in the page before the first paint: the same script in a sandbox,
+// so the test sees what the browser would (data-event/data-kind, the chosen event).
+function pageScript(code, { search = '', cookie = '' } = {}) {
+  const window = {};
+  const document = { cookie, documentElement: { dataset: {} } };
+  vm.runInNewContext(code, { window, document, location: { search }, URLSearchParams });
+  return { event: window.oneshotEvent, choices: window.oneshotEventChoices, dataset: document.documentElement.dataset };
+}
+
+async function servedEventScript(query = '') {
   const server = createServer();
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
-    const base = `http://127.0.0.1:${server.address().port}`;
-    assert.match(await (await fetch(base + '/event.js')).text(), /oneshotEventChoices/);
-    assert.match(await (await fetch(base + '/event.js?event=reu')).text(), /oneshotEvent/);
-  } finally { server.close(); }
+    const reply = await fetch(`http://127.0.0.1:${server.address().port}/event.js${query}`);
+    assert.equal(reply.status, 200);
+    assert.match(reply.headers.get('content-type'), /javascript/);
+    assert.match(reply.headers.get('cache-control'), /no-cache/);
+    return await reply.text();
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
+}
+
+test('Event chooser: the page knows every event, the address picks one', async () => {
+  const text = await servedEventScript();
+  const plain = pageScript(text);
+  // No choice yet: the event of this panel — CyberClash unless EVENT names another.
+  assert.equal(plain.event.slug, 'cyberclash');
+  assert.equal(plain.dataset.event, 'cyberclash');
+  assert.equal(plain.dataset.kind, 'sheets');
+  // The chooser's list: every event that has events/<slug>/event.json.
+  assert.deepEqual([...plain.choices].map(choice => choice.slug), ['cyberclash', 'reu']);
+  assert.equal(plain.choices.find(choice => choice.slug === 'reu').name, 'ЛАН РЭУ им. Плеханова');
+  // The chooser's cookie: the next load opens that event.
+  assert.equal(pageScript(text, { cookie: 'oneshot-event=reu' }).event.slug, 'reu');
+  assert.equal(pageScript(text, { cookie: 'oneshot-event=reu' }).dataset.kind, 'manual');
+  // ?event= wins over the cookie: a link opens its event even after another was picked.
+  assert.equal(pageScript(text, { search: '?event=reu', cookie: 'oneshot-event=cyberclash' }).event.slug, 'reu');
+  // A stale or foreign choice is not a blank page: the event of this panel.
+  assert.equal(pageScript(text, { cookie: 'oneshot-event=nope' }).event.slug, 'cyberclash');
+  // Only the events in the list count: no object members posing as an event.
+  assert.equal(pageScript(text, { search: '?event=constructor' }).event.slug, 'cyberclash');
+  assert.equal(pageScript(text, { cookie: 'oneshot-event=__proto__' }).event.slug, 'cyberclash');
+  // A LAN build: the same page, but that event is open by default.
+  assert.equal(pageScript(await servedEventScript('?event=reu')).event.slug, 'reu');
+  assert.throws(() => eventFile('nope'), /Нет события/);
+  // The build writes the same file for the address it builds.
+  const build = readFileSync(new URL('../scripts/build-site.sh', import.meta.url), 'utf8');
+  assert.match(build, /^node scripts\/event-config\.mjs > public\/event\.js$/m);
 });
 
 test('Static server serves public files and rejects traversal', async () => {
@@ -52,9 +93,9 @@ test('Static server serves public files and rejects traversal', async () => {
 });
 
 test('Netlify and Cloudflare publish the files server.js serves', () => {
-  const toml = fs.readFileSync(new URL('../netlify.toml', import.meta.url), 'utf8');
-  const build = fs.readFileSync(new URL('../scripts/build-site.sh', import.meta.url), 'utf8');
-  const server = fs.readFileSync(new URL('../server.js', import.meta.url), 'utf8');
+  const toml = readFileSync(new URL('../netlify.toml', import.meta.url), 'utf8');
+  const build = readFileSync(new URL('../scripts/build-site.sh', import.meta.url), 'utf8');
+  const server = readFileSync(new URL('../server.js', import.meta.url), 'utf8');
   assert.match(toml, /^\s*command = "sh scripts\/build-site\.sh"$/m);
   const copied = build.match(/^cp ((?!-R)[^\n]+) public\/$/m)[1].trim().split(/\s+/);
   const served = [...server.match(/publicFiles = new Set\(\[([^\]]*)\]/)[1]
@@ -66,8 +107,8 @@ test('Netlify and Cloudflare publish the files server.js serves', () => {
 });
 
 test('Netlify and Cloudflare serve the same security headers as server.js', async () => {
-  const toml = fs.readFileSync(new URL('../netlify.toml', import.meta.url), 'utf8');
-  const cloudflare = fs.readFileSync(new URL('../_headers', import.meta.url), 'utf8');
+  const toml = readFileSync(new URL('../netlify.toml', import.meta.url), 'utf8');
+  const cloudflare = readFileSync(new URL('../_headers', import.meta.url), 'utf8');
   const server = createServer();
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
@@ -86,7 +127,19 @@ test('Netlify and Cloudflare serve the same security headers as server.js', asyn
   }
 });
 
-test('/event.js says which event this panel is: CyberClash unless EVENT names another', async () => {
+test('index.html loads only files the build publishes', () => {
+  const page = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const build = readFileSync(new URL('../scripts/build-site.sh', import.meta.url), 'utf8');
+  const copied = new Set(build.match(/^cp ((?!-R)[^\n]+) public\/$/m)[1].trim().split(/\s+/));
+  const generated = new Set([...build.matchAll(/> public\/([\w.-]+)/g)].map(match => match[1]));
+  // Root-level scripts and styles of the page: they must be in the built site, or
+  // the page silently loses a feature (the chooser had no button this way).
+  for (const [, file] of page.matchAll(/(?:src|href)="\/([\w.-]+)"/g)) {
+    assert.ok(copied.has(file) || generated.has(file), `index.html loads /${file}, а сборка его не кладёт в public/`);
+  }
+});
+
+test('/event.js of a server started with EVENT: that event, and its kind', async () => {
   for (const [event, slug, kind] of [[undefined, 'cyberclash', 'sheets'], [eventFile('reu'), 'reu', 'manual']]) {
     const server = createServer(event === undefined ? {} : { event });
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -94,13 +147,9 @@ test('/event.js says which event this panel is: CyberClash unless EVENT names an
       const reply = await fetch(`http://127.0.0.1:${server.address().port}/event.js`);
       assert.equal(reply.status, 200);
       assert.match(reply.headers.get('content-type'), /javascript/);
-      const text = await reply.text();
-      assert.match(text, new RegExp(`"slug":"${slug}"`));
-      assert.match(text, new RegExp(`dataset\\.kind="${kind}"`));
+      const page = pageScript(await reply.text());
+      assert.equal(page.event.slug, slug);
+      assert.equal(page.dataset.kind, kind);
     } finally { server.close(); }
   }
-  assert.throws(() => eventFile('nope'), /Нет события/);
-  // The build writes the same file for the address it builds.
-  const build = fs.readFileSync(new URL('../scripts/build-site.sh', import.meta.url), 'utf8');
-  assert.match(build, /^node scripts\/event-config\.mjs > public\/event\.js$/m);
 });

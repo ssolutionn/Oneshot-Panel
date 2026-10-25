@@ -72,7 +72,7 @@
 .brand-event-button{margin-left:8px;padding:3px 8px;border:1px solid currentColor;border-radius:5px;background:transparent;color:inherit;font:inherit;font-size:12px;cursor:pointer}.brand-event-button:hover{background:var(--hover)}
 .event-chooser-backdrop{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:20px;background:var(--backdrop)}
 .event-chooser{width:min(520px,100%);padding:28px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:var(--panel-shadow)}
-.event-chooser h1{margin:0 0 8px}.event-chooser-list{display:grid;gap:10px;margin-top:20px}.event-chooser-option{padding:14px;text-align:left;border:1px solid var(--btn-line);border-radius:8px;background:var(--surface-2);color:var(--ink);font:inherit;cursor:pointer}.event-chooser-option:hover,.event-chooser-option:focus-visible{border-color:var(--red);background:var(--hover)}
+.event-chooser h1{margin:0 0 8px}.event-chooser-list{display:grid;gap:10px;margin-top:20px}.event-chooser-option{padding:14px;text-align:left;border:1px solid var(--btn-line);border-radius:8px;background:var(--surface-2);color:var(--ink);font:inherit;cursor:pointer}.event-chooser-option:hover,.event-chooser-option:focus-visible{border-color:var(--red);background:var(--hover)}.event-chooser-option[aria-current="true"]{border-color:var(--red)}.event-chooser-close{margin-top:18px}
 /* Day tokens; night tokens follow the system, the host page (data-theme) or the toggle (data-mode, wins). */
 :root{color-scheme:light;font-family:var(--font);color:var(--ink);background:var(--bg);font-synthesis:none;--bg:#f5f5f5;--ink:#171717;--muted:#626262;--line:#ddd;--red:#d3202c;--red-hover:#b81722;--surface:#fff;--surface-2:#fafafa;--soft:#f0f0f0;--soft-ink:#555;--hover:#e9e9e9;--divider:#eee;--divider-2:#e5e5e5;--btn-line:#c9c9c9;--field:#fff;--field-line:#bbb;--sub:#444;--code:#f7f7f7;--code-ink:#333;--strong:#171717;--strong-hover:#333;--on-strong:#fff;--bar:#171717;--header:#fff;--header-ink:#171717;--map-hover:#111;--logo-day:block;--logo-night:none;--warn:#fff4de;--warn-ink:#664411;--warn-line:#dbbd83;--side:#fff3cf;--shadow:#0003;--backdrop:#0007}
 @media(prefers-color-scheme:dark){:root:not([data-mode=light]):not([data-theme=light]){color-scheme:dark;--bg:#101012;--ink:#ececec;--muted:#a3a3a8;--line:#2e2e33;--red:#e0313c;--red-hover:#f04751;--surface:#1a1a1d;--surface-2:#161619;--soft:#26262a;--soft-ink:#c4c4c8;--hover:#2a2a2f;--divider:#26262a;--divider-2:#2a2a2f;--btn-line:#3c3c42;--field:#121214;--field-line:#45454c;--sub:#c4c4c8;--code:#121214;--code-ink:#e2e2e2;--strong:#ececec;--strong-hover:#fff;--on-strong:#111;--bar:#000;--header:#0a0a0b;--header-ink:#fff;--map-hover:#ececec;--logo-day:none;--logo-night:block;--warn:#33280f;--warn-ink:#f2d8a0;--warn-line:#6e5626;--side:#3a3113;--shadow:#0009;--backdrop:#000b}}
@@ -220,7 +220,20 @@ h2 { font-size:17px; line-height:1.4; letter-spacing:-.3px; margin-bottom:0; }
 .camera-preview-box iframe { position:absolute; inset:0; width:100%; height:100%; border:0; transform-origin:0 0; }
 .camera-preview-box iframe { background:transparent; }
 .camera-preview-box[data-loading="true"] iframe { opacity:0; }
+/* The webcam is absent: the side's placeholder from «Компы» sits in the frame,
+   the same picture OBS shows under its cameras (not rotated, like CARD). It is
+   a canvas because the page's CSP allows no data: images (img-src 'self'). */
+.camera-plate { position:absolute; inset:0; display:block; width:100%; height:100%; }
+.camera-plate[hidden] { display:none; }
+/* What the watcher says about this webcam, in words, under the frame. Yellow is
+   only «была недавно»: «нет вебки» is a fact, not a warning. */
+.camera-state { margin:8px 0 0; padding:6px 10px; border-radius:5px; background:var(--soft); color:var(--sub); font-size:12px; font-weight:700; line-height:1.5; }
+.camera-state[data-kind=live] { background:var(--success-bg); color:var(--success); }
+.camera-state[data-kind=recent] { background:var(--warn); color:var(--warn-ink); }
 .camera-preview-stage[data-loading="true"]::after { content:'Ожидаем видео…'; display:flex; align-items:flex-end; justify-content:center; padding-bottom:18px; position:absolute; inset:0; z-index:2; background:var(--camera-stage) var(--camera-preview-image) center/cover no-repeat; color:var(--camera-loading-ink); font-size:12px; }
+.camera-preview-stage[data-loading="true"]:is([data-cam="off"],[data-cam="recent"])[data-plate="true"]::after { content:none; }
+.camera-preview-stage[data-loading="true"][data-cam="off"][data-plate="false"]::after { content:'Нет вебки'; }
+.camera-preview-stage[data-loading="true"][data-cam="recent"][data-plate="false"]::after { content:'Была недавно'; }
 .camera-preview-box[data-rotation="90"] iframe { inset:auto; left:100%; top:0; width:var(--camera-rotated-width); height:var(--camera-rotated-height); transform:rotate(90deg); }
 .camera-preview-box[data-rotation="180"] iframe { inset:auto; left:100%; top:100%; transform:rotate(180deg); }
 .camera-preview-box[data-rotation="270"] iframe { inset:auto; left:0; top:100%; width:var(--camera-rotated-width); height:var(--camera-rotated-height); transform:rotate(270deg); }
@@ -263,6 +276,7 @@ a.text-button { display:inline-flex; align-items:center; }
 .obs-setup i.good,.dock-status i.good,.cam-dot.live { background:var(--success); box-shadow:0 0 0 3px var(--success-bg); }
 .obs-setup i.bad,.dock-status i.bad,.cam-dot.off { background:var(--red); }
 .obs-setup i.wait,.cam-dot.wait { background:var(--warn-ink); }
+.cam-dot.recent { background:var(--warn-line); }
 .export-meta { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 1px 0; min-width:0; }
 .export-meta p { margin:0; color:var(--muted); font-size:9px; line-height:1.5; overflow-wrap:anywhere; min-width:0; }
 #filenamePreview { font-family:ui-monospace,Consolas,monospace; text-align:right; }
@@ -353,6 +367,7 @@ dialog textarea { margin:0; width:100%; }
 .cam-total { color:var(--muted); font-size:11px; font-variant-numeric:tabular-nums; }
 .cam-total.all { color:var(--success-ink); font-weight:700; }
 .cam-total.missing { color:var(--red); font-weight:700; }
+.cam-total.recent { color:var(--warn-ink); font-weight:700; }
 /* The dot sits on the slot number's corner: green live, red missing, amber checking. */
 .slot-number { position:relative; }
 .cam-dot { position:absolute; top:-4px; right:-4px; border:2px solid var(--surface); box-sizing:content-box; }
@@ -360,9 +375,21 @@ dialog textarea { margin:0; width:100%; }
 /* Veto overlay */
 .veto-overlay-bar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:8px 16px; border-bottom:1px solid var(--divider); }
 .veto-overlay-bar .check { font-size:11px; cursor:pointer; }
-/* Captains' veto: settings, then the links for the captains, viewers and us. */
+/* Captains' veto: the one button for the match first, then its links, then the
+   settings that change once a match, then the room itself (see live.js). */
 .cv-intro { margin:0 16px 12px; color:var(--sub); font-size:12px; line-height:1.6; }
-.cv-settings { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)) auto; gap:12px; align-items:end; padding:0 16px 12px; }
+.cv-start { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px 14px; margin:0 16px 12px; padding:12px 14px; border:1px solid var(--divider-2); border-radius:6px; background:var(--surface-2); }
+.cv-start-teams { display:grid; gap:3px; flex:1 1 240px; min-width:0; margin:0; }
+.cv-start-teams b { color:var(--ink); font-size:14px; overflow-wrap:anywhere; }
+.cv-start-teams span { color:var(--muted); font-size:11px; line-height:1.5; }
+.cv-start .button { flex:none; }
+.cv-settings { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; align-items:end; padding:0 16px 12px; }
+.cv-settings-more { border-top:1px solid var(--divider); }
+.cv-settings-more > summary { padding:10px 16px; color:var(--muted); font-size:12px; cursor:pointer; }
+.cv-settings-more > summary:hover, .cv-settings-more[open] > summary { color:var(--ink); }
+.cv-summary { margin-left:6px; color:var(--muted); font-size:11px; font-weight:400; font-variant-numeric:tabular-nums; }
+.cv-summary:empty { display:none; }
+.cv-settings-more .cv-settings { padding-top:12px; }
 .cv-settings label { display:grid; gap:6px; min-width:0; color:var(--muted); font-size:11px; font-weight:600; }
 .cv-settings select { min-width:0; min-height:40px; padding:8px 10px; border:1px solid var(--field-line); border-radius:6px; background:var(--field); color:var(--ink); font-size:12px; }
 .cv-site { grid-column:1/-1; }
@@ -379,8 +406,9 @@ dialog textarea { margin:0; width:100%; }
 .cv-link .button { justify-self:start; }
 .cv-admin { border-color:var(--red); }
 .cv-actions { display:flex; flex-wrap:wrap; gap:8px; }
-/* The captains' room, live, at the top of the «Вето» tab. Until live.js moves
-   the panel's veto there, it stays out of «Подготовка» (site only). */
+/* The captains' room, live: under the links until the captains are in it, then
+   live.js lifts it above them. Until live.js moves the panel's veto into this
+   tab, it stays out of «Подготовка» (site only). */
 body:has(.view-tabs) #prepView > #veto { display:none; }
 .veto-view > * + * { margin-top:14px; }
 .cv-live-state { padding:4px 10px; border-radius:12px; background:var(--soft); color:var(--muted); font-size:11px; font-weight:700; white-space:nowrap; }
@@ -575,7 +603,9 @@ body.dock { background:var(--bg); font-size:12px; }
   dialog { padding:18px; } .dialog-actions { flex-wrap:wrap; } .dialog-actions .button { flex:1; }
   .cam-summary { flex-wrap:wrap; padding:9px 12px; }
   .veto-overlay-bar { padding:8px 12px; }
-  .cv-settings { grid-template-columns:minmax(0,1fr) minmax(0,1fr); padding:0 12px 12px; } .cv-settings .button { grid-column:1/-1; }
+  .cv-settings { grid-template-columns:minmax(0,1fr) minmax(0,1fr); padding:0 12px 12px; }
+  .cv-start { margin-left:12px; margin-right:12px; padding:10px 12px; } .cv-start .button { flex:1 1 100%; }
+  .cv-settings-more > summary { padding:10px 12px; }
   .cv-links { grid-template-columns:minmax(0,1fr); padding:0 12px 12px; } .cv-intro,.cv-status { margin-left:12px; margin-right:12px; }
   .cv-room { padding:0 12px 12px; } .cv-alert { margin-left:12px; margin-right:12px; } .cv-watch { padding:0 12px 12px; } .cv-watch-more > summary { padding:10px 12px; } .cv-clock { margin-left:0; }
   .lobby-form { grid-template-columns:minmax(0,1fr); padding:0 12px 12px; }
@@ -641,6 +671,12 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .event-steps { margin:0; padding-left:20px; font-size:12.5px; line-height:1.9; }
 .text-button.danger { color:var(--red); margin-top:10px; }
 /* «Команды» */
+/* «Вписать списком»: the LAN dialog's textarea, now an addition to the cards */
+.lt-bulk { margin:0 0 12px; padding:10px 12px; border:1px dashed var(--line); border-radius:6px; background:var(--surface-2); }
+.lt-bulk summary { cursor:pointer; font-size:12px; font-weight:600; }
+.lt-bulk > p.muted { margin:8px 0 0; font-size:12px; line-height:1.6; }
+.lt-bulk textarea { width:100%; min-height:110px; margin:10px 0 0; padding:10px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font:12px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace; white-space:pre; resize:vertical; }
+.lt-bulk-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
 .lt-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; }
 .lt-card { display:flex; flex-direction:column; min-width:0; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); }
 .lt-card.dup { border-color:var(--warn-line); }
@@ -691,12 +727,18 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .seat-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
 .seat-column { display:grid; gap:6px; min-width:0; }
 .seat-column h3 { margin:0 0 2px; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.seat-card { display:grid; grid-template-columns:30px 10px minmax(0,1fr) auto auto auto auto; grid-template-areas:'seat dot who state frame push copy' 'link link link link link link link'; align-items:center; gap:4px 8px; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--field); }
+.seat-card { display:grid; grid-template-columns:14px 30px 10px minmax(0,1fr) auto auto auto auto; grid-template-areas:'grip seat dot who state frame push copy' 'link link link link link link link link'; align-items:center; gap:4px 8px; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--field); transition:border-color .16s ease,box-shadow .16s ease,opacity .16s ease,transform .16s ease; }
+.seat-grip { grid-area:grip; color:var(--muted); font-size:15px; line-height:1; cursor:grab; user-select:none; touch-action:none; }
+.seat-grip:active { cursor:grabbing; }
+.seat-card.dragging { opacity:.45; transform:scale(.985); }
+.seat-card.drop { border-color:var(--red); box-shadow:0 0 0 2px var(--red) inset; animation:drag-pulse .8s ease-in-out infinite; }
+.seat-card.swapped { animation:swap-pop .34s cubic-bezier(.2,.9,.3,1.3); }
 .seat-name { grid-area:seat; font-size:13px; }
 .seat-dot { grid-area:dot; width:9px; height:9px; border-radius:50%; background:var(--btn-line); }
 .seat-card[data-seat-cam=live] .seat-dot { background:var(--success); }
 .seat-card[data-seat-cam=off] .seat-dot { background:var(--red); }
 .seat-card[data-seat-cam=wait] .seat-dot { background:var(--warn-line); }
+.seat-card[data-seat-cam=recent] .seat-dot { background:var(--warn-ink); }
 .seat-nick { grid-area:who; width:100%; min-width:0; padding:2px 6px; border:1px solid transparent; border-radius:4px; background:transparent; color:var(--ink); font-size:12px; font-weight:600; }
 .seat-nick::placeholder { color:var(--muted); font-weight:500; }
 .seat-nick:hover,.seat-nick:focus { border-color:var(--field-line); background:var(--field); outline:none; }
@@ -709,10 +751,14 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .seat-card[data-seat-cam=live] .seat-state { background:var(--success-bg); color:var(--success); }
 .seat-card[data-seat-cam=off] .seat-state { background:var(--red); color:var(--on-accent); }
 .seat-card[data-seat-cam=wait] .seat-state { background:var(--warn); color:var(--warn-ink); }
+/* «Была недавно»: yellow, not red — the webcam may come back, and a stream that
+   just dropped must not read as «нет вебки» at once. */
+.seat-card[data-seat-cam=recent] .seat-state { background:var(--warn); color:var(--warn-ink); }
 .cam-note { display:inline-block; margin-right:6px; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:800; letter-spacing:.04em; vertical-align:middle; background:var(--soft); color:var(--muted); }
 .cam-note[data-cam=live] { background:var(--success-bg); color:var(--success); }
 .cam-note[data-cam=off] { background:var(--red); color:var(--on-accent); }
 .cam-note[data-cam=wait] { background:var(--warn); color:var(--warn-ink); }
+.cam-note[data-cam=recent] { background:var(--warn); color:var(--warn-ink); }
 .seat-plates { margin-top:16px; }
 .seat-plates h3 { margin:0 0 4px; font-size:13px; }
 .seat-plates > p { margin:0; font-size:12px; line-height:1.5; }
@@ -728,6 +774,25 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .seat-rooms .button { justify-self:start; }
 .seat-directors { display:flex; flex-wrap:wrap; gap:6px 18px; font-size:12px; color:var(--muted); }
 .seat-directors span { display:inline-flex; align-items:center; gap:6px; min-width:0; overflow-wrap:anywhere; }
+.seat-net { grid-template-columns:minmax(0,240px) minmax(0,1fr); max-width:760px; }
+.seat-net select,.seat-net input[type=number] { display:block; width:100%; margin-top:6px; padding:9px 10px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font-size:13px; }
+.seat-net-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 12px; align-items:end; }
+.seat-net-check { grid-column:1/-1; display:flex; gap:8px; align-items:baseline; }
+.seat-net-check input { display:inline; width:auto; margin:0; }
+#seatsNetNote { margin-top:8px; font-size:11px; line-height:1.5; }
+#seatsMissing { margin:10px 0 0; }
+.player-grip { width:12px; flex-shrink:0; color:var(--muted); font-size:15px; line-height:1; cursor:grab; user-select:none; touch-action:none; }
+.player-grip:active { cursor:grabbing; }
+.player-row { transition:background-color .16s ease,box-shadow .16s ease,opacity .16s ease,transform .16s ease; }
+.player-row.dragging { opacity:.45; transform:scale(.99); }
+.player-row.drop { background:var(--soft); box-shadow:0 0 0 2px var(--red) inset; animation:drag-pulse .8s ease-in-out infinite; }
+.player-row.swapped { animation:swap-pop .34s cubic-bezier(.2,.9,.3,1.3); }
+@keyframes drag-pulse { 0%,100% { box-shadow:0 0 0 1px var(--red) inset; } 50% { box-shadow:0 0 0 3px var(--red) inset; } }
+@keyframes swap-pop { 0% { transform:scale(.97); } 55% { transform:scale(1.025); } 100% { transform:scale(1); } }
+@media(prefers-reduced-motion:reduce) {
+  .seat-card,.player-row { transition:none; }
+  .seat-card.drop,.player-row.drop,.seat-card.swapped,.player-row.swapped { animation:none; }
+}
 #seatsClash { margin:10px 0 0; }
 @media(max-width:900px) {
   .em-row { grid-template-columns:24px 96px minmax(0,1fr) 76px; }
@@ -743,6 +808,7 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
   .lt-card-btn { display:none; }
   .seat-grid { grid-template-columns:minmax(0,1fr); }
   .seat-settings { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+  .seat-net,.seat-net-fields { grid-template-columns:minmax(0,1fr); }
   .seat-settings .text-button { grid-column:1/-1; justify-self:start; }
   .em-row { grid-template-columns:20px minmax(0,1fr) 70px; }
   .em-row .em-stage { grid-column:2/-1; grid-row:2; }
@@ -821,8 +887,8 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
       </div>
       <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
       <label class="camera-frame-setting">Рамка вебок
-        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option><option value="inner43_over20">Внутренняя рамка +20 px запаса</option><option value="full43_over20">4:3 на всю высоту +20 px запаса</option><option value="wide_over20">Весь холст +20 px запаса</option><option value="square_over20">Квадрат +20 px запаса (1120×1120)</option></select>
-        <span>Заполнение с обрезкой краёв. «Кадр» под ником — поворот и положение игрока.</span>
+        <select id="cameraFrame"><option value="fullheight">Во всю высоту, пропорции камеры</option><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option><option value="inner43_over20">Внутренняя рамка +20 px запаса</option><option value="full43_over20">4:3 на всю высоту +20 px запаса</option><option value="wide_over20">Весь холст +20 px запаса</option><option value="square_over20">Квадрат +20 px запаса (1120×1120)</option></select>
+        <span>По умолчанию вебка растягивается до верхней и нижней границ сцены, сохраняя свои пропорции (без обрезки). «Кадр» под ником — поворот и положение игрока.</span>
       </label>
       <div class="export-meta">
         <p id="exportHint">10 вебок, сцены «Игрок 1–10» и «Матрица»</p>
@@ -1487,16 +1553,19 @@ function lanSchedule(lan) {
     matchId: m.id, key: JSON.stringify(['lan-match', m.id])
   }));
 }
+// «Команда: ник1, ник2, …» per line; nicknames are optional («Команда» alone is
+// a team whose lineup is filled in later, or never: a LAN's seats do not need
+// players). Comments (#) and empty lines are skipped, bad lines are reported.
 function parseLanRoster(text) {
   const teams = [], skipped = [], names = new Set();
   String(text ?? '').split(/\r?\n/).forEach((raw, index) => {
     const row = line(raw);
     if (!row || row.startsWith('#')) return;
     const at = row.indexOf(':');
-    const name = at > 0 ? line(row.slice(0, at)) : '';
+    const name = at === -1 ? row : line(row.slice(0, at));
     const nicks = at > 0 ? row.slice(at + 1).split(',').map(line).filter(Boolean) : [];
-    if (!name || !nicks.length) {
-      skipped.push(`строка ${index + 1}: нужно «Команда: ник1, ник2, …»`);
+    if (!name) {
+      skipped.push(`строка ${index + 1}: нужно название команды`);
       return;
     }
     if (name.length > 60 || names.has(name.toLowerCase())) {
@@ -1519,8 +1588,32 @@ function parseLanRoster(text) {
     teams.push({ name, room: '', password: '', players, sourceRow: index + 1 });
   });
   teams.skipped = skipped;
-  if (!teams.length) throw new Error('Добавь команды в окне «ЛАН»: одна строка — «Команда: ник1, ник2, …».');
+  if (!teams.length) throw new Error('Добавь команды в режиме ЛАН: одна строка — «Команда» или «Команда: ник1, ник2, …».');
   return teams;
+}
+// «Команды» → «Вписать списком»: the typed roster joins the cards already on the
+// panel. A team whose name is already there stays as it is — its logo, photos and
+// lineup survive — and both limits hold. `makeId` gives the new teams and players
+// their ids (random on the panel). Returns the teams to keep, what was added and
+// every line that was skipped, as parseLanRoster reports them.
+function addLanRoster(teams, text, makeId, limits = LAN_LIMITS) {
+  const roster = parseLanRoster(text);
+  const next = Array.isArray(teams) ? teams.slice() : [];
+  const taken = new Set(next.map(t => personKey(t?.name)).filter(Boolean));
+  const skipped = [...roster.skipped];
+  const added = { teams: 0, players: 0 };
+  for (const found of roster) {
+    const key = personKey(found.name);
+    if (key && taken.has(key)) { skipped.push(`${found.name}: такая команда уже есть`); continue; }
+    if (next.length >= limits.teams) { skipped.push(`${found.name}: больше ${limits.teams} команд не помещается`); continue; }
+    const players = found.players.slice(0, limits.players).map(p => ({ id: makeId(), nick: p.nick }));
+    if (found.players.length > limits.players) skipped.push(`${found.name}: в команде больше ${limits.players} игроков`);
+    next.push({ id: makeId(), name: found.name, players });
+    if (key) taken.add(key);
+    added.teams += 1;
+    added.players += players.length;
+  }
+  return { teams: next, added, skipped };
 }
 function lanSeatId(prefix, side, index) {
   return vdoId(`${prefix}${side}${index + 1}`);
@@ -1803,7 +1896,7 @@ function buildObs(template, a, b, ka, kb,
 }
 
 // «Матрица» as in the template: 1–8 in a 480×270 grid on top, 9 and 10 each
-// filling its half of the bottom (960×540).
+// filling its half of the bottom (960×540), so the tiles cover 1920×1080.
 function matrixTile(index) {
   if (!Number.isInteger(index) || index < 0 || index > 9) return null;
   return index < 8 ? { x: (index % 4) * 480, y: Math.floor(index / 4) * 270, width: 480, height: 270 } :
@@ -2091,12 +2184,18 @@ const EVENT_CAMS = EVENT_LAN ? lanCams(globalThis.oneshotEvent?.cameras) : null;
 const EVENT_NET = globalThis.oneshotEvent?.cameras?.net;
 const eventNet = EVENT_NET ? { ...EVENT_NET, mode: EVENT_NET.mode || (EVENT_LAN ? 'lan' : 'online') } :
   (EVENT_LAN ? { mode: 'lan' } : null);
-const netNew = Boolean(eventNet && !savedLan?.net);
+// A saved choice wins inside one event; opening another event applies its own
+// mode once, so online CyberClash does not leave REU without LAN-only.
+const NET_EVENT_STORE = 'oneshot-lan-net-event';
+const netEventTag = JSON.stringify([globalThis.oneshotEvent?.slug || '', EVENT_NET?.mode || '', EVENT_LAN]);
+const eventNetNew = Boolean(eventNet) && readStorage(NET_EVENT_STORE) !== netEventTag;
+const netNew = Boolean(eventNet && (!savedLan?.net || eventNetNew));
 if (EVENT_LAN !== state.lan.on || (EVENT_CAMS && !state.lan.cams) || netNew) {
   state.lan = lanConfig({ ...state.lan, on: EVENT_LAN, cams: state.lan.cams || EVENT_CAMS,
-    net: savedLan?.net || eventNet || state.lan.net,
+    net: eventNetNew ? eventNet : (savedLan?.net || eventNet || state.lan.net),
     prefix: state.lan.prefix || newLanPrefix(crypto.getRandomValues(new Uint8Array(4))) });
   writeStorage(LAN_STORE, state.lan);
+  if (eventNetNew) writeStorage(NET_EVENT_STORE, netEventTag);
 }
 // A saved match belongs to the data source it was picked from.
 function sourceTag() {
@@ -2218,6 +2317,11 @@ function setCamNick(side, slot, value) {
   renderOutput();
 }
 let cameraEditor=null,cameraPreview=null,cameraPreviewTimer,cameraPreviewPoll,cameraPreviewCss='',cameraPreviewAck=false,cameraPreviewRequest='',cameraPreviewSequence=0;
+// live.js asks the same question «Компы» и «Эфир» do ('live' | 'wait' | 'off');
+// lan.js gives the side's placeholder picture. Neither exists in the artifact.
+let camStateProvider=null,plateImageProvider=null;
+const camState=player=>camStateProvider ? camStateProvider(player) : 'none';
+const plateImageOf=side=>state.lan.on && plateImageProvider ? plateImageProvider(side)||'' : '';
 // A LAN seat's webcam on its own («Компы»): framed before anyone sits there.
 function seatPlayer(side,index) {
   const seat=lanSeat(state.lan,side,index);
@@ -2236,6 +2340,74 @@ function cameraPreviewStyle(camera) {
 function cameraPreviewLoading(loading) {
   $('cameraPreviewBox').dataset.loading=String(loading);
   $('cameraPreviewBox').parentElement.dataset.loading=String(loading);
+}
+// The frame shows what OBS shows under the camera: while the webcam is absent
+// (status 'off'), the side's placeholder instead of an endless «Ожидаем видео…».
+// The picture stays inside the unrotated frame, like the CARD source in OBS.
+// It is a canvas: the page's CSP has img-src 'self', so a data: background
+// would be blocked — the bytes go straight into a bitmap (as lan-images does).
+let cameraPlateImage='',cameraPlateBroken='',cameraPlateRequest=0;
+async function paintCameraPlate(plate) {
+  const canvas=$('cameraPlate');
+  const rect=cameraFrame(state.cameraFrame);
+  // The frame's own size, so the picture is not stretched by a 4:3 or square frame.
+  const geometry=`${plate}|${rect.width}x${rect.height}`;
+  const request=++cameraPlateRequest;
+  if(!plate||plate===cameraPlateBroken){canvas.hidden=true;cameraPlateImage='';return;}
+  if(cameraPlateImage!==geometry){
+    try{
+      const mime=plate.slice(5,plate.indexOf(';'));
+      const bytes=Uint8Array.from(atob(plate.slice(plate.indexOf(',')+1)),c=>c.charCodeAt(0));
+      const bitmap=await createImageBitmap(new Blob([bytes],{type:mime}));
+      if(request!==cameraPlateRequest){bitmap.close();return;}
+      const scale=Math.max(rect.width/bitmap.width,rect.height/bitmap.height);
+      const width=bitmap.width*scale,height=bitmap.height*scale;
+      canvas.width=rect.width;canvas.height=rect.height;
+      canvas.getContext('2d').drawImage(bitmap,(rect.width-width)/2,(rect.height-height)/2,width,height);
+      bitmap.close();
+      cameraPlateImage=geometry;
+      cameraPlateBroken='';
+    }catch{
+      if(request!==cameraPlateRequest)return;
+      // No picture after all: the frame says so in words instead of staying blank.
+      cameraPlateBroken=plate;
+      cameraPlateImage='';
+      $('cameraPreviewBox').dataset.plate=$('cameraPreviewBox').parentElement.dataset.plate='false';
+      canvas.hidden=true;
+      return;
+    }
+  }
+  canvas.hidden=false;
+}
+function paintCameraStage() {
+  const player=editorPlayer(),box=$('cameraPreviewBox'),stage=box.parentElement;
+  const cam=player ? camState(player) : 'none';
+  // «Была недавно» is not in the air either: the frame shows the same picture,
+  // and the seat badges keep the yellow wording.
+  const absent=cam==='off'||cam==='recent';
+  const found=absent&&cameraEditor ? plateImageOf(cameraEditor.side) : '';
+  // Only our own encoded pictures: anything else is no placeholder at all.
+  const plate=typeof found==='string'&&found.startsWith('data:image/') ? found : '';
+  const shown=Boolean(plate)&&plate!==cameraPlateBroken;
+  box.dataset.cam=stage.dataset.cam=cam;
+  box.dataset.plate=stage.dataset.plate=String(shown);
+  paintCameraPlate(plate);
+  // In words too: the picture alone does not say whether the webcam is away for
+  // a second or gone, and the operator is looking at this window.
+  const note=$('cameraState');
+  if(note){
+    const side=cameraEditor?.side?.toUpperCase()||'';
+    const text={
+      live:'Вебка в эфире.',
+      wait:'Проверяем вебку…',
+      recent:shown ? `Вебка была недавно — в кадре заглушка${side?` команды ${side}`:''}.` :
+        'Вебка была недавно — сейчас её нет.',
+      off:shown ? `Вебки нет — в кадре заглушка${side?` команды ${side}`:''}.` : 'Вебки нет.'
+    }[cam]||'';
+    note.dataset.kind=cam;
+    note.textContent=text;
+    note.hidden=!text;
+  }
 }
 function probeCameraPreview() {
   const player=editorPlayer();
@@ -2273,6 +2445,7 @@ function updateCameraPreview() {
   const player=editorPlayer();
   if(!player){$('cameraDialog').close();return;}
   const config=normalizeCamera(player.camera),rect=cameraFrame(state.cameraFrame);
+  paintCameraStage();
   $('cameraRotation').value=String(config.rotation);
   $('cameraZoom').value=String(Math.round(config.zoom*100));
   $('cameraZoomValue').value=Math.round(config.zoom*100)+'%';
@@ -2326,7 +2499,7 @@ function openCamera(side,slot,seat=false) {
       updateCameraPreview();
     }
   });
-  $('cameraPreviewBox').replaceChildren(cameraPreview);
+  $('cameraPreviewBox').replaceChildren($('cameraPlate'),cameraPreview);
   cameraPreviewPoll=setInterval(probeCameraPreview,1000);
   $('cameraDialog').showModal();
   updateCameraPreview();
@@ -2338,6 +2511,8 @@ $('cameraDialog').addEventListener('close',()=>{
   cameraPreviewTimer=null;
   cameraPreview?.remove();cameraPreview=null;cameraEditor=null;
 });
+// «Компы»/«Эфир» just learned whether the webcam is in the air: the frame follows.
+document.addEventListener('oneshot:cams',()=>{if(cameraEditor)paintCameraStage();});
 $('cameraRotation').addEventListener('change',()=>saveCamera({rotation:Number($('cameraRotation').value)}));
 $('cameraRotate').addEventListener('click',()=>{
   const player=editorPlayer();if(player)saveCamera({rotation:(normalizeCamera(player.camera).rotation+90)%360});
@@ -2465,6 +2640,22 @@ function chosen(side) {
   return selectedPlayers(getTeam(side),
     state[side === 'a' ? 'keysA' : 'keysB']);
 }
+// Two slots of one team swap their players: the cameras stay at the seats, the
+// players move between them. On a LAN that is the seating order; online it is
+// the same slot order OBS and the observer text use.
+function swapPlayerSlots(side, from, to) {
+  if (!['a', 'b'].includes(side) || from === to || from < 0 || to < 0 || from > 4 || to > 4) return;
+  const keys = state[side === 'a' ? 'keysA' : 'keysB'];
+  [keys[from], keys[to]] = [keys[to], keys[from]];
+  render();
+  const row = $('teamGrid').querySelector(`.player-row[data-player-side="${side}"][data-player-slot="${to}"]`);
+  if (row) {
+    row.classList.add('swapped');
+    row.focus({ preventScroll: true });
+    setTimeout(() => row.classList.remove('swapped'), 420);
+  }
+  toast(`Слоты ${from + 1} и ${to + 1} поменялись игроками. Для OBS — «Отправить в OBS» заново.`);
+}
 function valid() {
   return validateMatch(getTeam('a'), getTeam('b'),
     state.keysA, state.keysB);
@@ -2494,6 +2685,8 @@ function notify() {
 window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next),
   // A file handed in by live.js (the seats' collection) is saved like our own.
   download: file => directDownload(file),
+  // live.js just added an export source: re-check «Скачать JSON» and its hint.
+  refreshExport: () => renderOutput(),
   lan: () => ({ ...state.lan }), setLan,
   // «Ник» of a webcam (a seat in «Компы», a slot in «Эфир»): read and write.
   camNick: (side, index) => camNickValue(side, index, chosen(side)[index]),
@@ -2507,7 +2700,11 @@ window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, se
   // lan.js registers the maker of self-contained cards (photos inside).
   setCardDocs: provider => { cardDocsProvider = provider; }, cardDocs: () => cardDocsNow(),
   // lan.js: a side's placeholder card page («Компы»), '' when there is none.
-  setPlates: provider => { platesProvider = provider; notify(); }, plate: side => plateOf(side) };
+  setPlates: provider => { platesProvider = provider; notify(); }, plate: side => plateOf(side),
+  // live.js: the webcam status «Кадр» follows ('live' | 'wait' | 'off' | 'none').
+  setCamStatus: provider => { camStateProvider = typeof provider === 'function' ? provider : null; if (cameraEditor) paintCameraStage(); },
+  // lan.js: that placeholder's picture, shown in «Кадр» while the webcam is absent.
+  setPlateImages: provider => { plateImageProvider = typeof provider === 'function' ? provider : null; if (cameraEditor) paintCameraStage(); } };
 let cardDocsProvider = null, platesProvider = null;
 const plateOf = side => state.lan.on && platesProvider ? platesProvider(side) || '' : '';
 // Cards go to OBS with the checkbox, or on a LAN whenever a side has a placeholder.
@@ -2866,7 +3063,9 @@ function render() {
         const player = team.players.find(p => p.key === keys[i]);
         const nick = camNickValue(side, i, player);
         const nickHint = player ? player.nick : (state.lan.on ? 'Ник вебки' : 'Сначала выбери игрока');
-        return `<div class="player-row">
+        return `<div class="player-row" data-player-side="${side}" data-player-slot="${i}" tabindex="0"
+          title="Перетащи за ⠿ на другой слот этой команды (или Alt+↑/↓), чтобы поменять игроков местами">
+          <span class="player-grip" draggable="true" aria-hidden="true" title="Перетащи на другой слот">⠿</span>
           <span class="slot-number">${String(index * 5 + i + 1).padStart(2, '0')}</span>
           <div class="player-info">
             <select data-player="${side}" data-slot="${i}" aria-label="Игрок ${index * 5 + i + 1}">
@@ -2948,6 +3147,50 @@ function render() {
   $('teamGrid').querySelectorAll('[data-cam-nick]').forEach(el =>
     el.addEventListener('input', () =>
       setCamNick(el.dataset.camNick, Number(el.dataset.slot), el.value)));
+  // Two players of one team swap slots by dragging the ⠿ handle (or Alt+↑/↓).
+  // Only the handle starts a drag, so selects and the camera nick keep working.
+  let dragPlayer = '';
+  const clearPlayerDrag = () => {
+    dragPlayer = '';
+    $('teamGrid').querySelectorAll('.player-row.dragging,.player-row.drop')
+      .forEach(row => row.classList.remove('dragging', 'drop'));
+  };
+  $('teamGrid').querySelectorAll('.player-row[data-player-side]').forEach(row => {
+    const side = row.dataset.playerSide, slot = Number(row.dataset.playerSlot);
+    const grip = row.querySelector('.player-grip');
+    grip?.addEventListener('dragstart', event => {
+      dragPlayer = `${side}${slot}`;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', dragPlayer);
+      row.classList.add('dragging');
+    });
+    row.addEventListener('dragover', event => {
+      if (!dragPlayer || dragPlayer[0] !== side || dragPlayer === `${side}${slot}`) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      row.classList.add('drop');
+    });
+    row.addEventListener('dragleave', event => {
+      if (!row.contains(event.relatedTarget)) row.classList.remove('drop');
+    });
+    row.addEventListener('drop', event => {
+      event.preventDefault();
+      row.classList.remove('drop');
+      if (!dragPlayer || dragPlayer[0] !== side) return clearPlayerDrag();
+      const from = Number(dragPlayer.slice(1));
+      clearPlayerDrag();
+      if (from !== slot) swapPlayerSlots(side, from, slot);
+    });
+    row.addEventListener('dragend', clearPlayerDrag);
+    row.addEventListener('keydown', event => {
+      if (!event.altKey || !['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+      if (event.target !== row && event.target !== grip) return;
+      const to = slot + (event.key === 'ArrowUp' ? -1 : 1);
+      if (to < 0 || to > 4) return;
+      event.preventDefault();
+      swapPlayerSlots(side, slot, to);
+    });
+  });
   $('teamGrid').querySelectorAll('[data-reset]').forEach(el =>
     el.addEventListener('click', () => {
       const side = el.dataset.reset;

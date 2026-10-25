@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const skip = new Set(['node_modules', '.git', 'artifacts', 'public', 'dist-veto', '.wrangler', '.veto-relay-data']);
+const skip = new Set(['node_modules', '.git', 'artifacts', 'public', 'dist-veto', '.wrangler', '.veto-relay-data', 'work']);
 const files = [];
 (function walk(dir) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

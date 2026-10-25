@@ -3,19 +3,23 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   lanConfig, lanCams, vdoRoomOf, vdoStreamId, lanSeat, eventProfile, parseLanRoster, lanSeatId, seatTeam, lanSeatLinks, LAN_SEATS,
-  lanTeams, lanSchedule, lanId, newLanPrefix, LAN_LIMITS,
+  lanTeams, lanSchedule, lanId, newLanPrefix, LAN_LIMITS, addLanRoster,
   defaultLineup, validateMatch, selectedPlayers, buildObs, observerText, directorUrl
 } from '../core.js';
 
 const template = JSON.parse(fs.readFileSync(new URL('../assets/obs-template.json', import.meta.url), 'utf8'));
-const LAN = lanConfig({ on: true, prefix: 'k7qz', password: '', text: '' });
+const ONLINE_NET = '&quality=1&fps=30&lowlatency';
+const LAN_NET = ONLINE_NET + '&lanonly';
+const LAN = lanConfig({ on: true, prefix: 'k7qz', password: '', text: '', net: { mode: 'lan' } });
 const ROSTER = `Team Alpha: nick1, nick2, nick3, nick4, nick5, sub1
 # comment lines are ignored
 Bravo: b1, b2, b3, b4, b5`;
 
 test('LAN config: needs a short lowercase prefix to switch on', () => {
   assert.deepEqual(lanConfig({ on: true, prefix: 'k7qz', password: ' pw ', teams: [] }),
-    { on: true, prefix: 'k7qz', password: 'pw', cams: null, teams: [], matches: [], event: { name: '', accent: '', deep: '', black: '' } });
+    { on: true, prefix: 'k7qz', password: 'pw', cams: null,
+      net: { mode: 'online', quality: '720', fps: 30, codec: 'h264', bitrate: 5000, lowlatency: true, lanonly: false },
+      teams: [], matches: [], event: { name: '', accent: '', deep: '', black: '' } });
   for (const prefix of ['', 'K7QZ', 'a', 'has space', 'x'.repeat(13), 'a-b'])
     assert.equal(lanConfig({ on: true, prefix }).on, false, prefix);
   assert.equal(lanConfig(null).on, false);
@@ -34,11 +38,68 @@ test('LAN roster: one team per line, first five play, the rest are subs', () => 
 });
 
 test('LAN roster: bad lines are reported, not fatal; no teams at all is an error', () => {
-  const teams = parseLanRoster('Alpha: a, b, A\nno colon here\n: x\nalpha: c\nBravo: d');
+  const teams = parseLanRoster('Alpha: a, b, A\n: x\nalpha: c\nBravo: d');
   assert.deepEqual(teams.map(t => t.name), ['Alpha', 'Bravo']);
   assert.deepEqual(teams[0].players.map(p => p.nick), ['a', 'b']);
-  assert.equal(teams.skipped.length, 4);
+  assert.equal(teams.skipped.length, 3);
   assert.throws(() => parseLanRoster('\n# nothing\n'), /ЛАН/);
+});
+
+test('LAN roster: a line without nicknames is a team with no players yet', () => {
+  const teams = parseLanRoster('Team1\nTeam2\r\nTeam3:\n# Team4\nTeam5: v1');
+  assert.deepEqual(teams.map(t => t.name), ['Team1', 'Team2', 'Team3', 'Team5']);
+  assert.deepEqual(teams.map(t => t.players.length), [0, 0, 0, 1]);
+  assert.deepEqual(teams[3].players.map(p => p.nick), ['v1']);
+  // A colon without a name in front of it is still a mistake, not a team called «: x».
+  assert.match(parseLanRoster('Team1\n: x').skipped.join('; '), /нужно название команды/);
+});
+
+test('LAN roster: «вписать списком» joins the teams already on the panel', () => {
+  let n = 0;
+  const makeId = () => `id${++n}`;
+  const alpha = { id: 'old', name: 'Team Alpha', players: [{ id: 'oldp', nick: 'nick1' }] };
+  const teams = [alpha];
+  const result = addLanRoster(teams, 'team-alpha: other\nBravo: b1, b2\n# note\n: bad line', makeId);
+  // The team already there keeps its id, players, logo and photos.
+  assert.deepEqual(result.teams[0], alpha);
+  assert.deepEqual(result.teams[1], { id: 'id3', name: 'Bravo', players: [{ id: 'id1', nick: 'b1' }, { id: 'id2', nick: 'b2' }] });
+  assert.deepEqual(result.added, { teams: 1, players: 2 });
+  assert.equal(result.skipped.length, 2, result.skipped);
+  assert.match(result.skipped.join('; '), /team-alpha: такая команда уже есть/);
+  assert.equal(teams.length, 1, 'the panel list itself is not touched');
+  assert.throws(() => addLanRoster([], '  \n# note\n', makeId), /ЛАН/);
+});
+
+test('LAN roster: teams typed without nicknames join the panel as cards with no players', () => {
+  let n = 0;
+  const makeId = () => `id${++n}`;
+  const result = addLanRoster([], 'Team1\nTeam2', makeId);
+  assert.deepEqual(result.teams, [
+    { id: 'id1', name: 'Team1', players: [] },
+    { id: 'id2', name: 'Team2', players: [] }
+  ]);
+  assert.deepEqual(result.added, { teams: 2, players: 0 });
+  assert.deepEqual(result.skipped, []);
+  // The rest of the panel takes such a team: a card, a match choice, seats.
+  assert.deepEqual(lanTeams({ teams: result.teams }).map(t => [t.name, t.players.length]), [['Team1', 0], ['Team2', 0]]);
+  assert.deepEqual(lanSchedule({ teams: result.teams, matches: [{ id: 'm', time: '12:00', stage: 'Финал', a: 'id1', b: 'id2', format: 'BO3' }] })
+    .map(m => [m.team1, m.team2]), [['Team1', 'Team2']]);
+  // A team that is already on the panel still keeps its lineup.
+  const withLineup = [{ id: 'old', name: 'Team1', players: [{ id: 'p1', nick: 'nick1' }] }];
+  const again = addLanRoster(withLineup, 'team1\nTeam3', makeId);
+  assert.deepEqual(again.teams[0].players.map(p => p.nick), ['nick1']);
+  assert.deepEqual(again.teams[1].players, []);
+  assert.match(again.skipped.join('; '), /team1: такая команда уже есть/);
+});
+
+test('LAN roster: the typed list keeps the team and player limits', () => {
+  let n = 0;
+  const makeId = () => `id${++n}`;
+  const result = addLanRoster([], 'A: a1, a2, a3\nB: b1', makeId, { teams: 1, players: 2 });
+  assert.deepEqual(result.teams, [{ id: 'id3', name: 'A', players: [{ id: 'id1', nick: 'a1' }, { id: 'id2', nick: 'a2' }] }]);
+  assert.deepEqual(result.added, { teams: 1, players: 2 });
+  assert.match(result.skipped.join('; '), /A: в команде больше 2 игроков/);
+  assert.match(result.skipped.join('; '), /B: больше 1 команд не помещается/);
 });
 
 test('LAN seats: fixed stream per seat, the team keeps no streams of its own', () => {
@@ -83,9 +144,9 @@ test('LAN seat links: ten links to type on the PCs, password included when set',
   const links = lanSeatLinks(LAN);
   assert.equal(links.length, 2 * LAN_SEATS);
   assert.deepEqual(links.map(l => l.seat), ['A1', 'A2', 'A3', 'A4', 'A5', 'B1', 'B2', 'B3', 'B4', 'B5']);
-  assert.equal(links[0].push, 'https://vdo.ninja/?room=k7qz&broadcast&do&push=k7qza1');
+  assert.equal(links[0].push, 'https://vdo.ninja/?room=k7qz&broadcast&do&push=k7qza1' + LAN_NET);
   const locked = lanSeatLinks(lanConfig({ on: true, prefix: 'k7qz', password: 'p w' }));
-  assert.equal(locked[9].push, 'https://vdo.ninja/?room=k7qz&password=p%20w&broadcast&do&push=k7qzb5');
+  assert.equal(locked[9].push, 'https://vdo.ninja/?room=k7qz&password=p%20w&broadcast&do&push=k7qzb5' + ONLINE_NET);
 });
 
 test('LAN rooms: a room per side and the same PCs in each (REU: team1/team2, pc1…pc5) go into the OBS JSON', () => {
@@ -102,15 +163,16 @@ test('LAN rooms: a room per side and the same PCs in each (REU: team1/team2, pc1
   assert.match(cams[0].settings.url, /[?&]view=pc1&solo=1&room=team1&codec/);
   assert.match(cams[9].settings.url, /[?&]view=pc5&solo=1&room=team2&password=pw%202&codec/);
   const links = lanSeatLinks(lan);
-  assert.equal(links[0].push, 'https://vdo.ninja/?room=team1&broadcast&do&push=pc1');
-  assert.equal(links[9].push, 'https://vdo.ninja/?room=team2&password=pw%202&broadcast&do&push=pc5');
+  assert.equal(links[0].push, 'https://vdo.ninja/?room=team1&broadcast&do&push=pc1' + ONLINE_NET);
+  assert.equal(links[9].push, 'https://vdo.ninja/?room=team2&password=pw%202&broadcast&do&push=pc5' + ONLINE_NET);
   assert.equal(directorUrl(b), 'https://vdo.ninja/?director=team2&password=pw%202');
   // Two different rooms and five different VDO-safe IDs, or the prefix stays in charge.
   for (const bad of [{ rooms: ['team1', 'team1'], ids: PCS }, { rooms: ['team1'], ids: PCS }, { rooms: ['team 1', 'team2'], ids: PCS },
-    { rooms: ['team1', 'team2'], ids: ['pc1', 'pc1', 'pc3', 'pc4', 'pc5'] }, { rooms: ['team1', 'team2'], ids: PCS.slice(0, 4) }])
+    { rooms: ['team1', 'team2'], ids: ['pc1', 'pc1', 'pc3', 'pc4', 'pc5'] }, { rooms: ['team1', 'team2'], ids: PCS.slice(0, 4) },
+    { rooms: ['team1', 'team2'], ids: ['pc1', 'pc2', 'pc3', 'pc4', 'undefined'] }])
     assert.equal(lanCams(bad), null, JSON.stringify(bad));
   assert.equal(lanSeatLinks(lanConfig({ on: true, prefix: 'k7qz', cams: { rooms: ['a'], ids: [] } }))[0].push,
-    'https://vdo.ninja/?room=k7qz&broadcast&do&push=k7qza1');
+    'https://vdo.ninja/?room=k7qz&broadcast&do&push=k7qza1' + ONLINE_NET);
 });
 
 test('LAN rooms: a director link gives the room and password; the second room may name its PCs', () => {
@@ -123,8 +185,8 @@ test('LAN rooms: a director link gives the room and password; the second room ma
   const lan = lanConfig({ on: true, prefix: 'k7qz', cams: { rooms: ['team1', 'team2'],
     ids: ['pc1', 'pc2', 'pc3', 'pc4', 'pc5'], idsB: ['pc6', 'pc7', 'pc8', 'pc9', 'pc10'] } });
   const links = lanSeatLinks(lan);
-  assert.equal(links[4].push, 'https://vdo.ninja/?room=team1&broadcast&do&push=pc5');
-  assert.equal(links[5].push, 'https://vdo.ninja/?room=team2&broadcast&do&push=pc6');
+  assert.equal(links[4].push, 'https://vdo.ninja/?room=team1&broadcast&do&push=pc5' + ONLINE_NET);
+  assert.equal(links[5].push, 'https://vdo.ninja/?room=team2&broadcast&do&push=pc6' + ONLINE_NET);
   // The same list twice is just the shared one; a bad second list is dropped.
   assert.equal(lanCams({ rooms: ['a1', 'b1'], ids: ['p1', 'p2', 'p3', 'p4', 'p5'], idsB: ['p1', 'p2', 'p3', 'p4', 'p5'] }).idsB, undefined);
   assert.equal(lanCams({ rooms: ['a1', 'b1'], ids: ['p1', 'p2', 'p3', 'p4', 'p5'], idsB: ['x1', 'x1'] }).idsB, undefined);
@@ -227,7 +289,8 @@ test('a hand-set push: an ID, a push= link or a view= link; nothing else is a st
   assert.equal(vdoStreamId('?push=pc7&room=team1'), 'pc7');
   assert.equal(vdoStreamId('push=pc7'), 'pc7');
   assert.equal(vdoStreamId('https://vdo.ninja/?view=pc9&solo=1&room=team1'), 'pc9');
-  for (const bad of ['', '   ', 'two words', 'https://vdo.ninja/', 'https://vdo.ninja/?director=team1', 'https://vdo.ninja/?room=team1'])
+  for (const bad of ['', '   ', 'two words', 'https://vdo.ninja/', 'https://vdo.ninja/?director=team1', 'https://vdo.ninja/?room=team1',
+    'undefined', 'NULL', 'false', 'https://vdo.ninja/?push=undefined'])
     assert.equal(vdoStreamId(bad), '', bad);
 });
 
@@ -236,13 +299,13 @@ test('a hand-set push keeps the seat room and password: only the stream ID chang
   const lan = lanConfig({ on: true, prefix: 'k7qz', cams: { rooms: ['team1', 'team2'], ids: PCS, passwords: ['', 'pw 2'] },
     pushes: { a: ['pc7', '', 'Q-Q', null, ' x y '], b: [] } });
   assert.deepEqual(lan.pushes, { a: ['pc7', null, 'Q_Q', null, null], b: [null, null, null, null, null] });
-  assert.deepEqual(lanSeat(lan, 'a', 0), { room: 'team1', password: '', id: 'pc7' });
-  assert.deepEqual(lanSeat(lan, 'a', 1), { room: 'team1', password: '', id: 'pc2' });
+  assert.deepEqual([lanSeat(lan, 'a', 0).room, lanSeat(lan, 'a', 0).password, lanSeat(lan, 'a', 0).id], ['team1', '', 'pc7']);
+  assert.deepEqual([lanSeat(lan, 'a', 1).room, lanSeat(lan, 'a', 1).password, lanSeat(lan, 'a', 1).id], ['team1', '', 'pc2']);
   assert.equal(lanSeat(lan, 'b', 0).id, 'pc1');
   const links = lanSeatLinks(lan);
-  assert.equal(links[0].push, 'https://vdo.ninja/?room=team1&broadcast&do&push=pc7');
+  assert.equal(links[0].push, 'https://vdo.ninja/?room=team1&broadcast&do&push=pc7' + ONLINE_NET);
   assert.match(links[0].view, /[?&]view=pc7&/);
-  assert.equal(links[9].push, 'https://vdo.ninja/?room=team2&password=pw%202&broadcast&do&push=pc5');
+  assert.equal(links[9].push, 'https://vdo.ninja/?room=team2&password=pw%202&broadcast&do&push=pc5' + ONLINE_NET);
   // The side's own room and its director link are not the seat's fix.
   const side = seatTeam({ name: 'T', players: [] }, 'a', [], lan);
   assert.equal(side.room, 'team1');

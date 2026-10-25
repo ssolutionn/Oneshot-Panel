@@ -79,7 +79,7 @@
       "kind": "node-test",
       "files": ["test/lan.test.js", "test/lan-event.test.js", "test/events.test.js"],
       "timeoutMs": 240000,
-      "select": ["lan.js", "lan-event.js", "lan-images.js", "events/**"]
+      "select": ["lan.js", "lan-event.js", "lan-images.js", "events/**", "event.js"]
     },
     "unit-server": {
       "title": "Статика, заголовки, CS2-журнал",

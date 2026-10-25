@@ -22,7 +22,8 @@ test('the CyberClash manifest is valid and every default is filled in', () => {
   const bare = loadEvent({ slug: 'bare', name: 'Bare', kind: 'manual' });
   assert.deepEqual(enabledModules(bare), ['cameras', 'veto', 'obs']);
   assert.deepEqual(bare.brand.colors, Object.fromEntries(COLOR_KEYS.map(key => [key, DEFAULT_BRAND[key]])));
-  assert.deepEqual([bare.veto.format, bare.veto.timerMinutes, bare.veto.tournament, bare.cameras.frame, bare.language, bare.short], ['BO3', 5, 'Bare', 'inner43', 'ru', 'Bare']);
+  assert.deepEqual([bare.veto.format, bare.veto.timerMinutes, bare.veto.tournament, bare.cameras.frame, bare.language, bare.short], ['BO3', 5, 'Bare', 'fullheight', 'ru', 'Bare']);
+  assert.deepEqual(bare.cameras.net, { mode: 'lan', quality: '720', fps: 30, codec: 'h264', bitrate: 5000, lowlatency: true, lanonly: true });
   assert.deepEqual(bare.source, { type: 'manual' });
 });
 
@@ -97,6 +98,8 @@ const errorsOf = change => validateEvent({ ...base(), ...change }).errors.join('
 test('a LAN names its webcam rooms and PCs: REU is team1/team2 with pc1…pc5, no passwords in the manifest', () => {
   const reu = loadEvent(json('events/reu/event.json'));
   assert.deepEqual([reu.cameras.rooms, reu.cameras.ids], [['team1', 'team2'], ['pc1', 'pc2', 'pc3', 'pc4', 'pc5']]);
+  assert.deepEqual(reu.cameras.net, { mode: 'lan', quality: '720', fps: 30, codec: 'h264', bitrate: 5000, lowlatency: true, lanonly: true });
+  assert.equal(reu.cameras.frame, 'fullheight');
   const pcs = ['pc1', 'pc2', 'pc3', 'pc4', 'pc5'];
   assert.equal(errorsOf({ cameras: { rooms: ['a1', 'b1'], ids: pcs } }), '');
   assert.match(errorsOf({ cameras: { rooms: ['a1', 'b1'] } }), /вместе/);
@@ -188,8 +191,27 @@ test('brand readability: contrast is measured, bad brands get a warning, not a b
   assert.deepEqual(brandWarnings(loadEvent(base())), []);
 });
 
+test('event.js в корне не отстал от events/*/event.json: обнови `npm run event`', async () => {
+  const vm = await import('node:vm');
+  const { fileURLToPath } = await import('node:url');
+  const { eventsScript, DEFAULT_EVENT } = await import('../events/event-script.js');
+  const { readManifests } = await import('../events/manifests.js');
+  // The copy a plain static server over the folder hands the page (no server.js).
+  const generated = eventsScript(readManifests(fileURLToPath(new URL('../events/', import.meta.url))), { defaultSlug: DEFAULT_EVENT });
+  assert.equal(read('event.js').replace(/\r\n/g, '\n'), generated, 'файл event.js устарел — обнови: npm run event');
+  // It opens the panel and the chooser reads it exactly like /event.js of the server.
+  const load = cookie => {
+    const window = {};
+    const document = { cookie, documentElement: { dataset: {} } };
+    vm.runInNewContext(read('event.js'), { window, document, location: { search: '' }, URLSearchParams });
+    return window.oneshotEvent.slug;
+  };
+  assert.equal(load(''), DEFAULT_EVENT);
+  assert.equal(load('oneshot-event=reu'), 'reu');
+});
+
 test('an address is an event: the slug asked for, a branch with an event folder, else CyberClash', async () => {
-  const { eventSlug, eventScript, DEFAULT_EVENT } = await import('../events/event-script.js');
+  const { eventSlug, eventsScript, DEFAULT_EVENT } = await import('../events/event-script.js');
   const exists = name => fs.existsSync(new URL(`../events/${name}/event.json`, import.meta.url));
   assert.equal(eventSlug({ branch: 'reu', exists }), 'reu');
   assert.equal(eventSlug({ branch: 'claude/gracious-sagan-apztcc', exists }), DEFAULT_EVENT);
@@ -199,12 +221,14 @@ test('an address is an event: the slug asked for, a branch with an event folder,
   assert.throws(() => eventSlug({ slug: '../etc', exists }), /Нет события/);
   assert.throws(() => eventSlug({ slug: 'nope', exists }), /Нет события/);
   // The page gets what it shows, and nothing of the sheets.
-  const reu = eventScript(json('events/reu/event.json'));
-  assert.match(reu, /^window\.oneshotEvent=Object\.freeze\(\{"slug":"reu","name":"ЛАН РЭУ им\. Плеханова"/);
-  assert.match(reu, /dataset\.kind="manual"/);
-  const cc = eventScript(cyberclash());
-  assert.match(cc, /dataset\.kind="sheets"/);
-  assert.doesNotMatch(cc, /1e__ijBjufD19|source|operators/);
+  const both = eventsScript([cyberclash(), json('events/reu/event.json')], { defaultSlug: 'reu' });
+  assert.match(both, /^window\.oneshotEventChoices=Object\.freeze\(\[\{"slug":"cyberclash","name":"CyberClash","short":"CC"\},\{"slug":"reu"/);
+  assert.match(both, /"kind":"manual"/);
+  assert.match(both, /dataset\.kind=page\.kind/);
+  assert.doesNotMatch(both, /1e__ijBjufD19|"source"|operators/);
+  // A missing or unknown default still opens an event, not a blank page.
+  const one = eventsScript([cyberclash()], { defaultSlug: 'nope' });
+  assert.match(one, /known\("cyberclash"\)/);
   // Every event folder is a valid event that names its own folder.
   for (const slug of fs.readdirSync(new URL('../events/', import.meta.url)).filter(name => exists(name))) {
     assert.equal(loadEvent(json(`events/${slug}/event.json`)).slug, slug, slug);

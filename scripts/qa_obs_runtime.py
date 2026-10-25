@@ -126,6 +126,7 @@ async def run():
             await activate("#closeObs")
             await activate("#vetoNavBtn")
             if TRANSPORT == "server":
+                await panel.evaluate("() => { document.getElementById('cvSettings').open = true; }")
                 await panel.fill("#cvSite",BASE+"/veto.html")
                 await panel.locator("#cvSite").dispatch_event("change")
                 await panel.select_option("#cvTransport","server")

@@ -5,7 +5,8 @@ import {
   decodeGviz, parseTeams, parseSchedule, scheduleDay, defaultLineup, observerText,
   selectedPlayers, validateMatch, playerText, viewUrl, pushUrl, directorUrl,
   safeFilename, buildObs, cardUrl, personKey, DEFAULT_CARD_BASE, MAP_POOL, VETO_RULES,
-  validateVeto, appendVeto, vetoText, photoMatches, playerPhoto, teamLogo, cameraViewUrl
+  validateVeto, appendVeto, vetoText, photoMatches, playerPhoto, teamLogo, cameraViewUrl,
+  vdoNet, isVdoStreamId
 } from '../core.js';
 
 const makeRows = () => ['HYPERSPIRIT', '6yuBoJlbl'].flatMap((team, t) =>
@@ -249,11 +250,11 @@ test('OBS repairs cameras and remaps references without mutating template', () =
     const browser = byId.get(item.source_uuid);
     refs.add(item.source_uuid);
     assert.equal(browser.settings.url, cameraViewUrl(players[i]));
-    assert.equal(browser.settings.width, 1320);
-    assert.equal(browser.settings.height, 1008);
+    assert.equal(browser.settings.width, 1920);
+    assert.equal(browser.settings.height, 1080);
     assert.equal(item.rot, 0);
-    assert.deepEqual(item.pos, { x: 300, y: 36 });
-    assert.deepEqual(item.bounds, { x: 1320, y: 1008 });
+    assert.deepEqual(item.pos, { x: 0, y: 0 });
+    assert.deepEqual(item.bounds, { x: 1920, y: 1080 });
     assert.equal(item.bounds_type, 2);
     for (const key of ['crop_left', 'crop_right', 'crop_top', 'crop_bottom']) {
       assert.equal(item[key], 0);
@@ -283,8 +284,8 @@ test('OBS omits all player cards by default and when disabled', () => {
       const cameras = scene.settings.items.filter(it => it.name.startsWith('CAM '));
       assert.equal(cameras.length, 1);
       assert.ok(!scene.settings.items.some(it => it.name.startsWith('CARD ')));
-      assert.equal(byId.get(cameras[0].source_uuid).settings.width, 1320);
-      assert.equal(byId.get(cameras[0].source_uuid).settings.height, 1008);
+      assert.equal(byId.get(cameras[0].source_uuid).settings.width, 1920);
+      assert.equal(byId.get(cameras[0].source_uuid).settings.height, 1080);
       for (const item of scene.settings.items) assert.ok(byId.has(item.source_uuid));
     }
     assert.ok(result.sources.some(s => s.name === 'Матрица'));
@@ -313,8 +314,8 @@ test('Player card sits under each camera and opens the card page', () => {
     assert.equal(source.id, 'browser_source');
     assert.equal(source.name, item.name);
     assert.equal(item.visible, true);
-    assert.deepEqual(item.bounds, { x: 1320, y: 1008 });
-    assert.deepEqual(item.pos, { x: 300, y: 36 });
+    assert.deepEqual(item.bounds, { x: 1920, y: 1080 });
+    assert.deepEqual(item.pos, { x: 0, y: 0 });
     assert.equal(new Set(scene.settings.items.map(it => it.id)).size, names.length);
     assert.deepEqual(source.settings, {
       url: cardUrl(players[i], 'https://panel.example'), width: 1920, height: 1080
@@ -355,6 +356,20 @@ test('Player photo list points at HLTV bodyshots and files that exist', () => {
       assert.ok(fs.existsSync(new URL(p.file, dir)), p.file);
     }
   }
+});
+
+test('Matrix fills the whole 1920×1080: 1–8 on top, 9 and 10 stretched across the bottom half', () => {
+  const result = buildObs(template, ...fixture(), uuidFn());
+  const scenes = new Map(result.sources.filter(s => s.id === 'scene').map(s => [s.uuid, s]));
+  const items = result.sources.find(s => s.name === 'Матрица').settings.items;
+  for (const it of items) {
+    const slot = Number(/^(\d+)\s/.exec(scenes.get(it.source_uuid).name)?.[1]);
+    const bottomHalf = slot >= 9;
+    assert.deepEqual(it.pos, bottomHalf ? { x: (slot - 9) * 960, y: 540 } : { x: (slot - 1) % 4 * 480, y: Math.floor((slot - 1) / 4) * 270 }, `slot ${slot}`);
+    assert.deepEqual(it.bounds, bottomHalf ? { x: 960, y: 540 } : { x: 480, y: 270 }, `slot ${slot}`);
+  }
+  // No gaps and no overlap: the tile areas add up to the frame.
+  assert.equal(items.reduce((sum, it) => sum + it.bounds.x * it.bounds.y, 0), 1920 * 1080);
 });
 
 test('Matrix tiles fit canvas without overlap', () => {
@@ -562,4 +577,36 @@ test('teamHltv: the team page from hltv.json, names as in teamLogo, only hltv.or
   assert.equal(teamHltv({ Evil: 'https://hltv.org.evil.com/team/1/x' }, 'Evil'), '');
   assert.equal(teamHltv(null, 'UPGRADE'), '');
   for (const url of Object.values(pages)) assert.match(url, /^https:\/\/www\.hltv\.org\/team\/\d+\/[a-z0-9-]+$/);
+});
+
+test('VDO net preset: 720p/30/H.264/5000, low latency; LAN-only only on a LAN', () => {
+  assert.deepEqual(vdoNet({}), { mode: 'online', quality: '720', fps: 30, codec: 'h264', bitrate: 5000, lowlatency: true, lanonly: false });
+  assert.deepEqual(vdoNet({ mode: 'lan' }), { mode: 'lan', quality: '720', fps: 30, codec: 'h264', bitrate: 5000, lowlatency: true, lanonly: true });
+  // Online cannot smuggle lanonly in; LAN keeps a deliberately disabled one.
+  assert.equal(vdoNet({ mode: 'online', lanonly: true }).lanonly, false);
+  assert.equal(vdoNet({ mode: 'lan', lanonly: false }).lanonly, false);
+  assert.deepEqual([vdoNet({ quality: '1080' }).quality, vdoNet({ fps: 60 }).fps, vdoNet({ codec: 'vp9' }).codec, vdoNet({ bitrate: 12000 }).bitrate],
+    ['1080', 60, 'vp9', 12000]);
+  assert.equal(vdoNet({ bitrate: 99 }).bitrate, 5000);
+  assert.equal(vdoNet({ bitrate: 999999 }).bitrate, 5000);
+  assert.equal(vdoNet({ fps: 25 }).fps, 30);
+  assert.equal(vdoNet({ codec: 'av1' }).codec, 'h264');
+  assert.equal(isVdoStreamId('pc1'), true);
+  for (const bad of ['undefined', 'NULL', 'false', 'true', 'NaN', '']) assert.equal(isVdoStreamId(bad), false, bad);
+});
+
+test('VDO tuning reaches the push and view links, and the placeholder keys never do', () => {
+  const lan = { mode: 'lan' };
+  const push = new URL(pushUrl({ id: 'pc1', room: 'team1', net: lan }));
+  assert.deepEqual([push.searchParams.get('quality'), push.searchParams.get('fps'), push.searchParams.has('lowlatency'), push.searchParams.has('lanonly')],
+    ['1', '30', true, true]);
+  const view = new URL(viewUrl({ id: 'pc1', room: 'team1', net: lan }));
+  assert.deepEqual([view.searchParams.get('codec'), view.searchParams.get('videobitrate'), view.searchParams.has('lowlatency'), view.searchParams.has('lanonly')],
+    ['h264', '5000', true, true]);
+  const online = new URL(viewUrl({ id: 'pc1', room: 'team1', net: { mode: 'online' } }));
+  assert.equal(online.searchParams.has('lanonly'), false);
+  // Online keeps the same quality/bitrate preset the user asked for.
+  assert.equal(online.searchParams.get('videobitrate'), '5000');
+  assert.equal(new URL(pushUrl({ id: 'pc1', room: 'team1' })).search, '?room=team1&broadcast&do&push=pc1');
+  assert.equal(isVdoStreamId('undefined'), false);
 });
