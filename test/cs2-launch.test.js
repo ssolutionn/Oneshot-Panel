@@ -25,12 +25,12 @@ test('normalizeSettings: a map outside the pool is refused, both spellings accep
   assert.match(bad.errors[0], /не из пула/);
 });
 
-test('normalizeSettings: ports, players and tickrate are bounded', () => {
-  const ok = normalizeSettings({ gameport: 27015, maxplayers: 12, tick: '128' });
-  assert.deepEqual([ok.switches.gameport, ok.switches.maxplayers, ok.switches.tick], [27015, 12, '128']);
+test('normalizeSettings: ports and player count are bounded; fixed tickrate is not offered', () => {
+  const ok = normalizeSettings({ gameport: 27015, maxplayers: 12 });
+  assert.deepEqual([ok.switches.gameport, ok.switches.maxplayers], [27015, 12]);
   assert.ok(normalizeSettings({ gameport: 80 }).errors.length, 'a privileged port is refused');
   assert.ok(normalizeSettings({ maxplayers: 500 }).errors.length);
-  assert.ok(normalizeSettings({ tick: '666' }).errors.length);
+  assert.match(normalizeSettings({ tick: '128' }).errors.join(' '), /tick не поддерживается/, 'CS2 has no supported fixed -tick mode');
 });
 
 test('normalizeSettings: text that goes into the cfg is checked', () => {
@@ -52,8 +52,9 @@ test('buildCfg: the journal lines are always there, and nothing can break out of
 });
 
 test('buildArgs: one argument per array entry, no shell to escape into', () => {
-  const args = buildArgs({ switches: { gameport: 27015, tick: '128' }, map: 'de_mirage', cfgName: 'oneshot' });
+  const args = buildArgs({ switches: { gameport: 27015 }, map: 'de_mirage', cfgName: 'oneshot' });
   assert.ok(args.includes('27015'), 'the port is its own argv entry');
+  assert.ok(!args.includes('-tick'), 'CS2 uses sub-tick; do not pass a fixed tickrate');
   assert.ok(!args.some(arg => /[;&|`]|\$\(/.test(arg)), 'no shell metacharacters anywhere');
   assert.equal(args[args.indexOf('+map') + 1], 'de_mirage');
   assert.equal(args[args.indexOf('+exec') + 1], 'oneshot.cfg');

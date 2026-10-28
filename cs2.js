@@ -5,7 +5,7 @@
 const $ = id => document.getElementById(id);
 const panel = () => window.oneshotPanel;
 const POLL = 1500, KEEP = 20000;
-const state = { events: [], seq: 0, status: null, round: 'auto', online: false, timer: 0, busy: false };
+const state = { events: [], seq: 0, status: null, round: 'auto', online: false, timer: 0, busy: false, launcher: null, launcherTimer: 0 };
 
 async function api(path, options) {
   const response = await fetch(path, { cache: 'no-store', credentials: 'same-origin', ...options });
@@ -108,6 +108,61 @@ async function poll() {
   }
 }
 
+function launchSettings() {
+  return {
+    map: $('serverLaunchMap').value,
+    maxplayers: Number($('serverLaunchPlayers').value),
+    cvars: {
+      mp_maxrounds: Number($('serverLaunchRounds').value),
+      mp_roundtime: Number($('serverLaunchRoundTime').value),
+      mp_freezetime: Number($('serverLaunchFreeze').value),
+      mp_halftime: $('serverLaunchHalftime').checked ? 1 : 0,
+      mp_overtime_enable: $('serverLaunchOvertime').checked ? 1 : 0,
+      mp_logdetail: 3,
+      log: 1
+    }
+  };
+}
+async function refreshLauncher() {
+  try {
+    const launcher = await (await api('/api/cs2-launch')).json();
+    state.launcher = launcher;
+    $('serverLaunchPanel').hidden = false;
+    $('serverLaunchForm').hidden = !launcher.enabled;
+    $('serverLaunchUnavailable').hidden = launcher.enabled;
+    $('serverLaunchStatus').textContent = launcher.enabled ?
+      launcher.running ? `Работает · PID ${launcher.pid || '—'}` : launcher.available ? 'Остановлен · готов к запуску' : 'Не настроен' :
+      'Запуск из панели выключен';
+    $('serverLaunchStart').disabled = !launcher.enabled || launcher.running;
+    $('serverLaunchStop').disabled = !launcher.running;
+    $('serverLaunchOutput').hidden = !launcher.enabled;
+    if (launcher.enabled) $('serverLaunchOutput').textContent = await (await api('/api/cs2-launch-output?tail=12000')).text();
+  } catch {
+    $('serverLaunchPanel').hidden = true;
+  }
+}
+async function startServer(event) {
+  event.preventDefault();
+  $('serverLaunchStart').disabled = true;
+  try {
+    await api('/api/cs2-launch-start', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(launchSettings())
+    });
+    panel().toast('Сервер CS2 запускается.');
+    await refreshLauncher();
+  } catch (error) {
+    panel().toast(`Не удалось запустить сервер: ${error.message}`);
+  } finally { $('serverLaunchStart').disabled = Boolean(state.launcher?.running); }
+}
+$('serverLaunchForm').addEventListener('submit', startServer);
+$('serverLaunchStop').addEventListener('click', async () => {
+  if (!confirm('Остановить выделенный сервер CS2?')) return;
+  try {
+    await api('/api/cs2-launch-stop', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    panel().toast('Серверу отправлен сигнал остановки.');
+    await refreshLauncher();
+  } catch (error) { panel().toast(`Не удалось остановить сервер: ${error.message}`); }
+});
 async function start() {
   // An event with a CS2 server shows the tab everywhere: away from the server's
   // computer it says how to start the journal there.
@@ -115,7 +170,8 @@ async function start() {
   const guide = Boolean(event?.modules?.server);
   if (guide) {
     $('serverNavBtn').hidden = false;
-    for (const id of ['serverStartCommand', 'serverStartWindows']) $(id).textContent = $(id).textContent.replace('EVENT=reu', `EVENT=${event.slug}`);
+    $('serverStartCommand').textContent = `$env:CS2_JOURNAL="1"; $env:EVENT="${event.slug}"; npm start`;
+    $('serverStartWindows').textContent = `CS2_JOURNAL=1 EVENT=${event.slug} npm start`;
   }
   let local = false;
   try { local = Boolean((await (await api('/api/cs2-status')).json())?.ok); } catch { /* not the local panel */ }
@@ -128,6 +184,14 @@ async function start() {
   if (!local) return;
   $('serverNavBtn').hidden = false;
   $('serverView').dataset.ready = 'true';
+  try {
+    const config = await (await api('/api/cs2-cvars')).json();
+    $('serverLaunchMap').replaceChildren(...config.maps.map(map => {
+      const option = document.createElement('option'); option.value = map; option.textContent = map; return option;
+    }));
+  } catch { /* launcher UI still explains when it is disabled */ }
+  await refreshLauncher();
+  state.launcherTimer = setInterval(refreshLauncher, 1500);
   poll();
   state.timer = setInterval(poll, POLL);
 }

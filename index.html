@@ -91,10 +91,13 @@
       <div class="export-actions">
         <!-- web-only --><button class="button primary" id="sendObsBtn" type="button" disabled><span aria-hidden="true">▶</span> Отправить в OBS</button><!-- /web-only -->
         <button class="button" id="downloadBtn" disabled><span aria-hidden="true">↓</span> Скачать JSON</button>
+        <!-- web-only --><button class="button" id="povExportBtn" type="button" disabled>POV JSON</button><!-- /web-only -->
         <!-- web-only --><button class="button" id="copyJsonBtn" type="button" disabled><span aria-hidden="true">⧉</span> Копировать JSON</button>
         <button class="button small obs-setup" id="obsSetupBtn" type="button" aria-controls="obsDialog" title="Открыть вкладку OBS: подключение и инструкция"><i id="obsDot" aria-hidden="true"></i><span id="obsState">OBS не настроен</span></button><!-- /web-only -->
       </div>
       <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
+      <label class="camera-frame-setting">Режим вебок<select id="webcamMode"><option value="online">Онлайн</option><option value="lan">ЛАН</option></select><span>ЛАН — для камер в одной сети; онлайн — для удалённых игроков.</span></label>
+      <div id="vdoLanSettings" class="camera-frame-setting"><b>Оптимизация VDO для ЛАН</b><label>Кодек<select id="vdoCodec"><option value="h264">H.264</option><option value="vp8">VP8</option><option value="vp9">VP9</option></select></label><label>Битрейт<input id="vdoBitrate" type="number" min="500" max="8000" step="100" value="2500"> кбит/с</label><label>FPS<select id="vdoFps"><option>24</option><option selected>30</option><option>60</option></select></label><label class="check"><input id="vdoLowLatency" type="checkbox" checked> Минимальная задержка</label><span>Параметры добавляются только в LAN-ссылки камер.</span></div>
       <label class="camera-frame-setting">Рамка вебок
         <select id="cameraFrame"><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option></select>
         <span>Заполнение с обрезкой краёв. «Кадр» под ником — поворот и положение игрока.</span>
@@ -332,14 +335,35 @@
         <div id="serverGuide" class="event-guide" hidden>
           <p><b>Журнал работает на компе, где запущен сервер CS2.</b> Там панель открывается не с этого сайта, а с самого компа — тогда сервер присылает ей лог: фраги, урон, чат и бомбу по раундам, для споров.</p>
           <ol>
-            <li>Поставь Node.js (20 или новее) и скачай панель: <code>git clone https://github.com/ssolutionn/Oneshot-Panel</code> или ZIP с GitHub.</li>
-            <li>В папке панели: <code id="serverStartCommand">CS2_JOURNAL=1 EVENT=reu npm start</code> (на Windows без WSL — <code id="serverStartWindows">set CS2_JOURNAL=1&amp;&amp; set EVENT=reu&amp;&amp; npm start</code>).</li>
+            <li>Поставь Node.js 22 или новее и открой PowerShell в папке панели.</li>
+            <li>Запусти панель командой <code id="serverStartCommand">$env:CS2_JOURNAL=&quot;1&quot;; $env:EVENT=&quot;reu&quot;; npm start</code>. На Linux/macOS: <code id="serverStartWindows">CS2_JOURNAL=1 EVENT=reu npm start</code>.</li>
             <li>Открой на этом компе <code>http://127.0.0.1:3000/#server</code> — там будет эта же вкладка, уже живая.</li>
             <li>Нажми «Как подключить» и вставь три команды в консоль сервера CS2 (или в конфиг eBot).</li>
             <li>Чтобы писать в чат сервера из панели, перед запуском задай <code>CS2_RCON_PASSWORD</code> (и <code>CS2_RCON_PORT</code>, если не 27015).</li>
           </ol>
           <p class="muted">Команды и фото с этого сайта на тот комп переносятся файлом: «Событие» → «Скачать файл события», там — «Загрузить файл».</p>
         </div>
+        <section id="serverLaunchPanel" class="lobby-panel cs2-launch" hidden aria-labelledby="serverLaunchHeading">
+          <div class="panel-heading">
+            <div><span class="eyebrow">DEDICATED SERVER</span><h3 id="serverLaunchHeading">Управление сервером</h3></div>
+            <span id="serverLaunchStatus" class="cs2-status" role="status">Проверяем конфигурацию…</span>
+          </div>
+          <div id="serverLaunchUnavailable" class="muted" hidden>Панель пока только подключается к уже запущенному серверу. Для запуска из панели администратор на серверном компьютере должен задать <code>CS2_LAUNCH=1</code>, <code>CS2_SERVER_BIN</code> и <code>CS2_SERVER_DIR</code>.</div>
+          <form id="serverLaunchForm" class="cs2-launch-form" autocomplete="off">
+            <label>Карта<select id="serverLaunchMap"></select></label>
+            <label>Максимум игроков<input id="serverLaunchPlayers" type="number" min="2" max="64" value="12"></label>
+            <label>Раундов<input id="serverLaunchRounds" type="number" min="1" max="60" value="30"></label>
+            <label>Время раунда, минут<input id="serverLaunchRoundTime" type="number" min="0.5" max="10" step="0.1" value="1.92"></label>
+            <label>Закупка, секунд<input id="serverLaunchFreeze" type="number" min="0" max="60" value="20"></label>
+            <label class="cs2-check"><input id="serverLaunchHalftime" type="checkbox" checked> Смена сторон</label>
+            <label class="cs2-check"><input id="serverLaunchOvertime" type="checkbox" checked> Овертайм</label>
+            <div class="cs2-launch-actions">
+              <button id="serverLaunchStart" class="button primary" type="submit">Запустить CS2</button>
+              <button id="serverLaunchStop" class="button" type="button" disabled>Остановить сервер</button>
+            </div>
+          </form>
+          <pre id="serverLaunchOutput" class="cs2-launch-output" aria-label="Вывод процесса CS2"></pre>
+        </section>
         <p id="serverStatus" class="cs2-status" role="status"></p>
         <div id="serverRounds" class="cs2-rounds" role="group" aria-label="Раунды"></div>
         <div class="cs2-filters" role="group" aria-label="Что показывать">

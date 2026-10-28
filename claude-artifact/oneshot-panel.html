@@ -330,6 +330,13 @@ dialog textarea { margin:0; width:100%; }
 .cs2-log .side-t { color:var(--cs2-t); }
 .cs2-say { display:flex; gap:8px; margin-top:10px; }
 .cs2-say input { flex:1; min-width:0; padding:10px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font-size:12px; }
+.cs2-launch { margin:0 0 12px; }
+.cs2-launch-form { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); gap:10px; margin-top:12px; }
+.cs2-launch-form label { display:grid; gap:5px; color:var(--muted); font-size:12px; }
+.cs2-launch-form input:not([type=checkbox]),.cs2-launch-form select { width:100%; min-width:0; padding:9px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); }
+.cs2-launch-form .cs2-check { display:flex; align-items:center; gap:8px; }
+.cs2-launch-actions { display:flex; flex-wrap:wrap; align-items:end; gap:8px; }
+.cs2-launch-output { max-height:180px; margin:12px 0 0; padding:10px; overflow:auto; border:1px solid var(--line); border-radius:6px; background:#08090b; color:#d7e1e8; font:12px/1.45 ui-monospace,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
 .lan-preview { display:block; width:100%; max-width:640px; aspect-ratio:16/9; border:1px solid var(--line); border-radius:6px; margin:6px 0; background:#000; }
 .lan-colors { display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 18px; margin:0 0 6px; }
 .lan-colors label { margin:8px 0; }
@@ -708,6 +715,8 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .event-look .lan-colors label { display:flex; align-items:center; gap:8px; font-size:12px; }
 .event-look p.muted,.event-panel .event-guide + p.muted { font-size:12px; line-height:1.6; margin:0; }
 .seat-settings .text-button { justify-self:start; }
+
+.player-row[draggable="true"]{cursor:grab}.player-row.dragging{opacity:.45}.player-row.drag-over{outline:2px dashed var(--red);outline-offset:-2px}
 body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}.toast{bottom:calc(24px + env(safe-area-inset-bottom,0px))}footer{padding-bottom:max(20px,env(safe-area-inset-bottom,0px))}#pasteArea{min-height:140px}.artifact-download-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.download-note{color:var(--warn-ink)!important;background:var(--warn);border:1px solid var(--warn-line);border-radius:4px;padding:8px 10px;line-height:1.6}@media(max-width:800px){.artifact-download-actions .button{flex:1}.artifact-download-actions{grid-column:1/-1}}.dialog-section{border-top:1px solid var(--line);margin-top:22px}
 </style>
 <a class="skip-link" href="#webcams">К составам команд</a>
@@ -770,11 +779,11 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
 
     <section id="exportBar" class="export-bar" aria-label="Экспорт и ссылки">
       <div class="export-actions">
-        
         <div class="artifact-download-actions"><button class="button" id="downloadAccess" hidden>Разрешить скачивание</button><button class="button" id="copyJsonBtn" hidden>Скопировать JSON</button><button class="button primary" id="downloadBtn" disabled><span aria-hidden="true">↓</span> Скачать JSON для OBS</button></div>
-        
       </div>
       <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
+      <label class="camera-frame-setting">Режим вебок<select id="webcamMode"><option value="online">Онлайн</option><option value="lan">ЛАН</option></select><span>ЛАН — для камер в одной сети; онлайн — для удалённых игроков.</span></label>
+      <div id="vdoLanSettings" class="camera-frame-setting"><b>Оптимизация VDO для ЛАН</b><label>Кодек<select id="vdoCodec"><option value="h264">H.264</option><option value="vp8">VP8</option><option value="vp9">VP9</option></select></label><label>Битрейт<input id="vdoBitrate" type="number" min="500" max="8000" step="100" value="2500"> кбит/с</label><label>FPS<select id="vdoFps"><option>24</option><option selected>30</option><option>60</option></select></label><label class="check"><input id="vdoLowLatency" type="checkbox" checked> Минимальная задержка</label><span>Параметры добавляются только в LAN-ссылки камер.</span></div>
       <label class="camera-frame-setting">Рамка вебок
         <select id="cameraFrame"><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option></select>
         <span>Заполнение с обрезкой краёв. «Кадр» под ником — поворот и положение игрока.</span>
@@ -939,6 +948,20 @@ function decodeGviz(text) {
 // use the ID VDO.Ninja will really have.
 function vdoId(value) {
   return line(value).replace(/[\W]+/g, '_').slice(0, 64);
+}
+
+function vdoPushId(value) {
+  const text = line(value);
+  let raw;
+  try {
+    const url = new URL(text);
+    raw = url.searchParams.get('push') || '';
+  } catch {
+    // A bare PUSH ID is also accepted; query strings without a full URL are not.
+    if (!/^[^?&#\s]+$/.test(text)) return '';
+    raw = text;
+  }
+  try { return vdoId(decodeURIComponent(raw)); } catch { return ''; }
 }
 
 // A bad row (no room, a repeated ID) is skipped and reported in
@@ -1151,9 +1174,20 @@ function cameraCss(value) {
   else if(c.rotation===270)[x,y]=[100-y,x];
   return 'html,body{background:transparent!important;}video{object-fit:cover!important;object-position:'+x+'% '+y+'%!important;scale:'+c.zoom+'!important;transform-origin:'+x+'% '+y+'%!important;}';
 }
-function cameraViewUrl(player) {
+function normalizeVdoOptions(options = {}) {
+  const bitrate = Math.max(500, Math.min(8000, Number(options.bitrate) || 2500));
+  const fps = [24, 30, 60].includes(Number(options.fps)) ? Number(options.fps) : 30;
+  const codec = ['h264', 'vp8', 'vp9'].includes(options.codec) ? options.codec : 'h264';
+  // enabled: the LAN mode switch — tuning parameters reach the URL only then.
+  return { enabled: options.enabled === true, bitrate, fps, codec, lowLatency: options.lowLatency !== false };
+}
+function cameraViewUrl(player, vdoOptions = {}) {
   const c=normalizeCamera(player?.camera);
-  return viewUrl(player)+'&cover'+(c.panX===50 && c.panY===50 && c.zoom===1 ? '' :
+  const options=normalizeVdoOptions(vdoOptions);
+  const base=viewUrl(player).replace('&codec=h264', `&codec=${options.codec}`);
+  const url=base+'&cover';
+  const tuned=options.enabled === true ? `&bitrate=${options.bitrate}&fps=${options.fps}${options.lowLatency ? '&lowlatency' : ''}` : '';
+  return url+tuned+(c.panX===50 && c.panY===50 && c.zoom===1 ? '' :
     '&b64css='+encodeURIComponent(btoa(cameraCss(c))));
 }
 function cameraGeometry(player, frame = DEFAULT_CAMERA_FRAME) {
@@ -1493,7 +1527,7 @@ function sceneUuid() {
 }
 function buildObs(template, a, b, ka, kb,
                          uuidFn = sceneUuid,
-                         { cardBase = DEFAULT_CARD_BASE, includeCards = false, cameraFrame: frame = DEFAULT_CAMERA_FRAME, cardDocs = {} } = {}) {
+                         { cardBase = DEFAULT_CARD_BASE, includeCards = false, cameraFrame: frame = DEFAULT_CAMERA_FRAME, cardDocs = {}, vdoOptions = {} } = {}) {
   const error = validateMatch(a, b, ka, kb);
   if (error) throw new Error(error);
   if (!Array.isArray(template?.sources)) {
@@ -1534,7 +1568,7 @@ function buildObs(template, a, b, ka, kb,
     item.name = browser.name;
     const geometry=cameraGeometry(p,frame);
     Object.assign(browser.settings, {
-      url: cameraViewUrl(p), width:geometry.width, height:geometry.height
+      url: cameraViewUrl(p, vdoOptions), width:geometry.width, height:geometry.height
     });
     const slot = String(i + 1).padStart(2, '0');
     names.set(browser.name, `CAM ${slot} | ${p.team} | ${p.nick}`);
@@ -1816,7 +1850,9 @@ const state = {
   source: { ...DEFAULT_SOURCE }, template: null, templateError: '', logos: {},
   veto: { format: 'BO3', first: 0, actions: [], matchKey: '' },
   cameras: readStorage('oneshot-camera-settings-v1') || {}, cameraFrame: DEFAULT_CAMERA_FRAME,
-  pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false, cache: null
+  pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false, cache: null,
+  webcamMode: readStorage('oneshot-webcam-mode-v1') || 'online',
+  vdoOptions: readStorage('oneshot-vdo-options-v1') || { bitrate: 2500, fps: 30 }
 };
 let toastTimer, regenTimer, refreshId = 0, controller, templatePromise;
 
@@ -2066,6 +2102,14 @@ for(const button of document.querySelectorAll('[data-camera-pan]')) {
     saveCamera(axis==='center' ? {panX:50,panY:50} : {[axis]:c[axis]+Number(delta)});
   });
 }
+$('webcamMode')?.setAttribute('value', state.webcamMode);
+if ($('webcamMode')) $('webcamMode').value = state.webcamMode;
+if ($('vdoCodec')) $('vdoCodec').value = state.vdoOptions.codec || 'h264';
+if ($('vdoBitrate')) $('vdoBitrate').value = state.vdoOptions.bitrate || 2500;
+if ($('vdoFps')) $('vdoFps').value = state.vdoOptions.fps || 30;
+if ($('vdoLowLatency')) $('vdoLowLatency').checked = state.vdoOptions.lowLatency !== false;
+$('webcamMode')?.addEventListener('change', () => { state.webcamMode = $('webcamMode').value === 'lan' ? 'lan' : 'online'; writeStorage('oneshot-webcam-mode-v1', state.webcamMode); });
+for (const id of ['vdoCodec','vdoBitrate','vdoFps','vdoLowLatency']) $(id)?.addEventListener('change', () => { state.vdoOptions = { codec: $('vdoCodec').value, bitrate: Number($('vdoBitrate').value), fps: Number($('vdoFps').value), lowLatency: $('vdoLowLatency').checked }; writeStorage('oneshot-vdo-options-v1', state.vdoOptions); });
 $('cameraFrame').addEventListener('change',()=>{
   state.cameraFrame=Object.hasOwn(CAMERA_FRAMES,$('cameraFrame').value) ? $('cameraFrame').value : DEFAULT_CAMERA_FRAME;
   writeStorage('oneshot-camera-frame-v1',state.cameraFrame);
@@ -2095,8 +2139,9 @@ function setStreamId(side, slot) {
   const typed = window.prompt(`${player.nick}: ID потока, под которым игрок зашёл в VDO.Ninja ` +
     '(то, что после push= в его ссылке):', player.id);
   if (typed === null) return;
-  const id = vdoId(typed.replace(/^.*[?&]push=/, '').replace(/&.*$/, ''));
-  if (!id) return toast('Пустой ID — ничего не поменяли.');
+  const id = vdoPushId(typed);
+  if (!id) return toast('Нужен настоящий PUSH ID или полная ссылка VDO.Ninja с параметром push=.');
+  if (id.length < 2) return toast('PUSH ID слишком короткий.');
   const was = player.sheetId ?? player.id;
   if (id === was) delete state.streamIds[player.key];
   else state.streamIds[player.key] = { id, was, manual: true };
@@ -2487,7 +2532,7 @@ function render() {
       </div>
       <div class="camera-list">${Array.from({ length: 5 }, (_, i) => {
         const player = team.players.find(p => p.key === keys[i]);
-        return `<div class="player-row">
+        return `<div class="player-row" draggable="true" data-drag-side="${side}" data-drag-slot="${i}">
           <span class="slot-number">${String(index * 5 + i + 1).padStart(2, '0')}</span>
           <div class="player-info">
             <select data-player="${side}" data-slot="${i}" aria-label="Игрок ${index * 5 + i + 1}">
@@ -2549,6 +2594,25 @@ function render() {
       resetVeto();
       render();
     }));
+  $('teamGrid').querySelectorAll('.player-row[draggable=\"true\"]').forEach(row => {
+    row.addEventListener('dragstart', event => {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', `${row.dataset.dragSide}:${row.dataset.dragSlot}`);
+      row.classList.add('dragging');
+    });
+    row.addEventListener('dragend', () => row.classList.remove('dragging'));
+    row.addEventListener('dragover', event => { event.preventDefault(); row.classList.add('drag-over'); });
+    row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+    row.addEventListener('drop', event => {
+      event.preventDefault(); row.classList.remove('drag-over');
+      const [fromSide, fromSlot] = event.dataTransfer.getData('text/plain').split(':');
+      if (fromSide !== row.dataset.dragSide || fromSlot === row.dataset.dragSlot) return;
+      const keys = state[fromSide === 'a' ? 'keysA' : 'keysB'];
+      [keys[Number(fromSlot)], keys[Number(row.dataset.dragSlot)]] = [keys[Number(row.dataset.dragSlot)], keys[Number(fromSlot)]];
+      render();
+      toast('Порядок вебок изменён.');
+    });
+  });
   $('teamGrid').querySelectorAll('[data-player]').forEach(el =>
     el.addEventListener('change', () => {
       state[el.dataset.player === 'a' ? 'keysA' : 'keysB']
@@ -2897,7 +2961,8 @@ function obsFile() {
     $('matchTime').value, $('matchStage').value);
   const text = JSON.stringify(buildObs(state.template,
     getTeam('a'), getTeam('b'), state.keysA, state.keysB, undefined,
-    { includeCards: $('includeCards').checked, cameraFrame:state.cameraFrame }), null, 2) + '\n';
+    { includeCards: $('includeCards').checked, cameraFrame:state.cameraFrame,
+      vdoOptions: state.webcamMode === 'lan' ? { enabled: true, ...state.vdoOptions } : { enabled: false } }), null, 2) + '\n';
   return { filename, text };
 }
 function downloadNote(text) {

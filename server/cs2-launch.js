@@ -61,8 +61,7 @@ const SWITCHES = {
   gameport: { type: 'port', def: 27015 },
   hostport: { type: 'port', def: 27016 },
   clientport: { type: 'port', def: 27005 },
-  maxplayers: { type: 'int', min: 2, max: 64, def: 12 },
-  tick: { type: 'enum', values: ['64', '128'], def: '128', arg: '-tick' }
+  maxplayers: { type: 'int', min: 2, max: 64, def: 12 }
 };
 
 const isPort = value => Number.isInteger(value) && value >= 1024 && value <= 65535;
@@ -80,6 +79,10 @@ const isText = value => /^[^"\\\r\n\x00-\x1f\x7f]{0,64}$/u.test(value);
 export function normalizeSettings(value) {
   const errors = [];
   const raw = value && typeof value === 'object' ? value : {};
+  const allowed = new Set(['cvars', 'map', ...Object.keys(SWITCHES), 'hostname', 'rconPassword', 'steamKey']);
+  for (const name of Object.keys(raw)) {
+    if (!allowed.has(name)) errors.push(`Настройка ${name} не поддерживается панелью.`);
+  }
   const cvars = {};
   for (const [name, spec] of Object.entries(CVARS)) {
     const given = raw.cvars?.[name];
@@ -181,9 +184,8 @@ export function buildCfg({ cvars = {}, map = '', hostname = '', rconPassword = '
 // one or start a second command.
 export function buildArgs({ switches = {}, map = '', cfgName = 'oneshot' }) {
   const args = ['-game', 'csgo', '-console', '-usercon', '-dedicated',
-    '+game_type', '0', '+game_mode', '1', '-tick', switches.tick || '128'];
+    '+game_type', '0', '+game_mode', '1'];
   for (const [name, spec] of Object.entries(SWITCHES)) {
-    if (name === 'tick') continue; // already above, with its own flag name
     const value = switches[name];
     if (value === undefined) continue;
     args.push(spec.arg || `-${name}`, String(value));

@@ -2,11 +2,11 @@ import {
   DEFAULT_SOURCE, decodeGviz, parseTeams, parseSchedule, scheduleDay,
   defaultLineup, lineupCandidates, roleSuffix, selectedPlayers,
   validatePlayers, validateMatch, viewUrl, directorUrl,
-  newStreamId, applyStreamIds, playerLine, vdoId,
+  newStreamId, applyStreamIds, playerLine, vdoId, vdoPushId,
   observerText, playerText, buildObs, safeFilename, validateMetadata,
   CAMERA_FRAMES, DEFAULT_CAMERA_FRAME, cameraFrame, normalizeCamera, cameraCss, cameraViewUrl,
   MAP_POOL, VETO_RULES, validateVeto, appendVeto, vetoText,
-  lanConfig, lanTeams, lanSchedule, newLanPrefix, seatTeam
+  lanConfig, lanTeams, lanSchedule, newLanPrefix, seatTeam, personKey
 } from './core.js';
 
 const $ = id => document.getElementById(id);
@@ -17,7 +17,9 @@ const state = {
   source: { ...DEFAULT_SOURCE }, template: null, templateError: '', logos: {},
   veto: { format: 'BO3', first: 0, actions: [], matchKey: '' },
   cameras: readStorage('oneshot-camera-settings-v1') || {}, cameraFrame: DEFAULT_CAMERA_FRAME,
-  pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false
+  pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false,
+  webcamMode: readStorage('oneshot-webcam-mode-v1') || 'online',
+  vdoOptions: readStorage('oneshot-vdo-options-v1') || { bitrate: 2500, fps: 30 }
 };
 let toastTimer, regenTimer, refreshId = 0, controller, templatePromise;
 
@@ -267,6 +269,14 @@ for(const button of document.querySelectorAll('[data-camera-pan]')) {
     saveCamera(axis==='center' ? {panX:50,panY:50} : {[axis]:c[axis]+Number(delta)});
   });
 }
+$('webcamMode')?.setAttribute('value', state.webcamMode);
+if ($('webcamMode')) $('webcamMode').value = state.webcamMode;
+if ($('vdoCodec')) $('vdoCodec').value = state.vdoOptions.codec || 'h264';
+if ($('vdoBitrate')) $('vdoBitrate').value = state.vdoOptions.bitrate || 2500;
+if ($('vdoFps')) $('vdoFps').value = state.vdoOptions.fps || 30;
+if ($('vdoLowLatency')) $('vdoLowLatency').checked = state.vdoOptions.lowLatency !== false;
+$('webcamMode')?.addEventListener('change', () => { state.webcamMode = $('webcamMode').value === 'lan' ? 'lan' : 'online'; writeStorage('oneshot-webcam-mode-v1', state.webcamMode); });
+for (const id of ['vdoCodec','vdoBitrate','vdoFps','vdoLowLatency']) $(id)?.addEventListener('change', () => { state.vdoOptions = { codec: $('vdoCodec').value, bitrate: Number($('vdoBitrate').value), fps: Number($('vdoFps').value), lowLatency: $('vdoLowLatency').checked }; writeStorage('oneshot-vdo-options-v1', state.vdoOptions); });
 $('cameraFrame').addEventListener('change',()=>{
   state.cameraFrame=Object.hasOwn(CAMERA_FRAMES,$('cameraFrame').value) ? $('cameraFrame').value : DEFAULT_CAMERA_FRAME;
   writeStorage('oneshot-camera-frame-v1',state.cameraFrame);
@@ -296,8 +306,9 @@ function setStreamId(side, slot) {
   const typed = window.prompt(`${player.nick}: ID потока, под которым игрок зашёл в VDO.Ninja ` +
     '(то, что после push= в его ссылке):', player.id);
   if (typed === null) return;
-  const id = vdoId(typed.replace(/^.*[?&]push=/, '').replace(/&.*$/, ''));
-  if (!id) return toast('Пустой ID — ничего не поменяли.');
+  const id = vdoPushId(typed);
+  if (!id) return toast('Нужен настоящий PUSH ID или полная ссылка VDO.Ninja с параметром push=.');
+  if (id.length < 2) return toast('PUSH ID слишком короткий.');
   const was = player.sheetId ?? player.id;
   if (id === was) delete state.streamIds[player.key];
   else state.streamIds[player.key] = { id, was, manual: true };
@@ -652,7 +663,7 @@ function render() {
       </div>
       <div class="camera-list">${Array.from({ length: 5 }, (_, i) => {
         const player = team.players.find(p => p.key === keys[i]);
-        return `<div class="player-row">
+        return `<div class="player-row" draggable="true" data-drag-side="${side}" data-drag-slot="${i}">
           <span class="slot-number">${String(index * 5 + i + 1).padStart(2, '0')}</span>
           <div class="player-info">
             <select data-player="${side}" data-slot="${i}" aria-label="Игрок ${index * 5 + i + 1}">
@@ -714,6 +725,25 @@ function render() {
       resetVeto();
       render();
     }));
+  $('teamGrid').querySelectorAll('.player-row[draggable=\"true\"]').forEach(row => {
+    row.addEventListener('dragstart', event => {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', `${row.dataset.dragSide}:${row.dataset.dragSlot}`);
+      row.classList.add('dragging');
+    });
+    row.addEventListener('dragend', () => row.classList.remove('dragging'));
+    row.addEventListener('dragover', event => { event.preventDefault(); row.classList.add('drag-over'); });
+    row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+    row.addEventListener('drop', event => {
+      event.preventDefault(); row.classList.remove('drag-over');
+      const [fromSide, fromSlot] = event.dataTransfer.getData('text/plain').split(':');
+      if (fromSide !== row.dataset.dragSide || fromSlot === row.dataset.dragSlot) return;
+      const keys = state[fromSide === 'a' ? 'keysA' : 'keysB'];
+      [keys[Number(fromSlot)], keys[Number(row.dataset.dragSlot)]] = [keys[Number(row.dataset.dragSlot)], keys[Number(fromSlot)]];
+      render();
+      toast('Порядок вебок изменён.');
+    });
+  });
   $('teamGrid').querySelectorAll('[data-player]').forEach(el =>
     el.addEventListener('change', () => {
       state[el.dataset.player === 'a' ? 'keysA' : 'keysB']
@@ -779,6 +809,7 @@ function renderOutput() {
   const metadataError =
     validateMetadata($('matchTime').value, $('matchStage').value);
   $('downloadBtn').disabled = state.exporting || !!error || !!metadataError || !state.template;
+  $('povExportBtn').disabled = !!error || !!metadataError;
   $('exportRecovery').disabled = $('downloadBtn').disabled;
   $('copyAllBtn').disabled = !!error;
   $('swapBtn').disabled = !getTeam('a') || !getTeam('b');
@@ -1053,6 +1084,7 @@ function exportObsFile() {
   const data = buildObs(state.template, getTeam('a'), getTeam('b'), state.keysA, state.keysB, undefined, {
     includeCards: $('includeCards').checked,
     cameraFrame:state.cameraFrame, cardDocs: cardDocsNow(),
+    vdoOptions: state.webcamMode === 'lan' ? { enabled: true, ...state.vdoOptions } : { enabled: false },
     ...(/^https?:$/.test(location.protocol) ? { cardBase: location.origin } : {})
   });
   return { filename, text: JSON.stringify(data, null, 2) + '\n' };
@@ -1068,6 +1100,53 @@ function directDownload(file) {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 let exportFile = null;
+async function resolvePovPlayers(players) {
+  const unresolved = players.map(player => ({ ...player, steamid64: '', steamidStatus: 'unresolved' }));
+  try {
+    const response = await fetch('/api/cs2-roster', { credentials: 'same-origin', cache: 'no-store' });
+    if (!response.ok) throw new Error(`roster ${response.status}`);
+    const rows = (await response.json()).players || [];
+    for (const player of unresolved) {
+      // Canonical identity (personKey): case, spaces, punctuation and accents
+      // do not count — same rule as photos, logos and HLTV matching.
+      const matches = rows.filter(row => personKey(row.nick) === personKey(player.nickname) &&
+        (!String(row.team || '').trim() || personKey(row.team) === personKey(player.team)));
+      const ids = [...new Set(matches.map(row => row.steamid64).filter(id => /^7656119\d{10}$/.test(String(id))))];
+      if (ids.length === 1) {
+        player.steamid64 = ids[0];
+        player.steamidSource = matches[0].source || 'cs2-journal';
+        player.steamidStatus = 'resolved';
+      } else if (ids.length > 1) player.steamidStatus = 'ambiguous';
+    }
+  } catch { /* export remains available, with explicit unresolved metadata */ }
+  return unresolved;
+}
+$('povExportBtn').addEventListener('click', async () => {
+  try {
+    const players = await resolvePovPlayers(['a', 'b'].flatMap(side => chosen(side).map(player => ({
+      nickname: player.nick,
+      team: state[side],
+      vdo: viewUrl(player)
+    }))));
+    const match = state.schedule.find(item => item.key === state.matchKey);
+    const document = {
+      preset: 'oneshot-pov', version: 1,
+      match: {
+        team1: state.a, team2: state.b,
+        time: $('matchTime').value, stage: $('matchStage').value,
+        ...(match?.date ? { date: match.date } : {}),
+        ...(match?.group ? { group: match.group } : {}),
+        ...(match?.format ? { format: match.format } : {})
+      },
+      players
+    };
+    directDownload({
+      filename: safeFilename(state.a, state.b, $('matchTime').value, $('matchStage').value)
+        .replace(/\.json$/i, '-pov.json'),
+      text: JSON.stringify(document, null, 2) + '\n'
+    });
+  } catch (error) { showError(error.message); }
+});
 $('downloadBtn').addEventListener('click', async () => {
   if (state.exporting) return;
   state.exporting = true;

@@ -445,7 +445,8 @@ DOWNLOAD = r'''function obsFile() {
     $('matchTime').value, $('matchStage').value);
   const text = JSON.stringify(buildObs(state.template,
     getTeam('a'), getTeam('b'), state.keysA, state.keysB, undefined,
-    { includeCards: $('includeCards').checked, cameraFrame:state.cameraFrame }), null, 2) + '\n';
+    { includeCards: $('includeCards').checked, cameraFrame:state.cameraFrame,
+      vdoOptions: state.webcamMode === 'lan' ? { enabled: true, ...state.vdoOptions } : { enabled: false } }), null, 2) + '\n';
   return { filename, text };
 }
 function downloadNote(text) {
@@ -640,6 +641,9 @@ app = cut(app, "async function sheetRows(", "function reconcileKeys(", "")
 app = cut(app, "async function refresh() {", "function mskToday(", REFRESH)
 app = cut(app, "function exportObsFile() {", "function fillSource(source) {", DOWNLOAD)
 app = replace_once(app, "  $('exportRecovery').disabled = $('downloadBtn').disabled;\n", "")
+# POV JSON is web-only (its button markup is stripped above, and the DOWNLOAD
+# block already drops the click handler), so the toggle must not remain either.
+app = replace_once(app, "  $('povExportBtn').disabled = !!error || !!metadataError;\n", "")
 app = cut(app, "function fillSource(source) {", "document.querySelectorAll('.brand img').forEach(dropBrokenImage);", SETTINGS)
 app = cut(app, "$('vetoReset').addEventListener('click', () => {", "$('vetoFormat').addEventListener('change', () => {", VETO_RESET)
 app = replace_once(app, "async function copy(text) {", "async function copy(text, message = 'Скопировано в буфер обмена') {")
@@ -661,8 +665,8 @@ json.loads(template_json)  # Validate without rewriting the canonical template.
 template_json = template_json.replace("</", "<\\/")
 app = replace_once(app, "fetch('/assets/obs-template.json', { signal })",
                    "Promise.resolve({ok:true,json:async()=>(" + template_json + ")})")
-app = replace_once(app, "  pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false\n};",
-                   "  pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false, cache: null\n};")
+app = replace_once(app, "  pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false,\n  webcamMode: readStorage('oneshot-webcam-mode-v1') || 'online',\n  vdoOptions: readStorage('oneshot-vdo-options-v1') || { bitrate: 2500, fps: 30 }\n};",
+                   "  pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false, cache: null,\n  webcamMode: readStorage('oneshot-webcam-mode-v1') || 'online',\n  vdoOptions: readStorage('oneshot-vdo-options-v1') || { bitrate: 2500, fps: 30 }\n};")
 # The artifact has no asset directory; only the artifact embeds these files.
 map_images = {}
 for map_name in ("Ancient", "Anubis", "Cache", "Dust2", "Inferno", "Mirage", "Nuke"):
@@ -718,5 +722,6 @@ page = f'''<title>Oneshot Panel</title>
 '''
 out = ROOT / "claude-artifact" / "dist" / "oneshot-panel.html" if snapshot_tag else OUT
 out.parent.mkdir(parents=True, exist_ok=True)
+page = "\n".join(line.rstrip() for line in page.splitlines()) + "\n"
 out.write_text(page, encoding="utf-8")
 print(f"wrote {out.relative_to(ROOT)} ({len(page.encode())} bytes)")

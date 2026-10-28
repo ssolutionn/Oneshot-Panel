@@ -238,6 +238,35 @@ test('OBS repairs cameras and remaps references without mutating template', () =
     !template.sources.some(t => t.uuid === s.uuid)));
 });
 
+test('buildObs: camera URLs follow vdoOptions — LAN tuning on, defaults off', () => {
+  const args = fixture();
+  const urls = (options) => buildObs(template, ...args, uuidFn(), options)
+    .sources.filter(s => s.name.startsWith('CAM '))
+    .map(s => s.settings.url);
+  assert.equal(urls({}).length, 10);
+  // LAN mode: codec, bitrate, fps and lowlatency go into every camera URL.
+  const lan = urls({ vdoOptions: { enabled: true, codec: 'vp9', bitrate: 6000, fps: 60, lowLatency: false } });
+  for (const url of lan) {
+    assert.match(url, /&codec=vp9&/);
+    assert.match(url, /&bitrate=6000&fps=60(?:&|$)/);
+    assert.ok(!url.includes('lowlatency'), 'lowLatency: false must drop the flag');
+    assert.match(url, /&cleanoutput&transparent&cover/);
+  }
+  // Online mode: enabled flag missing/false — no bitrate/fps/lowlatency in the URL.
+  for (const options of [{}, { vdoOptions: {} }, { vdoOptions: { enabled: false, codec: 'vp9', bitrate: 6000, fps: 60 } }]) {
+    for (const url of urls(options)) {
+      // codec still follows the option even when disabled (same as obs.js);
+      // the tuning parameters are what the enabled flag gates.
+      for (const tuned of ['bitrate=', 'fps=', 'lowlatency']) {
+        assert.ok(!url.includes(tuned), `default export must not carry ${tuned}`);
+      }
+      assert.match(url, /&cleanoutput&transparent&cover/);
+    }
+  }
+  // Without any vdoOptions the URLs fall back to the h264 default.
+  for (const url of urls({})) assert.match(url, /&codec=h264(?:&|$)/);
+});
+
 test('OBS omits all player cards by default and when disabled', () => {
   const args = fixture(), original = JSON.stringify(template);
   for (const options of [undefined, { includeCards: false }]) {
@@ -477,6 +506,22 @@ test('vdoId: the stream ID as VDO.Ninja keeps it, links and status use it', asyn
   assert.equal(manual.teams[0].players[0].manualId, true);
   assert.equal(manual.teams[0].players[0].sheetId, 'Q_Q');
   assert.deepEqual(manual.saved, { [player.key]: { id: 'q_q', was: 'Q_Q', manual: true } });
+});
+
+test('vdoPushId: PUSH from a URL or a bare ID, query strings rejected', async () => {
+  const { vdoPushId } = await import('../core.js');
+  // A full link where push is not the last parameter.
+  assert.equal(vdoPushId('https://vdo.ninja/?push=Q-Q&broadcast&do'), 'Q_Q');
+  assert.equal(vdoPushId('https://vdo.ninja/?room=room&password=pw&push=d1maje&novideo'), 'd1maje');
+  // A bare PUSH ID pasted as-is.
+  assert.equal(vdoPushId('Q-Q'), 'Q_Q');
+  assert.equal(vdoPushId(' synyx '), 'synyx');
+  // A URL without push has no ID to take.
+  assert.equal(vdoPushId('https://vdo.ninja/?room=room&view=Q_Q'), '');
+  // A query string alone is not a URL: no guessing an ID out of it.
+  assert.equal(vdoPushId('?push=Q_Q'), '');
+  assert.equal(vdoPushId('push=Q_Q&do'), '');
+  assert.equal(vdoPushId('https://vdo.ninja/?push='), '');
 });
 
 test('applyStreamIds: a new ID holds until the sheet changes, then the sheet wins', async () => {

@@ -177,8 +177,11 @@ HTTPS Netlify выпустит сам после того, как записи �
   Своих правок в ветке события нет.
 - Если в Branch control превью выключены, ветку события надо добавить
   в Preview branches → Custom branches, иначе адрес не появится.
-- Локально событие выбирает переменная: `EVENT=reu npm start` (с журналом CS2 —
-  `CS2_JOURNAL=1 EVENT=reu npm start`); без неё — КиберКлэш.
+- Локально событие выбирает переменная: Linux/macOS — `EVENT=reu npm start`
+  (с журналом CS2 — `CS2_JOURNAL=1 EVENT=reu npm start`); Windows PowerShell —
+  `$env:EVENT="reu"; npm start` (с журналом —
+  `$env:CS2_JOURNAL="1"; $env:EVENT="reu"; npm start`). Без EVENT используется
+  КиберКлэш. Это запускает веб-панель/журнал, не Dedicated Server.
 - Событие закончилось — ветку удалить; ссылки на старый адрес перестанут работать.
 
 Cloudflare открывает `card.html`, `obs-bridge.html`, `veto.html` и `overlay.html`

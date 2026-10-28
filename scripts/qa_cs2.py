@@ -101,10 +101,18 @@ async def run(args):
     out = Path(args.artifacts) / "cs2"
     out.mkdir(parents=True, exist_ok=True)
     said = []
-    rcon_port, panel_port, plain_port = free_port(), free_port(), free_port()
+    rcon_port, panel_port, plain_port, launch_port = free_port(), free_port(), free_port(), free_port()
     rcon = await fake_rcon(rcon_port, said)
+    cfg_dir = out / "cfg"
+    cfg_dir.mkdir(exist_ok=True)
+    fake_bin = out / "fake-srcds"
+    fake_bin.write_text("#!/bin/sh\nexec /bin/sleep 60\n", encoding="utf-8")
+    fake_bin.chmod(0o700)
     panel = start_panel(panel_port, CS2_JOURNAL="1", CS2_LOG_TOKEN=TOKEN, CS2_RCON_PASSWORD="pw", CS2_RCON_PORT=str(rcon_port),
                         VETO_RELAY_DIR=str(out / "relay-a"))
+    launch_panel = start_panel(launch_port, EVENT="reu", CS2_JOURNAL="1", CS2_LOG_TOKEN=TOKEN,
+        CS2_LAUNCH="1", CS2_SERVER_BIN=str(fake_bin), CS2_SERVER_DIR=str(out), CS2_CFG_DIR=str(cfg_dir), CS2_RCON_PASSWORD="pw",
+        VETO_RELAY_DIR=str(out / "relay-launch"))
     plain = start_panel(plain_port, VETO_RELAY_DIR=str(out / "relay-b"))
     try:
         async with async_playwright() as p:
@@ -113,6 +121,29 @@ async def run(args):
             await context.route("https://docs.google.com/**", lambda route: route.abort())
             await context.route("https://vdo.ninja/**", lambda route: route.fulfill(body="<html></html>", content_type="text/html"))
             errors = []
+
+            # Server launch controls appear only when the host explicitly enables
+            # a configured executable; settings are sent as structured JSON.
+            launch_page = await context.new_page()
+            await launch_page.goto(f"http://127.0.0.1:{launch_port}/?event=reu")
+            await expect(launch_page.locator("#serverNavBtn")).to_be_visible(timeout=10000)
+            await launch_page.click("#serverNavBtn")
+            await expect(launch_page.locator("#serverLaunchPanel")).to_be_visible(timeout=5000)
+            assert await launch_page.locator("#serverLaunchMap option").count() >= 7
+            await launch_page.fill("#serverLaunchPlayers", "10")
+            await launch_page.fill("#serverLaunchRounds", "24")
+            await launch_page.select_option("#serverLaunchMap", label="Mirage")
+            await launch_page.click("#serverLaunchStart")
+            await expect(launch_page.locator("#serverLaunchStatus")).to_contain_text("Работает", timeout=8000)
+            browser_status = await launch_page.evaluate("fetch('/api/cs2-launch').then(r => r.json())")
+            assert browser_status.get('running'), browser_status
+            cfg = (cfg_dir / "oneshot.cfg").read_text(encoding="utf-8")
+            assert 'logaddress_add_http "http://127.0.0.1:' in cfg and "mp_logdetail 3" in cfg and "mp_maxrounds 24" in cfg
+            assert 'rcon_password "pw"' in cfg, "the server and panel must share the host-provided RCON password"
+            launch_page.once("dialog", lambda dialog: asyncio.create_task(dialog.accept()))
+            await launch_page.click("#serverLaunchStop")
+            await expect(launch_page.locator("#serverLaunchStatus")).to_contain_text("Остановлен", timeout=8000)
+            await launch_page.close()
 
             # The hosted panel has no journal: no tab.
             hosted = await context.new_page()

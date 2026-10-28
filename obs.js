@@ -120,7 +120,7 @@ export class ObsClient {
 
 // What one "Игрок N" scene needs. Cameras keep their source; the card (CARD)
 // sits right under the camera when cards are on and is hidden when they are off.
-export function slotPlan(sceneItems, player, { includeCards = false, cardBase = DEFAULT_CARD_BASE, cameraFrame: frame = DEFAULT_CAMERA_FRAME, legacyCamera = false, cardDocs = {} } = {}) {
+export function slotPlan(sceneItems, player, { includeCards = false, cardBase = DEFAULT_CARD_BASE, cameraFrame: frame = DEFAULT_CAMERA_FRAME, legacyCamera = false, cardDocs = {}, vdoOptions = {} } = {}) {
   const scene = `Игрок ${player.slot}`;
   const browsers = (sceneItems || []).filter(it => it.inputKind === 'browser_source');
   const card = browsers.find(it => /^CARD /.test(it.sourceName));
@@ -133,7 +133,7 @@ export function slotPlan(sceneItems, player, { includeCards = false, cardBase = 
     scene,
     camera: {
       item: camera, name: `CAM ${slot} | ${player.team} | ${player.nick}`,
-      settings: {url:legacyCamera ? viewUrl(player) : cameraViewUrl(player),width:geometry.width,height:geometry.height},
+      settings: {url:legacyCamera ? viewUrl(player) : cameraViewUrl(player, vdoOptions),width:geometry.width,height:geometry.height},
       transform:{...FIT,positionX:geometry.x,positionY:geometry.y,rotation:geometry.rotation,
         boundsWidth:geometry.width,boundsHeight:geometry.height}
     },

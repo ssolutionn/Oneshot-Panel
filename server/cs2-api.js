@@ -265,7 +265,7 @@ export async function handleCs2(req, res, cs2) {
       // started fills the journal by itself.
       const logUrl = `http://127.0.0.1:${cs2.port}/api/cs2-log?token=${cs2.token}`;
       let cfgName;
-      try { cfgName = cs2.launcher.writeCfg(buildCfg({ ...settings, logUrl })); }
+      try { cfgName = cs2.launcher.writeCfg(buildCfg({ ...settings, rconPassword: cs2.rconConfig.password, logUrl })); }
       catch (error) { return send(res, 500, { error: error.message }), true; }
       try {
         const started = cs2.launcher.start({ ...settings, cfgName: cfgName.replace(/\.cfg$/, '') });

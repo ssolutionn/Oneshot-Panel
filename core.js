@@ -34,6 +34,20 @@ export function vdoId(value) {
   return line(value).replace(/[\W]+/g, '_').slice(0, 64);
 }
 
+export function vdoPushId(value) {
+  const text = line(value);
+  let raw;
+  try {
+    const url = new URL(text);
+    raw = url.searchParams.get('push') || '';
+  } catch {
+    // A bare PUSH ID is also accepted; query strings without a full URL are not.
+    if (!/^[^?&#\s]+$/.test(text)) return '';
+    raw = text;
+  }
+  try { return vdoId(decodeURIComponent(raw)); } catch { return ''; }
+}
+
 // A bad row (no room, a repeated ID) is skipped and reported in
 // teams.skipped: one pasted stand-in must not take every roster down.
 export function parseTeams(rows) {
@@ -244,9 +258,20 @@ export function cameraCss(value) {
   else if(c.rotation===270)[x,y]=[100-y,x];
   return 'html,body{background:transparent!important;}video{object-fit:cover!important;object-position:'+x+'% '+y+'%!important;scale:'+c.zoom+'!important;transform-origin:'+x+'% '+y+'%!important;}';
 }
-export function cameraViewUrl(player) {
+export function normalizeVdoOptions(options = {}) {
+  const bitrate = Math.max(500, Math.min(8000, Number(options.bitrate) || 2500));
+  const fps = [24, 30, 60].includes(Number(options.fps)) ? Number(options.fps) : 30;
+  const codec = ['h264', 'vp8', 'vp9'].includes(options.codec) ? options.codec : 'h264';
+  // enabled: the LAN mode switch — tuning parameters reach the URL only then.
+  return { enabled: options.enabled === true, bitrate, fps, codec, lowLatency: options.lowLatency !== false };
+}
+export function cameraViewUrl(player, vdoOptions = {}) {
   const c=normalizeCamera(player?.camera);
-  return viewUrl(player)+'&cover'+(c.panX===50 && c.panY===50 && c.zoom===1 ? '' :
+  const options=normalizeVdoOptions(vdoOptions);
+  const base=viewUrl(player).replace('&codec=h264', `&codec=${options.codec}`);
+  const url=base+'&cover';
+  const tuned=options.enabled === true ? `&bitrate=${options.bitrate}&fps=${options.fps}${options.lowLatency ? '&lowlatency' : ''}` : '';
+  return url+tuned+(c.panX===50 && c.panY===50 && c.zoom===1 ? '' :
     '&b64css='+encodeURIComponent(btoa(cameraCss(c))));
 }
 export function cameraGeometry(player, frame = DEFAULT_CAMERA_FRAME) {
@@ -586,7 +611,7 @@ function sceneUuid() {
 }
 export function buildObs(template, a, b, ka, kb,
                          uuidFn = sceneUuid,
-                         { cardBase = DEFAULT_CARD_BASE, includeCards = false, cameraFrame: frame = DEFAULT_CAMERA_FRAME, cardDocs = {} } = {}) {
+                         { cardBase = DEFAULT_CARD_BASE, includeCards = false, cameraFrame: frame = DEFAULT_CAMERA_FRAME, cardDocs = {}, vdoOptions = {} } = {}) {
   const error = validateMatch(a, b, ka, kb);
   if (error) throw new Error(error);
   if (!Array.isArray(template?.sources)) {
@@ -627,7 +652,7 @@ export function buildObs(template, a, b, ka, kb,
     item.name = browser.name;
     const geometry=cameraGeometry(p,frame);
     Object.assign(browser.settings, {
-      url: cameraViewUrl(p), width:geometry.width, height:geometry.height
+      url: cameraViewUrl(p, vdoOptions), width:geometry.width, height:geometry.height
     });
     const slot = String(i + 1).padStart(2, '0');
     names.set(browser.name, `CAM ${slot} | ${p.team} | ${p.nick}`);
