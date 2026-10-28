@@ -249,7 +249,7 @@ const mskDay = (shift = 0) => new Intl.DateTimeFormat('ru-RU', { timeZone: 'Euro
   .format(new Date(Date.now() + shift * 86400000));
 async function scheduleRows(id, gid) {
   const url = new URL(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq`);
-  url.search = new URLSearchParams({ gid, range: 'A1:N300', headers: '1', tqx: 'out:json', _t: String(Date.now()) });
+  url.search = new URLSearchParams({ gid, range: 'A1:Z300', headers: '1', tqx: 'out:json', _t: String(Date.now()) });
   const response = await fetch(url, { credentials: 'omit', cache: 'no-store', signal: AbortSignal.timeout(20000) });
   if (!response.ok) throw new Error(`Google Sheets ${response.status}`);
   return decodeGviz(await response.text());

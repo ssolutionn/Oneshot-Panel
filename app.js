@@ -2,7 +2,7 @@ import {
   DEFAULT_SOURCE, decodeGviz, parseTeams, parseSchedule, scheduleDay,
   defaultLineup, lineupCandidates, roleSuffix, selectedPlayers,
   validatePlayers, validateMatch, viewUrl, directorUrl,
-  newStreamId, applyStreamIds, playerLine, vdoStreamId,
+  newStreamId, applyStreamIds, playerLine, vdoStreamId, rosterMatch,
   observerText, playerText, buildObs, safeFilename, validateMetadata,
   CAMERA_FRAMES, DEFAULT_CAMERA_FRAME, cameraFrame, normalizeCamera, cameraCss, cameraViewUrl,
   displayNick,
@@ -753,10 +753,10 @@ async function refresh() {
       sheetRows(source, source.gid, 'A1:L2000', signal),
       source.scheduleGid ?
         // Header row as labels: the organizer's columns are found by name.
-        sheetRows(source, source.scheduleGid, 'A1:N300',
+        sheetRows(source, source.scheduleGid, 'A1:Z300',
           signal, source.scheduleId || source.id, '1') :
         Promise.resolve([]),
-      organizer ? sheetRows(source, DEFAULT_SOURCE.playoffsGid, 'A1:N100',
+      organizer ? sheetRows(source, DEFAULT_SOURCE.playoffsGid, 'A1:Z100',
         signal, DEFAULT_SOURCE.scheduleId, '1') : Promise.resolve([])
     ]);
     if (schedule.status === 'fulfilled' && playoffs.status === 'fulfilled') {
@@ -846,8 +846,8 @@ function mskToday(days = 0) {
 function upcoming(schedule, names) {
   const day = date => Number(date.slice(3, 5)) * 100 + Number(date.slice(0, 2));
   const today = day(mskToday());
-  return schedule.filter(m => names.includes(m.team1) &&
-    names.includes(m.team2) && (!m.date || day(m.date) >= today));
+  return schedule.map(m => rosterMatch(m, names))
+    .filter(m => m && (!m.date || day(m.date) >= today));
 }
 function dayLabel(date) {
   return date === mskToday() ? `${date} · сегодня` :
