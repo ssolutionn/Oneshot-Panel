@@ -26,7 +26,10 @@
       "exit_code": 0,
       "seconds": 1.8,
       "tail": "\n> oneshot-webcam-panel@1.0.0 check\n> node scripts/check-syntax.mjs\n\n99/99 files pass node --check\n"
+    },
+    "node": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-10-28T08:13:18.313963+00:00"
+  "updated_at": "2026-10-28T08:13:20.327000+00:00"
 }
