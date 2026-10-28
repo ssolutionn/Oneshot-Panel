@@ -107,15 +107,18 @@ export async function processPlate(blob) {
   try { bitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' }); }
   catch { throw new Error('файл не открывается как картинка'); }
   try {
-    for (const side of [1280, 1080, 900, 720]) {
-      const ratio = Math.min(1, side / Math.max(bitmap.width, bitmap.height));
-      const out = canvasOf(bitmap.width * ratio, bitmap.height * ratio);
+    // Full HD, the picture cut to fill it from the centre (like cover): in OBS
+    // the placeholder covers the whole scene. Smaller only if it will not fit.
+    for (const [width, height] of [[1920, 1080], [1600, 900], [1280, 720]]) {
+      const out = canvasOf(width, height);
       const context = out.getContext('2d');
       context.imageSmoothingQuality = 'high';
       context.fillStyle = '#031b24';
-      context.fillRect(0, 0, out.width, out.height);
-      context.drawImage(bitmap, 0, 0, out.width, out.height);
-      for (const quality of [0.86, 0.78, 0.7]) {
+      context.fillRect(0, 0, width, height);
+      const scale = Math.max(width / bitmap.width, height / bitmap.height);
+      const w = bitmap.width * scale, h = bitmap.height * scale;
+      context.drawImage(bitmap, (width - w) / 2, (height - h) / 2, w, h);
+      for (const quality of [0.86, 0.78, 0.7, 0.62]) {
         const url = await encode(out, 'image/jpeg', quality);
         if (url.length <= 380000) return url;
       }

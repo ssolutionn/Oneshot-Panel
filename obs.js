@@ -1,7 +1,7 @@
 // obs-websocket v5 (built into OBS 28+) and the steps that point an already
 // imported Oneshot collection at a new match. No DOM: the panel, the OBS dock
 // (obs-bridge.html) and the tests share it.
-import { viewUrl, cameraViewUrl, cameraGeometry, cameraFrame, DEFAULT_CAMERA_FRAME, cardUrl, cardKey, readyCard, DEFAULT_CARD_BASE, matrixTile, displayNick } from './core.js';
+import { viewUrl, cameraViewUrl, cameraGeometry, cameraFrame, DEFAULT_CAMERA_FRAME, cardUrl, cardKey, readyCard, DEFAULT_CARD_BASE, matrixTile, displayNick, cardArea } from './core.js';
 
 export const OBS_DEFAULT_URL = 'ws://127.0.0.1:4455';
 export const VETO_EVENT = 'oneshot-veto';
@@ -130,7 +130,8 @@ export function slotPlan(sceneItems, player, { includeCards = false, cardBase = 
   const slot = String(player.slot).padStart(2, '0');
   if(legacyCamera){frame='wide';player={...player,camera:null};}
   const nick = displayNick(player);
-  const geometry=cameraGeometry(player,frame),rect=cameraFrame(frame);
+  const geometry=cameraGeometry(player,frame);
+  const doc=readyCard(cardDocs,cardKey(player.team,nick)),area=cardArea(doc,frame);
   return {
     scene,
     camera: {
@@ -141,11 +142,11 @@ export function slotPlan(sceneItems, player, { includeCards = false, cardBase = 
     },
     card: includeCards ? {
       item: card || null, name: `CARD ${slot} | ${player.team} | ${nick}`,
-      // A ready page fills the frame (its size); the site's card stays 1920×1080.
-      settings: readyCard(cardDocs, cardKey(player.team, nick)) ?
-        { url: readyCard(cardDocs, cardKey(player.team, nick)), width: rect.width, height: rect.height } :
+      // A ready page fills the frame (its size), a placeholder the whole scene;
+      // the site's card stays 1920×1080.
+      settings: doc ? { url: doc, width: area.width, height: area.height } :
         { url: cardUrl(player, cardBase), width:1920,height:1080 },
-      transform:{...FIT,positionX:rect.x,positionY:rect.y,boundsWidth:rect.width,boundsHeight:rect.height}
+      transform:{...FIT,positionX:area.x,positionY:area.y,boundsWidth:area.width,boundsHeight:area.height}
     } : null,
     hideCard: !includeCards && card ? card : null
   };

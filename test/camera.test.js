@@ -221,3 +221,15 @@ test('a webcam nickname names its camera and card in OBS; the card keeps the ros
   assert.equal(url.searchParams.get('nick'),'Кастом');
   assert.equal(url.searchParams.get('lookup'),'Player0');
 });
+
+test('a placeholder page covers the whole scene in OBS, whatever the frame; a card stays in the frame',async()=>{
+  const {cardArea,cameraFrame}=await import('../core.js');
+  const {plateCardUrl}=await import('../lan-event.js');
+  const plate=plateCardUrl('data:image/jpeg;base64,'+'A'.repeat(64));
+  for(const frame of ['inner43','square','fullheight'])assert.deepEqual(cardArea(plate,frame),{x:0,y:0,width:1920,height:1080});
+  const card='data:text/html;charset=utf-8,'+encodeURIComponent('<!doctype html><title>nick</title>');
+  assert.deepEqual(cardArea(card,'inner43'),cameraFrame('inner43'));
+  const plan=slotPlan([{inputKind:'browser_source',sourceName:'Камера',sceneItemId:1,sceneItemIndex:1}],
+    {slot:6,team:'B',nick:'b1',id:'pc1',room:'team2'},{cameraFrame:'inner43',includeCards:true,cardDocs:{[(await import('../core.js')).cardKey('B','b1')]:plate}});
+  assert.deepEqual([plan.card.settings.width,plan.card.settings.height,plan.card.transform.positionX,plan.card.transform.positionY,plan.card.transform.boundsWidth],[1920,1080,0,0,1920]);
+});

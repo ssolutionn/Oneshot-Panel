@@ -1688,6 +1688,11 @@ const cardKey = (team, nick) => personKey(team) + '|' + personKey(nick);
 // A card page that shows nothing (an OBS browser source is transparent): the
 // card of a seat whose side has no placeholder while the other side has one.
 const BLANK_CARD = 'data:text/html;charset=utf-8,' + encodeURIComponent('<!doctype html><title>-</title>');
+// A placeholder page (lan-event plateCardUrl) covers the whole 1920×1080 scene
+// whatever the frame: with no webcam nothing of the scene shows past it.
+const PLATE_PAGE = encodeURIComponent('<title>Заглушка</title>');
+const cardArea = (doc, frame) => typeof doc === 'string' && doc.includes(PLATE_PAGE) ?
+  { x: 0, y: 0, width: 1920, height: 1080 } : cameraFrame(frame);
 const readyCard = (docs, key) => {
   const doc = docs?.[key];
   return typeof doc === 'string' && doc.startsWith('data:text/html;charset=utf-8,') ? doc : '';
@@ -1859,7 +1864,7 @@ function buildObs(template, a, b, ka, kb,
       // VDO.Ninja has no video (not connected yet, or dropped).
       // A ready page (a LAN card, a placeholder) is made the frame's size, so it
       // fills the frame; the site's card page stays 1920×1080 inside it.
-      const doc = readyCard(cardDocs, cardKey(p.team, playerNick)), area = cameraFrame(frame);
+      const doc = readyCard(cardDocs, cardKey(p.team, playerNick)), area = cardArea(doc, frame);
       Object.assign(cardSource, {
         uuid: uuidFn(), name: `CARD ${slot} | ${p.team} | ${playerNick}`,
         settings: { url: doc || cardUrl(p, cardBase), width: doc ? area.width : 1920, height: doc ? area.height : 1080 },
@@ -1872,8 +1877,7 @@ function buildObs(template, a, b, ka, kb,
         source_uuid: cardSource.uuid, visible: true,
         id: Math.max(...scene.settings.items.map(it => Number(it.id) || 0)) + 1
       };
-      const rect=cameraFrame(frame);
-      fitItem(cardItem,rect.x,rect.y,rect.width,rect.height);
+      fitItem(cardItem,area.x,area.y,area.width,area.height);
       scene.settings.items.splice(scene.settings.items.indexOf(item), 0, cardItem);
     }
   });

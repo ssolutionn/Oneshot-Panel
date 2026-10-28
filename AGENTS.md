@@ -114,7 +114,9 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   в ЛАН без готового матча «Отправить в OBS» шлёт десять камер мест (`seatsPayload`); статус места
   словами (`.seat-state`; в «Эфире» — `.cam-note` у игрока); «Заглушка, когда вебки нет»
   (`seatsPlatePickA/B`, `seatsPlateClearA/B`, `seatsPlateFile`, превью `seatsPlateA/B`): картинка
-  стороны (`lan-images processPlate` — JPEG ≤ 380 000 символов, IndexedDB `logos['#plate-a'|'#plate-b']`)
+  стороны (`lan-images processPlate` — JPEG ровно 1920×1080, обрезка по центру, ≤ 380 000 символов
+  (не влезает — 1600×900, затем 1280×720), IndexedDB `logos['#plate-a'|'#plate-b']`; в OBS страница
+  заглушки — на всю сцену 0,0 1920×1080 при любой рамке, `core.cardArea`, карточки — в рамке)
   → `lan-event plateCardUrl` (страница только с картинкой, cover) → `oneshotPanel.setPlates`/`plate`;
   саму картинку «Кадр» берёт через `setPlateImages`/`plateImage` (canvas `cameraPlate` в рамке);
   у игрока может быть своя заглушка — квадрат `.lt-plate` (`slot('plate', playerId)`) рядом с фото
