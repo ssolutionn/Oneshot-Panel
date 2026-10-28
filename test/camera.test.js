@@ -114,9 +114,10 @@ test('JSON export and live OBS apply share camera settings and geometry; cards s
       assert.deepEqual(camera.pos,{x:plan.camera.transform.positionX,y:plan.camera.transform.positionY});
       assert.deepEqual(camera.bounds,{x:plan.camera.transform.boundsWidth,y:plan.camera.transform.boundsHeight});
       assert.equal(card.rot,0);
-      const rect=cameraFrame(frame);
-      assert.deepEqual(card.pos,{x:rect.x,y:rect.y});
-      assert.deepEqual(card.bounds,{x:rect.width,y:rect.height});
+      // The card is the placeholder: Full HD over the whole scene, whatever the frame.
+      assert.deepEqual(card.pos,{x:0,y:0});
+      assert.deepEqual(card.bounds,{x:1920,y:1080});
+      assert.deepEqual([plan.card.transform.positionX,plan.card.transform.positionY,plan.card.transform.boundsWidth,plan.card.transform.boundsHeight],[0,0,1920,1080]);
       assert.equal(source.settings.url.includes('cover'),true);
     }
   }

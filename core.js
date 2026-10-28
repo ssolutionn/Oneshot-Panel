@@ -683,8 +683,9 @@ export function buildObs(template, a, b, ka, kb,
         source_uuid: cardSource.uuid, visible: true,
         id: Math.max(...scene.settings.items.map(it => Number(it.id) || 0)) + 1
       };
-      const rect=cameraFrame(frame);
-      fitItem(cardItem,rect.x,rect.y,rect.width,rect.height);
+      // The card is the placeholder while the webcam is away: Full HD over the
+      // whole scene, whatever the camera's frame.
+      fitItem(cardItem,0,0,1920,1080);
       scene.settings.items.splice(scene.settings.items.indexOf(item), 0, cardItem);
     }
   });

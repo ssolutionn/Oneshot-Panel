@@ -311,8 +311,9 @@ test('Player card sits under each camera and opens the card page', () => {
     assert.equal(source.id, 'browser_source');
     assert.equal(source.name, item.name);
     assert.equal(item.visible, true);
-    assert.deepEqual(item.bounds, { x: 1320, y: 1008 });
-    assert.deepEqual(item.pos, { x: 300, y: 36 });
+    // Full HD over the whole scene: with no webcam nothing of the scene shows past it.
+    assert.deepEqual(item.bounds, { x: 1920, y: 1080 });
+    assert.deepEqual(item.pos, { x: 0, y: 0 });
     assert.equal(new Set(scene.settings.items.map(it => it.id)).size, names.length);
     assert.deepEqual(source.settings, {
       url: cardUrl(players[i], 'https://panel.example'), width: 1920, height: 1080
