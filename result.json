@@ -62,7 +62,10 @@
       "exit_code": 0,
       "seconds": 6.1,
       "tail": "PASS: firefox white document after load, delayed API, zero decoded frames, video readiness, disconnect/reconnect and cleanup\n"
+    },
+    "loading_chromium": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-10-28T17:52:14.712438+00:00"
+  "updated_at": "2026-10-28T17:52:18.596494+00:00"
 }
