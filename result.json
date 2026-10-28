@@ -106,8 +106,11 @@
       "tail": "PASS: admin makes three short links; they survive a reload; the match comes from the schedule\nPASS: whole BO3 by turns; spectators only listen; HLTV text copies\nPASS: a reload and late viewers get the finished veto; HLTV text only on the admin link\nPASS: 375 px without horizontal scroll; broken link and broken key explain themselves\nPASS: BO1 by keyboard only (select with Enter, focus lands on confirm) and BO5 with four sides\nPASS: assigned first team: both teams, immediate ban without order choice, signed propagation, reload and mobile YOU badge\nveto matches: 6 scenarios passed\n"
     },
     "notifications": {
-      "status": "running"
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 3.9,
+      "tail": "PASS: real browser notification API, test button, masked non-password token, click routing, worker failure fallback and denied-permission recovery\n"
     }
   },
-  "updated_at": "2026-10-28T16:23:55.390253+00:00"
+  "updated_at": "2026-10-28T16:24:01.410215+00:00"
 }
