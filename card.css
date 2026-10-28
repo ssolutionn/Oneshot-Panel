@@ -23,7 +23,7 @@ html,body { margin:0; height:100%; overflow:hidden; background:var(--card-black)
   font-synthesis:none;
 }
 .card-background { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-.card-event { position:absolute; z-index:5; top:100px; right:145px; width:290px; height:147px; object-fit:contain; }
+.card-event { position:absolute; z-index:5; top:100px; right:340px; width:290px; height:147px; object-fit:contain; }
 .card-portrait { position:absolute; z-index:1; inset:0; overflow:hidden; }
 .card-photo {
   position:absolute; left:50%; top:35px; transform:translateX(-50%);
