@@ -566,6 +566,25 @@ test('parseSchedule: group stage and playoffs tabs read together', async () => {
   ]);
 });
 
+test('playoffs sheet as published: Team 2 past column N, a renamed team found under its roster name', async () => {
+  const { parseSchedule, rosterMatch } = await import('../core.js');
+  // «Schedule (Playoffs)» has an extra ALA column, so Team 2 sits in column O.
+  const rows = [
+    ['Match #', 'Stage', 'Date', 'GMT', 'CET (GMT+1)', 'CEST (GMT +2)', 'MSK (GMT +3)', 'ALA (GMT+5)', 'Stream', '', 'Team 1', 'Score', '', '', 'Team 2'],
+    ['2', 'Quarterfinal 2', 'October 29', '10:00', '11:00', '12:00', '13:00', '15:00', 'A', '', 'PCIFIC', '2', '', '0', 'Aces (ex-Black Phoenix)'],
+    ['3', 'Quarterfinal 3', 'October 29', '13:00', '14:00', '15:00', '16:00', '18:00', 'A', '', 'Fire Flux', '', '', '', 'PRIVATE (ex-RUBY)'],
+    ['5', 'Semifinal 1', 'October 30', '12:00', '13:00', '14:00', '15:00', '17:00', 'A']
+  ];
+  const names = ['PCIFIC', 'Black Phoenix', 'Fire Flux', 'PRIVATE'];
+  const matches = parseSchedule(rows).map(m => rosterMatch(m, names));
+  assert.deepEqual(matches.map(m => [m.date, m.time, m.team1, m.team2, m.stage]), [
+    ['29.10', '13:00', 'PCIFIC', 'Black Phoenix', 'Четвертьфинал 2'],
+    ['29.10', '16:00', 'Fire Flux', 'PRIVATE', 'Четвертьфинал 3']
+  ]);
+  // Neither name in the rosters: the match is not offered.
+  assert.equal(rosterMatch(parseSchedule(rows)[0], ['PCIFIC']), null);
+});
+
 test('teamHltv: the team page from hltv.json, names as in teamLogo, only hltv.org team pages', async () => {
   const { teamHltv } = await import('../core.js');
   const pages = JSON.parse(await (await import('node:fs/promises')).readFile(new URL('../assets/teams/hltv.json', import.meta.url), 'utf8'));

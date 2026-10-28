@@ -736,7 +736,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
     </div>
   </header>
   <nav class="panel-nav" aria-label="Разделы панели">
-    
+
     <div class="nav-tools">
       <button id="refreshBtn" class="nav-button" type="button" title="Обновить данные">↻ Обновить</button>
       <button id="settingsBtn" class="nav-button" type="button">Источник данных</button>
@@ -771,7 +771,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
       <button id="swapBtn" class="button small" disabled><span aria-hidden="true">⇄</span><span class="visually-hidden">Поменять стороны команд</span></button>
     </section>
 
-    
+
 
     <section id="teamGrid" class="team-grid" aria-label="Составы двух команд">
       <div class="empty-panel">Загружаем составы…</div>
@@ -779,7 +779,10 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
 
     <section id="exportBar" class="export-bar" aria-label="Экспорт и ссылки">
       <div class="export-actions">
+
         <div class="artifact-download-actions"><button class="button" id="downloadAccess" hidden>Разрешить скачивание</button><button class="button" id="copyJsonBtn" hidden>Скопировать JSON</button><button class="button primary" id="downloadBtn" disabled><span aria-hidden="true">↓</span> Скачать JSON для OBS</button></div>
+
+
       </div>
       <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
       <label class="camera-frame-setting">Режим вебок<select id="webcamMode"><option value="online">Онлайн</option><option value="lan">ЛАН</option></select><span>ЛАН — для камер в одной сети; онлайн — для удалённых игроков.</span></label>
@@ -810,7 +813,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
         </div>
       </div>
       <p class="veto-status" id="vetoStatus" role="status" aria-live="polite">Выбери две разные команды.</p>
-      
+
       <div id="sideChoice" class="side-choice" hidden>
         <strong id="sideLabel"></strong>
         <button id="chooseCT" class="button dark">CT</button>
@@ -854,15 +857,15 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
 
     </div>
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+
+
+
+
+
+
+
+
 
     <footer>
       Oneshot Panel
@@ -909,7 +912,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
     <textarea id="manualCopy" readonly aria-label="Текст для ручного копирования"></textarea>
   </dialog>
 
-  
+
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script>
@@ -1029,8 +1032,16 @@ function organizerStage(text) {
     stage: playoff ? playoff[1] + (number ? ` ${number}` : '') : text
   };
 }
-// "PRIVATE (ex-RUBY)" in the organizer's sheet is "PRIVATE" in the rosters.
+// "PRIVATE (ex-RUBY)" in the organizer's sheet is "PRIVATE" in the rosters;
+// but "Aces (ex-Black Phoenix)" may still be "Black Phoenix" there, so the old
+// name is kept too (teamWas) and rosterMatch picks whichever the rosters have.
 const teamName = text => text.replace(/\s*\(ex-[^)]*\)\s*$/i, '');
+const teamWas = text => line(text.match(/\(ex-([^)]*)\)\s*$/i)?.[1]);
+function rosterMatch(match, names) {
+  const pick = (name, was) => names.includes(name) ? name : was && names.includes(was) ? was : '';
+  const team1 = pick(match.team1, match.team1Was), team2 = pick(match.team2, match.team2Was);
+  return team1 && team2 && team1 !== team2 ? { ...match, team1, team2 } : null;
+}
 
 // Two layouts: the organizer's sheet (found by its header row, dated rows)
 // and a day sheet «Матчи ДД.ММ» (B time, C/D teams, E group; no dates).
@@ -1046,6 +1057,7 @@ function parseSchedule(rows) {
     const match = cols ? {
       date: organizerDate(v[cols.date] || ''), time: v[cols.time] || '',
       team1: teamName(v[cols.team1] || ''), team2: teamName(v[cols.team2] || ''),
+      team1Was: teamWas(v[cols.team1] || ''), team2Was: teamWas(v[cols.team2] || ''),
       ...organizerStage(v[cols.stage] || '')
     } : {
       date: '', time: v[1] || '', team1: v[2] || '', team2: v[3] || '',
@@ -2458,8 +2470,8 @@ function mskToday(days = 0) {
 function upcoming(schedule, names) {
   const day = date => Number(date.slice(3, 5)) * 100 + Number(date.slice(0, 2));
   const today = day(mskToday());
-  return schedule.filter(m => names.includes(m.team1) &&
-    names.includes(m.team2) && (!m.date || day(m.date) >= today));
+  return schedule.map(m => rosterMatch(m, names))
+    .filter(m => m && (!m.date || day(m.date) >= today));
 }
 function dayLabel(date) {
   return date === mskToday() ? `${date} · сегодня` :

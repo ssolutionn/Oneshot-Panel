@@ -113,8 +113,16 @@ function organizerStage(text) {
     stage: playoff ? playoff[1] + (number ? ` ${number}` : '') : text
   };
 }
-// "PRIVATE (ex-RUBY)" in the organizer's sheet is "PRIVATE" in the rosters.
+// "PRIVATE (ex-RUBY)" in the organizer's sheet is "PRIVATE" in the rosters;
+// but "Aces (ex-Black Phoenix)" may still be "Black Phoenix" there, so the old
+// name is kept too (teamWas) and rosterMatch picks whichever the rosters have.
 const teamName = text => text.replace(/\s*\(ex-[^)]*\)\s*$/i, '');
+const teamWas = text => line(text.match(/\(ex-([^)]*)\)\s*$/i)?.[1]);
+export function rosterMatch(match, names) {
+  const pick = (name, was) => names.includes(name) ? name : was && names.includes(was) ? was : '';
+  const team1 = pick(match.team1, match.team1Was), team2 = pick(match.team2, match.team2Was);
+  return team1 && team2 && team1 !== team2 ? { ...match, team1, team2 } : null;
+}
 
 // Two layouts: the organizer's sheet (found by its header row, dated rows)
 // and a day sheet «Матчи ДД.ММ» (B time, C/D teams, E group; no dates).
@@ -130,6 +138,7 @@ export function parseSchedule(rows) {
     const match = cols ? {
       date: organizerDate(v[cols.date] || ''), time: v[cols.time] || '',
       team1: teamName(v[cols.team1] || ''), team2: teamName(v[cols.team2] || ''),
+      team1Was: teamWas(v[cols.team1] || ''), team2Was: teamWas(v[cols.team2] || ''),
       ...organizerStage(v[cols.stage] || '')
     } : {
       date: '', time: v[1] || '', team1: v[2] || '', team2: v[3] || '',

@@ -2,7 +2,7 @@ import { readFile, writeFile, mkdir, copyFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
-  DEFAULT_SOURCE, decodeGviz, parseTeams, parseSchedule, defaultLineup,
+  DEFAULT_SOURCE, decodeGviz, parseTeams, parseSchedule, rosterMatch, defaultLineup,
   selectedPlayers, validateMatch, buildObs, safeFilename, personKey,
   playerText, observerText, photoMatches, playerPhoto, teamLogo
 } from '../core.js';
@@ -24,8 +24,14 @@ async function sheet(id, gid) {
 }
 
 const roster = parseTeams(await sheet(DEFAULT_SOURCE.id, DEFAULT_SOURCE.gid));
-const schedule = parseSchedule(await sheet(DEFAULT_SOURCE.scheduleId, DEFAULT_SOURCE.scheduleGid));
-const matches = schedule.filter(m => m.date === day);
+// The playoffs tab comes along with the group stage; teams renamed there
+// («Aces (ex-Black Phoenix)») are found under whichever name the rosters have.
+const schedule = parseSchedule([
+  ...await sheet(DEFAULT_SOURCE.scheduleId, DEFAULT_SOURCE.scheduleGid),
+  ...await sheet(DEFAULT_SOURCE.scheduleId, DEFAULT_SOURCE.playoffsGid).catch(() => [])
+]);
+const names = roster.map(t => t.name);
+const matches = schedule.filter(m => m.date === day).map(m => rosterMatch(m, names) || m);
 if (!matches.length) throw new Error('No confirmed match pairs for ' + day + '; no matchups will be invented.');
 const catalog = JSON.parse(await readFile('assets/players/players.json', 'utf8')).players;
 const logos = JSON.parse(await readFile('assets/teams/teams.json', 'utf8'));
