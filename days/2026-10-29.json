@@ -2,10 +2,10 @@
   "version": 1,
   "day": "2026-10-29",
   "startedAt": 1793223953605,
-  "updatedAt": 1793257971375,
+  "updatedAt": 1793283613758,
   "books": {
     "fonbet": {
-      "checkedAt": 1793257971352,
+      "checkedAt": 1793283613697,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -14,21 +14,21 @@
           "team1": "Fire Flux Esports",
           "team2": "PRIVATE",
           "tournament": "Counter-Strike. CyberClash. Bo3",
-          "start": 1793278800000,
+          "start": 1793280600000,
           "odds": [
-            3.4,
-            1.27
+            null,
+            null
           ],
-          "url": "https://fon.bet/sports/esports/147514/69409221",
-          "live": false,
+          "url": "https://fon.bet/live/esports/147514/69409221",
+          "live": true,
           "liveOffered": false,
           "first": 1793223953605,
-          "last": 1793257971352,
+          "last": 1793283613697,
           "open": [
             3.4,
             1.27
           ],
-          "liveSeen": false,
+          "liveSeen": true,
           "names": [
             "Counter-Strike. CyberClash. Bo3"
           ]
@@ -36,7 +36,7 @@
       ]
     },
     "pari": {
-      "checkedAt": 1793257971351,
+      "checkedAt": 1793283613750,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -45,21 +45,21 @@
           "team1": "Fire Flux Esports",
           "team2": "PRIVATE",
           "tournament": "Counter-Strike. CyberClash. Bo3",
-          "start": 1793278800000,
+          "start": 1793280600000,
           "odds": [
-            3.4,
-            1.27
+            null,
+            null
           ],
-          "url": "https://pari.ru/sports/esports/147514/69409221",
-          "live": false,
+          "url": "https://pari.ru/live/esports/147514/69409221",
+          "live": true,
           "liveOffered": false,
           "first": 1793223953613,
-          "last": 1793257971351,
+          "last": 1793283613750,
           "open": [
             3.4,
             1.27
           ],
-          "liveSeen": false,
+          "liveSeen": true,
           "names": [
             "Counter-Strike. CyberClash. Bo3"
           ]
@@ -67,7 +67,7 @@
       ]
     },
     "bettery": {
-      "checkedAt": 1793257971343,
+      "checkedAt": 1793283613748,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -76,21 +76,21 @@
           "team1": "Fire Flux Esports",
           "team2": "PRIVATE",
           "tournament": "Counter-Strike. CyberClash. Bo3",
-          "start": 1793278800000,
+          "start": 1793280600000,
           "odds": [
-            3.4,
-            1.27
+            null,
+            null
           ],
-          "url": "https://bettery.ru/sports/esports/147514/69409221",
-          "live": false,
+          "url": "https://bettery.ru/live/esports/147514/69409221",
+          "live": true,
           "liveOffered": false,
           "first": 1793223953616,
-          "last": 1793257971343,
+          "last": 1793283613748,
           "open": [
             3.4,
             1.27
           ],
-          "liveSeen": false,
+          "liveSeen": true,
           "names": [
             "Counter-Strike. CyberClash. Bo3"
           ]
@@ -98,7 +98,7 @@
       ]
     },
     "bet24": {
-      "checkedAt": 1793257971360,
+      "checkedAt": 1793283613731,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -107,21 +107,21 @@
           "team1": "Fire Flux Esports",
           "team2": "PRIVATE",
           "tournament": "Counter-Strike. CyberClash. Bo3",
-          "start": 1793278800000,
+          "start": 1793280600000,
           "odds": [
-            3.4,
-            1.27
+            null,
+            null
           ],
-          "url": "https://24bet.ru/sports/esports/147514/69409221",
-          "live": false,
+          "url": "https://24bet.ru/live/esports/147514/69409221",
+          "live": true,
           "liveOffered": false,
           "first": 1793223953619,
-          "last": 1793257971360,
+          "last": 1793283613731,
           "open": [
             3.4,
             1.27
           ],
-          "liveSeen": false,
+          "liveSeen": true,
           "names": [
             "Counter-Strike. CyberClash. Bo3"
           ]
@@ -129,7 +129,7 @@
       ]
     },
     "olimp": {
-      "checkedAt": 1793257971355,
+      "checkedAt": 1793283613735,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -140,19 +140,19 @@
           "tournament": "CS2. CyberClash",
           "start": 1793278800000,
           "odds": [
-            3.5,
-            1.27
+            null,
+            null
           ],
-          "url": "https://www.olimp.bet/line/kibersport-112/8354797/86185641",
-          "live": false,
+          "url": "https://www.olimp.bet/live/kibersport-112/8354797/86185641",
+          "live": true,
           "liveOffered": false,
           "first": 1793223953610,
-          "last": 1793257971355,
+          "last": 1793283613735,
           "open": [
             3.5,
             1.27
           ],
-          "liveSeen": false,
+          "liveSeen": true,
           "names": [
             "CS2. CyberClash"
           ]
@@ -160,7 +160,7 @@
       ]
     },
     "marathon": {
-      "checkedAt": 1793257971365,
+      "checkedAt": 1793283613705,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -191,7 +191,7 @@
       ]
     },
     "betcity": {
-      "checkedAt": 1793257971375,
+      "checkedAt": 1793283613741,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -202,19 +202,19 @@
           "tournament": "CS2. CyberClash (best of 3)",
           "start": 1793278500000,
           "odds": [
-            3.5,
-            1.26
+            null,
+            null
           ],
-          "url": "https://betcity.ru/ru/line/cybersport/976019/24787805",
-          "live": false,
-          "liveOffered": true,
+          "url": "https://betcity.ru/ru/live/cybersport/976019/24787805",
+          "live": true,
+          "liveOffered": false,
           "first": 1793223953630,
-          "last": 1793257971375,
+          "last": 1793283613741,
           "open": [
             3.5,
             1.26
           ],
-          "liveSeen": false,
+          "liveSeen": true,
           "names": [
             "CS2. CyberClash (best of 3)"
           ]
@@ -222,13 +222,13 @@
       ]
     },
     "sportbet": {
-      "checkedAt": 1793257971357,
+      "checkedAt": 1793283613755,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "baltbet": {
-      "checkedAt": 1793257971368,
+      "checkedAt": 1793283613737,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -259,7 +259,7 @@
       ]
     },
     "winline": {
-      "checkedAt": 1793257971362,
+      "checkedAt": 1793283613752,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -290,7 +290,7 @@
       ]
     },
     "leon": {
-      "checkedAt": 1793257971366,
+      "checkedAt": 1793283613758,
       "status": "ok",
       "coverage": "prematch",
       "events": [
