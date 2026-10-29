@@ -2,10 +2,10 @@
   "version": 1,
   "day": "2026-10-29",
   "startedAt": 1793223953605,
-  "updatedAt": 1793236638268,
+  "updatedAt": 1793257971375,
   "books": {
     "fonbet": {
-      "checkedAt": 1793236638249,
+      "checkedAt": 1793257971352,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -23,7 +23,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793223953605,
-          "last": 1793236638249,
+          "last": 1793257971352,
           "open": [
             3.4,
             1.27
@@ -36,7 +36,7 @@
       ]
     },
     "pari": {
-      "checkedAt": 1793236638235,
+      "checkedAt": 1793257971351,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -54,7 +54,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793223953613,
-          "last": 1793236638235,
+          "last": 1793257971351,
           "open": [
             3.4,
             1.27
@@ -67,7 +67,7 @@
       ]
     },
     "bettery": {
-      "checkedAt": 1793236638263,
+      "checkedAt": 1793257971343,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -85,7 +85,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793223953616,
-          "last": 1793236638263,
+          "last": 1793257971343,
           "open": [
             3.4,
             1.27
@@ -98,7 +98,7 @@
       ]
     },
     "bet24": {
-      "checkedAt": 1793236638258,
+      "checkedAt": 1793257971360,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -116,7 +116,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793223953619,
-          "last": 1793236638258,
+          "last": 1793257971360,
           "open": [
             3.4,
             1.27
@@ -129,8 +129,8 @@
       ]
     },
     "olimp": {
-      "checkedAt": 1793236638243,
-      "status": "partial",
+      "checkedAt": 1793257971355,
+      "status": "ok",
       "coverage": "line-and-live",
       "events": [
         {
@@ -147,7 +147,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793223953610,
-          "last": 1793236638243,
+          "last": 1793257971355,
           "open": [
             3.5,
             1.27
@@ -160,7 +160,7 @@
       ]
     },
     "marathon": {
-      "checkedAt": 1793236638245,
+      "checkedAt": 1793257971365,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -171,14 +171,14 @@
           "tournament": "CS 2. CyberClash. Закрытая квалификация. Матч из 3-х карт",
           "start": 1793278800000,
           "odds": [
-            3.44,
+            3.42,
             1.27
           ],
           "url": "https://www.marathonbet.ru/su/betting/e-Sports/Counter-Strike+2/CyberClash/Closed+Qualification/Best+of+3+maps/Fire+Flux+vs+Private+-+32966969",
           "live": false,
           "liveOffered": false,
           "first": 1793223953639,
-          "last": 1793236638245,
+          "last": 1793257971365,
           "open": [
             3.44,
             1.27
@@ -191,7 +191,7 @@
       ]
     },
     "betcity": {
-      "checkedAt": 1793236638268,
+      "checkedAt": 1793257971375,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -200,7 +200,7 @@
           "team1": "Fire Flux Esports",
           "team2": "PRIVATE",
           "tournament": "CS2. CyberClash (best of 3)",
-          "start": 1793278800000,
+          "start": 1793278500000,
           "odds": [
             3.5,
             1.26
@@ -209,7 +209,7 @@
           "live": false,
           "liveOffered": true,
           "first": 1793223953630,
-          "last": 1793236638268,
+          "last": 1793257971375,
           "open": [
             3.5,
             1.26
@@ -222,19 +222,44 @@
       ]
     },
     "sportbet": {
-      "checkedAt": 1793236638265,
+      "checkedAt": 1793257971357,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "baltbet": {
-      "checkedAt": 1793236638252,
+      "checkedAt": 1793257971368,
       "status": "ok",
       "coverage": "prematch",
-      "events": []
+      "events": [
+        {
+          "id": "31833351",
+          "team1": "Fire Flux Esports",
+          "team2": "Private",
+          "tournament": "Counter-Strike. Восточная Европа. Cyberclash",
+          "start": 1793278800000,
+          "odds": [
+            3.43,
+            1.22
+          ],
+          "url": "https://baltbet.ru/cybersport/counter-strike/east-europe/cyberclash/fire-flux-esports-private-id-31833351",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793257971368,
+          "last": 1793257971368,
+          "open": [
+            3.43,
+            1.22
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. Восточная Европа. Cyberclash"
+          ]
+        }
+      ]
     },
     "winline": {
-      "checkedAt": 1793236638261,
+      "checkedAt": 1793257971362,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -252,7 +277,7 @@
           "live": false,
           "liveOffered": true,
           "first": 1793223953612,
-          "last": 1793236638261,
+          "last": 1793257971362,
           "open": [
             3.23,
             1.3
@@ -265,7 +290,7 @@
       ]
     },
     "leon": {
-      "checkedAt": 1793236638240,
+      "checkedAt": 1793257971366,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -283,7 +308,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793223953628,
-          "last": 1793236638240,
+          "last": 1793257971366,
           "open": [
             3.35,
             1.28
