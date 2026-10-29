@@ -2,10 +2,10 @@
   "version": 1,
   "day": "2026-10-30",
   "startedAt": 1793283613697,
-  "updatedAt": 1793303073017,
+  "updatedAt": 1793317062485,
   "books": {
     "fonbet": {
-      "checkedAt": 1793303073009,
+      "checkedAt": 1793317062456,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -23,7 +23,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793303073009,
-          "last": 1793303073009,
+          "last": 1793317062456,
           "open": [
             2.1,
             1.65
@@ -47,7 +47,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793283613697,
-          "last": 1793303073009,
+          "last": 1793317062456,
           "open": [
             2.07,
             1.67
@@ -60,7 +60,7 @@
       ]
     },
     "pari": {
-      "checkedAt": 1793303073013,
+      "checkedAt": 1793317062472,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -78,7 +78,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793303073013,
-          "last": 1793303073013,
+          "last": 1793317062472,
           "open": [
             2.1,
             1.65
@@ -102,7 +102,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793283613750,
-          "last": 1793303073013,
+          "last": 1793317062472,
           "open": [
             2.07,
             1.67
@@ -115,7 +115,7 @@
       ]
     },
     "bettery": {
-      "checkedAt": 1793303072997,
+      "checkedAt": 1793317062467,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -133,7 +133,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793303072997,
-          "last": 1793303072997,
+          "last": 1793317062467,
           "open": [
             2.1,
             1.65
@@ -157,7 +157,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793283613748,
-          "last": 1793303072997,
+          "last": 1793317062467,
           "open": [
             2.07,
             1.67
@@ -170,7 +170,7 @@
       ]
     },
     "bet24": {
-      "checkedAt": 1793303073012,
+      "checkedAt": 1793317062480,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -188,7 +188,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793303073012,
-          "last": 1793303073012,
+          "last": 1793317062480,
           "open": [
             2.1,
             1.65
@@ -212,7 +212,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793283613731,
-          "last": 1793303073012,
+          "last": 1793317062480,
           "open": [
             2.07,
             1.67
@@ -225,10 +225,34 @@
       ]
     },
     "olimp": {
-      "checkedAt": 1793303073000,
+      "checkedAt": 1793317062485,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
+        {
+          "id": "86193429",
+          "team1": "Nuclear TigeRES",
+          "team2": "Private",
+          "tournament": "CS2. CyberClash",
+          "start": 1793361600000,
+          "odds": [
+            2.13,
+            1.66
+          ],
+          "url": "https://www.olimp.bet/line/kibersport-112/8354797/86193429",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793317062485,
+          "last": 1793317062485,
+          "open": [
+            2.13,
+            1.66
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS2. CyberClash"
+          ]
+        },
         {
           "id": "86189492",
           "team1": "WRAITH PCIFIC",
@@ -243,7 +267,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793283613735,
-          "last": 1793303073000,
+          "last": 1793317062485,
           "open": [
             2.13,
             1.66
@@ -256,7 +280,7 @@
       ]
     },
     "marathon": {
-      "checkedAt": 1793303073003,
+      "checkedAt": 1793317062466,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -274,7 +298,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793283613705,
-          "last": 1793303073003,
+          "last": 1793317062466,
           "open": [
             2.09,
             1.66
@@ -287,7 +311,7 @@
       ]
     },
     "betcity": {
-      "checkedAt": 1793303072994,
+      "checkedAt": 1793317062483,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -305,7 +329,7 @@
           "live": false,
           "liveOffered": true,
           "first": 1793283613741,
-          "last": 1793303072994,
+          "last": 1793317062483,
           "open": [
             2.1,
             1.65
@@ -318,13 +342,13 @@
       ]
     },
     "sportbet": {
-      "checkedAt": 1793303073017,
-      "status": "partial",
+      "checkedAt": 1793317062474,
+      "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "baltbet": {
-      "checkedAt": 1793303073016,
+      "checkedAt": 1793317062477,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -342,7 +366,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793303073016,
-          "last": 1793303073016,
+          "last": 1793317062477,
           "open": [
             1.95,
             1.67
@@ -366,7 +390,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793283613737,
-          "last": 1793303073016,
+          "last": 1793317062477,
           "open": [
             1.98,
             1.65
@@ -379,7 +403,7 @@
       ]
     },
     "winline": {
-      "checkedAt": 1793303073014,
+      "checkedAt": 1793317062469,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -397,7 +421,7 @@
           "live": false,
           "liveOffered": true,
           "first": 1793303073014,
-          "last": 1793303073014,
+          "last": 1793317062469,
           "open": [
             2.08,
             1.67
@@ -421,7 +445,7 @@
           "live": false,
           "liveOffered": true,
           "first": 1793283613752,
-          "last": 1793303073014,
+          "last": 1793317062469,
           "open": [
             2.08,
             1.67
@@ -434,8 +458,8 @@
       ]
     },
     "leon": {
-      "checkedAt": 1793303072998,
-      "status": "ok",
+      "checkedAt": 1793317062480,
+      "status": "error",
       "coverage": "prematch",
       "events": [
         {
