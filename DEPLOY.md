@@ -142,6 +142,8 @@ HTTPS Netlify выпустит сам после того, как записи �
    Переменные окружения не нужны. Для лобби FACEIT без ввода ключа:
    Settings → Variables and Secrets → Add → Type **Secret**, имя
    `FACEIT_API_KEY`, значение — client-side ключ, затем Redeploy.
+   Блок «Матчи eBot» работает без переменных (по умолчанию
+   `http://37.230.228.105/`); другой сервер eBot — Secret `EBOT_URL`.
 4. **Save and Deploy**. Через пару минут открыть
    `https://<project>.pages.dev/build.txt` — там коммит сборки.
 5. Проверка: на сайте открываются вкладки, `/api/faceit` отвечает

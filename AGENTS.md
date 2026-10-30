@@ -340,6 +340,24 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   остальные) каждые 20 с, звук, уведомления
   браузера, бейдж вкладки, ручной таймер тех. паузы, журнал. localStorage:
   `oneshot-lobby` (ссылка, ключ, шаблоны, задержка), `oneshot-lobby-log`.
+- `ebot.js` — без DOM: список матчей eBot (сборка Flegma на 37.230.228.105):
+  `parseEbotMatches` разбирает страницу списка (два макета: главная с ячейками
+  флагов и `/matchs/current` без них; строка опознаётся по `id="score-N"`,
+  команды — ячейки вокруг счёта), `isLive`, `ebotEvents` (счёт/статус/новый
+  матч — тексты для журнала лобби), `ebotStatusLine`. Браузер eBot не
+  открывает: чтение через прокси `/api/ebot`. Покрыт `test/ebot.test.js`.
+- `ebot-ui.js` — только сайт: блок «Матчи eBot» в лобби (`ebotPanel`,
+  `ebotWatch`, `ebotStatus`, `ebotMatches`): опрос каждые 20 с, пауза при
+  скрытой вкладке, карточки в виде `.lobby-match` (всё из eBot — только
+  `textContent`); новый матч и смены счёта/статуса — в журнал лобби
+  (`oneshot:lobby-note`, матч объявляется раз на браузер). localStorage:
+  `oneshot-ebot` (только галочка «Следить»).
+- `netlify/functions/ebot.mjs` — прокси списка матчей eBot: сервер сам ходит
+  на страницу (адрес — секрет хостинга `EBOT_URL`, по умолчанию
+  `http://37.230.228.105/`; из запроса в URL не попадает ничего), отдаёт
+  страницу как JSON. `functions/api/ebot.js` (Cloudflare) и `server.js`
+  (`/api/ebot`) используют его же. Редирект на логин и отказ eBot —
+  обычный 502 без тела страницы.
 - `netlify/functions/faceit.mjs` — прокси FACEIT для браузера (только пути
   лобби). Ключ админа из заголовка идёт в FACEIT и не хранится; без него
   `proxyFaceit` берёт ключ сайта из секрета хостинга `FACEIT_API_KEY`
@@ -534,7 +552,7 @@ Netlify проверяет локальные фото, докачивает н�
   obsDialog obsForm closeObs vetoBroadcast overlaySizeHint obsBridgeFields obsDockUrl copyDockUrl obsCode
   newObsCode obsRemotePort obsRemotePassword sendObsConfig obsRemoteResult
   obsBridgeStatus obsCodeInput applyObsCode shareDockUrl obsDockMessage
-  obsRemoteBox obsMore playerVeto captainVeto cvFormat cvTimer cvLang cvCreate
+  obsRemoteBox obsMore playerVeto captainVeto cvFormat cvTimer cvLangA cvLangB cvLangS cvCreate
   cvStatus cvSite cvLinks cvNameA cvNameB cvMsgA cvMsgB cvMsgS cvMsgO cvOpen bookies bookiesCheck bookiesTable
   bookiesStatus bookiesCopy bookiesCsv
   eventTitle teamsNavBtn teamsView ltPickFolder ltPickZip ltAddTeam ltStatus ltLog ltGrid

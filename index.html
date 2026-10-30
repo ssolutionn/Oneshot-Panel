@@ -227,7 +227,9 @@
           </select></label>
           <label>Первый пик (в BO1 — первый бан)<select id="cvStart"><option value="coin" selected>Монетка (по умолчанию)</option><option value="0">Первая команда</option><option value="1">Вторая команда</option></select></label>
           <label>Связь при создании комнаты<select id="cvTransport"><option value="vdo" selected>VDO.Ninja</option><option value="server">Наш сервер</option></select></label>
-          <label>Сообщения капитанам<select id="cvLang"><option value="en" selected>English</option><option value="ru">Русский</option></select></label>
+          <label>Язык капитана A<select id="cvLangA"><option value="en" selected>English</option><option value="ru">Русский</option></select></label>
+          <label>Язык капитана B<select id="cvLangB"><option value="en" selected>English</option><option value="ru">Русский</option></select></label>
+          <label>Язык зрителей<select id="cvLangS"><option value="en" selected>English</option><option value="ru">Русский</option></select></label>
           <button id="cvCreate" class="button primary" type="button">Создать ссылки</button>
           <label class="cv-site">Адрес сайта вето <small>(отдельный от панели — игроки не видят адрес панели)</small>
             <input id="cvSite" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://oneshot-veto.pages.dev/"></label>
@@ -237,12 +239,12 @@
           <article class="cv-link">
             <h3>Капитану <span id="cvNameA"></span> <small>в личку</small></h3>
             <textarea id="cvMsgA" readonly rows="6" aria-label="Сообщение первому капитану"></textarea>
-            <button class="button small" type="button" data-cv-copy="cvMsgA">⧉ Скопировать</button>
+            <button class="button small" type="button" data-cv-copy="cvMsgA">⧉ Скопировать в TeamSpeak</button>
           </article>
           <article class="cv-link">
             <h3>Капитану <span id="cvNameB"></span> <small>в личку</small></h3>
             <textarea id="cvMsgB" readonly rows="6" aria-label="Сообщение второму капитану"></textarea>
-            <button class="button small" type="button" data-cv-copy="cvMsgB">⧉ Скопировать</button>
+            <button class="button small" type="button" data-cv-copy="cvMsgB">⧉ Скопировать в TeamSpeak</button>
           </article>
           <article class="cv-link">
             <h3>Зрителям <small>можно в общий канал</small></h3>
@@ -287,6 +289,17 @@
       <section id="lobbyMatches" class="lobby-matches" aria-label="Матчи турнира">
         <div class="empty-panel">Матчи появятся после подключения турнира.</div>
       </section>
+
+      <!-- web-only --><section id="ebotPanel" class="lobby-panel" aria-labelledby="ebotHeading">
+        <div class="panel-heading">
+          <div><span class="eyebrow">EBOT</span><h2 id="ebotHeading">Матчи eBot</h2></div>
+          <label class="lobby-delay"><input id="ebotWatch" type="checkbox" checked> Следить</label>
+        </div>
+        <p id="ebotStatus" class="lobby-status" role="status">Проверяем список матчей eBot…</p>
+        <div id="ebotMatches" class="lobby-matches" aria-label="Матчи eBot">
+          <div class="empty-panel">Здесь появятся матчи, которые ведёт eBot.</div>
+        </div>
+      </section><!-- /web-only -->
 
       <section class="lobby-panel" aria-labelledby="messagesHeading">
         <div class="panel-heading">
@@ -795,6 +808,7 @@
   <script type="module" src="/lan.js"></script>
   <script type="module" src="/cs2.js"></script>
   <script type="module" src="/lobby.js"></script>
-  <script type="module" src="/bookies.js"></script><!-- /web-only -->
+  <script type="module" src="/bookies.js"></script>
+  <script type="module" src="/ebot-ui.js"></script><!-- /web-only -->
 </body>
 </html>

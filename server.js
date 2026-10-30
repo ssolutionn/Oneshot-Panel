@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { bookmakersResponse } from './netlify/functions/bookmakers.mjs';
 import { proxyFaceit } from './netlify/functions/faceit.mjs';
+import { proxyEbot } from './netlify/functions/ebot.mjs';
 import { nodeRelay } from './server/veto-relay-node.mjs';
 import { FileRelayStore } from './server/veto-relay-file.js';
 import {shortIdValid,shortPathValid} from './assets/veto-short-protocol.js';
@@ -15,9 +16,9 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const publicFiles = new Set([
   'index.html', 'app.js', 'core.js', 'style.css', 'theme.js',
   'card.html', 'card.js', 'card.css', 'live.js', 'obs.js', 'vdo.js',
-  'lobby.js', 'faceit.js', 'notifications.js', 'notification-worker.js', 'obs-bridge.html', 'obs-bridge.js',
+  'lobby.js', 'faceit.js', 'ebot.js', 'notifications.js', 'notification-worker.js', 'obs-bridge.html', 'obs-bridge.js',
   'veto.html', 'veto.js', 'veto.css', 'veto-room.js', 'veto-watch.js', 'bookmakers.js', 'bookies.js', 'lan.js', 'lan-event.js', 'lan-images.js', 'cs2.js',
-  'oneshot-webcams.js', 'veto-mobile.html'
+  'oneshot-webcams.js', 'ebot-ui.js', 'veto-mobile.html'
 ]);
 const mime = {
   '.html': 'text/html; charset=utf-8',
@@ -50,6 +51,21 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
     if (!['GET', 'HEAD'].includes(request.method)) {
       response.writeHead(405, { Allow: 'GET, HEAD' });
       response.end();
+      return;
+    }
+    // The eBot match list (netlify/functions/ebot.mjs), locally too: the
+    // same proxy as the hosting function, server-side fetch of the public
+    // eBot page.
+    if (request.url.split('?')[0] === '/api/ebot' && request.method === 'GET') {
+      try {
+        const reply = await proxyEbot(new Request('http://localhost' + request.url), process.env.EBOT_URL);
+        const body = Buffer.from(await reply.arrayBuffer());
+        response.writeHead(reply.status, Object.fromEntries(reply.headers));
+        response.end(body);
+      } catch {
+        if (!response.headersSent) response.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify({ error: 'upstream', message: 'eBot не ответил.' }));
+      }
       return;
     }
     // Bookmakers' line check (netlify/functions/bookmakers.mjs), locally too.
