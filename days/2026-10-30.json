@@ -2,10 +2,10 @@
   "version": 1,
   "day": "2026-10-30",
   "startedAt": 1793283613697,
-  "updatedAt": 1793377082233,
+  "updatedAt": 1793393682615,
   "books": {
     "fonbet": {
-      "checkedAt": 1793377082229,
+      "checkedAt": 1793393682582,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -38,21 +38,21 @@
           "team1": "Nuclear TigeRES",
           "team2": "PRIVATE",
           "tournament": "Counter-Strike. CyberClash. Bo3",
-          "start": 1793377800000,
+          "start": 1793385000000,
           "odds": [
-            1.72,
-            2
+            2.35,
+            1.52
           ],
-          "url": "https://fon.bet/sports/esports/147514/69441442",
-          "live": false,
+          "url": "https://fon.bet/live/esports/147514/69441442",
+          "live": true,
           "liveOffered": false,
           "first": 1793303073009,
-          "last": 1793377082229,
+          "last": 1793393682582,
           "open": [
             2.1,
             1.65
           ],
-          "liveSeen": false,
+          "liveSeen": true,
           "names": [
             "Counter-Strike. CyberClash. Bo3"
           ]
@@ -60,7 +60,7 @@
       ]
     },
     "pari": {
-      "checkedAt": 1793377082209,
+      "checkedAt": 1793393682587,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -93,21 +93,21 @@
           "team1": "Nuclear TigeRES",
           "team2": "PRIVATE",
           "tournament": "Counter-Strike. CyberClash. Bo3",
-          "start": 1793377800000,
+          "start": 1793385000000,
           "odds": [
-            1.72,
-            2
+            2.35,
+            1.52
           ],
-          "url": "https://pari.ru/sports/esports/147514/69441442",
-          "live": false,
+          "url": "https://pari.ru/live/esports/147514/69441442",
+          "live": true,
           "liveOffered": false,
           "first": 1793303073013,
-          "last": 1793377082209,
+          "last": 1793393682587,
           "open": [
             2.1,
             1.65
           ],
-          "liveSeen": false,
+          "liveSeen": true,
           "names": [
             "Counter-Strike. CyberClash. Bo3"
           ]
@@ -115,7 +115,7 @@
       ]
     },
     "bettery": {
-      "checkedAt": 1793377082218,
+      "checkedAt": 1793393682559,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -148,21 +148,21 @@
           "team1": "Nuclear TigeRES",
           "team2": "PRIVATE",
           "tournament": "Counter-Strike. CyberClash. Bo3",
-          "start": 1793377800000,
+          "start": 1793385000000,
           "odds": [
-            1.72,
-            2
+            2.35,
+            1.52
           ],
-          "url": "https://bettery.ru/sports/esports/147514/69441442",
-          "live": false,
+          "url": "https://bettery.ru/live/esports/147514/69441442",
+          "live": true,
           "liveOffered": false,
           "first": 1793303072997,
-          "last": 1793377082218,
+          "last": 1793393682559,
           "open": [
             2.1,
             1.65
           ],
-          "liveSeen": false,
+          "liveSeen": true,
           "names": [
             "Counter-Strike. CyberClash. Bo3"
           ]
@@ -170,7 +170,7 @@
       ]
     },
     "bet24": {
-      "checkedAt": 1793377082227,
+      "checkedAt": 1793393682604,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -203,21 +203,21 @@
           "team1": "Nuclear TigeRES",
           "team2": "PRIVATE",
           "tournament": "Counter-Strike. CyberClash. Bo3",
-          "start": 1793377800000,
+          "start": 1793385000000,
           "odds": [
-            1.72,
-            2
+            2.35,
+            1.52
           ],
-          "url": "https://24bet.ru/sports/esports/147514/69441442",
-          "live": false,
+          "url": "https://24bet.ru/live/esports/147514/69441442",
+          "live": true,
           "liveOffered": false,
           "first": 1793303073012,
-          "last": 1793377082227,
+          "last": 1793393682604,
           "open": [
             2.1,
             1.65
           ],
-          "liveSeen": false,
+          "liveSeen": true,
           "names": [
             "Counter-Strike. CyberClash. Bo3"
           ]
@@ -225,34 +225,10 @@
       ]
     },
     "olimp": {
-      "checkedAt": 1793377082225,
-      "status": "partial",
+      "checkedAt": 1793393682578,
+      "status": "ok",
       "coverage": "line-and-live",
       "events": [
-        {
-          "id": "86193429",
-          "team1": "Nuclear TigeRES",
-          "team2": "Private",
-          "tournament": "CS2. CyberClash",
-          "start": 1793361600000,
-          "odds": [
-            1.76,
-            1.99
-          ],
-          "url": "https://www.olimp.bet/line/kibersport-112/8354797/86193429",
-          "live": false,
-          "liveOffered": false,
-          "first": 1793317062485,
-          "last": 1793353991582,
-          "open": [
-            2.13,
-            1.66
-          ],
-          "liveSeen": false,
-          "names": [
-            "CS2. CyberClash"
-          ]
-        },
         {
           "id": "86189492",
           "team1": "WRAITH PCIFIC",
@@ -276,11 +252,35 @@
           "names": [
             "CS2. CyberClash"
           ]
+        },
+        {
+          "id": "86193429",
+          "team1": "Nuclear TigeRES",
+          "team2": "Private",
+          "tournament": "CS2. CyberClash",
+          "start": 1793383200000,
+          "odds": [
+            null,
+            null
+          ],
+          "url": "https://www.olimp.bet/live/kibersport-112/8354797/86193429",
+          "live": true,
+          "liveOffered": false,
+          "first": 1793317062485,
+          "last": 1793393682578,
+          "open": [
+            2.13,
+            1.66
+          ],
+          "liveSeen": true,
+          "names": [
+            "CS2. CyberClash"
+          ]
         }
       ]
     },
     "marathon": {
-      "checkedAt": 1793377082233,
+      "checkedAt": 1793393682615,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -335,7 +335,7 @@
       ]
     },
     "betcity": {
-      "checkedAt": 1793377082206,
+      "checkedAt": 1793393682562,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -390,13 +390,13 @@
       ]
     },
     "sportbet": {
-      "checkedAt": 1793377082212,
+      "checkedAt": 1793393682612,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "baltbet": {
-      "checkedAt": 1793377082202,
+      "checkedAt": 1793393682579,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -451,7 +451,7 @@
       ]
     },
     "winline": {
-      "checkedAt": 1793377082215,
+      "checkedAt": 1793393682609,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -506,7 +506,7 @@
       ]
     },
     "leon": {
-      "checkedAt": 1793377082232,
+      "checkedAt": 1793393682576,
       "status": "ok",
       "coverage": "prematch",
       "events": [
