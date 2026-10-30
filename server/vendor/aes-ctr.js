@@ -271,7 +271,7 @@ Aes.Ctr.decrypt = function(ciphertext, password, nBits) {
 
   // recover nonce from 1st 8 bytes of ciphertext
   var counterBlock = new Array(8);
-  ctrTxt = ciphertext.slice(0, 8);
+  var ctrTxt = ciphertext.slice(0, 8);
   for (var i=0; i<8; i++) counterBlock[i] = ctrTxt.charCodeAt(i);
 
   // generate key schedule

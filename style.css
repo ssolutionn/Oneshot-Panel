@@ -646,3 +646,9 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .seat-settings .text-button { justify-self:start; }
 
 .player-row[draggable="true"]{cursor:grab}.player-row.dragging{opacity:.45}.player-row.drag-over{outline:2px dashed var(--red);outline-offset:-2px}
+
+/* eBot: кнопки команд и форма создания внутри блока лобби */
+.ebot-commands { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.ebot-create { display:flex; flex-wrap:wrap; gap:8px; padding:12px 16px; border-top:1px solid var(--divider); align-items:center; }
+.ebot-create input, .ebot-create select { min-width:0; flex:1 1 140px; }
+.ebot-create button { flex:0 0 auto; }

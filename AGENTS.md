@@ -358,6 +358,26 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   страницу как JSON. `functions/api/ebot.js` (Cloudflare) и `server.js`
   (`/api/ebot`) используют его же. Редирект на логин и отказ eBot —
   обычный 502 без тела страницы.
+- `server/ebot-admin.js` — серверный клиент админки eBot (только сервер и
+  функции хостинга, никогда браузер): логин sfGuard (CSRF из формы, кука,
+  один перелогин при протухшей сессии — живой eBot при неудаче отдаёт 200 с
+  формой заново, это и есть маркер), admin-JWT читается с авторизованной
+  страницы eBot (никогда не подписываем сами), команды матчу —
+  `matchCommandSend` поверх engine.io v4 polling без зависимостей, пакет
+  запечатан Aes.Ctr самого eBot (vendored `server/vendor/aes-ctr.js`,
+  байт-в-байт как расшифровка PHP-ядра; для edge — копия с export
+  `aes-ctr-esm.js`), `createMatch`/`startMatch`/`catalog` — через формы
+  админки. Ошибки русские, секреты не логируются.
+- `netlify/functions/ebot-admin.mjs` — `POST /api/ebot-admin` (same-origin,
+  как прокси FACEIT): действия commands/send/catalog/create/start; секреты
+  `EBOT_USER`/`EBOT_PASSWORD` хостинга. `functions/api/ebot-admin.js`
+  (Cloudflare, AES статически) и `server.js` (POST до GET-гейта) — тот же
+  контракт. Браузер секретов eBot не видит.
+- Управление в блоке eBot (`ebot-ui.js`): при наличии секретов блок
+  получает кнопки команд живого матча (пауза, стоп, ножи, конец
+  разминки) и форму создания матча (серверы/карты — из каталога админки);
+  всё через `/api/ebot-admin`, ответы — в журнал лобби. Без секретов блок
+  остаётся монитором.
 - `netlify/functions/faceit.mjs` — прокси FACEIT для браузера (только пути
   лобби). Ключ админа из заголовка идёт в FACEIT и не хранится; без него
   `proxyFaceit` берёт ключ сайта из секрета хостинга `FACEIT_API_KEY`

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { bookmakersResponse } from './netlify/functions/bookmakers.mjs';
 import { proxyFaceit } from './netlify/functions/faceit.mjs';
 import { proxyEbot } from './netlify/functions/ebot.mjs';
+import { proxyEbotAdmin } from './netlify/functions/ebot-admin.mjs';
 import { nodeRelay } from './server/veto-relay-node.mjs';
 import { FileRelayStore } from './server/veto-relay-file.js';
 import {shortIdValid,shortPathValid} from './assets/veto-short-protocol.js';
@@ -48,6 +49,37 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
       "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://docs.google.com https://open.faceit.com https://oneshot-veto.pages.dev https://oneshot-veto.cyberclash.workers.dev ws://127.0.0.1:* ws://localhost:*; frame-src https://vdo.ninja https://cdn-backup.vdo.ninja; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
     if (cs2 && await handleCs2(request, response, cs2)) return;
     if (await nodeRelay(request, response, relayStore, shortStore)) return;
+    // eBot admin actions (netlify/functions/ebot-admin.mjs): commands, create
+    // and start go through the server-side client, credentials from
+    // EBOT_USER/EBOT_PASSWORD, same-origin as the panel. POST, so it sits
+    // before the GET/HEAD-only static part below.
+    if (request.url.split('?')[0] === '/api/ebot-admin' && request.method === 'POST') {
+      try {
+        const chunks = [];
+        for await (const chunk of request) chunks.push(chunk);
+        const reply = await proxyEbotAdmin(new Request('http://localhost/api/ebot-admin', {
+          method: 'POST',
+          headers: {
+            'content-type': request.headers['content-type'] || '',
+            'content-length': String(Buffer.concat(chunks).length),
+            'sec-fetch-site': request.headers['sec-fetch-site'] || '',
+            origin: request.headers.origin === `http://${request.headers.host}` ? 'http://localhost' : ''
+          },
+          body: Buffer.concat(chunks)
+        }), {
+          EBOT_URL: process.env.EBOT_URL || '',
+          EBOT_USER: process.env.EBOT_USER || '',
+          EBOT_PASSWORD: process.env.EBOT_PASSWORD || ''
+        });
+        const body = Buffer.from(await reply.arrayBuffer());
+        response.writeHead(reply.status, Object.fromEntries(reply.headers));
+        response.end(body);
+      } catch {
+        if (!response.headersSent) response.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify({ error: 'upstream', message: 'eBot не ответил.' }));
+      }
+      return;
+    }
     if (!['GET', 'HEAD'].includes(request.method)) {
       response.writeHead(405, { Allow: 'GET, HEAD' });
       response.end();

@@ -296,10 +296,22 @@ test('catalog разбирает серверы и карты формы соз�
   assert.ok(cat.maps.includes('de_mirage'));
 });
 
-// ---------- заготовка netlify-функции ----------
+// ---------- netlify-функция /api/ebot-admin ----------
 
-test('netlify-заготовка /api/ebot-admin пока отвечает 501', async () => {
-  const { default: handler } = await import('../netlify/functions/ebot-admin.mjs');
-  const reply = await handler(new Request('http://localhost/api/ebot-admin', { method: 'POST' }));
-  assert.equal(reply.status, 501);
+test('/api/ebot-admin: GET и чужой origin не обслуживаются, без секретов — 401', async () => {
+  const { proxyEbotAdmin } = await import('../netlify/functions/ebot-admin.mjs');
+  const get = await proxyEbotAdmin(new Request('http://localhost/api/ebot-admin'), {});
+  assert.equal(get.status, 400);
+  // Fetch Metadata нет → проверяется Origin; чужой сайт не проходит.
+  const foreign = await proxyEbotAdmin(new Request('http://localhost/api/ebot-admin', {
+    method: 'POST', headers: { origin: 'https://evil.example' }, body: '{}'
+  }), {});
+  assert.equal(foreign.status, 403);
+  // Секреты не заданы — понятная ошибка, без учётных данных в ответе.
+  const own = await proxyEbotAdmin(new Request('http://localhost/api/ebot-admin', {
+    method: 'POST', headers: { origin: 'http://localhost' }, body: JSON.stringify({ action: 'catalog' })
+  }), {});
+  assert.equal(own.status, 401);
+  const body = await own.json();
+  assert.equal(body.error, 'no-credentials');
 });
