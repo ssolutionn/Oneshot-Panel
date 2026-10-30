@@ -38,10 +38,20 @@ const ACTIONS_PAGE = JSON.stringify([
 const CREATE_PAGE = `<html><body><form action="/admin.php/matchs/create" method="post">
 <input type="hidden" name="matchs[_csrf_token]" value="ctok456">
 <select name="server_id"><option value="3">SRV-1 - 10.0.0.1:27015</option></select>
-<select name="maps[]" multiple="multiple">
+<select name="maps">
 <option value="de_dust2">de_dust2</option>
 <option value="de_mirage">de_mirage</option>
 <option value="de_nuke">de_nuke</option>
+</select>
+</form></body></html>`;
+
+// Та же страница с flash-сообщением после успешного создания.
+const CREATE_PAGE_FLASH = `<html><body>Match created with ID 48
+<form action="/admin.php/matchs/create" method="post">
+<input type="hidden" name="matchs[_csrf_token]" value="ctok456">
+<select name="server_id"><option value="3">SRV-1 - 10.0.0.1:27015</option></select>
+<select name="maps">
+<option value="de_dust2">de_dust2</option>
 </select>
 </form></body></html>`;
 
@@ -178,7 +188,8 @@ test('ebotEncrypt расшифровывается vendored AES-CTR тем же 
   assert.ok(Aes);
   const enc = ebotEncrypt('47 pauseunpause 92.240.243.62:27020', 'authkey', Aes);
   assert.equal(typeof enc, 'string');
-  assert.equal(Aes.Ctr.decrypt(enc, 'authkey', 128), '47 pauseunpause 92.240.243.62:27020');
+  // Клиент шифрует 256 битами — так же расшифровывает PHP-ядро eBot.
+  assert.equal(Aes.Ctr.decrypt(enc, 'authkey', 256), '47 pauseunpause 92.240.243.62:27020');
 });
 
 // ---------- socket.io polling ----------
@@ -213,6 +224,7 @@ function mockSocketio() {
 test('socketioSession разбирает событие matchsHandler из polling', { skip }, async () => {
   const fetchMock = mockSocketio();
   const session = socketioSession({ jwt: JWT, baseWsUrl: 'http://ebot.test', fetchImpl: fetchMock });
+  await session.open();
   const ev = await session.nextEvent();
   assert.ok(ev, 'событие не разобрано');
   const json = JSON.stringify(ev);
@@ -230,6 +242,7 @@ test('socketioSession разбирает событие matchsHandler из polli
 test('polling-запросы socketioSession несут Authorization: Bearer <jwt>', { skip }, async () => {
   const fetchMock = mockSocketio();
   const session = socketioSession({ jwt: JWT, baseWsUrl: 'http://ebot.test', fetchImpl: fetchMock });
+  await session.open();
   await session.nextEvent();
   assert.ok(fetchMock.calls.length > 0, 'запросов не было');
   for (const call of fetchMock.calls) {
@@ -244,13 +257,25 @@ test('polling-запросы socketioSession несут Authorization: Bearer <j
 test('createMatch создаёт матч и возвращает его ID', { skip }, async () => {
   const fetchMock = mockFetch([
     ...loginRoutes(),
+    // JWT достаётся со страницы current при bootstrap, до create-формы.
+    { method: 'GET', path: '/admin.php/matchs/current', text: CURRENT_PAGE, headers: HTML },
     { method: 'GET', path: '/admin.php/matchs/create', text: CREATE_PAGE, headers: HTML },
     { method: 'POST', path: '/admin.php/matchs/create', status: 302,
-      headers: { location: '/admin.php/matchs/show/48' } },
-    { method: 'GET', path: '/admin.php/matchs/show/48',
-      text: '<html><body>Match created with ID 48</body></html>', headers: HTML }
+      headers: { location: '/admin.php/matchs/create' } }
   ]);
-  const admin = makeAdmin(fetchMock);
+  // Первый GET create — форма с CSRF; после редиректа — та же страница с flash.
+  let createViews = 0;
+  const inner = fetchMock;
+  const stateful = (url, init = {}) => {
+    const target = String(url);
+    if ((init.method || 'GET').toUpperCase() === 'GET' &&
+        new URL(target).pathname === '/admin.php/matchs/create' && createViews++ === 1) {
+      return Promise.resolve(new Response(CREATE_PAGE_FLASH, { headers: HTML }));
+    }
+    return inner(url, init);
+  };
+  stateful.calls = inner.calls;
+  const admin = makeAdmin(stateful);
   const result = await admin.createMatch({ teamA: 'Team A', teamB: 'Team B', map: 'de_dust2', serverId: 3 });
   assert.equal(result.created, true, JSON.stringify(result));
   assert.equal(String(result.id), '48');
@@ -259,6 +284,7 @@ test('createMatch создаёт матч и возвращает его ID', { 
 test('catalog разбирает серверы и карты формы создания', { skip }, async () => {
   const fetchMock = mockFetch([
     ...loginRoutes(),
+    { method: 'GET', path: '/admin.php/matchs/current', text: CURRENT_PAGE, headers: HTML },
     { method: 'GET', path: '/admin.php/matchs/create', text: CREATE_PAGE, headers: HTML }
   ]);
   const admin = makeAdmin(fetchMock);
