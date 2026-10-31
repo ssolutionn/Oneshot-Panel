@@ -2,10 +2,10 @@
   "version": 1,
   "day": "2026-10-31",
   "startedAt": 1793405843555,
-  "updatedAt": 1793446186999,
+  "updatedAt": 1793463453482,
   "books": {
     "fonbet": {
-      "checkedAt": 1793446186990,
+      "checkedAt": 1793463453469,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -60,7 +60,7 @@
       ]
     },
     "pari": {
-      "checkedAt": 1793446186991,
+      "checkedAt": 1793463453478,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -115,7 +115,7 @@
       ]
     },
     "bettery": {
-      "checkedAt": 1793446186988,
+      "checkedAt": 1793463453471,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -170,7 +170,7 @@
       ]
     },
     "bet24": {
-      "checkedAt": 1793446186979,
+      "checkedAt": 1793463453482,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -225,8 +225,8 @@
       ]
     },
     "olimp": {
-      "checkedAt": 1793446186996,
-      "status": "ok",
+      "checkedAt": 1793463453473,
+      "status": "partial",
       "coverage": "line-and-live",
       "events": [
         {
@@ -260,19 +260,19 @@
           "tournament": "CS2. CyberClash",
           "start": 1793458500000,
           "odds": [
-            1.18,
-            4.51
+            1.17,
+            4.3
           ],
-          "url": "https://www.olimp.bet/line/kibersport-112/8354797/86204043",
-          "live": false,
+          "url": "https://www.olimp.bet/live/kibersport-112/8354797/86204043",
+          "live": true,
           "liveOffered": false,
           "first": 1793426100047,
-          "last": 1793446186996,
+          "last": 1793463453473,
           "open": [
             1.18,
             4.51
           ],
-          "liveSeen": false,
+          "liveSeen": true,
           "names": [
             "CS2. CyberClash"
           ]
@@ -280,7 +280,7 @@
       ]
     },
     "marathon": {
-      "checkedAt": 1793446186998,
+      "checkedAt": 1793463453480,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -335,7 +335,7 @@
       ]
     },
     "betcity": {
-      "checkedAt": 1793446186999,
+      "checkedAt": 1793463453466,
       "status": "ok",
       "coverage": "line-and-live",
       "events": [
@@ -370,19 +370,19 @@
           "tournament": "CS2. CyberClash (best of 3)",
           "start": 1793458500000,
           "odds": [
-            1.2,
-            4
+            null,
+            null
           ],
-          "url": "https://betcity.ru/ru/line/cybersport/976019/24791270",
-          "live": false,
-          "liveOffered": true,
+          "url": "https://betcity.ru/ru/live/cybersport/976019/24791270",
+          "live": true,
+          "liveOffered": false,
           "first": 1793426100018,
-          "last": 1793446186999,
+          "last": 1793463453466,
           "open": [
             1.2,
             4
           ],
-          "liveSeen": false,
+          "liveSeen": true,
           "names": [
             "CS2. CyberClash (best of 3)"
           ]
@@ -390,13 +390,13 @@
       ]
     },
     "sportbet": {
-      "checkedAt": 1793446186986,
+      "checkedAt": 1793463453453,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "baltbet": {
-      "checkedAt": 1793446186995,
+      "checkedAt": 1793463453479,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -429,7 +429,7 @@
           "team1": "Private",
           "team2": "Omega",
           "tournament": "Counter-Strike. Восточная Европа. Cyberclash",
-          "start": 1793462400000,
+          "start": 1793463900000,
           "odds": [
             1.16,
             4
@@ -438,7 +438,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793405843585,
-          "last": 1793446186995,
+          "last": 1793463453479,
           "open": [
             1.16,
             4
@@ -451,7 +451,7 @@
       ]
     },
     "winline": {
-      "checkedAt": 1793446186997,
+      "checkedAt": 1793463453481,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -506,7 +506,7 @@
       ]
     },
     "leon": {
-      "checkedAt": 1793446186993,
+      "checkedAt": 1793463453468,
       "status": "ok",
       "coverage": "prematch",
       "events": [
