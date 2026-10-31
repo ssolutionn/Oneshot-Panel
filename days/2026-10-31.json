@@ -2,58 +2,401 @@
   "version": 1,
   "day": "2026-10-31",
   "startedAt": 1793405843555,
-  "updatedAt": 1793405843720,
+  "updatedAt": 1793426100047,
   "books": {
     "fonbet": {
-      "checkedAt": 1793405843600,
+      "checkedAt": 1793426100029,
       "status": "ok",
       "coverage": "line-and-live",
-      "events": []
+      "events": [
+        {
+          "id": "69486440",
+          "team1": "Nuclear TigeRES",
+          "team2": "WRAITH PCIFIC",
+          "tournament": "Counter-Strike. CyberClash. Bo3",
+          "start": 1793451600000,
+          "odds": [
+            1.22,
+            3.8
+          ],
+          "url": "https://fon.bet/sports/esports/147514/69486440",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793426100029,
+          "last": 1793426100029,
+          "open": [
+            1.22,
+            3.8
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Bo3"
+          ]
+        },
+        {
+          "id": "69486442",
+          "team1": "PRIVATE",
+          "team2": "OMEGA",
+          "tournament": "Counter-Strike. CyberClash. Bo3",
+          "start": 1793462400000,
+          "odds": [
+            1.2,
+            4
+          ],
+          "url": "https://fon.bet/sports/esports/147514/69486442",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793426100029,
+          "last": 1793426100029,
+          "open": [
+            1.2,
+            4
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Bo3"
+          ]
+        }
+      ]
     },
     "pari": {
-      "checkedAt": 1793405843574,
+      "checkedAt": 1793426100037,
       "status": "ok",
       "coverage": "line-and-live",
-      "events": []
+      "events": [
+        {
+          "id": "69486440",
+          "team1": "Nuclear TigeRES",
+          "team2": "WRAITH PCIFIC",
+          "tournament": "Counter-Strike. CyberClash. Bo3",
+          "start": 1793451600000,
+          "odds": [
+            1.22,
+            3.8
+          ],
+          "url": "https://pari.ru/sports/esports/147514/69486440",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793426100037,
+          "last": 1793426100037,
+          "open": [
+            1.22,
+            3.8
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Bo3"
+          ]
+        },
+        {
+          "id": "69486442",
+          "team1": "PRIVATE",
+          "team2": "OMEGA",
+          "tournament": "Counter-Strike. CyberClash. Bo3",
+          "start": 1793462400000,
+          "odds": [
+            1.2,
+            4
+          ],
+          "url": "https://pari.ru/sports/esports/147514/69486442",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793426100037,
+          "last": 1793426100037,
+          "open": [
+            1.2,
+            4
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Bo3"
+          ]
+        }
+      ]
     },
     "bettery": {
-      "checkedAt": 1793405843577,
+      "checkedAt": 1793426100025,
       "status": "ok",
       "coverage": "line-and-live",
-      "events": []
+      "events": [
+        {
+          "id": "69486440",
+          "team1": "Nuclear TigeRES",
+          "team2": "WRAITH PCIFIC",
+          "tournament": "Counter-Strike. CyberClash. Bo3",
+          "start": 1793451600000,
+          "odds": [
+            1.22,
+            3.8
+          ],
+          "url": "https://bettery.ru/sports/esports/147514/69486440",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793426100025,
+          "last": 1793426100025,
+          "open": [
+            1.22,
+            3.8
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Bo3"
+          ]
+        },
+        {
+          "id": "69486442",
+          "team1": "PRIVATE",
+          "team2": "OMEGA",
+          "tournament": "Counter-Strike. CyberClash. Bo3",
+          "start": 1793462400000,
+          "odds": [
+            1.2,
+            4
+          ],
+          "url": "https://bettery.ru/sports/esports/147514/69486442",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793426100025,
+          "last": 1793426100025,
+          "open": [
+            1.2,
+            4
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Bo3"
+          ]
+        }
+      ]
     },
     "bet24": {
-      "checkedAt": 1793405843597,
+      "checkedAt": 1793426100006,
       "status": "ok",
       "coverage": "line-and-live",
-      "events": []
+      "events": [
+        {
+          "id": "69486440",
+          "team1": "Nuclear TigeRES",
+          "team2": "WRAITH PCIFIC",
+          "tournament": "Counter-Strike. CyberClash. Bo3",
+          "start": 1793451600000,
+          "odds": [
+            1.22,
+            3.8
+          ],
+          "url": "https://24bet.ru/sports/esports/147514/69486440",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793426100006,
+          "last": 1793426100006,
+          "open": [
+            1.22,
+            3.8
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Bo3"
+          ]
+        },
+        {
+          "id": "69486442",
+          "team1": "PRIVATE",
+          "team2": "OMEGA",
+          "tournament": "Counter-Strike. CyberClash. Bo3",
+          "start": 1793462400000,
+          "odds": [
+            1.2,
+            4
+          ],
+          "url": "https://24bet.ru/sports/esports/147514/69486442",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793426100006,
+          "last": 1793426100006,
+          "open": [
+            1.2,
+            4
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. CyberClash. Bo3"
+          ]
+        }
+      ]
     },
     "olimp": {
-      "checkedAt": 1793405843594,
+      "checkedAt": 1793426100047,
       "status": "ok",
       "coverage": "line-and-live",
-      "events": []
+      "events": [
+        {
+          "id": "86204042",
+          "team1": "Nuclear TigeRES",
+          "team2": "WRAITH PCIFIC",
+          "tournament": "CS2. CyberClash",
+          "start": 1793451600000,
+          "odds": [
+            1.22,
+            4
+          ],
+          "url": "https://www.olimp.bet/line/kibersport-112/8354797/86204042",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793426100047,
+          "last": 1793426100047,
+          "open": [
+            1.22,
+            4
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS2. CyberClash"
+          ]
+        },
+        {
+          "id": "86204043",
+          "team1": "Private",
+          "team2": "Omega",
+          "tournament": "CS2. CyberClash",
+          "start": 1793458500000,
+          "odds": [
+            1.18,
+            4.51
+          ],
+          "url": "https://www.olimp.bet/line/kibersport-112/8354797/86204043",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793426100047,
+          "last": 1793426100047,
+          "open": [
+            1.18,
+            4.51
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS2. CyberClash"
+          ]
+        }
+      ]
     },
     "marathon": {
-      "checkedAt": 1793405843591,
+      "checkedAt": 1793426100039,
       "status": "ok",
       "coverage": "prematch",
-      "events": []
+      "events": [
+        {
+          "id": "30016676",
+          "team1": "WRAITH PCIFIC",
+          "team2": "Nuclear TigeRES",
+          "tournament": "CS 2. CyberClash. Плей-офф. Матч из 3-х карт",
+          "start": 1793451600000,
+          "odds": [
+            3.75,
+            1.23
+          ],
+          "url": "https://www.marathonbet.ru/su/betting/e-Sports/Counter-Strike+2/CyberClash/Play-Offs/Best+of+3+maps/WRAITH+PCIFIC+vs+Nuclear+TigeRES+-+33035002",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793426100039,
+          "last": 1793426100039,
+          "open": [
+            3.75,
+            1.23
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS 2. CyberClash. Плей-офф. Матч из 3-х карт"
+          ]
+        },
+        {
+          "id": "30016675",
+          "team1": "Omega",
+          "team2": "Private",
+          "tournament": "CS 2. CyberClash. Плей-офф. Матч из 3-х карт",
+          "start": 1793462400000,
+          "odds": [
+            3.96,
+            1.21
+          ],
+          "url": "https://www.marathonbet.ru/su/betting/e-Sports/Counter-Strike+2/CyberClash/Play-Offs/Best+of+3+maps/Omega+vs+Private+-+33035000",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793426100039,
+          "last": 1793426100039,
+          "open": [
+            3.96,
+            1.21
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS 2. CyberClash. Плей-офф. Матч из 3-х карт"
+          ]
+        }
+      ]
     },
     "betcity": {
-      "checkedAt": 1793405843720,
+      "checkedAt": 1793426100018,
       "status": "ok",
       "coverage": "line-and-live",
-      "events": []
+      "events": [
+        {
+          "id": "24791269",
+          "team1": "Nuclear TigeRES",
+          "team2": "PCIFIC",
+          "tournament": "CS2. CyberClash (best of 3)",
+          "start": 1793447700000,
+          "odds": [
+            1.22,
+            3.8
+          ],
+          "url": "https://betcity.ru/ru/line/cybersport/976019/24791269",
+          "live": false,
+          "liveOffered": true,
+          "first": 1793426100018,
+          "last": 1793426100018,
+          "open": [
+            1.22,
+            3.8
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS2. CyberClash (best of 3)"
+          ]
+        },
+        {
+          "id": "24791270",
+          "team1": "PRIVATE",
+          "team2": "Omega",
+          "tournament": "CS2. CyberClash (best of 3)",
+          "start": 1793458500000,
+          "odds": [
+            1.2,
+            4
+          ],
+          "url": "https://betcity.ru/ru/line/cybersport/976019/24791270",
+          "live": false,
+          "liveOffered": true,
+          "first": 1793426100018,
+          "last": 1793426100018,
+          "open": [
+            1.2,
+            4
+          ],
+          "liveSeen": false,
+          "names": [
+            "CS2. CyberClash (best of 3)"
+          ]
+        }
+      ]
     },
     "sportbet": {
-      "checkedAt": 1793405843580,
+      "checkedAt": 1793426100023,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "baltbet": {
-      "checkedAt": 1793405843585,
+      "checkedAt": 1793426100043,
       "status": "ok",
       "coverage": "prematch",
       "events": [
@@ -71,7 +414,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793405843585,
-          "last": 1793405843585,
+          "last": 1793426100043,
           "open": [
             1.17,
             3.9
@@ -95,7 +438,7 @@
           "live": false,
           "liveOffered": false,
           "first": 1793405843585,
-          "last": 1793405843585,
+          "last": 1793426100043,
           "open": [
             1.16,
             4
@@ -108,16 +451,114 @@
       ]
     },
     "winline": {
-      "checkedAt": 1793405843555,
+      "checkedAt": 1793426100020,
       "status": "ok",
       "coverage": "prematch",
-      "events": []
+      "events": [
+        {
+          "id": "17055532",
+          "team1": "NUCLEAR TIGERES",
+          "team2": "WRAITH PCIFIC",
+          "tournament": "CyberClash",
+          "start": 1793451600000,
+          "odds": [
+            1.24,
+            3.63
+          ],
+          "url": "https://winline.ru/stavki/sport/kibersport/counter-strike",
+          "live": false,
+          "liveOffered": true,
+          "first": 1793426100020,
+          "last": 1793426100020,
+          "open": [
+            1.24,
+            3.63
+          ],
+          "liveSeen": false,
+          "names": [
+            "CyberClash"
+          ]
+        },
+        {
+          "id": "17055533",
+          "team1": "PRIVATE ESPORTS",
+          "team2": "OMEGA ESPORTS",
+          "tournament": "CyberClash",
+          "start": 1793464200000,
+          "odds": [
+            1.21,
+            3.92
+          ],
+          "url": "https://winline.ru/stavki/sport/kibersport/counter-strike",
+          "live": false,
+          "liveOffered": true,
+          "first": 1793426100020,
+          "last": 1793426100020,
+          "open": [
+            1.21,
+            3.92
+          ],
+          "liveSeen": false,
+          "names": [
+            "CyberClash"
+          ]
+        }
+      ]
     },
     "leon": {
-      "checkedAt": 1793405843570,
+      "checkedAt": 1793426100035,
       "status": "ok",
       "coverage": "prematch",
-      "events": []
+      "events": [
+        {
+          "id": "1970324854143623",
+          "team1": "Nuclear Tigeres",
+          "team2": "WRAITH PCIFIC",
+          "tournament": "CyberClash",
+          "start": 1793451600000,
+          "odds": [
+            1.22,
+            3.8
+          ],
+          "url": "https://leon.ru/bets/esports/cs2/cyberclash/1970324854143623-nuclear-tigeres-wraith-pcific",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793426100035,
+          "last": 1793426100035,
+          "open": [
+            1.22,
+            3.8
+          ],
+          "liveSeen": false,
+          "names": [
+            "CyberClash"
+          ]
+        },
+        {
+          "id": "1970324854143628",
+          "team1": "PRIVATE",
+          "team2": "OMEGA",
+          "tournament": "CyberClash",
+          "start": 1793464200000,
+          "odds": [
+            1.18,
+            4.3
+          ],
+          "url": "https://leon.ru/bets/esports/cs2/cyberclash/1970324854143628-private-omega",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793426100035,
+          "last": 1793426100035,
+          "open": [
+            1.18,
+            4.3
+          ],
+          "liveSeen": false,
+          "names": [
+            "CyberClash"
+          ]
+        }
+      ]
     }
   }
 }
