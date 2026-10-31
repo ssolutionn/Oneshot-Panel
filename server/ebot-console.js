@@ -41,12 +41,14 @@ class ConsoleSession {
     this.#clients = new Set();
     this.#rcon = null;
     this.#stopped = false;
+    this.#idleSince = now();
   }
   #now;
   #clients;
   #rcon;
   #stopped;
   #sseIdLength;
+  #idleSince;
   // Буфер на СЕССИЮ (не на хаб): реплей чужого матча — утечка логов/чата
   // одного матча в консоль другого. 100 строк на поток, консоль не сервер.
   #history = { log: [], chat: [], rcon: [] };
@@ -70,6 +72,7 @@ class ConsoleSession {
     res.on('close', () => {
       client.alive = false;
       this.#clients.delete(client);
+      if (!this.#clients.size) this.#idleSince = this.#now();
     });
     // Comment-keepalive каждые 20 с: прокси не рвут пустое соединение.
     const timer = setInterval(() => {
@@ -152,6 +155,8 @@ class ConsoleSession {
 
   get clientCount() { return this.#clients.size; }
   get stopped() { return this.#stopped; }
+  // Для reaper'а хаба: когда сессия осталась без клиентов.
+  get idleSince() { return this.#idleSince; }
 
   #nextId() {
     return randomBytes(Math.ceil(this.#sseIdLength / 2)).toString('hex').slice(0, this.#sseIdLength);
@@ -167,6 +172,20 @@ export function createConsoleHub({ admin, log = () => {}, now = Date.now } = {})
   const makeId = () => randomBytes(8).toString('base64url');
 
   const closeAll = () => { for (const s of sessions.values()) s.stop('shutdown'); sessions.clear(); };
+
+  // Reaper: закрытая вкладка не шлёт POST stop — сессия без клиентов
+  // продолжает поллить eBot. Через 2 минуты тишины закрываем сами.
+  const reaper = setInterval(() => {
+    const nowTime = Date.now();
+    for (const s of sessions.values()) {
+      if (!s.stopped && s.clientCount === 0 && nowTime - s.idleSince > 120_000) {
+        sessions.delete(s.id);
+        s.stop('timeout');
+        log(`console ${s.id} закрыта по таймауту без клиентов`);
+      }
+    }
+  }, 30_000);
+  reaper.unref?.();
 
   return {
     // Создать сессию для матча. Отдаёт {id}. Совпадающий матч — отдельная

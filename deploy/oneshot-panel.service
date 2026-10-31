@@ -8,9 +8,11 @@ User=oneshot
 Group=oneshot
 WorkingDirectory=/opt/oneshot-panel
 # Весь сайт и все API (eBot, FACEIT, букмекеры, вето-реле) — один процесс.
-# HOST=0.0.0.0, если панель стоит за nginx этого же сервера на 127.0.0.1 —
-# оставь 127.0.0.1 и проксируй.
+# 127.0.0.1 — панель за nginx этого же сервера; раскомментируй 0.0.0.0
+# для прямого доступа http://<ip>:3000 (гайд «ЗАПУСК-ЗАВТРА»), но
+# тогда обязателен фаервол/VPN — эндпоинты управления без авторизации.
 Environment=HOST=127.0.0.1
+#Environment=HOST=0.0.0.0
 Environment=PORT=3000
 # Секреты целиком — здесь (EBOT_ADMIN_TOKEN при желании см. deploy/README.md):
 # раскомментируй и заполни /etc/oneshot-panel.env (права 600, root:oneshot).

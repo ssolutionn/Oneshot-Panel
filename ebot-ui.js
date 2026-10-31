@@ -78,7 +78,9 @@ function matchCard(match) {
   return el('div', { className: 'lobby-match' + (live ? ' live' : done ? ' done' : ''), dataset: { match: match.id } },
     el('div', { className: 'lm-top' },
       el('span', { className: 'lm-status', textContent: live ? match.status : 'Завершён' }),
-      live && adminReady ? el('button', {
+      // Консоль — только для идущего матча: не-стартованному eBot не
+      // отдаёт ни rcon-комнат, ни authkey-кнопок, консоль была бы мёртвой.
+      live && adminReady && !/^Not started/i.test(match.status) ? el('button', {
         type: 'button', className: 'button small', textContent: 'Консоль',
         title: 'Живой лог, чат и RCON сервера этого матча',
         onclick: () => openConsole(match.id)
@@ -289,7 +291,7 @@ async function openConsole(matchId) {
   const dialog = $('ebotConsole');
   if (consoleState.opening) return;
   if (consoleState.id && consoleState.matchId === String(matchId)) { dialog.showModal(); return; }
-  closeConsoleStream(false);
+  closeConsoleStream();
   $('ebotConsoleLog').replaceChildren();
   $('ebotConsoleChat').replaceChildren();
   $('ebotConsoleRcon').replaceChildren();
@@ -372,14 +374,15 @@ function appendText(node, text) {
 function scrollDown(node) { node.scrollTop = node.scrollHeight; }
 
 // Закрыть поток и сессию. dialogClose — закрыт ли сам диалог (событие).
-function closeConsoleStream(notifyServer = true) {
+function closeConsoleStream() {
   closeSource();
-  if (consoleState.id && notifyServer) {
+  if (consoleState.id) {
     const id = consoleState.id;
     consoleState.id = null;
-    consoleCall({ action: 'stop', id }).catch(() => { /* сервер сам закроет по таймауту */ });
-  } else {
-    consoleState.id = null;
+    // Сервер держит живой поллинг к eBot — останавливаем и при переключении
+    // на другой матч, не только при закрытии диалога: иначе сессия-зомби
+    // поллит eBot до evict'а.
+    consoleCall({ action: 'stop', id }).catch(() => { /* reaper сервера добьёт */ });
   }
 }
 
