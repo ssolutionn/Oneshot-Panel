@@ -274,6 +274,18 @@ for (const [value, label] of HEATMAP_TYPES) {
 async function ensureRadar() {
   const map = radarMapName();
   if (state.radar.img) return;
+  // Карта неизвестна списку — не притворяемся dust2: чистый холст с точками.
+  if (!map) {
+    state.radar.img = null;
+    state.radar.width = 500;
+    state.radar.height = 509;
+    const canvas = $('ebotStatsCanvas');
+    canvas.width = 500;
+    canvas.height = 509;
+    $('ebotStatsRadarNote').hidden = false;
+    $('ebotStatsRadarNote').textContent = 'Карта матча не определена — только точки.';
+    return;
+  }
   const known = RADARS.has(map);
   const url = known ? RADAR_DIR + map + '.png'
     : FALLBACK_DIR + mapNameToJpg(map);
@@ -309,9 +321,10 @@ async function ensureRadar() {
 function radarMapName() {
   const card = currentMatchCard();
   const meta = card?.querySelector('.lm-meta');
-  // «de_dust2 · матч #46» — карту пишет карточка списка.
-  const fromMeta = meta?.textContent.match(/de_[a-z0-9_]+/i)?.[0]?.toLowerCase();
-  return fromMeta || 'de_dust2';
+  // «de_dust2 · матч #46» — карту пишет карточка списка. Карты нет
+  // (список без ячейки карты) — честная пустота, а не чужой de_dust2:
+  // точки легли бы на неверный радар без предупреждения.
+  return meta?.textContent.match(/de_[a-z0-9_]+/i)?.[0]?.toLowerCase() || '';
 }
 
 function mapNameToJpg(map) {

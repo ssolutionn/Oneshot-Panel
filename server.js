@@ -6,7 +6,7 @@ import path from 'node:path';
 import { bookmakersResponse } from './netlify/functions/bookmakers.mjs';
 import { proxyFaceit } from './netlify/functions/faceit.mjs';
 import { proxyEbot } from './netlify/functions/ebot.mjs';
-import { proxyEbotAdmin } from './netlify/functions/ebot-admin.mjs';
+import { proxyEbotAdmin, checkToken } from './netlify/functions/ebot-admin.mjs';
 import { createEbotAdmin, ebotSocketUrl } from './server/ebot-admin.js';
 import { ebotTarget } from './netlify/functions/ebot.mjs';
 import { nodeRelay } from './server/veto-relay-node.mjs';
@@ -44,9 +44,9 @@ export function eventFile(slug = '') {
 export function createServer({cs2 = null, event = eventFile(process.env.EVENT || ''), relayStore = new FileRelayStore(process.env.VETO_RELAY_DIR || path.join(root, '.veto-relay-data')),
   shortStore = new FileRelayStore(path.join(process.env.VETO_RELAY_DIR || path.join(root, '.veto-relay-data'),'links'),shortIdValid)} = {}) {
   // Консоль матча eBot (server/ebot-console.js): SSE-поток логов/чата и RCON
-  // живого матча. Создаётся лениво с теми же секретами EBOT_*, что и
-  // /api/ebot-admin, поэтому консоль работает и в локальной панели, и на
-  // хостинге, где функции есть; хаб держится в замыкании сервера, как cs2.
+  // живого матча. Только server.js: долгоживущий SSE не живёт в serverless —
+  // на Netlify/Cloudflare этого роута нет, кнопка честно скажет «404».
+  // Создаётся лениво с теми же секретами EBOT_*, что и /api/ebot-admin.
   let consoleHub = null;
   const ebotHub = () => {
     if (!consoleHub) {
@@ -79,7 +79,14 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
     if (request.url.split('?')[0] === '/api/ebot-admin' && request.method === 'POST') {
       try {
         const chunks = [];
-        for await (const chunk of request) chunks.push(chunk);
+        // Лимит до передачи в функцию: гигабайтное тело не съедает память
+        // до readBody (64 КБ) — chunked запрос content-length не несёт.
+        let adminBodySize = 0;
+        for await (const chunk of request) {
+          adminBodySize += chunk.length;
+          if (adminBodySize > 128 * 1024) { request.destroy(); throw new Error('size'); }
+          chunks.push(chunk);
+        }
         const reply = await proxyEbotAdmin(new Request('http://localhost/api/ebot-admin', {
           method: 'POST',
           headers: {
@@ -100,20 +107,33 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
         const body = Buffer.from(await reply.arrayBuffer());
         response.writeHead(reply.status, Object.fromEntries(reply.headers));
         response.end(body);
-      } catch {
-        if (!response.headersSent) response.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
-        response.end(JSON.stringify({ error: 'upstream', message: 'eBot не ответил.' }));
+      } catch (error) {
+        if (!response.headersSent) {
+          const tooBig = error.message === 'size';
+          response.writeHead(tooBig ? 413 : 502, { 'Content-Type': 'application/json; charset=utf-8' });
+          response.end(JSON.stringify(tooBig ? { error: 'size', message: 'Запрос слишком большой.' }
+            : { error: 'upstream', message: 'eBot не ответил.' }));
+        }
       }
       return;
     }
     // Матч-консоль eBot (server/ebot-console.js): POST — start/send/stop,
     // GET ?stream=<id> — SSE с логами/чатом/ответами RCON. Хаб создаётся
     // только с секретами EBOT_*; оба роута до GET-гейта, как ebot-admin.
+    // Консоль даёт те же права (RCON, логи), что /api/ebot-admin — при
+    // заданном EBOT_ADMIN_TOKEN она тоже закрыта им (POST).
     if (request.url.split('?')[0] === '/api/ebot-console') {
       const hub = ebotHub();
       if (!hub) {
         response.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
         response.end(JSON.stringify({ error: 'no-credentials', message: 'Задай секреты EBOT_USER и EBOT_PASSWORD хостинга.' }));
+        return;
+      }
+      if (request.method === 'POST' && process.env.EBOT_ADMIN_TOKEN &&
+          !(await checkToken({ EBOT_ADMIN_TOKEN: process.env.EBOT_ADMIN_TOKEN },
+            new Request('http://localhost/', { headers: { 'x-ebot-token': request.headers['x-ebot-token'] || '' } })))) {
+        response.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify({ error: 'no-token', message: 'Нужен верный заголовок x-ebot-token.' }));
         return;
       }
       if (request.method === 'GET' && hub.sseHandler(request, response)) return;
@@ -128,11 +148,29 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
     // GET-гейта и передаём в тот же proxyEbot.
     if (request.url.split('?')[0] === '/api/ebot' &&
         (request.method === 'GET' || request.method === 'POST')) {
+      // POST (хитмапа) — тот же same-origin гейт, что остальные POST-роуты
+      // eBot: прокси read-only, но гейт должен быть последовательным.
+      if (request.method === 'POST') {
+        const site = request.headers['sec-fetch-site'];
+        const sameOrigin = site ? site === 'same-origin'
+          : request.headers.origin === `http://${request.headers.host}`;
+        if (!sameOrigin) {
+          response.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+          response.end(JSON.stringify({ error: 'not-allowed', message: 'Хитмапа доступна только панели.' }));
+          return;
+        }
+      }
       try {
         const init = { method: request.method };
         if (request.method === 'POST') {
+          // Тело хитмапы крошечное; большим POST-ом память не рвём.
           const chunks = [];
-          for await (const chunk of request) chunks.push(chunk);
+          let size = 0;
+          for await (const chunk of request) {
+            size += chunk.length;
+            if (size > 8192) { request.destroy(); throw new Error('size'); }
+            chunks.push(chunk);
+          }
           const body = Buffer.concat(chunks);
           init.headers = { 'content-type': request.headers['content-type'] || '' };
           init.body = body;
@@ -141,9 +179,13 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
         const body = Buffer.from(await reply.arrayBuffer());
         response.writeHead(reply.status, Object.fromEntries(reply.headers));
         response.end(body);
-      } catch {
-        if (!response.headersSent) response.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
-        response.end(JSON.stringify({ error: 'upstream', message: 'eBot не ответил.' }));
+      } catch (error) {
+        if (!response.headersSent) {
+          const tooBig = error.message === 'size';
+          response.writeHead(tooBig ? 413 : 502, { 'Content-Type': 'application/json; charset=utf-8' });
+          response.end(JSON.stringify(tooBig ? { error: 'size', message: 'Запрос хитмапы слишком большой.' }
+            : { error: 'upstream', message: 'eBot не ответил.' }));
+        }
       }
       return;
     }

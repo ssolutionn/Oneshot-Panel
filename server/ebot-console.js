@@ -47,13 +47,13 @@ class ConsoleSession {
   #rcon;
   #stopped;
   #sseIdLength;
-  #history = null;
+  // Буфер на СЕССИЮ (не на хаб): реплей чужого матча — утечка логов/чата
+  // одного матча в консоль другого. 100 строк на поток, консоль не сервер.
+  #history = { log: [], chat: [], rcon: [] };
 
   // Подписать браузер: отдаёт уже случившееся (краткий буфер логов/чата,
   // чтобы переподключение SSE не теряло контекст) и живые события дальше.
-  // Буфер bounded — старое выбрасывается, консоль не сервер.
-  addClient(res, { history = null } = {}) {
-    this.#history = history;
+  addClient(res) {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-store',
@@ -62,11 +62,9 @@ class ConsoleSession {
     });
     // Первое событие — id сессии и матча, чтобы клиент показал, за кем следит.
     res.write(`event: hello\ndata: ${JSON.stringify({ id: this.id, matchId: this.matchId })}\n\n`);
-    if (history) {
-      for (const line of history.log) res.write(`event: log\ndata: ${JSON.stringify(line)}\n\n`);
-      for (const line of history.chat) res.write(`event: chat\ndata: ${JSON.stringify(line)}\n\n`);
-      for (const line of history.rcon) res.write(`event: rcon\ndata: ${JSON.stringify(line)}\n\n`);
-    }
+    for (const line of this.#history.log) res.write(`event: log\ndata: ${JSON.stringify(line)}\n\n`);
+    for (const line of this.#history.chat) res.write(`event: chat\ndata: ${JSON.stringify(line)}\n\n`);
+    for (const line of this.#history.rcon) res.write(`event: rcon\ndata: ${JSON.stringify(line)}\n\n`);
     const client = { res, sse: this.#nextId(), alive: true };
     this.#clients.add(client);
     res.on('close', () => {
@@ -120,7 +118,7 @@ class ConsoleSession {
     if (this.#stopped) return;
     this.#write(event, payload);
     // Bound-история: последние 100 строк на поток, больше панели не нужно.
-    if (this.#history) {
+    { // буфер сессии всегда есть
       const key = event === 'chat' ? 'chat' : event === 'rcon' ? 'rcon' : 'log';
       this.#history[key].push(payload);
       if (this.#history[key].length > 100) this.#history[key].shift();
@@ -166,9 +164,8 @@ export function createConsoleHub({ admin, log = () => {}, now = Date.now } = {})
     throw new Error('Нужен eBot-админ с matchConsole и sendRcon.');
   }
   const sessions = new Map();
-  const history = { log: [], chat: [], rcon: [] };
-
   const makeId = () => randomBytes(8).toString('base64url');
+
   const closeAll = () => { for (const s of sessions.values()) s.stop('shutdown'); sessions.clear(); };
 
   return {
@@ -235,7 +232,7 @@ export function createConsoleHub({ admin, log = () => {}, now = Date.now } = {})
         res.end(JSON.stringify({ error: 'not-found', message: 'Консоль матча не найдена.' }));
         return true;
       }
-      session.addClient(res, { history });
+      session.addClient(res);
       return true;
     },
 
@@ -261,9 +258,12 @@ export function createConsoleHub({ admin, log = () => {}, now = Date.now } = {})
       let body;
       try {
         body = JSON.parse(await readBody(req, 4096));
-      } catch {
-        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ error: 'request', message: 'Ожидается JSON-запрос.' }));
+      } catch (error) {
+        // Слишком большое тело — 413, а не невнятное 400.
+        const tooBig = error && error.status === 413;
+        res.writeHead(tooBig ? 413 : 400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: tooBig ? 'size' : 'request',
+          message: tooBig ? 'Запрос консоли слишком большой.' : 'Ожидается JSON-запрос.' }));
         return true;
       }
       try {

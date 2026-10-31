@@ -290,7 +290,7 @@
         <div class="empty-panel">Матчи появятся после подключения турнира.</div>
       </section>
 
-      <!-- web-only --><section id="ebotPanel" class="lobby-panel" aria-labelledby="ebotHeading">
+      <section id="ebotPanel" class="lobby-panel" aria-labelledby="ebotHeading">
         <div class="panel-heading">
           <div><span class="eyebrow">EBOT</span><h2 id="ebotHeading">Матчи eBot</h2></div>
           <label class="lobby-delay"><input id="ebotWatch" type="checkbox" checked> Следить</label>
@@ -299,8 +299,8 @@
         <div id="ebotMatches" class="lobby-matches" aria-label="Матчи eBot">
           <div class="empty-panel">Здесь появятся матчи, которые ведёт eBot.</div>
         </div>
-      </section><!-- /web-only -->
-      <!-- web-only --><dialog id="ebotConsole" class="ebot-console-dialog" aria-labelledby="ebotConsoleHeading">
+      </section>
+      <dialog id="ebotConsole" class="ebot-console-dialog" aria-labelledby="ebotConsoleHeading">
         <div class="dialog-head">
           <h2 id="ebotConsoleHeading">Консоль матча eBot</h2>
           <button id="ebotConsoleClose" class="icon-button" type="button" aria-label="Закрыть">×</button>
@@ -326,8 +326,8 @@
             placeholder="Команда RCON (например, status) — или текст в чат при включённой галочке" maxlength="200">
           <button id="ebotConsoleSend" type="submit" class="button primary small">Отправить</button>
         </form>
-      </dialog><!-- /web-only -->
-      <!-- web-only --><dialog id="ebotStatsDialog" class="ebot-stats-dialog" aria-labelledby="ebotStatsHeading">
+      </dialog>
+      <dialog id="ebotStatsDialog" class="ebot-stats-dialog" aria-labelledby="ebotStatsHeading">
         <div class="dialog-head">
           <h2 id="ebotStatsHeading">Статистика матча eBot</h2>
           <button id="ebotStatsClose" class="icon-button" type="button" aria-label="Закрыть">×</button>
@@ -362,7 +362,7 @@
           <p id="ebotStatsRadarNote" class="ebot-stats-note" hidden>Координаты eBot, радар приблизительный.</p>
           <div id="ebotStatsMapBox" class="ebot-stats-map"><canvas id="ebotStatsCanvas"></canvas></div>
         </section>
-      </dialog><!-- /web-only -->
+      </dialog>
 
       <section class="lobby-panel" aria-labelledby="messagesHeading">
         <div class="panel-heading">

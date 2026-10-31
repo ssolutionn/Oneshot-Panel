@@ -375,9 +375,30 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   контракт. Браузер секретов eBot не видит.
 - Управление в блоке eBot (`ebot-ui.js`): при наличии секретов блок
   получает кнопки команд живого матча (пауза, стоп, ножи, конец
-  разминки) и форму создания матча (серверы/карты — из каталога админки);
-  всё через `/api/ebot-admin`, ответы — в журнал лобби. Без секретов блок
-  остаётся монитором.
+  разминки; `Not started` — кнопка «▶ Стартовать» через action:'start')
+  и форму создания матча (серверы/карты — из каталога админки, только при
+  `EBOT_ADMIN_OPEN=1`); всё через `/api/ebot-admin`, ответы — в журнал
+  лобби. Закрытый каталог (403) всё равно включает кнопки/консоль.
+  Без секретов блок остаётся монитором. `el()` в ebot-ui заполняет
+  `dataset` отдельно — Object.assign на readonly-свойстве бросает.
+- `server/ebot-console.js` — матч-консоль (только server.js, SSE не живёт
+  в serverless): хаб `createConsoleHub`, POST start/send/stop +
+  `?stream=<id>` SSE (события hello/log/chat/rcon/stop, keepalive 20 с,
+  буфер по 100 строк на СЕССИЮ — реплей чужого матча был бы утечкой).
+  `server/ebot-admin.js` дополнили `matchConsole` (комнаты rcon/logger)
+  и `sendRcon`; чат пишется RCON-командой `say`. При заданном
+  `EBOT_ADMIN_TOKEN` POST-роут консоли закрыт тем же токеном.
+- `ebot-stats-parse.js` — без DOM: `parseStatsPage` (таблица tablePlayers,
+  колонки по именам заголовков, tfoot-Total отброшен), `parseTeams`,
+  `parseHeatmap`, `heatmapParams` (полные имена событий: flashbang,
+  smokegrenade…; массивы как `rounds[]=`), `HEATMAP_TYPES`. `ebot-stats.js`
+  — диалог: сортируемая таблица игроков и хитмапа на canvas (сетка 8px,
+  градиенты, без библиотек); радары eBot в `assets/maps/radar/`
+  (8 карт, происхождение в assets/maps/README.md), для прочих —
+  миниатюра с пометкой; карта неизвестна — чистый холст с точками.
+  Прокси: GET `/api/ebot?view=<id>` и POST `?heatmap=<id>` (валидация
+  тела, кэш view 60 с). Панель+eBot на одном сервере — `EBOT_URL`
+  локальный.
 - `netlify/functions/faceit.mjs` — прокси FACEIT для браузера (только пути
   лобби). Ключ админа из заголовка идёт в FACEIT и не хранится; без него
   `proxyFaceit` берёт ключ сайта из секрета хостинга `FACEIT_API_KEY`
@@ -566,6 +587,12 @@ Netlify проверяет локальные фото, докачивает н�
 - id сайта (`live.js`, `lobby.js`, `obs-bridge.js`): viewPrep viewLobby
   vetoNavBtn vetoBadge vetoView bookiesNavBtn bookiesView cvLive cvLiveState cvAlert cvAlertText
   cvAlertOk cvLiveEmpty cvRoom cvTeam0 cvTeam1 cvClock cvStage cvMoves
+  ebotPanel ebotWatch ebotStatus ebotMatches ebotCreate
+  ebotConsole ebotConsoleLog ebotConsoleChat ebotConsoleRcon ebotConsoleInput
+  ebotConsoleMode ebotConsoleStatus ebotConsoleClose ebotConsoleForm ebotConsoleSend
+  ebotStatsDialog ebotStatsClose ebotStatsMatch ebotStatsTable ebotStatsHeatForm
+  ebotStatsType ebotStatsSide ebotStatsRefresh ebotStatsMode ebotStatsRadarNote
+  ebotStatsCanvas ebotStatsMapBox
   cvCopyResult cvRestart cvSync cvSyncNote cvWatchMore cvWatchLink cvWatchGo cvWatchStop cvAdminOpen
   lobbyBadge prepView lobbyView obsView obsTabDot camSummary watchCams camTotal sendObsBtn
   copyJsonBtn obsNavBtn obsSetupBtn obsDot obsState vetoLive vetoLiveStatus vetoLayout copyOverlay

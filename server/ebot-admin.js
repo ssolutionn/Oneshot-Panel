@@ -19,7 +19,11 @@ const DO_REQUEST_RE = /doRequest\('([a-zA-Z]+)',\s*'([\d.]+:\d+)',\s*'(\d+)',\s*
 
 function urlEncode(fields) {
   // Ручной, а не URLSearchParams: тело читается в тестах как есть.
+  // undefined-поля пропускаем: eBot подставит свои значения (сервер —
+  // записанный на матче, пароль — сгенерированный формой), а не literal
+  // 'undefined' в POST-теле.
   return Object.entries(fields)
+    .filter(([, v]) => v !== undefined)
     .map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(String(v)))
     .join('&');
 }
@@ -256,7 +260,16 @@ class SocketIoPolling {
       if (this.#queue.length) return this.#queue.shift();
       const remain = deadline - this.#now();
       if (remain <= 0) return null;
-      const res = await this.#request('GET', this.#url(), null, Math.max(200, Math.min(HTTP_TIMEOUT_MS, remain)));
+      // engine.io держит GET-poll открытым до pingInterval (25 с): таймаут
+      // отдельного запроса — это НЕ ошибка канала, а молчание комнаты.
+      // Роняем в ошибку только если дедлайда ожидания уже не осталось.
+      let res;
+      try {
+        res = await this.#request('GET', this.#url(), null, Math.max(200, Math.min(HTTP_TIMEOUT_MS, remain)));
+      } catch (error) {
+        if (this.#now() >= deadline) return null;
+        throw error;
+      }
       if (res.status !== 200) throw new Error('eBot socket.io прервал соединение');
       this.#feed(await res.text());
     }
@@ -455,13 +468,13 @@ class EbotAdmin {
 
   async sendCommand(matchId, command, { argument } = {}) {
     const { commands, jwt } = await this.matchCommands(matchId);
-    // authkey и ip у всех кнопок матча общие; свою кнопку предпочитаем.
-    // Fallback commands[0] осознанный: в реальном eBot executeCommand НЕ
-    // является кнопкой (doRequest с 'executeCommand' в списке нет) — для
-    // такой команды берём ip/authkey первой кнопки, а сами команды
-    // совпадают по смыслу (matchId шлём в пакете, action — свой). Чужую
-    // КНОПКУ (stop и т.п.) так не отправить: она найдётся по имени.
-    const entry = commands.find(c => c.action === command) || commands[0];
+    // authkey и ip у всех кнопок матча общие. Для кнопочных команд берём
+    // СВОЮ кнопку: eBot отдаёт их по статусу матча, и фолбэк на чужую
+    // отправил бы не ту команду («Конец разминки» превратился бы в
+    // stopNoRs). executeCommand кнопкой не бывает — для него ip/authkey
+    // берём с первой попавшейся.
+    const entry = commands.find(c => c.action === command) ||
+      (command === 'executeCommand' ? commands[0] : null);
     if (!entry) throw new Error('eBot не отдал кнопки матча — команду отправить нечем');
     const plain = argument === undefined || argument === null
       ? matchId + ' ' + command + ' ' + entry.ip
@@ -518,7 +531,10 @@ class EbotAdmin {
           'matchs[rules]': rules,
           'matchs[map_selection_mode]': format,
           'matchs[config_knife_round]': knifeRound === false ? 0 : 1,
-          'matchs[config_password]': password === undefined ? '' : password,
+          // Пароль не задан — поле пропускается: форма eBot подставит
+          // сгенерированный (urlEncode отбрасывает undefined), пустая строка
+          // создала бы матч без пароля на сервере CS2.
+          'matchs[config_password]': password,
           maps: map,
           server_id: serverId,
           side,
@@ -551,7 +567,7 @@ class EbotAdmin {
       const res = await this.#authed('/admin.php/matchs/start/server', {
         method: 'POST',
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
-        body: urlEncode({ match_id: String(matchId), server_id: String(serverId) }),
+        body: urlEncode({ match_id: String(matchId), server_id: serverId === undefined || serverId === null ? undefined : String(serverId) }),
       });
       if (res.status >= 300 && res.status < 400) return { started: true };
       throw new Error('eBot не стартовал матч');

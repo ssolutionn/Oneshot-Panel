@@ -717,6 +717,51 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .seat-settings .text-button { justify-self:start; }
 
 .player-row[draggable="true"]{cursor:grab}.player-row.dragging{opacity:.45}.player-row.drag-over{outline:2px dashed var(--red);outline-offset:-2px}
+
+/* eBot: кнопки команд и форма создания внутри блока лобби */
+.ebot-commands { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.ebot-create { display:flex; flex-wrap:wrap; gap:8px; padding:12px 16px; border-top:1px solid var(--divider); align-items:center; }
+.ebot-create input, .ebot-create select { min-width:0; flex:1 1 140px; }
+.ebot-create button { flex:0 0 auto; }
+
+/* eBot: диалог «Консоль матча» — тёмный лог, моноширинный, колонки */
+.ebot-console-dialog { width:min(880px,calc(100% - 28px)); }
+.ebot-console-grid { display:grid; grid-template-columns:2fr 1fr; gap:12px; margin-top:8px; }
+.ebot-console-grid h3, .ebot-console-dialog h3 { margin:0 0 6px; font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+.ebot-console-log, .ebot-console-rcon { margin:0; padding:10px; max-height:260px; overflow:auto; border:1px solid var(--line); border-radius:6px; background:#08090b; color:#d7e1e8; font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+.ebot-console-rcon { max-height:150px; }
+.ebot-console-chat { list-style:none; margin:0; padding:10px; max-height:260px; overflow:auto; border:1px solid var(--line); border-radius:6px; background:#08090b; color:#d7e1e8; font:11px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; display:grid; gap:4px; overflow-wrap:anywhere; }
+.ebot-console-chat .side-ct { color:var(--cs2-ct); }
+.ebot-console-chat .side-t { color:var(--cs2-t); }
+.ebot-console-chat .nick { font-weight:700; }
+.ebot-console-form { display:flex; gap:8px; margin-top:12px; align-items:center; flex-wrap:wrap; }
+.ebot-console-form input[type="text"] { flex:1 1 260px; min-width:0; }
+.ebot-console-mode { display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); white-space:nowrap; }
+@media (max-width:720px) { .ebot-console-grid { grid-template-columns:1fr; } .ebot-console-log, .ebot-console-chat { max-height:180px; } }
+
+/* eBot: диалог «Статистика матча» — таблица игроков и хитмапа */
+.ebot-stats-dialog { width:min(760px,calc(100% - 28px)); }
+.ebot-stats-match { margin:4px 0 10px; font-size:13px; font-weight:700; color:var(--ink); overflow-wrap:anywhere; }
+.ebot-stats-dialog .copy-tabs { padding:0; margin-bottom:10px; }
+.ebot-stats-table { width:100%; border-collapse:collapse; font-size:12px; }
+.ebot-stats-table th { position:relative; padding:8px 10px; border-bottom:2px solid var(--line); color:var(--muted); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; text-align:right; cursor:pointer; user-select:none; white-space:nowrap; }
+.ebot-stats-table th.left { text-align:left; }
+.ebot-stats-table th:hover { color:var(--ink); }
+.ebot-stats-table th[aria-sort="ascending"]::after, .ebot-stats-table th[aria-sort="descending"]::after { content:"↑"; position:absolute; right:-2px; top:7px; font-size:9px; color:var(--red); }
+.ebot-stats-table th[aria-sort="descending"]::after { content:"↓"; }
+.ebot-stats-table td { padding:7px 10px; border-bottom:1px solid var(--divider); font-variant-numeric:tabular-nums; text-align:right; }
+.ebot-stats-table td.ebot-stats-nick { text-align:left; font-weight:600; overflow-wrap:anywhere; }
+.ebot-stats-table tbody tr:nth-child(even) td { background:var(--surface-2); }
+.ebot-stats-table th.ebot-stats-team { padding:10px; text-align:left; text-transform:none; letter-spacing:0; font-size:11px; cursor:default; border-bottom:1px solid var(--line); }
+.ebot-stats-table th.ebot-stats-team[data-team="a"] { box-shadow:inset 3px 0 0 var(--cs2-ct); color:var(--cs2-ct); }
+.ebot-stats-table th.ebot-stats-team[data-team="b"] { box-shadow:inset 3px 0 0 var(--cs2-t); color:var(--cs2-t); }
+.ebot-stats-filters { display:flex; flex-wrap:wrap; gap:10px; align-items:end; margin:0 0 10px; }
+.ebot-stats-filters .mini-label { margin:0; }
+.ebot-stats-filters select { min-width:130px; }
+.ebot-stats-note { margin:0 0 8px; font-size:10px; color:var(--warn-ink); background:var(--warn); border:1px solid var(--warn-line); border-radius:5px; padding:6px 9px; }
+.ebot-stats-map { position:relative; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:8px; display:flex; justify-content:center; }
+.ebot-stats-map canvas { max-width:100%; height:auto; border-radius:5px; }
+@media (max-width:720px) { .ebot-stats-table th, .ebot-stats-table td { padding:6px 7px; font-size:11px; } .ebot-stats-filters select { min-width:110px; } }
 body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}.toast{bottom:calc(24px + env(safe-area-inset-bottom,0px))}footer{padding-bottom:max(20px,env(safe-area-inset-bottom,0px))}#pasteArea{min-height:140px}.artifact-download-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.download-note{color:var(--warn-ink)!important;background:var(--warn);border:1px solid var(--warn-line);border-radius:4px;padding:8px 10px;line-height:1.6}@media(max-width:800px){.artifact-download-actions .button{flex:1}.artifact-download-actions{grid-column:1/-1}}.dialog-section{border-top:1px solid var(--line);margin-top:22px}
 </style>
 <a class="skip-link" href="#webcams">К составам команд</a>
@@ -736,7 +781,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
     </div>
   </header>
   <nav class="panel-nav" aria-label="Разделы панели">
-    
+
     <div class="nav-tools">
       <button id="refreshBtn" class="nav-button" type="button" title="Обновить данные">↻ Обновить</button>
       <button id="settingsBtn" class="nav-button" type="button">Источник данных</button>
@@ -771,7 +816,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
       <button id="swapBtn" class="button small" disabled><span aria-hidden="true">⇄</span><span class="visually-hidden">Поменять стороны команд</span></button>
     </section>
 
-    
+
 
     <section id="teamGrid" class="team-grid" aria-label="Составы двух команд">
       <div class="empty-panel">Загружаем составы…</div>
@@ -779,7 +824,10 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
 
     <section id="exportBar" class="export-bar" aria-label="Экспорт и ссылки">
       <div class="export-actions">
+
         <div class="artifact-download-actions"><button class="button" id="downloadAccess" hidden>Разрешить скачивание</button><button class="button" id="copyJsonBtn" hidden>Скопировать JSON</button><button class="button primary" id="downloadBtn" disabled><span aria-hidden="true">↓</span> Скачать JSON для OBS</button></div>
+
+
       </div>
       <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
       <label class="camera-frame-setting">Режим вебок<select id="webcamMode"><option value="online">Онлайн</option><option value="lan">ЛАН</option></select><span>ЛАН — для камер в одной сети; онлайн — для удалённых игроков.</span></label>
@@ -810,7 +858,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
         </div>
       </div>
       <p class="veto-status" id="vetoStatus" role="status" aria-live="polite">Выбери две разные команды.</p>
-      
+
       <div id="sideChoice" class="side-choice" hidden>
         <strong id="sideLabel"></strong>
         <button id="chooseCT" class="button dark">CT</button>
@@ -854,15 +902,15 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
 
     </div>
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+
+
+
+
+
+
+
+
 
     <footer>
       Oneshot Panel
@@ -909,7 +957,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
     <textarea id="manualCopy" readonly aria-label="Текст для ручного копирования"></textarea>
   </dialog>
 
-  
+
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script>

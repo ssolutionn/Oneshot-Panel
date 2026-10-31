@@ -17,7 +17,7 @@ sudo useradd -r -s /usr/sbin/nologin oneshot || true
 sudo git clone https://github.com/ssolutionn/Oneshot-Panel.git /opt/oneshot-panel
 cd /opt/oneshot-panel && git checkout feat/ebot-admin   # ветка с eBot-фичей (потом вольётся в main)
 sudo chown -R oneshot:oneshot /opt/oneshot-panel
-sudo -u oneshot npm test          # 276 тестов должны быть зелёными
+sudo -u oneshot npm test          # 299 тестов должны быть зелёными
 
 # 3. Секреты (не коммитить!)
 sudo tee /etc/oneshot-panel.env >/dev/null <<'EOF'

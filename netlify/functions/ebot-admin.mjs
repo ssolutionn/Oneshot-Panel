@@ -18,6 +18,10 @@
 import { fromThisSite } from './faceit.mjs';
 import { createEbotAdmin, ebotSocketUrl } from '../../server/ebot-admin.js';
 import { ebotTarget } from './ebot.mjs';
+// Netlify бандлит функцию и инлайнит server/ebot-admin.js, но
+// server/vendor/ в деплой функций не попадает: defaultLoadAes (node:fs)
+// не найдёт файл. AES берём статической ESM-копией — она бандлится.
+import { Aes as AesEsm } from '../../server/vendor/aes-ctr-esm.js';
 
 // Модульный кэш админ-клиента: изолят serverless живёт дольше одного
 // запроса, поэтому логин в eBot и сессия переживают запросы — без кэша
@@ -38,7 +42,7 @@ const adminFor = (env, loadAes) => {
   }
   const key = target.href + '\n' + user + '\n' + password.length;
   if (adminCache && adminCache.key === key) return { admin: adminCache.admin };
-  const admin = createEbotAdmin({ baseUrl: target.href, user, password, socketUrl: ebotSocketUrl(target.href), loadAes: loadAes || undefined });
+  const admin = createEbotAdmin({ baseUrl: target.href, user, password, socketUrl: ebotSocketUrl(target.href), loadAes: loadAes || (() => Promise.resolve({ Aes: AesEsm })) });
   adminCache = { key, admin };
   return { admin };
 };
@@ -63,7 +67,7 @@ function sameHex(a, b) {
 // EBOT_ADMIN_TOKEN не задан — режим прежний (только same-origin). Задан —
 // каждый POST несёт x-ebot-token; в env лежит sha256:<hex> его дайджеста,
 // сам токен остаётся только у оператора (как посчитать — deploy/README.md).
-async function checkToken(env, request) {
+export async function checkToken(env, request) {
   const expected = String(env.EBOT_ADMIN_TOKEN || '').trim();
   if (!expected) return true;
   const m = expected.match(/^sha256:([0-9a-f]{64})$/i);
@@ -147,7 +151,8 @@ export async function proxyEbotAdmin(request, env = {}, loadAes = null) {
       if (!teamA || !teamB || !map || !serverId) {
         throw Object.assign(new Error('Команды, карта и сервер обязательны.'), { status: 400 });
       }
-      const result = await built.admin.createMatch({ teamA, teamB, map, serverId, password, side: str(body.side, 10) || 'random' });
+      // Пустой пароль не шлём вообще (undefined): eBot сгенерирует свой.
+      const result = await built.admin.createMatch({ teamA, teamB, map, serverId, password: password || undefined, side: str(body.side, 10) || 'random' });
       return Response.json(result, { headers: { 'cache-control': 'no-store' } });
     }
     if (body.action === 'start') {

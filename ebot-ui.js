@@ -29,7 +29,11 @@ const RUN_COMMANDS = [
 ];
 
 const el = (tag, props = {}, ...children) => {
-  const node = Object.assign(document.createElement(tag), props);
+  // dataset — readonly в DOM (Object.assign бросает TypeError); заполняем
+  // отдельным шагом, как это делает ebot-stats.js.
+  const { dataset, ...rest } = props;
+  const node = Object.assign(document.createElement(tag), rest);
+  if (dataset) for (const [key, value] of Object.entries(dataset)) node.dataset[key] = value;
   node.append(...children.filter(c => c !== null && c !== undefined && c !== false && c !== ''));
   return node;
 };
@@ -91,6 +95,24 @@ function matchCard(match) {
 // send the command; the operator label stays grey until the reply lands.
 function commandRow(match) {
   const row = el('div', { className: 'ebot-commands' });
+  // Матч ещё не стартован: у eBot для него нет командных кнопок (только
+  // роутинг Start/Edit), даём панельную кнопку старта через /api/ebot-admin.
+  if (/^Not started/i.test(match.status)) {
+    const start = el('button', { type: 'button', className: 'button primary small', textContent: '▶ Стартовать' });
+    start.addEventListener('click', async () => {
+      start.disabled = true;
+      try {
+        await adminCall({ action: 'start', matchId: match.id });
+        window.dispatchEvent(new CustomEvent('oneshot:lobby-note', {
+          detail: `eBot: матч #${match.id} стартован` }));
+        check();
+      } catch (error) {
+        setStatus(`eBot: старт не удался — ${error.message}`);
+      } finally { start.disabled = false; }
+    });
+    row.append(start);
+    return row;
+  }
   for (const [command, label] of RUN_COMMANDS) {
     const button = el('button', { type: 'button', className: 'button small', textContent: label });
     button.addEventListener('click', async () => {
@@ -127,7 +149,10 @@ async function adminCall(payload) {
     body: JSON.stringify(payload)
   });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.message || `HTTP ${response.status}`);
+  if (!response.ok) {
+    // status нужен вызывающим (403 «каталог закрыт» ≠ «нет секретов»).
+    throw Object.assign(new Error(body.message || `HTTP ${response.status}`), { status: response.status });
+  }
   return body;
 }
 
@@ -141,7 +166,15 @@ async function probeAdmin() {
     adminReady = true;
     buildCreateForm();
     render();
-  } catch { /* read-only: no credentials or eBot down */ }
+  } catch (error) {
+    // Закрытый каталог (403, EBOT_ADMIN_OPEN не задан) — секреты всё равно
+    // есть: кнопки команд и консоль работают, только формы создания нет.
+    if (error.status === 403) {
+      adminReady = true;
+      render();
+    }
+    /* прочее: no credentials или eBot down — блок остаётся монитором */
+  }
 }
 
 // The create form: teams, map and server come from the eBot admin catalog.
@@ -191,14 +224,18 @@ async function check() {
     const matches = parseEbotMatches(body.page);
     // The first read of each match id is a note, so a panel opened late
     // still announces the running match once (per browser, per match).
-    const fresh = matches.filter(m => !state.seen[m.id]);
+    // Журнал: все события сразу; «новый матч» — только по seen (до этого
+    // опроса), чтобы смена счёта старого матча не терялась и матч не
+    // объявлялся заново после перезагрузки страницы.
+    const seenBefore = { ...state.seen };
     const events = ebotEvents(state.matches, matches);
     for (const m of matches) state.seen[m.id] = 1;
     state.matches = matches;
     state.updatedAt = Date.now();
     state.repeats = 0;
     render();
-    for (const event of fresh.length ? events.filter(e => e.type === 'start') : events) {
+    for (const event of events) {
+      if (event.type === 'start' && seenBefore[event.match.id]) continue;
       window.dispatchEvent(new CustomEvent('oneshot:lobby-note', { detail: event.text }));
     }
   } catch (error) {
