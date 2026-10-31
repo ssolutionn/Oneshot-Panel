@@ -463,14 +463,17 @@ async def run(args):
         assert player_veto.startswith("https://oneshot-veto.pages.dev/#new&a=6yuBoJlbl&b=HYPERSPIRIT&f=BO"), player_veto
         # Captains' veto block: links for the selected match, the admin's apart.
         await page.select_option("#cvTimer", "3")
-        await page.select_option("#cvLang", "ru")
+        await page.select_option("#cvLangA", "ru")
+        await page.select_option("#cvLangB", "en")
         await page.click("#cvCreate")
         await expect(page.locator("#cvLinks")).to_be_visible()
         # The panel watches the new room at once (as the admin's link does).
         await expect(page.locator("#cvRoom")).to_be_visible()
         await expect(page.locator("#cvLiveState")).to_have_text("капитанов нет")
         msg_a = await page.input_value("#cvMsgA")
+        msg_b = await page.input_value("#cvMsgB")
         assert "Капитан **6yuBoJlbl**" in msg_a and "На всё вето 3 минуты." in msg_a, msg_a
+        assert re.search(r"^\\*\\*CyberClash · map veto", msg_b) and "Captain of **HYPERSPIRIT**" in msg_b, msg_b
         admin_link = await page.input_value("#cvMsgO")
         # The links lead to the veto's own site, never to the panel's address.
         assert admin_link.startswith("https://oneshot-veto.pages.dev/#v=") and admin_link not in msg_a, admin_link
@@ -478,7 +481,7 @@ async def run(args):
         assert await page.get_attribute("#cvOpen", "href") == admin_link
         await expect(page.locator("#cvAdminOpen")).to_have_attribute("href", admin_link)
         assert "&m=3" in await page.get_attribute("#playerVeto", "href")
-        await page.select_option("#cvLang", "en")
+        await page.select_option("#cvLangA", "en")
         await expect(page.locator("#cvMsgA")).to_have_value(re.compile(r"^\*\*CyberClash · map veto[\s\S]*Captain of \*\*6yuBoJlbl\*\*"))
         await page.reload()
         await expect(page.locator("#cvMsgO")).to_have_value(admin_link)
@@ -490,7 +493,16 @@ async def run(args):
         await expect(page.locator("#cvMsgO")).to_have_value(admin_link)
         await expect(page.locator("#cvMsgA")).to_have_value(re.compile(r"https://oneshot-veto\.pages\.dev/#v="))
         await expect(page.locator("#cvAdminOpen")).to_have_attribute("href", admin_link)
-        await expect(page.locator("#cvLang")).to_have_value("en")
+        await expect(page.locator("#cvLangA")).to_have_value("en")
+        await expect(page.locator("#cvLangB")).to_have_value("en")
+        await expect(page.locator("#cvLangS")).to_have_value("en")
+        await page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('oneshot-captain-veto'));
+            s.lang = 'ru'; delete s.langA; delete s.langB; delete s.langS;
+            localStorage.setItem('oneshot-captain-veto', JSON.stringify(s)); }""")
+        await page.reload()
+        await expect(page.locator("#cvLangA")).to_have_value("ru")
+        await expect(page.locator("#cvLangB")).to_have_value("ru")
+        await expect(page.locator("#cvLangS")).to_have_value("ru")
         await page.fill("#cvSite", "https://veto.example.org/x?y=1#z")
         await page.locator("#cvSite").dispatch_event("change")
         await page.click("#cvCreate")

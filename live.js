@@ -762,22 +762,25 @@ const cv = { touched: false, made: null };
   $('cvTournament').value=typeof saved.tournament==='string'?saved.tournament.slice(0,60):tournamentDefault();
   $('cvSite').value = typeof saved.site === 'string' ? saved.site : '';
   if (['0', '3', '5', '7', '10', '15'].includes(String(saved.timer))) $('cvTimer').value = String(saved.timer);
-  if (['en', 'ru'].includes(saved.lang)) $('cvLang').value = saved.lang;
+  const legacyLang = ['en', 'ru'].includes(saved.lang) ? saved.lang : 'en';
+  $('cvLangA').value = ['en', 'ru'].includes(saved.langA) ? saved.langA : legacyLang;
+  $('cvLangB').value = ['en', 'ru'].includes(saved.langB) ? saved.langB : legacyLang;
+  $('cvLangS').value = ['en', 'ru'].includes(saved.langS) ? saved.langS : legacyLang;
   $('cvTransport').value = saved.transport === 'server' ? 'server' : 'vdo';
 }
 const cvMatch = s => s.a?.name && s.b?.name ? JSON.stringify([s.a.name, s.b.name]) : '';
 function cvSave(last = read(CV_STORE)?.last) {
-  write(CV_STORE, { tournament:$('cvTournament').value.trim()||tournamentDefault(),timer: $('cvTimer').value, lang: $('cvLang').value, site: $('cvSite').value.trim(), transport: $('cvTransport').value, last });
+  write(CV_STORE, { tournament:$('cvTournament').value.trim()||tournamentDefault(),timer: $('cvTimer').value, langA: $('cvLangA').value, langB: $('cvLangB').value, langS: $('cvLangS').value, site: $('cvSite').value.trim(), transport: $('cvTransport').value, last });
 }
 function cvShow(made) {
   cv.made = made;
-  const lang = $('cvLang').value, room = made.room;
+  const langA = $('cvLangA').value, langB = $('cvLangB').value, langS = $('cvLangS').value, room = made.room;
   const links = Object.fromEntries(Object.entries(made.links).map(([seat, link]) => [seat, movedLink(link)]));
   $('cvNameA').textContent = room.t[0];
   $('cvNameB').textContent = room.t[1];
-  $('cvMsgA').value = captainMessage(room, 0, links.a, lang);
-  $('cvMsgB').value = captainMessage(room, 1, links.b, lang);
-  $('cvMsgS').value = spectatorMessage(room, links.s, lang);
+  $('cvMsgA').value = captainMessage(room, 0, links.a, langA);
+  $('cvMsgB').value = captainMessage(room, 1, links.b, langB);
+  $('cvMsgS').value = spectatorMessage(room, links.s, langS);
   $('cvMsgO').value = links.o;
   $('cvOpen').href = links.o;
   $('cvLinks').hidden = false;
@@ -807,7 +810,7 @@ $('cvFormat').addEventListener('change', () => { cv.touched = true; playerVetoLi
 $('cvTimer').addEventListener('change', () => { cvSave(); playerVetoLink(panel.snapshot()); });
 $('cvTransport').addEventListener('change', () => { cvSave(); playerVetoLink(panel.snapshot()); });
 $('cvStart').addEventListener('change', () => playerVetoLink(panel.snapshot()));
-$('cvLang').addEventListener('change', () => { cvSave(); if (cv.made) cvShow(cv.made); });
+for (const id of ['cvLangA', 'cvLangB', 'cvLangS']) $(id).addEventListener('change', () => { cvSave(); if (cv.made) cvShow(cv.made); });
 $('cvSite').addEventListener('change', () => { cvSave(); playerVetoLink(panel.snapshot()); });
 $('cvTournament').addEventListener('change',()=>{cvSave();playerVetoLink(panel.snapshot());});
 $('cvCreate').addEventListener('click', async () => {

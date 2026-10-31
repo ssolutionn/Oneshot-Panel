@@ -744,7 +744,9 @@ async def run(args):
         await expect(panel.locator("#cvLiveEmpty")).to_be_visible()
         await panel.fill("#cvSite", base + "/veto.html")
         await panel.locator("#cvSite").dispatch_event("change")
-        await panel.select_option("#cvLang", "ru")
+        await panel.select_option("#cvLangA", "ru")
+        await panel.select_option("#cvLangB", "ru")
+        await panel.select_option("#cvLangS", "ru")
         if args.server:
             await panel.select_option("#cvTransport", "server")
         await panel.click("#cvCreate")
