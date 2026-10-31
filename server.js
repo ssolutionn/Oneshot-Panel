@@ -7,10 +7,13 @@ import { bookmakersResponse } from './netlify/functions/bookmakers.mjs';
 import { proxyFaceit } from './netlify/functions/faceit.mjs';
 import { proxyEbot } from './netlify/functions/ebot.mjs';
 import { proxyEbotAdmin } from './netlify/functions/ebot-admin.mjs';
+import { createEbotAdmin, ebotSocketUrl } from './server/ebot-admin.js';
+import { ebotTarget } from './netlify/functions/ebot.mjs';
 import { nodeRelay } from './server/veto-relay-node.mjs';
 import { FileRelayStore } from './server/veto-relay-file.js';
 import {shortIdValid,shortPathValid} from './assets/veto-short-protocol.js';
 import { createCs2, handleCs2, loadToken } from './server/cs2-api.js';
+import { createConsoleHub } from './server/ebot-console.js';
 import { eventScript, eventSlug } from './events/event-script.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -19,7 +22,7 @@ const publicFiles = new Set([
   'card.html', 'card.js', 'card.css', 'live.js', 'obs.js', 'vdo.js',
   'lobby.js', 'faceit.js', 'ebot.js', 'notifications.js', 'notification-worker.js', 'obs-bridge.html', 'obs-bridge.js',
   'veto.html', 'veto.js', 'veto.css', 'veto-room.js', 'veto-watch.js', 'bookmakers.js', 'bookies.js', 'lan.js', 'lan-event.js', 'lan-images.js', 'cs2.js',
-  'oneshot-webcams.js', 'ebot-ui.js', 'veto-mobile.html'
+  'oneshot-webcams.js', 'ebot-ui.js', 'ebot-stats.js', 'ebot-stats-parse.js', 'veto-mobile.html'
 ]);
 const mime = {
   '.html': 'text/html; charset=utf-8',
@@ -40,6 +43,26 @@ export function eventFile(slug = '') {
 // off unless given, so tests and plain static hosting never open it.
 export function createServer({cs2 = null, event = eventFile(process.env.EVENT || ''), relayStore = new FileRelayStore(process.env.VETO_RELAY_DIR || path.join(root, '.veto-relay-data')),
   shortStore = new FileRelayStore(path.join(process.env.VETO_RELAY_DIR || path.join(root, '.veto-relay-data'),'links'),shortIdValid)} = {}) {
+  // Консоль матча eBot (server/ebot-console.js): SSE-поток логов/чата и RCON
+  // живого матча. Создаётся лениво с теми же секретами EBOT_*, что и
+  // /api/ebot-admin, поэтому консоль работает и в локальной панели, и на
+  // хостинге, где функции есть; хаб держится в замыкании сервера, как cs2.
+  let consoleHub = null;
+  const ebotHub = () => {
+    if (!consoleHub) {
+      const target = ebotTarget(process.env.EBOT_URL || '');
+      const user = (process.env.EBOT_USER || '').trim();
+      const password = process.env.EBOT_PASSWORD || '';
+      if (!target || !user || !password) return null;
+      consoleHub = createConsoleHub({
+        admin: createEbotAdmin({
+          baseUrl: target.href, user, password,
+          socketUrl: ebotSocketUrl(target.href),
+        }),
+      });
+    }
+    return consoleHub;
+  };
   return http.createServer(async (request, response) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -63,14 +86,58 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
             'content-type': request.headers['content-type'] || '',
             'content-length': String(Buffer.concat(chunks).length),
             'sec-fetch-site': request.headers['sec-fetch-site'] || '',
-            origin: request.headers.origin === `http://${request.headers.host}` ? 'http://localhost' : ''
+            origin: request.headers.origin === `http://${request.headers.host}` ? 'http://localhost' : '',
+            'x-ebot-token': request.headers['x-ebot-token'] || ''
           },
           body: Buffer.concat(chunks)
         }), {
           EBOT_URL: process.env.EBOT_URL || '',
           EBOT_USER: process.env.EBOT_USER || '',
-          EBOT_PASSWORD: process.env.EBOT_PASSWORD || ''
+          EBOT_PASSWORD: process.env.EBOT_PASSWORD || '',
+          EBOT_ADMIN_TOKEN: process.env.EBOT_ADMIN_TOKEN || '',
+          EBOT_ADMIN_OPEN: process.env.EBOT_ADMIN_OPEN || ''
         });
+        const body = Buffer.from(await reply.arrayBuffer());
+        response.writeHead(reply.status, Object.fromEntries(reply.headers));
+        response.end(body);
+      } catch {
+        if (!response.headersSent) response.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify({ error: 'upstream', message: 'eBot не ответил.' }));
+      }
+      return;
+    }
+    // Матч-консоль eBot (server/ebot-console.js): POST — start/send/stop,
+    // GET ?stream=<id> — SSE с логами/чатом/ответами RCON. Хаб создаётся
+    // только с секретами EBOT_*; оба роута до GET-гейта, как ebot-admin.
+    if (request.url.split('?')[0] === '/api/ebot-console') {
+      const hub = ebotHub();
+      if (!hub) {
+        response.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify({ error: 'no-credentials', message: 'Задай секреты EBOT_USER и EBOT_PASSWORD хостинга.' }));
+        return;
+      }
+      if (request.method === 'GET' && hub.sseHandler(request, response)) return;
+      if (request.method === 'POST' && await hub.postHandler(request, response)) return;
+      response.writeHead(405, { Allow: 'GET, POST' });
+      response.end();
+      return;
+    }
+    // The eBot match list (netlify/functions/ebot.mjs), locally too: the
+    // same proxy as the hosting function, server-side fetch of the public
+    // eBot page. POST ?heatmap=<id> — точки хитмапы, читаем тело до
+    // GET-гейта и передаём в тот же proxyEbot.
+    if (request.url.split('?')[0] === '/api/ebot' &&
+        (request.method === 'GET' || request.method === 'POST')) {
+      try {
+        const init = { method: request.method };
+        if (request.method === 'POST') {
+          const chunks = [];
+          for await (const chunk of request) chunks.push(chunk);
+          const body = Buffer.concat(chunks);
+          init.headers = { 'content-type': request.headers['content-type'] || '' };
+          init.body = body;
+        }
+        const reply = await proxyEbot(new Request('http://localhost' + request.url, init), process.env.EBOT_URL);
         const body = Buffer.from(await reply.arrayBuffer());
         response.writeHead(reply.status, Object.fromEntries(reply.headers));
         response.end(body);
@@ -83,21 +150,6 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
     if (!['GET', 'HEAD'].includes(request.method)) {
       response.writeHead(405, { Allow: 'GET, HEAD' });
       response.end();
-      return;
-    }
-    // The eBot match list (netlify/functions/ebot.mjs), locally too: the
-    // same proxy as the hosting function, server-side fetch of the public
-    // eBot page.
-    if (request.url.split('?')[0] === '/api/ebot' && request.method === 'GET') {
-      try {
-        const reply = await proxyEbot(new Request('http://localhost' + request.url), process.env.EBOT_URL);
-        const body = Buffer.from(await reply.arrayBuffer());
-        response.writeHead(reply.status, Object.fromEntries(reply.headers));
-        response.end(body);
-      } catch {
-        if (!response.headersSent) response.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
-        response.end(JSON.stringify({ error: 'upstream', message: 'eBot не ответил.' }));
-      }
       return;
     }
     // Bookmakers' line check (netlify/functions/bookmakers.mjs), locally too.

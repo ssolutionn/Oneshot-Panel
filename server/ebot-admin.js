@@ -456,6 +456,11 @@ class EbotAdmin {
   async sendCommand(matchId, command, { argument } = {}) {
     const { commands, jwt } = await this.matchCommands(matchId);
     // authkey и ip у всех кнопок матча общие; свою кнопку предпочитаем.
+    // Fallback commands[0] осознанный: в реальном eBot executeCommand НЕ
+    // является кнопкой (doRequest с 'executeCommand' в списке нет) — для
+    // такой команды берём ip/authkey первой кнопки, а сами команды
+    // совпадают по смыслу (matchId шлём в пакете, action — свой). Чужую
+    // КНОПКУ (stop и т.п.) так не отправить: она найдётся по имени.
     const entry = commands.find(c => c.action === command) || commands[0];
     if (!entry) throw new Error('eBot не отдал кнопки матча — команду отправить нечем');
     const plain = argument === undefined || argument === null
@@ -524,9 +529,11 @@ class EbotAdmin {
       if (!(res.status >= 300 && res.status < 400)) throw new Error('eBot не создал матч');
 
       // id необязателен: пробуем вытащить flash со страницы после редиректа.
+      // Идём только за относительным Location на своём же eBot: следовать
+      // абсолютному адресу чужому хосту с нашей кукой сессии нельзя.
       let id;
       const loc = res.headers.get('location');
-      if (loc) {
+      if (loc && loc.startsWith('/') && !loc.startsWith('//')) {
         try {
           const follow = await this.#authed(new URL(loc, this.#base));
           if (follow.status === 200) {
@@ -564,5 +571,153 @@ class EbotAdmin {
         .filter(Boolean);
       return { servers, maps };
     });
+  }
+
+  // ── Консоль матча (живые логи + RCON), отдельный блок ─────────────────────
+  // Комнаты rcon-*/logger-* и сам rconSend доступны только с admin-JWT
+  // (websocket_server.mjs), поэтому всё идёт через ту же авторизацию, что и
+  // sendCommand. Существующие методы не меняются: ниже только добавления.
+
+  // Ключ шифрования и ip для AES-команд матчу: тот же вход, что ищет
+  // sendCommand, вынесен отдельным методом, чтобы консоль не дублировала
+  // разбор кнопок. Формат команды совпадает: «<matchId> <action> <ip> <arg>».
+  async #commandChannel(matchId) {
+    const { commands, jwt } = await this.matchCommands(matchId);
+    const entry = commands[0];
+    if (!entry) throw new Error('eBot не отдал кнопки матча — консоль недоступна');
+    return { jwt, ip: entry.ip, authkey: entry.authkey };
+  }
+
+  // Кодирует «<matchId> executeCommand <ip> <команда>» тем же Aes.Ctr, что
+  // и matchCommandSend. Возвращает готовую к emit строку JSON для rconSend.
+  async #rconPacket(matchId, ip, authkey, command) {
+    const plain = matchId + ' executeCommand ' + ip + ' ' + command;
+    return JSON.stringify([ebotEncrypt(plain, authkey, await this.#aes()), ip]);
+  }
+
+  // Живая консоль матча: identify в rcon- и logger-комнаты, колбэки на
+  // события (onLog — каждая строка лога CS2 уже текстом, onChat — только
+  // строки say, предразобранные {nick, side, text}, onRcon — ответы на
+  // executeCommand). Отдаёт {stop()}; повторный stop безопасен. Событие с
+  // массивом строк (первое сообщение logger-комнаты) отдаётся построчно.
+  async matchConsole(matchId, { onLog, onRcon, onChat } = {}, { timeoutMs = 15_000 } = {}) {
+    if (typeof matchId !== 'string' && typeof matchId !== 'number') {
+      throw new Error('Номер матча обязателен');
+    }
+    const callbacks = {
+      log: typeof onLog === 'function' ? onLog : () => {},
+      rcon: typeof onRcon === 'function' ? onRcon : () => {},
+      chat: typeof onChat === 'function' ? onChat : () => {},
+    };
+    const channel = await this.#commandChannel(matchId);
+    const packet = await this.#rconPacket(matchId, channel.ip, channel.authkey, 'status');
+
+    const io = socketioSession({
+      jwt: channel.jwt, baseWsUrl: this.#socketBase, fetchImpl: this.#fetch, now: this.#now,
+    });
+    let stopped = false;
+    let reader = null;
+
+    // Первое сообщение logger-комнаты — JSON-массив старых строк; дальше —
+    // одиночные {id, content}. eBot кладёт в content лога ещё один слой JSON
+    // (строку-JSON), как и в openRconSuccess.php — двойной parse.
+    const handleLogger = (data, source) => {
+      let parsed = typeof data === 'string' ? parseJsonOrRaw(data) : data;
+      if (Array.isArray(parsed) && source === 'first') {
+        for (const item of parsed) {
+          const one = typeof item === 'string' ? parseJsonOrRaw(item) : item;
+          pushLine(one && one.content !== undefined ? String(one.content) : String(item));
+        }
+        return;
+      }
+      pushLine(parsed && parsed.content !== undefined ? String(parsed.content) : String(data));
+    };
+    const pushLine = (line) => {
+      const text = String(line ?? '');
+      if (!text) return;
+      callbacks.log(text);
+      // Строка чата: как её разбирает сам eBot в openRconSuccess.php.
+      const m = text.match(/^.+"(.+)<\d+><.+><(\w+)>"\ssay\s"(.+)"$/);
+      if (m) callbacks.chat({ nick: m[1], side: m[2], text: m[3] });
+    };
+
+    // Цикл чтения: любое событие loggerHandler/rconHandler уходит в колбэки,
+    // молча пропускаем служебные повторы и пустые строки.
+    const loop = (async () => {
+      try {
+        await io.open();
+        await io.emit('identify', { type: 'rcon', match_id: Number(matchId) || matchId });
+        await io.emit('identify', { type: 'logger', match_id: Number(matchId) || matchId });
+        // identify для matchs — держим статус матча в этой же сессии; rconSend
+        // нужен для проверки канала (см. sendRcon: команды идут через него).
+        await io.emit('identify', { type: 'matchs' });
+        // Проба канала: status отвечает в rcon-комнату и подтверждает, что
+        // консоль живая (eBot посылает ответ только для управляемого матча).
+        await io.emit('rconSend', packet);
+        let firstLogger = true;
+        while (!stopped) {
+          const ev = await io.nextEvent(timeoutMs);
+          if (!ev) continue; // таймаут одной итерации — просто следующий цикл
+          if (ev.name === 'rconHandler') {
+            const data = typeof ev.payload === 'string' ? parseJsonOrRaw(ev.payload) : ev.payload;
+            callbacks.rcon(data && data.content !== undefined ? String(data.content) : String(ev.payload ?? ''));
+          } else if (ev.name === 'loggerHandler') {
+            handleLogger(ev.payload, firstLogger ? 'first' : 'next');
+            firstLogger = false;
+          }
+        }
+      } catch (error) {
+        if (!stopped) throw error;
+      }
+    })();
+    reader = loop.catch(() => { /* stop() погашен в close ниже */ });
+
+    return {
+      // Закрывает сокет и прекращает чтение; ошибка чтения после stop — не
+      // ошибка. Повторный вызов — пустая операция.
+      stop: () => {
+        if (stopped) return;
+        stopped = true;
+        io.close();
+        reader = null;
+      },
+      // Дождаться окончания цикла (ошибка eBot уйдёт наружу).
+      done: () => loop,
+    };
+  }
+
+  // Одна RCON-команда матчу: rconSend (не matchCommandSend) и ожидание
+  // первого rconHandler до 5 с. Отдельная короткая сессия — как sendCommand,
+  // но ответ ждём в rcon-комнате, а не в matchs.
+  async sendRcon(matchId, command) {
+    const text = String(command || '');
+    if (!text || !/^[ -~]{1,200}$/.test(text)) {
+      throw new Error('Команда RCON нечитаема');
+    }
+    const channel = await this.#commandChannel(matchId);
+    const packet = await this.#rconPacket(matchId, channel.ip, channel.authkey, text);
+    const io = socketioSession({
+      jwt: channel.jwt, baseWsUrl: this.#socketBase, fetchImpl: this.#fetch, now: this.#now,
+    });
+    try {
+      await io.open();
+      await io.emit('identify', { type: 'rcon', match_id: Number(matchId) || matchId });
+      await io.emit('rconSend', packet);
+      const deadline = this.#now() + 5_000;
+      for (;;) {
+        const remain = deadline - this.#now();
+        if (remain <= 0) return { accepted: false, reply: null };
+        const ev = await io.nextEvent(remain);
+        if (!ev) return { accepted: false, reply: null };
+        if (ev.name !== 'rconHandler') continue;
+        const data = typeof ev.payload === 'string' ? parseJsonOrRaw(ev.payload) : ev.payload;
+        return {
+          accepted: true,
+          reply: data && data.content !== undefined ? String(data.content) : String(ev.payload ?? ''),
+        };
+      }
+    } finally {
+      io.close();
+    }
   }
 }

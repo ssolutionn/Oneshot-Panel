@@ -6,13 +6,19 @@
 // set, the same block also runs the match (pause, stop, knife rounds, RCON)
 // and creates new matches through /api/ebot-admin — the browser never sees
 // the eBot credentials. The eBot server itself is never opened by the
-// browser; everything from eBot renders as text.
+// browser; everything from eBot renders as text. The same secrets also
+// unlock the match console (log + chat + RCON) through /api/ebot-console:
+// SSE stream, everything text-only.
 import { EBOT_PROXY, parseEbotMatches, isLive, ebotEvents, ebotStatusLine } from './ebot.js';
 
 const $ = id => document.getElementById(id);
 const ADMIN = '/api/ebot-admin';
+const CONSOLE = '/api/ebot-console';
 const STORE = 'oneshot-ebot';
 const POLL = 20000, REPEAT = 20000, REPEAT_LIMIT = 3;
+// Чат и RCON: только печатные символы без кавычек и точек с запятой — то же
+// ограничение, что проверяет сервер; проверяем и у себя для ранней ошибки.
+const SAY_RE = /^[ -~]{1,200}$/;
 // Live commands eBot understands, with their operator labels; shown only
 // when the block is admin-enabled.
 const RUN_COMMANDS = [
@@ -67,7 +73,12 @@ function matchCard(match) {
   const done = !live && /Finished/i.test(match.status);
   return el('div', { className: 'lobby-match' + (live ? ' live' : done ? ' done' : ''), dataset: { match: match.id } },
     el('div', { className: 'lm-top' },
-      el('span', { className: 'lm-status', textContent: live ? match.status : 'Завершён' })),
+      el('span', { className: 'lm-status', textContent: live ? match.status : 'Завершён' }),
+      live && adminReady ? el('button', {
+        type: 'button', className: 'button small', textContent: 'Консоль',
+        title: 'Живой лог, чат и RCON сервера этого матча',
+        onclick: () => openConsole(match.id)
+      }) : null),
     el('div', { className: 'lm-teams' },
       el('span', { className: 'lm-team', textContent: match.teamA }),
       el('b', { className: 'lm-score', textContent: `${match.scoreA} : ${match.scoreB}` }),
@@ -213,3 +224,165 @@ window.addEventListener('online', wake);
 render();
 check();
 probeAdmin();
+
+// ---------- консоль матча (лог + чат + RCON через /api/ebot-console) ----------
+
+// Один диалог на панель: состояние консоли живёт здесь, кнопка «Консоль»
+// перезапускает его на выбранный матч. Всё из eBot — только textContent.
+const consoleState = {
+  matchId: null, id: null, source: null, retries: 0, opening: false, closing: false
+};
+
+function consoleStatus(text) { $('ebotConsoleStatus').textContent = text; }
+
+async function consoleCall(payload) {
+  const response = await fetch(CONSOLE, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.message || `HTTP ${response.status}`);
+  return body;
+}
+
+// Открыть диалог и поднять консоль-сессию для матча: POST start → SSE.
+async function openConsole(matchId) {
+  const dialog = $('ebotConsole');
+  if (consoleState.opening) return;
+  if (consoleState.id && consoleState.matchId === String(matchId)) { dialog.showModal(); return; }
+  closeConsoleStream(false);
+  $('ebotConsoleLog').replaceChildren();
+  $('ebotConsoleChat').replaceChildren();
+  $('ebotConsoleRcon').replaceChildren();
+  dialog.showModal();
+  consoleState.opening = true;
+  consoleState.matchId = String(matchId);
+  consoleStatus(`Открываем консоль матча #${matchId}…`);
+  try {
+    const made = await consoleCall({ action: 'start', matchId: String(matchId) });
+    consoleState.id = made.id;
+    consoleState.retries = 0;
+    connectStream();
+    consoleStatus(`Консоль матча #${matchId}: лог, чат и RCON живые.`);
+  } catch (error) {
+    consoleState.matchId = null;
+    consoleStatus(`Консоль не открылась: ${error.message}`);
+  } finally {
+    consoleState.opening = false;
+  }
+}
+
+// SSE-поток: события log/chat/rcon/stop. Обрыв — до 3 переподключений, у
+// остановленной сессии — не подключаемся заново.
+function connectStream() {
+  if (!consoleState.id) return;
+  closeSource();
+  const source = new EventSource(`${CONSOLE}?stream=${encodeURIComponent(consoleState.id)}`);
+  consoleState.source = source;
+  source.addEventListener('log', event => {
+    const { line } = parseEvent(event);
+    if (typeof line !== 'string') return;
+    appendText($('ebotConsoleLog'), line + '\n');
+  });
+  source.addEventListener('chat', event => {
+    const chat = parseEvent(event);
+    if (!chat || typeof chat.nick !== 'string' || typeof chat.text !== 'string') return;
+    const side = chat.side === 'CT' ? 'side-ct' : chat.side === 'TERRORIST' ? 'side-t' : '';
+    $('ebotConsoleChat').append(el('li', {},
+      el('span', { className: 'nick ' + side, textContent: chat.nick }),
+      el('span', { textContent: ': ' + chat.text })));
+    scrollDown($('ebotConsoleChat'));
+  });
+  source.addEventListener('rcon', event => {
+    const { content } = parseEvent(event);
+    if (typeof content !== 'string') return;
+    appendText($('ebotConsoleRcon'), content + '\n---\n');
+  });
+  source.addEventListener('stop', () => {
+    consoleStatus('Консоль матча закрыта (eBot).');
+    closeSource();
+    consoleState.id = null;
+  });
+  source.onerror = () => {
+    if (!consoleState.id) return; // stop уже обработан
+    closeSource();
+    if (++consoleState.retries <= REPEAT_LIMIT) {
+      consoleStatus(`Поток консоли оборвался (${consoleState.retries}). Переподключаемся…`);
+      setTimeout(connectStream, 2000 * consoleState.retries);
+    } else {
+      consoleStatus('Поток консоли потерян. Закрой и открой консоль заново.');
+    }
+  };
+}
+
+function closeSource() {
+  if (consoleState.source) { consoleState.source.close(); consoleState.source = null; }
+}
+
+function parseEvent(event) {
+  try { return JSON.parse(event.data); } catch { return null; }
+}
+
+// Строка в <pre>: только текст, авто-скролл вниз, хвост 500 строк.
+function appendText(node, text) {
+  node.append(document.createTextNode(text));
+  while (node.childNodes.length > 500) node.removeChild(node.firstChild);
+  scrollDown(node);
+}
+
+function scrollDown(node) { node.scrollTop = node.scrollHeight; }
+
+// Закрыть поток и сессию. dialogClose — закрыт ли сам диалог (событие).
+function closeConsoleStream(notifyServer = true) {
+  closeSource();
+  if (consoleState.id && notifyServer) {
+    const id = consoleState.id;
+    consoleState.id = null;
+    consoleCall({ action: 'stop', id }).catch(() => { /* сервер сам закроет по таймауту */ });
+  } else {
+    consoleState.id = null;
+  }
+}
+
+$('ebotConsoleClose').addEventListener('click', () => {
+  $('ebotConsole').close();
+  closeConsoleStream();
+  consoleStatus('Консоль закрыта.');
+});
+// Esc закрывает диалог тем же путём (close event, не только кнопка).
+$('ebotConsole').addEventListener('close', () => closeConsoleStream());
+
+// Ввод: галочка «в чат» превращает текст в say "…", иначе — RCON-команда.
+$('ebotConsoleForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!consoleState.id) return;
+  const input = $('ebotConsoleInput');
+  const text = input.value.trim();
+  if (!text) return;
+  const toChat = $('ebotConsoleMode').checked;
+  if (toChat && !SAY_RE.test(text)) {
+    consoleStatus('Текст в чат: только обычные символы без кавычек и точек с запятой.');
+    return;
+  }
+  const command = toChat ? 'say ' + text : text;
+  if (!SAY_RE.test(command)) {
+    consoleStatus('Команда RCON: только обычные символы без кавычек и точек с запятой.');
+    return;
+  }
+  input.value = '';
+  const button = $('ebotConsoleSend');
+  button.disabled = true;
+  try {
+    const result = await consoleCall({ action: 'send', id: consoleState.id, command });
+    appendText($('ebotConsoleRcon'), '> ' + command + '\n' +
+      (result.accepted ? (result.reply || '(без ответа)') : '(eBot не подтвердил команду)') + '\n---\n');
+    if (!result.accepted) consoleStatus('Команда не подтверждена eBot.');
+  } catch (error) {
+    consoleStatus(`Команда не ушла: ${error.message}`);
+  } finally {
+    button.disabled = false;
+    input.focus();
+  }
+});

@@ -12,6 +12,9 @@ WorkingDirectory=/opt/oneshot-panel
 # оставь 127.0.0.1 и проксируй.
 Environment=HOST=127.0.0.1
 Environment=PORT=3000
+# Секреты целиком — здесь (EBOT_ADMIN_TOKEN при желании см. deploy/README.md):
+# раскомментируй и заполни /etc/oneshot-panel.env (права 600, root:oneshot).
+#EnvironmentFile=/etc/oneshot-panel.env
 # --- eBot (сервер Flegma) ---
 # Монитор работает без секретов; управление требует учётку админки eBot.
 # Лучше отдельный аккаунт судьи, не главный админ.

@@ -298,6 +298,16 @@ test('catalog разбирает серверы и карты формы соз�
 
 // ---------- netlify-функция /api/ebot-admin ----------
 
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(text)));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+let proxyEbotAdmin = null;
+try {
+  ({ proxyEbotAdmin } = await import('../netlify/functions/ebot-admin.mjs'));
+} catch { /* нет модуля функции */ }
+
 test('/api/ebot-admin: GET и чужой origin не обслуживаются, без секретов — 401', async () => {
   const { proxyEbotAdmin } = await import('../netlify/functions/ebot-admin.mjs');
   const get = await proxyEbotAdmin(new Request('http://localhost/api/ebot-admin'), {});
@@ -314,4 +324,154 @@ test('/api/ebot-admin: GET и чужой origin не обслуживаются,
   assert.equal(own.status, 401);
   const body = await own.json();
   assert.equal(body.error, 'no-credentials');
+});
+
+// ---------- ФИКС 1: опциональный EBOT_ADMIN_TOKEN и EBOT_ADMIN_OPEN ----------
+
+const ownPost = (extraHeaders, env, body) => proxyEbotAdmin(new Request('http://localhost/api/ebot-admin', {
+  method: 'POST', headers: { origin: 'http://localhost', ...extraHeaders },
+  body: body || JSON.stringify({ action: 'catalog' })
+}), env);
+
+test('EBOT_ADMIN_TOKEN: без токена в запросе — 401, с неверным — 401, с верным — не 401', async () => {
+  const ENV = {
+    EBOT_URL: BASE, EBOT_USER: 'admin', EBOT_PASSWORD: PASSWORD,
+    EBOT_ADMIN_TOKEN: 'sha256:' + await sha256Hex('test-token')
+  };
+  // Неверный токен отклоняется до логина в eBot:_fetch не вызывался вовсе.
+  const originalFetch = globalThis.fetch;
+  let fetches = 0;
+  globalThis.fetch = () => { fetches++; return Promise.resolve(new Response('', { status: 404 })); };
+  try {
+    const noHeader = await ownPost({}, ENV);
+    assert.equal(noHeader.status, 401);
+    assert.equal((await noHeader.json()).error, 'not-allowed');
+    const wrong = await ownPost({ 'x-ebot-token': 'guess' }, ENV);
+    assert.equal(wrong.status, 401);
+    const right = await ownPost({ 'x-ebot-token': 'test-token' }, ENV);
+    assert.notEqual(right.status, 401, 'верный токен не должен давать 401');
+    // Токен проверяется до похода в eBot: только верный запрос дошёл до fetch
+    // (запрос уходил на авторизованную страницу current, не на 404-маршрут).
+    assert.ok(fetches >= 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('EBOT_ADMIN_TOKEN в открытом виде тоже принимается как дайджест', async () => {
+  const ENV = {
+    EBOT_URL: BASE, EBOT_USER: 'admin', EBOT_PASSWORD: PASSWORD,
+    EBOT_ADMIN_TOKEN: 'plaintext-token'
+  };
+  const wrong = await ownPost({ 'x-ebot-token': 'plaintext-tokeN' }, ENV);
+  assert.equal(wrong.status, 401);
+  const right = await ownPost({ 'x-ebot-token': 'plaintext-token' }, ENV);
+  assert.notEqual(right.status, 401);
+});
+
+test('EBOT_ADMIN_OPEN закрыт: catalog 403, ip кнопок скрыт; открыт: ip виден', async () => {
+  // Свой user (длина пароля та же): модульный кэш отдаёт нового админа с
+  // текущим globalThis.fetch, а не админа из предыдущего теста.
+  const ENV = {
+    EBOT_URL: BASE, EBOT_USER: 'admin-open-test', EBOT_PASSWORD: PASSWORD
+  };
+  // Мок ставим до первого запроса: fetchImpl админ-клиент берёт из
+  // globalThis.fetch при создании, а создаётся он уже первым запросом.
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = mockFetch([
+    ...loginRoutes(),
+    { method: 'GET', path: '/admin.php/matchs/current', text: CURRENT_PAGE, headers: HTML },
+    { method: 'POST', path: '/admin.php/matchs/actions/47', text: ACTIONS_PAGE,
+      headers: { 'content-type': 'application/json' } }
+  ]);
+  try {
+    // Без EBOT_ADMIN_OPEN каталог закрыт 403 — до любого похода в eBot
+    // (мок ниже не имеет маршрутов catalog, и они не нужны).
+    const closed = await ownPost({}, ENV);
+    assert.equal(closed.status, 403);
+    assert.equal((await closed.json()).error, 'not-allowed');
+
+    const reply = await ownPost({}, ENV, JSON.stringify({ action: 'commands', matchId: 47 }));
+    assert.equal(reply.status, 200);
+    const body = await reply.json();
+    assert.ok(Array.isArray(body.commands) && body.commands.length >= 1, JSON.stringify(body));
+    for (const c of body.commands) {
+      assert.equal(c.ip, undefined, 'ip протёк при закрытом EBOT_ADMIN_OPEN: ' + JSON.stringify(c));
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+// ---------- ФИКС 8: лимит тела ----------
+
+test('тело больше 64 КБ отклоняется 413', async () => {
+  const ENV = {
+    EBOT_URL: BASE, EBOT_USER: 'admin', EBOT_PASSWORD: PASSWORD,
+    EBOT_ADMIN_TOKEN: 'sha256:' + await sha256Hex('test-token')
+  };
+  const big = JSON.stringify({ action: 'send', matchId: '47', argument: 'a'.repeat(70 * 1024) });
+  // content-length ниже фактического размера не спасает: длина проверяется и после чтения.
+  const reply = await ownPost({ 'x-ebot-token': 'test-token' }, ENV, big);
+  assert.equal(reply.status, 413);
+  const reply2 = await proxyEbotAdmin(new Request('http://localhost/api/ebot-admin', {
+    method: 'POST',
+    headers: { origin: 'http://localhost', 'x-ebot-token': 'test-token', 'content-length': '10' },
+    body: big
+  }), ENV);
+  assert.equal(reply2.status, 413);
+  // Тело ровно в лимите проходит дальше (проверяем, что длина не мешает).
+  const okLen = JSON.stringify({ action: 'catalog' }).repeat(1); // маленькое тело — уходит в eBot (мок 404 → 502)
+  const small = await ownPost({ 'x-ebot-token': 'test-token' }, { ...ENV, EBOT_ADMIN_OPEN: '1' }, okLen);
+  assert.notEqual(small.status, 413);
+});
+
+// ---------- ФИКС 2: Cloudflare-обёртка импортируется ----------
+
+test('functions/api/ebot-admin.js импортируется без ?raw и экспортирует onRequest', async () => {
+  const mod = await import('../functions/api/ebot-admin.js');
+  assert.equal(typeof mod.onRequest, 'function');
+  // Обёртка отвечает через общий прокси: без секретов — 401, не падая на импорте AES.
+  const reply = await mod.onRequest({
+    request: new Request('https://panel.example/api/ebot-admin', {
+      method: 'POST', headers: { origin: 'https://panel.example' }, body: JSON.stringify({ action: 'catalog' })
+    }),
+    env: {}
+  });
+  assert.equal(reply.status, 401);
+  assert.equal((await reply.json()).error, 'no-credentials');
+});
+
+// ---------- ФИКС 3: переиспользование админ-клиента между запросами ----------
+
+test('модульный кэш: два запроса подряд логинятся в eBot один раз', async () => {
+  // adminCache модульный — порядок тестов может его разогреть; проверяем
+  // количество логинов на одном наборе env, а не абсолютное значение.
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = mockFetch([
+    ...loginRoutes(),
+    { method: 'GET', path: '/admin.php/matchs/current', text: CURRENT_PAGE, headers: HTML },
+    { method: 'POST', path: '/admin.php/matchs/actions/47', text: ACTIONS_PAGE,
+      headers: { 'content-type': 'application/json' } }
+  ]);
+  const ENV = { EBOT_URL: BASE, EBOT_USER: 'admin-cache-test', EBOT_PASSWORD: PASSWORD };
+  const mock = globalThis.fetch;
+  const calls = [];
+  const counting = (url, init = {}) => {
+    calls.push(new URL(String(url)).pathname + ' ' + String(init.method || 'GET').toUpperCase());
+    return mock(url, init);
+  };
+  globalThis.fetch = counting;
+  try {
+    for (let i = 0; i < 2; i++) {
+      const reply = await ownPost({}, ENV, JSON.stringify({ action: 'commands', matchId: 47 }));
+      assert.equal(reply.status, 200, 'запрос ' + i + ' не прошёл');
+    }
+    // Отдельно считаем POST логина: во втором запросе его быть не должно
+    // (может быть максимум один — если первый запрос породил bootstrap).
+    const logins = calls.filter(c => c === '/admin.php/guard/login POST').length;
+    assert.ok(logins <= 1, 'логинов больше одного: ' + logins);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

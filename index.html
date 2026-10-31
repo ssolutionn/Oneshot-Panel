@@ -300,6 +300,69 @@
           <div class="empty-panel">Здесь появятся матчи, которые ведёт eBot.</div>
         </div>
       </section><!-- /web-only -->
+      <!-- web-only --><dialog id="ebotConsole" class="ebot-console-dialog" aria-labelledby="ebotConsoleHeading">
+        <div class="dialog-head">
+          <h2 id="ebotConsoleHeading">Консоль матча eBot</h2>
+          <button id="ebotConsoleClose" class="icon-button" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <p id="ebotConsoleStatus" class="lobby-status" role="status">Консоль не открыта.</p>
+        <div class="ebot-console-grid">
+          <section aria-labelledby="ebotConsoleLogHeading">
+            <h3 id="ebotConsoleLogHeading">Лог сервера</h3>
+            <pre id="ebotConsoleLog" class="ebot-console-log" tabindex="0"></pre>
+          </section>
+          <section aria-labelledby="ebotConsoleChatHeading">
+            <h3 id="ebotConsoleChatHeading">Чат</h3>
+            <ul id="ebotConsoleChat" class="ebot-console-chat" tabindex="0"></ul>
+          </section>
+        </div>
+        <section aria-labelledby="ebotConsoleRconHeading">
+          <h3 id="ebotConsoleRconHeading">RCON</h3>
+          <pre id="ebotConsoleRcon" class="ebot-console-rcon" tabindex="0"></pre>
+        </section>
+        <form id="ebotConsoleForm" class="ebot-console-form">
+          <label class="ebot-console-mode"><input id="ebotConsoleMode" type="checkbox"> в чат</label>
+          <input id="ebotConsoleInput" type="text" autocomplete="off" spellcheck="false"
+            placeholder="Команда RCON (например, status) — или текст в чат при включённой галочке" maxlength="200">
+          <button id="ebotConsoleSend" type="submit" class="button primary small">Отправить</button>
+        </form>
+      </dialog><!-- /web-only -->
+      <!-- web-only --><dialog id="ebotStatsDialog" class="ebot-stats-dialog" aria-labelledby="ebotStatsHeading">
+        <div class="dialog-head">
+          <h2 id="ebotStatsHeading">Статистика матча eBot</h2>
+          <button id="ebotStatsClose" class="icon-button" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <p id="ebotStatsMatch" class="ebot-stats-match"></p>
+        <p id="ebotStatsStatus" class="lobby-status" role="status"></p>
+        <div class="copy-tabs ebot-stats-tabs" role="tablist">
+          <button id="ebotStatsTabPlayers" class="tab selected" type="button" role="tab" aria-selected="true">Игроки</button>
+          <button id="ebotStatsTabHeat" class="tab" type="button" role="tab" aria-selected="false">Хитмапа</button>
+        </div>
+        <section id="ebotStatsPlayers" aria-label="Статистика игроков">
+          <table id="ebotStatsTable" class="ebot-stats-table">
+            <thead><tr id="ebotStatsHead"></tr></thead>
+            <tbody id="ebotStatsBody"></tbody>
+          </table>
+        </section>
+        <section id="ebotStatsHeat" hidden aria-label="Хитмапа матча">
+          <form id="ebotStatsHeatForm" class="ebot-stats-filters">
+            <label class="mini-label">События
+              <select id="ebotStatsType"></select>
+            </label>
+            <label class="mini-label">Сторона
+              <select id="ebotStatsSide">
+                <option value="all" selected>Обе</option>
+                <option value="ct">CT</option>
+                <option value="t">T</option>
+              </select>
+            </label>
+            <button id="ebotStatsRefresh" type="submit" class="button small">Обновить</button>
+            <button id="ebotStatsMode" type="button" class="button small" aria-pressed="false">Точки</button>
+          </form>
+          <p id="ebotStatsRadarNote" class="ebot-stats-note" hidden>Координаты eBot, радар приблизительный.</p>
+          <div id="ebotStatsMapBox" class="ebot-stats-map"><canvas id="ebotStatsCanvas"></canvas></div>
+        </section>
+      </dialog><!-- /web-only -->
 
       <section class="lobby-panel" aria-labelledby="messagesHeading">
         <div class="panel-heading">
@@ -809,6 +872,7 @@
   <script type="module" src="/cs2.js"></script>
   <script type="module" src="/lobby.js"></script>
   <script type="module" src="/bookies.js"></script>
-  <script type="module" src="/ebot-ui.js"></script><!-- /web-only -->
+  <script type="module" src="/ebot-ui.js"></script>
+  <script type="module" src="/ebot-stats.js"></script><!-- /web-only -->
 </body>
 </html>

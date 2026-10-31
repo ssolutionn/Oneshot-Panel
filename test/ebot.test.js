@@ -3,7 +3,12 @@ import assert from 'node:assert/strict';
 import {
   parseEbotMatches, isLive, ebotEvents, ebotStatusLine, EBOT_PROXY
 } from '../ebot.js';
-import { proxyEbot, ebotTarget } from '../netlify/functions/ebot.mjs';
+import { proxyEbot, ebotTarget, __ttlScale } from '../netlify/functions/ebot.mjs';
+
+// TTL кэшей страницы списка/вьюхи масштабируем в тестах: соседние проверки
+// подменяют fetch и не должны получать кэшированную чужой мок-страницу,
+// а проверка самого кэша не должна ждать настоящие 7 секунд.
+__ttlScale.ms = 0;
 import { onRequest as cloudflareEbot } from '../functions/api/ebot.js';
 
 // The two list layouts eBot-CSGO-Web serves: the home page (flag cells
@@ -153,6 +158,36 @@ test('an upstream failure or closed list is a plain 502, no page leak', async ()
   }
 });
 
+test('the page cache serves a second hit without a new upstream fetch', async () => {
+  // Внутри теста TTL реальный (7 с): проверяем кэш как в проде. Снаружи
+  // (для соседних тестов) он обнулён, чтобы этот кэш на них не влиял.
+  const originalScale = __ttlScale.ms;
+  __ttlScale.ms = 1;
+  let fetches = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => {
+    fetches++;
+    return Promise.resolve(new Response(page(HOME_ROW), { status: 200 }));
+  };
+  try {
+    // Свои EBOT_URL (и свой ключ кэша): страница, закэшированная
+    // предыдущими тестами под дефолтным адресом, не должна попадать сюда.
+    const envUrl = 'http://10.0.0.7:80/';
+    const first = await proxyEbot(new Request('http://localhost/api/ebot'), envUrl);
+    assert.equal(first.status, 200);
+    assert.equal(fetches, 1);
+    const second = await proxyEbot(new Request('http://localhost/api/ebot'), envUrl);
+    assert.equal(second.status, 200);
+    // Второй подряд запрос не ходит в eBot: страница моложе 7 с.
+    assert.equal(fetches, 1);
+    const body = await second.json();
+    assert.deepEqual(parseEbotMatches(body.page).map(m => m.teamA), ['PRIVATE']);
+  } finally {
+    globalThis.fetch = originalFetch;
+    __ttlScale.ms = originalScale;
+  }
+});
+
 test('a bad EBOT_URL fails closed', async () => {
   const reply = await proxyEbot(new Request('http://localhost/api/ebot'), 'javascript:alert(1)');
   assert.equal(reply.status, 500);
@@ -162,4 +197,162 @@ test('a bad EBOT_URL fails closed', async () => {
 test('Cloudflare wrapper passes the secret through, Netlify default serves no secret', async () => {
   assert.equal(typeof cloudflareEbot, 'function');
   assert.equal(EBOT_PROXY, '/api/ebot');
+});
+
+// ---------- статистика матча и хитмапа (ebot-stats-parse.js) ----------
+
+import { parseStatsPage, parseTeams, parseHeatmap, heatmapParams, HEATMAP_TYPES } from '../ebot-stats-parse.js';
+import { readFileSync } from 'node:fs';
+
+// Синтетический аналог страницы /matchs/view: та же таблица
+// tablePlayers (заголовки и структура ячеек — с живого eBot), без
+// полумегабайтного окружения.
+const VIEW = readFileSync(new URL('./fixtures/ebot/stats-view.html', import.meta.url), 'utf8');
+
+test('stats page: players by header names, team totals row dropped', () => {
+  const { players, teams } = parseStatsPage(VIEW);
+  assert.deepEqual(teams, ['Alpha', 'Bravo']);
+  assert.equal(players.length, 2);
+  assert.deepEqual(players[0], {
+    team: 'Alpha', nick: 'sowalio', kill: 16, assist: 3, death: 16, kd: 1,
+    points: 16, hs: 10, hsRate: '62.5%', defuse: 0, bombe: 0, tk: 0, fk: 0,
+    ptClutch: 0, clutch1: 0, multi1: 8, clutch2: 0, multi2: 2, clutch3: 0,
+    multi3: 0, clutch4: 0, multi4: 0, clutch5: 0, multi5: 0
+  });
+  // Колонки по именам, не по позиции: у Bravo Death = 19, не 3.
+  assert.equal(players[1].death, 19);
+  assert.equal(players[1].nick, '1eeR');
+});
+
+test('stats page: HTML in a nick stays text, unknown page is empty', () => {
+  const poisoned = VIEW.replace('>sowalio<', '>&lt;img src=x onerror=alert(1)&gt;<');
+  assert.equal(parseStatsPage(poisoned).players[0].nick, '<img src=x onerror=alert(1)>');
+  const empty = parseStatsPage('<html><body>нет таблицы</body></html>');
+  assert.deepEqual(empty, { players: [], teams: ['', ''] });
+});
+
+test('teams heading: Match #N - A vs B, extra words kept out', () => {
+  assert.deepEqual(parseTeams('<h4>Match #46 - Alpha vs Bravo</h4>'), ['Alpha', 'Bravo']);
+  assert.deepEqual(parseTeams('<h4>Alpha vs Bravo</h4>'), ['Alpha', 'Bravo']);
+  assert.deepEqual(parseTeams('<h4>без команд</h4>'), ['', '']);
+});
+
+test('heatmap params: jQuery-style arrays, validation up front', () => {
+  assert.equal(heatmapParams({ type: 'kill', sides: 'all' }), 'type=kill&sides=all');
+  assert.equal(
+    heatmapParams({ type: 'kill', sides: 'ct', rounds: [1, 2], players: ['sowalio'] }),
+    'type=kill&sides=ct&rounds%5B%5D=1&rounds%5B%5D=2&players%5B%5D=sowalio');
+  assert.throws(() => heatmapParams({ type: 'evil' }), /тип/);
+  assert.throws(() => heatmapParams({ type: 'kill', sides: 'both' }), /Сторона/);
+  assert.throws(() => heatmapParams({ type: 'kill', rounds: ['x'] }), /раунд/i);
+  assert.throws(() => heatmapParams({ type: 'kill', players: ['evil nick'] }), /игрок/i);
+  assert.ok(HEATMAP_TYPES.every(([value]) => /^[a-z]+$/.test(value)));
+});
+
+test('heatmap reply: valid points only, junk ignored', () => {
+  const points = parseHeatmap({ points: [{ x: 390, y: 277 }, { x: -1, y: 5 }, 'junk', { x: 'a' }, null] });
+  assert.deepEqual(points, [{ x: 390, y: 277 }]);
+  assert.deepEqual(parseHeatmap('{}'), []);
+  assert.deepEqual(parseHeatmap('not json'), []);
+  assert.deepEqual(parseHeatmap(null), []);
+});
+
+// ---------- прокси: страница матча и хитмапа ----------
+
+const VIEW_PAGE = '<html><body><h4>Match #46 - PRIVATE vs Nuclear TigeRES</h4></body></html>';
+
+test('view: the proxy fetches /matchs/view/<id> and returns the page, id digits only', async () => {
+  let asked = '';
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (url, init) => {
+    asked = String(url);
+    return Promise.resolve(new Response(VIEW_PAGE, { status: 200 }));
+  };
+  try {
+    const reply = await proxyEbot(new Request('http://localhost/api/ebot?view=46'), '');
+    assert.equal(reply.status, 200);
+    assert.equal(asked, 'http://37.230.228.105/matchs/view/46');
+    assert.equal((await reply.json()).page, VIEW_PAGE);
+    for (const bad of ['?view=abc', '?view=1;2', '?view=46&extra=1', '?view=..']) {
+      const refused = await proxyEbot(new Request('http://localhost/api/ebot' + bad), '');
+      assert.equal(refused.status, 400, bad);
+    }
+    const wrongMethod = await proxyEbot(new Request('http://localhost/api/ebot?view=46', { method: 'POST', body: 'x' }), '');
+    assert.equal(wrongMethod.status, 400);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('heatmap POST: only whitelisted fields reach eBot, rebuilt verbatim', async () => {
+  const originalFetch = globalThis.fetch;
+  const seen = [];
+  globalThis.fetch = (url, init) => {
+    seen.push({ url: String(url), method: init.method, body: init.body });
+    return Promise.resolve(new Response('{"type":"heatmap","points":[{"x":1,"y":2}]}', { status: 200 }));
+  };
+  try {
+    const reply = await proxyEbot(new Request('http://localhost/api/ebot?heatmap=46', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: 'type=kill&sides=all&rounds[]=1&rounds[]=2&players[]=sowalio'
+    }), '');
+    assert.equal(reply.status, 200);
+    assert.deepEqual(await reply.json(), { type: 'heatmap', points: [{ x: 1, y: 2 }] });
+    assert.equal(seen[0].url, 'http://37.230.228.105/matchs/heatmap/46');
+    assert.equal(seen[0].method, 'POST');
+    assert.equal(seen[0].body, 'type=kill&sides=all&rounds%5B%5D=1&rounds%5B%5D=2&players%5B%5D=sowalio');
+
+    // Отказ до похода в eBot: чужой type, чужое поле, чужой matchId.
+    globalThis.fetch = () => { throw new Error('must not be called'); };
+    for (const body of [
+      'type=evil&sides=all',
+      'type=kill&sides=both',
+      'type=kill&sides=all&rounds[]=x',
+      'type=kill&sides=all&players[]=a b',
+      'type=kill&sides=all&evil=1',
+      'sides=all'
+    ]) {
+      const refused = await proxyEbot(new Request('http://localhost/api/ebot?heatmap=46', {
+        method: 'POST', body
+      }), '');
+      assert.equal(refused.status, 400, body);
+    }
+    const refusedId = await proxyEbot(new Request('http://localhost/api/ebot?heatmap=abc', {
+      method: 'POST', body: 'type=kill'
+    }), '');
+    assert.equal(refusedId.status, 400);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('heatmap upstream failures are plain 502s', async () => {
+  const originalFetch = globalThis.fetch;
+  const form = { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'type=kill&sides=all' };
+  try {
+    globalThis.fetch = () => Promise.resolve(new Response('', { status: 302, headers: { location: '/login' } }));
+    let reply = await proxyEbot(new Request('http://localhost/api/ebot?heatmap=46', form), '');
+    assert.equal(reply.status, 502);
+    globalThis.fetch = () => Promise.resolve(new Response('not json'));
+    reply = await proxyEbot(new Request('http://localhost/api/ebot?heatmap=46', form), '');
+    assert.equal(reply.status, 502);
+    globalThis.fetch = () => Promise.reject(new Error('down'));
+    reply = await proxyEbot(new Request('http://localhost/api/ebot?heatmap=46', form), '');
+    assert.equal(reply.status, 502);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('heatmap types: the short forms eBot rejects are not offered', () => {
+  // Живой eBot молча возвращает 0 точек на «he»/«flash»/«smoke» —
+  // форма панели должна слать полные значения select самой eBot.
+  const values = HEATMAP_TYPES.map(([value]) => value);
+  assert.ok(values.includes('hegrenade'));
+  assert.ok(values.includes('flashbang'));
+  assert.ok(values.includes('smokegrenade'));
+  assert.ok(!values.includes('he'));
+  assert.ok(!values.includes('flash'));
+  assert.ok(!values.includes('smoke'));
 });
