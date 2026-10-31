@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "day": "2026-10-31",
+  "startedAt": 1793405843555,
+  "updatedAt": 1793405843720,
+  "books": {
+    "fonbet": {
+      "checkedAt": 1793405843600,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "pari": {
+      "checkedAt": 1793405843574,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "bettery": {
+      "checkedAt": 1793405843577,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "bet24": {
+      "checkedAt": 1793405843597,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "olimp": {
+      "checkedAt": 1793405843594,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "marathon": {
+      "checkedAt": 1793405843591,
+      "status": "ok",
+      "coverage": "prematch",
+      "events": []
+    },
+    "betcity": {
+      "checkedAt": 1793405843720,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "sportbet": {
+      "checkedAt": 1793405843580,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "baltbet": {
+      "checkedAt": 1793405843585,
+      "status": "ok",
+      "coverage": "prematch",
+      "events": [
+        {
+          "id": "31852998",
+          "team1": "Nuclear TigeRES",
+          "team2": "Pcific Esports",
+          "tournament": "Counter-Strike. Восточная Европа. Cyberclash",
+          "start": 1793451600000,
+          "odds": [
+            1.17,
+            3.9
+          ],
+          "url": "https://baltbet.ru/cybersport/counter-strike/east-europe/cyberclash/nuclear-tigeres-pcific-esports-id-31852998",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793405843585,
+          "last": 1793405843585,
+          "open": [
+            1.17,
+            3.9
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. Восточная Европа. Cyberclash"
+          ]
+        },
+        {
+          "id": "31853002",
+          "team1": "Private",
+          "team2": "Omega",
+          "tournament": "Counter-Strike. Восточная Европа. Cyberclash",
+          "start": 1793462400000,
+          "odds": [
+            1.16,
+            4
+          ],
+          "url": "https://baltbet.ru/cybersport/counter-strike/east-europe/cyberclash/private-omega-id-31853002",
+          "live": false,
+          "liveOffered": false,
+          "first": 1793405843585,
+          "last": 1793405843585,
+          "open": [
+            1.16,
+            4
+          ],
+          "liveSeen": false,
+          "names": [
+            "Counter-Strike. Восточная Европа. Cyberclash"
+          ]
+        }
+      ]
+    },
+    "winline": {
+      "checkedAt": 1793405843555,
+      "status": "ok",
+      "coverage": "prematch",
+      "events": []
+    },
+    "leon": {
+      "checkedAt": 1793405843570,
+      "status": "ok",
+      "coverage": "prematch",
+      "events": []
+    }
+  }
+}
