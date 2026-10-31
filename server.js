@@ -59,6 +59,9 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
           baseUrl: target.href, user, password,
           socketUrl: ebotSocketUrl(target.href),
         }),
+        // События консоли (start-fail, timeout-закрытия) — в journalctl:
+        // гайд «смотри journalctl» без этого был пустым советом.
+        log: message => console.warn('ebot-console:', message),
       });
     }
     return consoleHub;
@@ -108,6 +111,9 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
         response.writeHead(reply.status, Object.fromEntries(reply.headers));
         response.end(body);
       } catch (error) {
+        // Гайд просит «смотри journalctl» — без записи в лог этот совет
+        // пустой: ошибки eBot уезжают только в браузер.
+        console.warn('api/ebot-admin:', error.message || 'нет ответа');
         if (!response.headersSent) {
           const tooBig = error.message === 'size';
           response.writeHead(tooBig ? 413 : 502, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -180,6 +186,7 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
         response.writeHead(reply.status, Object.fromEntries(reply.headers));
         response.end(body);
       } catch (error) {
+        console.warn('api/ebot:', error.message || 'нет ответа');
         if (!response.headersSent) {
           const tooBig = error.message === 'size';
           response.writeHead(tooBig ? 413 : 502, { 'Content-Type': 'application/json; charset=utf-8' });

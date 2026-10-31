@@ -348,7 +348,13 @@ class EbotAdmin {
       absorbCookies(res, this.#cookies);
       return res;
     } catch (error) {
-      throw new Error('eBot не ответил: ' + (error && error.message ? error.message : 'сеть'));
+      // Переводим частые сетевые отказы в понятные русские причины;
+      // сырой message («fetch failed», «aborted») оператору ни о чём.
+      const raw = String(error?.message || '');
+      const cause = /abort|timeout/i.test(raw) ? 'молчит дольше 10 с — проверь, что ebot-cs2-app запущен и EBOT_URL верен'
+        : /fetch|ENOTFOUND|ECONNREFUSED|ECONNRESET/i.test(raw) ? 'нет соединения — проверь EBOT_URL и сеть до eBot'
+        : 'сеть';
+      throw new Error('eBot не ответил: ' + cause);
     }
   }
 

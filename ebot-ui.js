@@ -16,9 +16,10 @@ const ADMIN = '/api/ebot-admin';
 const CONSOLE = '/api/ebot-console';
 const STORE = 'oneshot-ebot';
 const POLL = 20000, REPEAT = 20000, REPEAT_LIMIT = 3;
-// Чат и RCON: только печатные символы без кавычек и точек с запятой — то же
-// ограничение, что проверяет сервер; проверяем и у себя для ранней ошибки.
-const SAY_RE = /^[ -~]{1,200}$/;
+// Чат и RCON: печатная ASCII-латиница без кавычек и точек с запятой —
+// копия серверного COMMAND_RE (server/ebot-console.js), ранняя ошибка
+// вместо 400 после отправки. Кириллицу канал CS2 не принимает.
+const SAY_RE = /^[ -!#-\x39<-Z\x5e-~]{1,200}$/;
 // Live commands eBot understands, with their operator labels; shown only
 // when the block is admin-enabled.
 const RUN_COMMANDS = [
@@ -62,6 +63,9 @@ function render() {
   if (!state.matches.length) {
     box.append(el('div', { className: 'empty-panel', textContent: state.updatedAt ?
       'eBot не показывает матчей в списке.' : 'Здесь появятся матчи, которые ведёт eBot.' }));
+    // Пустой список — не вечная загрузка: статус честно показывает, что опрос
+    // жив (и затирает старый текст об ошибке, если eBot ожил).
+    if (state.updatedAt) setStatus(ebotStatusLine(state.matches, state.updatedAt));
     return;
   }
   for (const match of shown.length ? shown : state.matches.slice(0, 1)) {
@@ -172,10 +176,15 @@ async function probeAdmin() {
     // Закрытый каталог (403, EBOT_ADMIN_OPEN не задан) — секреты всё равно
     // есть: кнопки команд и консоль работают, только формы создания нет.
     if (error.status === 403) {
+      // Каталог закрыт (EBOT_ADMIN_OPEN): кнопки и консоль работают,
+      // формы создания нет — говорим это, а не молчим.
       adminReady = true;
       render();
+      setStatus('eBot: управление есть, форма создания скрыта — каталог серверов закрыт (EBOT_ADMIN_OPEN).');
+    } else if (error.status === 401) {
+      setStatus('eBot: управление выключено — на сервере не заданы EBOT_USER/EBOT_PASSWORD (deploy/ЗАПУСК-ЗАВТРА.md).');
     }
-    /* прочее: no credentials или eBot down — блок остаётся монитором */
+    /* прочее: eBot down — блок остаётся монитором, статус скажет опрос списка */
   }
 }
 
@@ -339,8 +348,12 @@ function connectStream() {
     if (typeof content !== 'string') return;
     appendText($('ebotConsoleRcon'), content + '\n---\n');
   });
-  source.addEventListener('stop', () => {
-    consoleStatus('Консоль матча закрыта (eBot).');
+  source.addEventListener('stop', event => {
+    // Причина от сервера (timeout/shutdown/eBot): оператору она говорит,
+    // закрылась ли консоль от бездействия или eBot перезапустили.
+    let reason = '';
+    try { reason = JSON.parse(event.data)?.reason || ''; } catch { /* нет данных — без причины */ }
+    consoleStatus(`Консоль матча закрыта${reason ? ` (${reason})` : ' (eBot)'}.`);
     closeSource();
     consoleState.id = null;
   });
@@ -403,12 +416,12 @@ $('ebotConsoleForm').addEventListener('submit', async event => {
   if (!text) return;
   const toChat = $('ebotConsoleMode').checked;
   if (toChat && !SAY_RE.test(text)) {
-    consoleStatus('Текст в чат: только обычные символы без кавычек и точек с запятой.');
+    consoleStatus('Текст в чат: только латиница, цифры и знаки, без кавычек и точек с запятой (кириллицу чат CS2 не принимает).');
     return;
   }
   const command = toChat ? 'say ' + text : text;
   if (!SAY_RE.test(command)) {
-    consoleStatus('Команда RCON: только обычные символы без кавычек и точек с запятой.');
+    consoleStatus('Команда RCON: только латиница, цифры и знаки, без кавычек и точек с запятой.');
     return;
   }
   input.value = '';

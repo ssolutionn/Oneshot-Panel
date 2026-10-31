@@ -285,6 +285,12 @@ export function createConsoleHub({ admin, log = () => {}, now = Date.now } = {})
           message: tooBig ? 'Запрос консоли слишком большой.' : 'Ожидается JSON-запрос.' }));
         return true;
       }
+      // JSON.parse('null') валиден, но .action на null — TypeError наружу.
+      if (!body || typeof body !== 'object') {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'request', message: 'Ожидается JSON-запрос.' }));
+        return true;
+      }
       try {
         if (body.action === 'start') {
           const made = await this.start(body.matchId);

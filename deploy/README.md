@@ -19,11 +19,15 @@ cd /opt/oneshot-panel && git checkout feat/ebot-admin   # ветка с eBot-ф�
 sudo chown -R oneshot:oneshot /opt/oneshot-panel
 sudo -u oneshot npm test          # 299 тестов должны быть зелёными
 
-# 3. Секреты (не коммитить!)
+# 3. Секреты (не коммитить!). Ниже — сценарий «панель на ОДНОМ сервере с
+# eBot» (как в ЗАПУСК-ЗАВТРА.md): EBOT_URL локальный, пароль не ходит по
+# сети. Split-деплой (панель на другом сервере): укажи внешний адрес eBot,
+# открой TCP 12360 и помни — креды пойдут по HTTP.
 sudo tee /etc/oneshot-panel.env >/dev/null <<'EOF'
-EBOT_URL=http://37.230.228.105/
+EBOT_URL=http://127.0.0.1/
 EBOT_USER=<логин админки eBot, лучше судья>
 EBOT_PASSWORD=<пароль>
+EBOT_ADMIN_OPEN=1
 FACEIT_API_KEY=<client-side ключ, для лобби без ручного ввода>
 EOF
 sudo chmod 600 /etc/oneshot-panel.env && sudo chown root:oneshot /etc/oneshot-panel.env
