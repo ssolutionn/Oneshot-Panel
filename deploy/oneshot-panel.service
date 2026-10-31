@@ -1,0 +1,37 @@
+[Unit]
+Description=Oneshot Panel (web, static + API proxy)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=oneshot
+Group=oneshot
+WorkingDirectory=/opt/oneshot-panel
+# Весь сайт и все API (eBot, FACEIT, букмекеры, вето-реле) — один процесс.
+# HOST=0.0.0.0, если панель стоит за nginx этого же сервера на 127.0.0.1 —
+# оставь 127.0.0.1 и проксируй.
+Environment=HOST=127.0.0.1
+Environment=PORT=3000
+# --- eBot (сервер Flegma) ---
+# Монитор работает без секретов; управление требует учётку админки eBot.
+# Лучше отдельный аккаунт судьи, не главный админ.
+#Environment=EBOT_URL=http://37.230.228.105/
+#Environment=EBOT_USER=
+#Environment=EBOT_PASSWORD=
+# --- FACEIT лобби без ручного ключа ---
+#Environment=FACEIT_API_KEY=
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+
+# Доступ к CS2-журналу (вкладка «Сервер»): CS2_JOURNAL=1, если панель
+# стоит на одном компьютере с сервером CS2. Секреты в этот файл не вписывать
+# в открытом виде — лучше EnvironmentFile=/etc/oneshot-panel.env с правами 600.
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/oneshot-panel/.cs2-data /opt/oneshot-panel/.veto-relay-data
+
+[Install]
+WantedBy=multi-user.target
