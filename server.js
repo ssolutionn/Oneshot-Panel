@@ -26,7 +26,7 @@ const publicFiles = new Set([
   'card.html', 'card.js', 'card.css', 'live.js', 'obs.js', 'vdo.js',
   'lobby.js', 'faceit.js', 'ebot.js', 'notifications.js', 'notification-worker.js', 'obs-bridge.html', 'obs-bridge.js',
   'veto.html', 'veto.js', 'veto.css', 'veto-room.js', 'veto-watch.js', 'bookmakers.js', 'bookies.js', 'lan.js', 'lan-event.js', 'lan-images.js', 'cs2.js',
-  'oneshot-webcams.js', 'ebot-ui.js', 'ebot-stats.js', 'ebot-stats-parse.js', 'ebot-global.js', 'ebot-live-ui.js', 'veto-mobile.html'
+  'oneshot-webcams.js', 'ebot-ui.js', 'ebot-stats.js', 'ebot-stats-parse.js', 'ebot-global.js', 'ebot-global-ui.js', 'ebot-live-ui.js', 'veto-mobile.html'
 ]);
 const mime = {
   '.html': 'text/html; charset=utf-8',
