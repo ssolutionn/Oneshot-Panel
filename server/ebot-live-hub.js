@@ -22,6 +22,7 @@ class LiveSession {
   #now;
   #engine = null;         // движок мьюта, если TS включён
   #stopped = false;
+  #logFedAt = 0;          // строка лога консоли кормила движок недавно
 
   constructor({ getJwt, baseWsUrl, matchId, admin, fetchImpl, now = Date.now, log = () => {} }) {
     this.#log = log;
@@ -76,7 +77,11 @@ class LiveSession {
           if (ev.type === 'paused') this.#engine.feed({ type: 'paused', paused: ev.paused });
           if (ev.type === 'kill') this.#engine.feed({ type: 'kill' });
           if (ev.type === 'stop') this.#engine.feed({ type: 'phase', phase: 'finished' });
-          if (ev.type === 'newRound') this.#engine.feed({ type: 'round_start' });
+          // newRound дублирует Round_Start из лога консоли: живой лог
+          // надёжнее, livemap — только fallback без консоли.
+          if (ev.type === 'newRound' && Date.now() - this.#logFedAt > 15_000) {
+            this.#engine.feed({ type: 'round_start' });
+          }
         }
       } catch { /* сломанный движок не роняет поток */ }
     }
@@ -91,7 +96,10 @@ class LiveSession {
   feedLogLine(line) {
     if (!this.#engine || this.#stopped) return;
     const ev = parseLogLine(line);
-    if (ev) this.#engine.feed(ev);
+    if (ev) {
+      this.#logFedAt = Date.now();
+      this.#engine.feed(ev);
+    }
   }
 
   addClient(res) {
@@ -156,21 +164,44 @@ export function createLiveHub({ getJwt, baseWsUrl, admin, fetchImpl, now = Date.
     throw new Error('Нужны getJwt и baseWsUrl для живого потока eBot.');
   }
   let session = null;
+  let starting = null; // POST start в полёте: второй start ждёт/убивает его
 
+  const begin = (id, muteEngine) => {
+    const fresh = new LiveSession({ getJwt, baseWsUrl, matchId: id, admin, fetchImpl, now, log });
+    if (muteEngine) fresh.attachMute(muteEngine);
+    // Таймаут первого соединения: при лежащем eBot POST не висит вечно
+    // (EbotLive резолвится после первого соединения — при недоступном
+    // eBot его не будет никогда).
+    const deadline = new Promise((_, reject) => {
+      const timer = setTimeout(() => reject(new Error('eBot не ответил за 30 с')), 30_000);
+      timer.unref?.();
+    });
+    const attempt = Promise.race([fresh.start(), deadline]).catch(error => {
+      fresh.stop('start-fail');
+      throw Object.assign(new Error('eBot не открыл живой поток матча'), { status: 502, cause: error });
+    }).then(() => fresh);
+    return { fresh, attempt };
+  };
 
   return {
     async start(matchId, muteEngine = null) {
       const id = String(matchId || '');
       if (!/^\d{1,9}$/.test(id)) throw Object.assign(new Error('Номер матча обязателен.'), { status: 400 });
+      // Параллельный start (повторный клик при лежащем eBot): первый
+      // гасим, иначе его EbotLive-цикл жил бы вечно и кормил движок
+      // мьюта дублями событий (находка ревью логики).
+      if (starting) {
+        starting.fresh.stop('сменён другой запрос');
+        starting = null;
+      }
       // Один лайв-матч: прежний поток закрываем, подписчики переподключатся.
       if (session) { session.stop('сменён другой матч'); session = null; }
-      const fresh = new LiveSession({ getJwt, baseWsUrl, matchId: id, admin, fetchImpl, now, log });
-      if (muteEngine) fresh.attachMute(muteEngine);
+      const { fresh, attempt } = begin(id, muteEngine);
+      starting = { fresh, attempt };
       try {
-        await fresh.start();
-      } catch (error) {
-        fresh.stop('start-fail');
-        throw Object.assign(new Error('eBot не открыл живой поток матча'), { status: 502, cause: error });
+        await attempt;
+      } finally {
+        if (starting && starting.fresh === fresh) starting = null;
       }
       session = fresh;
       return { matchId: id };
@@ -250,6 +281,14 @@ export function createLiveHub({ getJwt, baseWsUrl, admin, fetchImpl, now = Date.
           const made = await this.start(body.matchId, this.muteEngine);
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
           res.end(JSON.stringify(made));
+          return true;
+        }
+        if (body.action === 'coaches') {
+          if (typeof this.setCoaches === 'function' && Array.isArray(body.coaches)) {
+            this.setCoaches(body.coaches.filter(n => typeof n === 'string' && n.trim()).map(n => n.trim()));
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ updated: true }));
           return true;
         }
         if (body.action === 'stop') {

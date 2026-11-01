@@ -296,6 +296,20 @@ const coaches = () => {
   } catch { return []; }
 };
 
+// Тренеры известны только после загрузки таблиц «Подготовки»: если поток
+// открыли раньше — досылаем их при первом oneshot:change с составами
+// (без этого мьют молча не включался весь матч, находка ревью логики).
+document.addEventListener('oneshot:change', () => {
+  if (liveMatchId === null) return;
+  const nicks = coaches();
+  if (!nicks.length) return;
+  fetch('/api/ebot-live', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'coaches', coaches: nicks })
+  }).catch(() => { /* тренеры придут со следующим стартом матча */ });
+}, { once: true });
+
 const livePanel = document.getElementById('ebotLivePanel');
 let liveStream = null;
 let liveMatchId = null;

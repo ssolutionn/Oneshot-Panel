@@ -29,15 +29,17 @@ async function fetchJson(url) {
 async function loadArchive() {
   const matches = [];
   let pages = 0;
+  let lastFull = false; // последняя страница была полной (возможно, есть ещё)
   for (let page = 1; page <= MAX_PAGES; page++) {
     const data = await fetchJson('/api/ebot?archived=' + page);
     const html = data && data.page || '';
     const batch = parseArchivePage(html);
     matches.push(...batch);
     pages++;
+    lastFull = batch.length >= 12;
     if (batch.length < 12) break; // последняя страница
   }
-  return { matches, truncated: pages >= MAX_PAGES };
+  return { matches, truncated: pages >= MAX_PAGES && lastFull };
 }
 
 async function loadStats(matchId) {

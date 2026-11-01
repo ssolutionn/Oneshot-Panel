@@ -189,8 +189,12 @@ export function initEbotLive({ getMatch, feedList, radarCanvas, mapName, note = 
           state.statusText = msg.status;
           renderCard();
         }
-        const round = Number(msg.round);
-        if (Number.isFinite(round)) note(`Раунд ${round}`);
+        // round:null (toNum не распознал) — Number(null)===0, гардим:
+        // «Раунд 0» без номера не показываем.
+        if (msg.round !== null && msg.round !== undefined) {
+          const round = Number(msg.round);
+          if (Number.isFinite(round)) note(`Раунд ${round}`);
+        }
         break;
       }
       case 'kill': {

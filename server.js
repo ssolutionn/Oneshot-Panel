@@ -340,6 +340,15 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
       }
       try {
         const upstream = await ebotDemo({ targetHref: target.href, mapId });
+        // Ошибка eBot (404/500/логин-редирект после follow) — не демо:
+        // отдаём JSON-ошибку, а не attachment с HTML внутри (находка
+        // ревью логики: браузер молча качал битый zip).
+        if (upstream.status >= 300 || (upstream.headers.get('content-type') || '').includes('text/html')) {
+          const code = upstream.status === 404 ? 404 : 502;
+          response.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
+          response.end(JSON.stringify({ error: 'upstream', message: 'Демо недоступно на eBot (HTTP ' + upstream.status + ').' }));
+          return;
+        }
         response.writeHead(upstream.status, {
           'content-type': upstream.headers.get('content-type') || 'application/octet-stream',
           'content-disposition': 'attachment; filename="match-' + mapId + '.dem.zip"',

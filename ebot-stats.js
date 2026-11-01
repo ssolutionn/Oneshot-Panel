@@ -70,6 +70,7 @@ async function openStats(matchId) {
   state.match = null;
   state.players = [];
   state.teams = ['', ''];
+  state.demos = []; // иначе при падении fetch оставались кнопки прошлого матча
   state.heat.points = [];
   state.radar.img = null;
   $('ebotStatsMatch').textContent = `Матч #${matchId}`;
