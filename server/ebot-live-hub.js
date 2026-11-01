@@ -6,6 +6,10 @@
 // тренер замьючен. Секреты eBot/TS в модуль не приходят: admin-клиент уже
 // готов, TS-клиент собирает вызывающий из env.
 import { createEbotLive } from './ebot-live.js';
+
+// Браузеров на один живой поток хватает с запасом: панель одна, вкладок
+// несколько; свыше — отказ без заголовков (соединение закрывается сразу).
+const MAX_CLIENTS = 10;
 import { createMuteEngine, parseLogLine } from './ts-mute.js';
 
 // Живой поток матча: событие одному — событие всем. Переподключение eBot
@@ -90,6 +94,13 @@ class LiveSession {
     for (const ev of this.#history) res.write(`data: ${JSON.stringify(ev)}\n\n`);
     const client = { res, alive: true };
     this.#clients.add(client);
+    // Кап на браузеры: анонимные вкладки не копят висячие SSE-соединения
+    // (публичные данные, но keepalive каждые 20 с — трафик и сокеты).
+    if (this.#clients.size > MAX_CLIENTS) {
+      this.#clients.delete(client);
+      res.end();
+      return client;
+    }
     res.on('close', () => {
       client.alive = false;
       this.#clients.delete(client);
@@ -126,7 +137,6 @@ export function createLiveHub({ getJwt, baseWsUrl, admin, fetchImpl, now = Date.
   }
   let session = null;
 
-  const ensureStarted = () => session || null;
 
   return {
     async start(matchId, muteEngine = null) {
@@ -164,8 +174,8 @@ export function createLiveHub({ getJwt, baseWsUrl, admin, fetchImpl, now = Date.
       let url;
       try { url = new URL(req.url, 'http://localhost'); } catch { return false; }
       if (url.pathname !== '/api/ebot-live') return false;
-      const current = ensureStarted();
-      if (!current || current.clientCount < 0) {
+      const current = session;
+      if (!current) {
         res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ error: 'not-found', message: 'Живой поток не открыт.' }));
         return true;
