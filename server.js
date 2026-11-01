@@ -83,9 +83,12 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
         // статусов eBot.
         log: message => {
           console.warn('ebot-console:', message);
+          // Формат — «log <id консоли> <строка лога CS2>»: режем по первому
+          // пробелу после id, строка лога содержит пробелы и двоеточия.
           if (message.startsWith('log ')) {
-            const line = message.slice(4).split(/ (\d+ )?/).pop() || '';
-            liveHub?.feedLogLine(line);
+            const rest = message.slice(4);
+            const sp = rest.indexOf(' ');
+            if (sp > 0) liveHub?.feedLogLine(rest.slice(sp + 1));
           }
         },
       });
@@ -334,7 +337,12 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
           'cache-control': 'no-store'
         });
         if (upstream.body) {
-          for await (const chunk of upstream.body) response.write(chunk);
+          // Backpressure: медленный клиент не копит демо в памяти сервера,
+          // ушедший клиент останавливает докачку с eBot (отмена стрима).
+          for await (const chunk of upstream.body) {
+            if (response.destroyed) { await upstream.body.cancel().catch(() => {}); break; }
+            if (!response.write(chunk)) await new Promise(resolve => response.once('drain', resolve));
+          }
         }
         response.end();
       } catch (error) {

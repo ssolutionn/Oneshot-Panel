@@ -291,6 +291,34 @@ const livePanel = document.getElementById('ebotLivePanel');
 let liveStream = null;
 let liveMatchId = null;
 
+// Закрытие живого потока: гасим панель, шлём серверу stop (снимает и
+// мьют тренера: движок получает finished) и сбрасываем кнопку карточки.
+async function stopLive() {
+  liveMatchId = null;
+  livePanel.hidden = true;
+  if (liveStream) liveStream.close();
+  refreshLiveButtons();
+  try {
+    await fetch('/api/ebot-live', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'stop' })
+    });
+  } catch { /* сервер сам закроет поток по stop или смене матча */ }
+}
+
+// Кнопки «В эфир» отражают текущее состояние потока.
+function refreshLiveButtons() {
+  for (const button of $('ebotMatches').querySelectorAll('[data-ebot-live]')) {
+    const mine = liveMatchId !== null && button.closest('.lobby-match')?.dataset.match === liveMatchId;
+    button.textContent = mine ? '● В эфире' : 'В эфир';
+    if (mine) button.setAttribute('aria-pressed', 'true');
+    else button.removeAttribute('aria-pressed');
+  }
+}
+
+$('ebotLiveClose').addEventListener('click', stopLive);
+
 async function startLive(matchId) {
   livePanel.hidden = false;
   $('ebotLiveStatus').textContent = 'Открываем живой поток матча #' + matchId + '…';
@@ -314,6 +342,7 @@ async function startLive(matchId) {
     }
     liveMatchId = String(matchId);
     liveStream.open(matchId);
+    refreshLiveButtons();
     window.dispatchEvent(new CustomEvent('oneshot:lobby-note',
       { detail: 'eBot: живой поток матча #' + matchId + '.' }));
   } catch (error) {
@@ -335,14 +364,15 @@ function addLiveButtons() {
     const live = card.classList.contains('live');
     const button = Object.assign(document.createElement('button'), {
       type: 'button', className: 'button small',
-      textContent: liveMatchId === card.dataset.match ? '● В эфире' : 'В эфир',
+      textContent: 'В эфир',
       title: 'Живой счёт, лента киллов, мини-радар; включает мьют тренера в TeamSpeak'
     });
     button.setAttribute('data-ebot-live', '');
-    if (liveMatchId === card.dataset.match) button.setAttribute('aria-pressed', 'true');
     if (!live) button.disabled = true; // завершённым матчам поток не нужен
     top.append(button);
   }
+  // Состояние «● В эфире» — после пересоздания карточек render()-ом.
+  refreshLiveButtons();
 }
 
 document.addEventListener('click', event => {

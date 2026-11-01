@@ -97,7 +97,9 @@ function render(body, stats, truncated) {
       box.append(el('div', { className: 'ebot-global-map' },
         el('strong', { textContent: String(row.map || '') }),
         el('span', { className: 'ebot-global-bar', title: 'винрейт ' + pct + '%' },
-          el('i', { style: { width: pct + '%' } })),
+          // style строкой: el() делает Object.assign, объект в сеттер style
+          // молча отбрасывается (пустая полоска) — проверено ревью.
+          el('i', { style: 'width:' + pct + '%' })),
         el('span', { textContent: (row.wins || 0) + 'W / ' + (row.losses || 0) + 'L · ' + pct + '%' })));
     }
     body.append(box);

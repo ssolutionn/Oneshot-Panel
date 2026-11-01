@@ -54,7 +54,7 @@ export async function proxyEbot(request, envUrl = '') {
     }
     const page = Math.min(Math.max(parseInt(url.searchParams.get('archived'), 10) || 1, 1), 4);
     target.pathname = '/matchs/archived/' + page;
-    return proxyEbotPageCached(target, 60_000, 'eBot закрыл архив матчей.');
+    return proxyEbotPageCached(target, 60_000, 'eBot закрыл архив матчей.', archiveCache);
   }
   if (request.method !== 'GET' || url.search) {
     return Response.json({ error: 'not-allowed', message: 'Прокси отдаёт только список матчей eBot.' }, { status: 400 });
@@ -94,10 +94,11 @@ let viewCache = { at: 0, url: '', page: '' };
 let archiveCache = { at: 0, url: '', page: '' };
 
 // Общая ветка «страница eBot с кэшем»: список (7 с), view (60 с), архив
-// (60 с) — разный только TTL и сообщение про закрытую страницу.
-async function proxyEbotPageCached(target, ttlMs, closedMessage) {
+// (60 с). Кэш выбирается ЯВНЫМ селектором, не по TTL — в проде TTL view
+// и архива равны, и выбор по числу молча сваливал бы их в одну ячейку
+// (находка ревью: архивные страницы вытесняли view).
+async function proxyEbotPageCached(target, ttlMs, closedMessage, cache) {
   const at = Date.now();
-  const cache = ttlMs === PAGE_TTL_MS() ? pageCache : ttlMs === VIEW_TTL_MS() ? viewCache : archiveCache;
   if (cache.at && cache.url === target.href && at - cache.at < ttlMs) {
     return Response.json({ page: cache.page }, { headers: JSON_HEADERS });
   }
@@ -128,7 +129,7 @@ async function proxyEbotView(request, url, target) {
     }
   }
   target.pathname = '/matchs/view/' + matchId;
-  return proxyEbotPageCached(target, VIEW_TTL_MS(), 'eBot закрыл страницу матча.');
+  return proxyEbotPageCached(target, VIEW_TTL_MS(), 'eBot закрыл страницу матча.', viewCache);
 }
 
 // ---------- хитмапа: POST ?heatmap=<matchId>, тело form-urlencoded ----------

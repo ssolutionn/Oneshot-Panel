@@ -129,8 +129,14 @@ document.addEventListener('click', event => {
   if (!button) return;
   const mapId = button.dataset.mapId || '';
   if (!/^\d{1,9}$/.test(mapId)) return;
-  // Прямая ссылка на стрим-прокси: браузер качает сам, имя даёт сервер.
-  window.open('/api/ebot-demo?demo=' + mapId, '_self');
+  // Программная ссылка с download: при ошибке сервера JSON остаётся
+  // скачиванием, а не навигацией, заменившей вкладку панели.
+  const link = document.createElement('a');
+  link.href = '/api/ebot-demo?demo=' + mapId;
+  link.download = 'match-' + mapId + '.dem.zip';
+  document.body.append(link);
+  link.click();
+  link.remove();
 });
 
 // Шапка: команды и счёт карточки (счёт у списка свежее, чем у страницы).
