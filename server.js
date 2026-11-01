@@ -14,6 +14,9 @@ import { FileRelayStore } from './server/veto-relay-file.js';
 import {shortIdValid,shortPathValid} from './assets/veto-short-protocol.js';
 import { createCs2, handleCs2, loadToken } from './server/cs2-api.js';
 import { createConsoleHub } from './server/ebot-console.js';
+import { createLiveHub } from './server/ebot-live-hub.js';
+import { createTeamspeak } from './server/teamspeak.js';
+import { createMuteEngine } from './server/ts-mute.js';
 import { eventScript, eventSlug } from './events/event-script.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -22,7 +25,7 @@ const publicFiles = new Set([
   'card.html', 'card.js', 'card.css', 'live.js', 'obs.js', 'vdo.js',
   'lobby.js', 'faceit.js', 'ebot.js', 'notifications.js', 'notification-worker.js', 'obs-bridge.html', 'obs-bridge.js',
   'veto.html', 'veto.js', 'veto.css', 'veto-room.js', 'veto-watch.js', 'bookmakers.js', 'bookies.js', 'lan.js', 'lan-event.js', 'lan-images.js', 'cs2.js',
-  'oneshot-webcams.js', 'ebot-ui.js', 'ebot-stats.js', 'ebot-stats-parse.js', 'veto-mobile.html'
+  'oneshot-webcams.js', 'ebot-ui.js', 'ebot-stats.js', 'ebot-stats-parse.js', 'ebot-global.js', 'ebot-live-ui.js', 'veto-mobile.html'
 ]);
 const mime = {
   '.html': 'text/html; charset=utf-8',
@@ -48,23 +51,107 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
   // на Netlify/Cloudflare этого роута нет, кнопка честно скажет «404».
   // Создаётся лениво с теми же секретами EBOT_*, что и /api/ebot-admin.
   let consoleHub = null;
+  let ebotAdmin = null;
+  const ebotCreds = () => {
+    const target = ebotTarget(process.env.EBOT_URL || '');
+    const user = (process.env.EBOT_USER || '').trim();
+    const password = process.env.EBOT_PASSWORD || '';
+    return (target && user && password) ? { target, user, password } : null;
+  };
+  const getAdmin = () => {
+    if (!ebotAdmin) {
+      const creds = ebotCreds();
+      if (!creds) return null;
+      ebotAdmin = createEbotAdmin({
+        baseUrl: creds.target.href, user: creds.user, password: creds.password,
+        socketUrl: ebotSocketUrl(creds.target.href),
+      });
+    }
+    return ebotAdmin;
+  };
   const ebotHub = () => {
     if (!consoleHub) {
-      const target = ebotTarget(process.env.EBOT_URL || '');
-      const user = (process.env.EBOT_USER || '').trim();
-      const password = process.env.EBOT_PASSWORD || '';
-      if (!target || !user || !password) return null;
+      const admin = getAdmin();
+      if (!admin) return null;
       consoleHub = createConsoleHub({
-        admin: createEbotAdmin({
-          baseUrl: target.href, user, password,
-          socketUrl: ebotSocketUrl(target.href),
-        }),
+        admin,
         // События консоли (start-fail, timeout-закрытия) — в journalctl:
-        // гайд «смотри journalctl» без этого был пустым советом.
-        log: message => console.warn('ebot-console:', message),
+        // гайд «смотри journalctl» без этого был пустым советом. Строки
+        // лога («log <id> <line>») заодно уходят движку мьюта тренера:
+        // Round_Start/килы в логе решают freeze/живой раунд надёжнее
+        // статусов eBot.
+        log: message => {
+          console.warn('ebot-console:', message);
+          if (message.startsWith('log ')) {
+            const line = message.slice(4).split(/ (\d+ )?/).pop() || '';
+            liveHub?.feedLogLine(line);
+          }
+        },
       });
     }
     return consoleHub;
+  };
+
+  // Живой поток eBot (server/ebot-live-hub.js): один лайв-матч на сервер,
+  // счёт/статус/килы → SSE, те же события + строки лога консоли → движок
+  // мьюта тренера в TeamSpeak. Включается теми же EBOT_* секретами; TS —
+  // отдельными TS_HOST/TS_QUERY_LOGIN/TS_QUERY_PASSWORD (без них мьюта
+  // нет, поток живёт).
+  let liveHub = null;
+  const ebotLive = () => {
+    if (!liveHub) {
+      const creds = ebotCreds();
+      if (!creds) return null;
+      const admin = getAdmin();
+      liveHub = createLiveHub({
+        getJwt: async () => { await admin.ready(); return admin.jwt(); },
+        baseWsUrl: ebotSocketUrl(creds.target.href),
+        admin,
+        log: message => console.warn('ebot-live:', message),
+      });
+      // Мьют тренера: отдельный TS-клиент из env, движок правил — из
+      // server/ts-mute.js. Ники тренеров панель передаёт при старте
+      // (POST start с coaches), они же уезжают в TS-клиент.
+      const tsHost = (process.env.TS_HOST || '').trim();
+      const tsLogin = (process.env.TS_QUERY_LOGIN || '').trim();
+      const tsPassword = process.env.TS_QUERY_PASSWORD || '';
+      if (tsHost && tsLogin && tsPassword) {
+        const ts = createTeamspeak({
+          host: tsHost,
+          port: Number(process.env.TS_QUERY_PORT) || 10011,
+          login: tsLogin,
+          password: tsPassword,
+          usePort: Number(process.env.TS_USE_PORT) || 9987,
+          muteGroupName: process.env.TS_MUTE_GROUP || 'Oneshot Muted',
+          log: message => console.warn('teamspeak:', message),
+        });
+        let coachNicks = [];
+        let muteBusy = Promise.resolve();
+        // Очередь мьют-операций: движок срабатывает на события, гонять
+        // TS-команды параллельно незачем — последняя и так доведёт группу.
+        const run = (op, why) => {
+          muteBusy = muteBusy.then(async () => {
+            try {
+              const nicks = coachNicks;
+              if (!nicks.length) return;
+              const result = op === 'mute' ? await ts.muteClients(nicks) : await ts.unmuteClients(nicks);
+              for (const missed of result.missed) {
+                console.warn('teamspeak: тренер не в TS —', missed);
+              }
+            } catch (error) {
+              console.warn('teamspeak: мьют не применился (' + why + '):', error.message || error);
+            }
+          });
+        };
+        liveHub.muteEngine = createMuteEngine({
+          onMute: () => run('mute', 'мьют'),
+          onUnmute: () => run('unmute', 'размьют'),
+          onNote: text => console.warn('ts-mute:', text),
+        });
+        liveHub.setCoaches = nicks => { coachNicks = (nicks || []).map(String); };
+      }
+    }
+    return liveHub;
   };
   return http.createServer(async (request, response) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -130,6 +217,30 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
     // заданном EBOT_ADMIN_TOKEN она тоже закрыта им (POST).
     if (request.url.split('?')[0] === '/api/ebot-console') {
       const hub = ebotHub();
+      if (!hub) {
+        response.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify({ error: 'no-credentials', message: 'Задай секреты EBOT_USER и EBOT_PASSWORD хостинга.' }));
+        return;
+      }
+      if (request.method === 'POST' && process.env.EBOT_ADMIN_TOKEN &&
+          !(await checkToken({ EBOT_ADMIN_TOKEN: process.env.EBOT_ADMIN_TOKEN },
+            new Request('http://localhost/', { headers: { 'x-ebot-token': request.headers['x-ebot-token'] || '' } })))) {
+        response.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify({ error: 'no-token', message: 'Нужен верный заголовок x-ebot-token.' }));
+        return;
+      }
+      if (request.method === 'GET' && hub.sseHandler(request, response)) return;
+      if (request.method === 'POST' && await hub.postHandler(request, response)) return;
+      response.writeHead(405, { Allow: 'GET, POST' });
+      response.end();
+      return;
+    }
+    // Живой поток eBot (server/ebot-live-hub.js): POST start/stop (как
+    // консоль, same-origin, тот же EBOT_ADMIN_TOKEN), GET ?stream — SSE
+    // событий живого матча. Консольные логи того же матча идут и движку
+    // мьюта тренера (freeze/килы) — см. ebotLive() выше.
+    if (request.url.split('?')[0] === '/api/ebot-live') {
+      const hub = ebotLive();
       if (!hub) {
         response.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
         response.end(JSON.stringify({ error: 'no-credentials', message: 'Задай секреты EBOT_USER и EBOT_PASSWORD хостинга.' }));

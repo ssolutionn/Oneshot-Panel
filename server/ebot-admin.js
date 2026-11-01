@@ -395,6 +395,7 @@ class EbotAdmin {
     } catch (error) {
       if (error && error.stale) {
         this.#readyPromise = null;
+        this.#jwt = null; // jwt() больше не отдаёт протухший
         await this.ready();
         return await job();
       }
@@ -406,6 +407,13 @@ class EbotAdmin {
   async ready() {
     if (!this.#readyPromise) this.#readyPromise = this.#bootstrap();
     return this.#readyPromise;
+  }
+
+  // Свежий admin-JWT для внешних подписок (живой поток eBot). Гарантии
+  // готовости нет — вызывающий сначала ждёт ready(); протухший JWT
+  //live-цикл сам заменит через реконнект.
+  jwt() {
+    return this.#jwt;
   }
 
   async #bootstrap() {
