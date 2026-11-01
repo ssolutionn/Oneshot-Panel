@@ -153,6 +153,15 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
           onNote: text => console.warn('ts-mute:', text),
         });
         liveHub.setCoaches = nicks => { coachNicks = (nicks || []).map(String); };
+      } else {
+        // Мьют выключен (нет TS-кредов), а панель прислала тренеров:
+        // тихий дроп — как в консоль, так и в журнал, чтобы оператор
+        // по journalctl понял, почему тренер не мьютится.
+        liveHub.setCoaches = nicks => {
+          if ((nicks || []).length) {
+            console.warn('ts-mute: тренеры получены, но TS не настроен (TS_HOST/TS_QUERY_LOGIN/TS_QUERY_PASSWORD)');
+          }
+        };
       }
     }
     return liveHub;

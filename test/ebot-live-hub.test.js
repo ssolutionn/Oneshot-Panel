@@ -305,3 +305,27 @@ test('attachMute сбрасывает движок: новый матч стар
     hub.stop();
   }
 });
+
+test('stop-событие несёт matchId — клиентский фильтр его пропустит', async () => {
+  const ebot = mockEbot({ scripts: [[
+    matchs({ message: 'status', content: 'Starting', id: 1 }),
+  ], [
+    matchs({ message: 'status', content: 'Starting', id: 2 }),
+  ]] });
+  const hub = makeHub(ebot);
+  try {
+    await hub.start(1);
+    const res = fakeRes();
+    hub.sseHandler(fakeReq('/api/ebot-live'), res);
+    await until(() => res.chunks.length >= 2, 'первое событие');
+    await hub.start(2);
+    const events = sseData(res);
+    const stop = events.find(e => e.type === 'stop');
+    assert.ok(stop, 'stop есть');
+    // Фильтр клиента: String(msg.matchId) === state.matchId — то же
+    // сравнение, что ebot-live-ui.js делает для каждого сообщения.
+    assert.equal(String(stop.matchId), '1', JSON.stringify(stop));
+  } finally {
+    hub.stop();
+  }
+});

@@ -135,7 +135,10 @@ class LiveSession {
     }
     for (const client of this.#clients) {
       try {
-        client.res.write(`data: ${JSON.stringify({ type: 'stop', reason: String(reason || '') })}\n\n`);
+        // matchId обязателен: клиент фильтрует по нему каждое сообщение, и
+        // stop без id молча отбрасывался — чужая вкладка замирала навсегда
+        // при смене/закрытии матча (находка контракта-ревью).
+        client.res.write(`data: ${JSON.stringify({ type: 'stop', reason: String(reason || ''), matchId: this.matchId })}\n\n`);
         client.res.end();
       } catch { /* closed */ }
       client.alive = false;
