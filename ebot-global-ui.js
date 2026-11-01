@@ -125,7 +125,11 @@ async function collect() {
       return;
     }
     status.textContent = 'Собираем статистику: ' + matches.length + ' матчей…';
-    const stats = await collectTournament(matches, loadStats);
+    const stats = await collectTournament(matches, loadStats, {
+      onProgress: (done, total) => {
+        status.textContent = 'Собираем статистику: матч ' + done + ' из ' + total + '…';
+      }
+    });
     body.hidden = false;
     render(body, stats, truncated);
     status.textContent = 'Сводка готова: ' + stats.matches.played + ' матчей, '

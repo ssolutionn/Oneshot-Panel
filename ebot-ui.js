@@ -239,6 +239,15 @@ async function check() {
     // опроса), чтобы смена счёта старого матча не терялась и матч не
     // объявлялся заново после перезагрузки страницы.
     const seenBefore = { ...state.seen };
+    // Счёт живого потока (SSE) свежее HTML-страницы списка: откат опроса
+    // назад не затирает его и не пишет в журнал «счёт уменьшился».
+    if (liveMatchId !== null) {
+      const liveIdx = matches.findIndex(m => String(m.id) === liveMatchId);
+      const model = liveIdx >= 0 ? state.matches.find(m => String(m.id) === liveMatchId) : null;
+      if (liveIdx >= 0 && model) {
+        matches[liveIdx] = { ...matches[liveIdx], scoreA: model.scoreA, scoreB: model.scoreB };
+      }
+    }
     const events = ebotEvents(state.matches, matches);
     for (const m of matches) state.seen[m.id] = 1;
     state.matches = matches;
@@ -336,7 +345,21 @@ async function startLive(matchId) {
         feedList: 'ebotLiveFeed',
         radarCanvas: 'ebotLiveRadar',
         mapName: () => (state.matches.find(m => String(m.id) === String(liveMatchId)) || {}).map || '',
-        note: text => { $('ebotLiveStatus').textContent = text; },
+        note: text => {
+          $('ebotLiveStatus').textContent = text;
+          // Мёртвый поток: кнопка перестаёт обещать «в эфире» — повторный
+          // клик перезапустит (POST start идёт заново).
+          if (/Нет живого потока/.test(text) && liveMatchId !== null) {
+            const dead = liveMatchId;
+            liveMatchId = null;
+            for (const button of $('ebotMatches').querySelectorAll('[data-ebot-live]')) {
+              if (button.closest('.lobby-match')?.dataset.match === dead) {
+                button.textContent = 'В эфир (оборвался)';
+                button.removeAttribute('aria-pressed');
+              }
+            }
+          }
+        },
         log: text => window.dispatchEvent(new CustomEvent('oneshot:lobby-note', { detail: text }))
       });
     }

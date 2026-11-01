@@ -49,13 +49,15 @@ export function parseArchivePage(html) {
 // Ошибку fetchMatch перехватываем обеими фазами — синхронный бросок и
 // отклонённый промис: интеграцию не должно волновать, какой она была.
 // Внешних запросов модуль не делает — только переданный fetchMatch.
-export async function collectTournament(matches, fetchMatch) {
+export async function collectTournament(matches, fetchMatch, { onProgress } = {}) {
   const players = new Map();
   const maps = new Map();
   let totalRounds = 0, played = 0;
   const failed = [];
+  const list = (matches || []);
+  let done = 0;
 
-  for (const match of (matches || [])) {
+  for (const match of list) {
     const id = match?.id;
     if (id === undefined || id === null) continue;
     let html;
@@ -65,6 +67,10 @@ export async function collectTournament(matches, fetchMatch) {
     } catch {
       failed.push(id);
       continue;
+    }
+    done++;
+    if (typeof onProgress === 'function') {
+      try { onProgress(done, list.length); } catch { /* прогресс не роняет сборку */ }
     }
     // parseStatsPage внутри уже прогоняет parseTeams и отдаёт пары
     // команд из заголовка «Match #N - A vs B».
