@@ -1,0 +1,365 @@
+</div>
+                <div class="span10">
+                    
+                    
+                    <h3>Archivied Matches</h3>
+<hr/>
+<div class="navbar">
+    <div class="navbar-inner">
+        <ul class="nav">
+            <li><a href="#myModal" role="button"  data-toggle="modal">Match Search</a></li>
+                        <li>
+                <form style="margin:0; padding-top:5px;" method="post" action="/matchs/filter">
+                    <input type="hidden" name="matchs_filters[_csrf_token]" value="4cb834654bedd693a8d3b133a5587920" id="matchs_filters__csrf_token" />                                                                                                                                            <select name="matchs_filters[season_id]" id="matchs_filters_season_id">
+<option value="" selected="selected"></option>
+</select>                                                                <input type="submit" class="btn btn-primary btn-mini" style="margin-bottom: 15px;" value="Search">
+<!--                <a href="/matchs/filter/clear" role="button" data-toggle="modal"><button class="btn btn-inverse btn-mini" style="margin-bottom: 15px;">Reset Filter</button></a> -->
+                </form>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="modal hide" id="myModal" tabindex="-1" role="dialog" aria-hidden="true" aria-labelledby="myModalLabel" aria-hidden="true">
+    <form class="form-horizontal" method="post" action="/matchs/filter">
+        <input type="hidden" name="matchs_filters[_csrf_token]" value="4cb834654bedd693a8d3b133a5587920" id="matchs_filters__csrf_token" />        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+            <h3 id="myModalLabel">Search Match</h3>
+        </div>
+        <div class="modal-body">
+                                            <div class="control-group">
+                    <label class="control-label" for="matchs_filters_server_id">Server</label>                    <div class="controls">
+                        <select name="matchs_filters[server_id]" id="matchs_filters_server_id">
+<option value="" selected="selected"></option>
+<option value="1">46.174.52.224:27015</option>
+<option value="2">46.174.55.249:27015</option>
+<option value="3">92.240.243.62:27015</option>
+</select>                    </div>
+                </div>
+                                            <div class="control-group">
+                    <label class="control-label" for="matchs_filters_team_a">Team a</label>                    <div class="controls">
+                        <select name="matchs_filters[team_a]" id="matchs_filters_team_a">
+<option value="" selected="selected"></option>
+</select>                    </div>
+                </div>
+                                            <div class="control-group">
+                    <label class="control-label" for="matchs_filters_team_b">Team b</label>                    <div class="controls">
+                        <select name="matchs_filters[team_b]" id="matchs_filters_team_b">
+<option value="" selected="selected"></option>
+</select>                    </div>
+                </div>
+                                            <div class="control-group">
+                    <label class="control-label" for="matchs_filters_season_id">Season</label>                    <div class="controls">
+                        <select name="matchs_filters[season_id]" id="matchs_filters_season_id">
+<option value="" selected="selected"></option>
+</select>                    </div>
+                </div>
+                                    </div>
+        <div class="modal-footer">
+            <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>
+            <button class="btn btn-inverse">Cancel</button>
+            <input type="submit" class="btn btn-primary" value="Search"/>
+        </div>
+    </form>
+</div>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>#ID</th>
+            <th>Team 1</th>
+            <th style="text-align:center;">Score</th>
+            <th style="text-align:right;">Team 2</th>
+            <th>Map</th>
+            <th>Season</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+                                <tr>
+                <td width="20"  style="padding-left: 10px;">
+                    <span style="float:left">#47</span>
+                </td>
+                <td width="200" style="padding-left: 10px;"><span style="float:left"><i class='flag flag-'></i> <font color="blue">PRIVATE</font></span></td>
+                <td width="50">
+                    <div class="score" id="score-47"><font color="green">13</font> - <font color="red">11</font></div>
+                </td>
+                <td width="200"><span style="float:right; text-align:right;"><font color="red">Nuclear TigeRES</font> <i class='flag flag-'></i></span></td>
+                <td width="150" align="center">
+                                            de_anubis                                    </td>
+                <td width="250">
+                                    </td>
+                <td>
+                    <div class="status status-14">
+                        Archived                    </div>
+                </td>
+                <td width="160" style="padding-left: 3px;" align="center">
+                    <a href="/matchs/view/47#demos"><button class="btn btn-inverse">Demo</button></a>
+                    <a href="/matchs/view/47"><button class="btn btn-inverse">Show</button></a>
+                </td>
+
+            </tr>
+                                <tr>
+                <td width="20"  style="padding-left: 10px;">
+                    <span style="float:left">#46</span>
+                </td>
+                <td width="200" style="padding-left: 10px;"><span style="float:left"><i class='flag flag-'></i> <font color="red">PRIVATE</font></span></td>
+                <td width="50">
+                    <div class="score" id="score-46"><font color="green">16</font> - <font color="red">14</font></div>
+                </td>
+                <td width="200"><span style="float:right; text-align:right;"><font color="blue">Nuclear TigeRES</font> <i class='flag flag-'></i></span></td>
+                <td width="150" align="center">
+                                            de_dust2                                    </td>
+                <td width="250">
+                                    </td>
+                <td>
+                    <div class="status status-14">
+                        Archived                    </div>
+                </td>
+                <td width="160" style="padding-left: 3px;" align="center">
+                    <a href="/matchs/view/46#demos"><button class="btn btn-inverse">Demo</button></a>
+                    <a href="/matchs/view/46"><button class="btn btn-inverse">Show</button></a>
+                </td>
+
+            </tr>
+                                <tr>
+                <td width="20"  style="padding-left: 10px;">
+                    <span style="float:left">#43</span>
+                </td>
+                <td width="200" style="padding-left: 10px;"><span style="float:left"><i class='flag flag-'></i> <font color="blue">PCIFIC</font></span></td>
+                <td width="50">
+                    <div class="score" id="score-43"><font color="red">07</font> - <font color="green">13</font></div>
+                </td>
+                <td width="200"><span style="float:right; text-align:right;"><font color="red">Omega</font> <i class='flag flag-'></i></span></td>
+                <td width="150" align="center">
+                                            de_cache                                    </td>
+                <td width="250">
+                                    </td>
+                <td>
+                    <div class="status status-14">
+                        Archived                    </div>
+                </td>
+                <td width="160" style="padding-left: 3px;" align="center">
+                    <a href="/matchs/view/43#demos"><button class="btn btn-inverse">Demo</button></a>
+                    <a href="/matchs/view/43"><button class="btn btn-inverse">Show</button></a>
+                </td>
+
+            </tr>
+                                <tr>
+                <td width="20"  style="padding-left: 10px;">
+                    <span style="float:left">#42</span>
+                </td>
+                <td width="200" style="padding-left: 10px;"><span style="float:left"><i class='flag flag-'></i> <font color="red">PCIFIC</font></span></td>
+                <td width="50">
+                    <div class="score" id="score-42"><font color="red">08</font> - <font color="green">13</font></div>
+                </td>
+                <td width="200"><span style="float:right; text-align:right;"><font color="blue">Omega</font> <i class='flag flag-'></i></span></td>
+                <td width="150" align="center">
+                                            de_dust2                                    </td>
+                <td width="250">
+                                    </td>
+                <td>
+                    <div class="status status-14">
+                        Archived                    </div>
+                </td>
+                <td width="160" style="padding-left: 3px;" align="center">
+                    <a href="/matchs/view/42#demos"><button class="btn btn-inverse">Demo</button></a>
+                    <a href="/matchs/view/42"><button class="btn btn-inverse">Show</button></a>
+                </td>
+
+            </tr>
+                                <tr>
+                <td width="20"  style="padding-left: 10px;">
+                    <span style="float:left">#41</span>
+                </td>
+                <td width="200" style="padding-left: 10px;"><span style="float:left"><i class='flag flag-'></i> <font color="red">Omega</font></span></td>
+                <td width="50">
+                    <div class="score" id="score-41"><font color="green">13</font> - <font color="red">04</font></div>
+                </td>
+                <td width="200"><span style="float:right; text-align:right;"><font color="blue">PCIFIC</font> <i class='flag flag-'></i></span></td>
+                <td width="150" align="center">
+                                            de_inferno                                    </td>
+                <td width="250">
+                                    </td>
+                <td>
+                    <div class="status status-14">
+                        Archived                    </div>
+                </td>
+                <td width="160" style="padding-left: 3px;" align="center">
+                    <a href="/matchs/view/41#demos"><button class="btn btn-inverse">Demo</button></a>
+                    <a href="/matchs/view/41"><button class="btn btn-inverse">Show</button></a>
+                </td>
+
+            </tr>
+                                <tr>
+                <td width="20"  style="padding-left: 10px;">
+                    <span style="float:left">#39</span>
+                </td>
+                <td width="200" style="padding-left: 10px;"><span style="float:left"><i class='flag flag-'></i> <font color="red">PRIVATE</font></span></td>
+                <td width="50">
+                    <div class="score" id="score-39"><font color="green">13</font> - <font color="red">04</font></div>
+                </td>
+                <td width="200"><span style="float:right; text-align:right;"><font color="blue">Fire Flux</font> <i class='flag flag-'></i></span></td>
+                <td width="150" align="center">
+                                            de_cache                                    </td>
+                <td width="250">
+                                    </td>
+                <td>
+                    <div class="status status-14">
+                        Archived                    </div>
+                </td>
+                <td width="160" style="padding-left: 3px;" align="center">
+                    <a href="/matchs/view/39#demos"><button class="btn btn-inverse">Demo</button></a>
+                    <a href="/matchs/view/39"><button class="btn btn-inverse">Show</button></a>
+                </td>
+
+            </tr>
+                                <tr>
+                <td width="20"  style="padding-left: 10px;">
+                    <span style="float:left">#38</span>
+                </td>
+                <td width="200" style="padding-left: 10px;"><span style="float:left"><i class='flag flag-'></i> <font color="blue">polaris</font></span></td>
+                <td width="50">
+                    <div class="score" id="score-38"><font color="green">13</font> - <font color="red">10</font></div>
+                </td>
+                <td width="200"><span style="float:right; text-align:right;"><font color="red">Коллеги</font> <i class='flag flag-'></i></span></td>
+                <td width="150" align="center">
+                                            de_dust2                                    </td>
+                <td width="250">
+                                    </td>
+                <td>
+                    <div class="status status-14">
+                        Archived                    </div>
+                </td>
+                <td width="160" style="padding-left: 3px;" align="center">
+                    <a href="/matchs/view/38#demos"><button class="btn btn-inverse">Demo</button></a>
+                    <a href="/matchs/view/38"><button class="btn btn-inverse">Show</button></a>
+                </td>
+
+            </tr>
+                                <tr>
+                <td width="20"  style="padding-left: 10px;">
+                    <span style="float:left">#37</span>
+                </td>
+                <td width="200" style="padding-left: 10px;"><span style="float:left"><i class='flag flag-'></i> <font color="red">polaris</font></span></td>
+                <td width="50">
+                    <div class="score" id="score-37"><font color="red">05</font> - <font color="green">13</font></div>
+                </td>
+                <td width="200"><span style="float:right; text-align:right;"><font color="blue">Коллеги</font> <i class='flag flag-'></i></span></td>
+                <td width="150" align="center">
+                                            de_ancient                                    </td>
+                <td width="250">
+                                    </td>
+                <td>
+                    <div class="status status-14">
+                        Archived                    </div>
+                </td>
+                <td width="160" style="padding-left: 3px;" align="center">
+                    <a href="/matchs/view/37#demos"><button class="btn btn-inverse">Demo</button></a>
+                    <a href="/matchs/view/37"><button class="btn btn-inverse">Show</button></a>
+                </td>
+
+            </tr>
+                                <tr>
+                <td width="20"  style="padding-left: 10px;">
+                    <span style="float:left">#36</span>
+                </td>
+                <td width="200" style="padding-left: 10px;"><span style="float:left"><i class='flag flag-'></i> <font color="blue">polaris</font></span></td>
+                <td width="50">
+                    <div class="score" id="score-36"><font color="green">13</font> - <font color="red">10</font></div>
+                </td>
+                <td width="200"><span style="float:right; text-align:right;"><font color="red">Коллеги</font> <i class='flag flag-'></i></span></td>
+                <td width="150" align="center">
+                                            de_mirage                                    </td>
+                <td width="250">
+                                    </td>
+                <td>
+                    <div class="status status-14">
+                        Archived                    </div>
+                </td>
+                <td width="160" style="padding-left: 3px;" align="center">
+                    <a href="/matchs/view/36#demos"><button class="btn btn-inverse">Demo</button></a>
+                    <a href="/matchs/view/36"><button class="btn btn-inverse">Show</button></a>
+                </td>
+
+            </tr>
+                                <tr>
+                <td width="20"  style="padding-left: 10px;">
+                    <span style="float:left">#35</span>
+                </td>
+                <td width="200" style="padding-left: 10px;"><span style="float:left"><i class='flag flag-'></i> <font color="red">burmalda&#039;vlg</font></span></td>
+                <td width="50">
+                    <div class="score" id="score-35"><font color="red">07</font> - <font color="green">13</font></div>
+                </td>
+                <td width="200"><span style="float:right; text-align:right;"><font color="blue">Gotham Mafia</font> <i class='flag flag-'></i></span></td>
+                <td width="150" align="center">
+                                            de_cache                                    </td>
+                <td width="250">
+                                    </td>
+                <td>
+                    <div class="status status-14">
+                        Archived                    </div>
+                </td>
+                <td width="160" style="padding-left: 3px;" align="center">
+                    <a href="/matchs/view/35#demos"><button class="btn btn-inverse">Demo</button></a>
+                    <a href="/matchs/view/35"><button class="btn btn-inverse">Show</button></a>
+                </td>
+
+            </tr>
+                                <tr>
+                <td width="20"  style="padding-left: 10px;">
+                    <span style="float:left">#34</span>
+                </td>
+                <td width="200" style="padding-left: 10px;"><span style="float:left"><i class='flag flag-'></i> <font color="blue">burmalda&#039;vlg</font></span></td>
+                <td width="50">
+                    <div class="score" id="score-34"><font color="red">08</font> - <font color="green">13</font></div>
+                </td>
+                <td width="200"><span style="float:right; text-align:right;"><font color="red">Gotham Mafia</font> <i class='flag flag-'></i></span></td>
+                <td width="150" align="center">
+                                            de_inferno                                    </td>
+                <td width="250">
+                                    </td>
+                <td>
+                    <div class="status status-14">
+                        Archived                    </div>
+                </td>
+                <td width="160" style="padding-left: 3px;" align="center">
+                    <a href="/matchs/view/34#demos"><button class="btn btn-inverse">Demo</button></a>
+                    <a href="/matchs/view/34"><button class="btn btn-inverse">Show</button></a>
+                </td>
+
+            </tr>
+                                <tr>
+                <td width="20"  style="padding-left: 10px;">
+                    <span style="float:left">#33</span>
+                </td>
+                <td width="200" style="padding-left: 10px;"><span style="float:left"><i class='flag flag-'></i> <font color="red">polaris</font></span></td>
+                <td width="50">
+                    <div class="score" id="score-33"><font color="green">13</font> - <font color="red">09</font></div>
+                </td>
+                <td width="200"><span style="float:right; text-align:right;"><font color="blue">burmalda&#039;vlg</font> <i class='flag flag-'></i></span></td>
+                <td width="150" align="center">
+                                            de_inferno                                    </td>
+                <td width="250">
+                                    </td>
+                <td>
+                    <div class="status status-14">
+                        Archived                    </div>
+                </td>
+                <td width="160" style="padding-left: 3px;" align="center">
+                    <a href="/matchs/view/33#demos"><button class="btn btn-inverse">Demo</button></a>
+                    <a href="/matchs/view/33"><button class="btn btn-inverse">Show</button></a>
+                </td>
+
+            </tr>
+                    </tbody>
+    <tfoot>
+        <tr>
+            <td colspan="9">
+                <div class="pagination pagination-centered">
+                    
+<ul><li><a href="/matchs/archived/1">	&lt; Précédent</a></li><li class="active"><a href="#">1</a></li><li><a href="/matchs/archived/2">2</a></li><li><a href="/matchs/archived/3">3</a></li><li><a href="/matchs/archived/4">4</a></li><li><a href="/matchs/archived/2">	Suivant &gt;</a></li></ul>                </div>
+            </td>
+        </tr>
+    </tfoot>
+</table>
