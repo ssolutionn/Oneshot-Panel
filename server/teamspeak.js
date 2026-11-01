@@ -197,19 +197,28 @@ export function createTeamspeak({
     return withSession(async conn => {
       const group = await obtainSgid(conn);
       const rows = parseRows(await run(conn, 'clientlist'));
+      // Один и тот же ник бывает у нескольких подключённых (два окна):
+      // мьютим ВСЕХ с этим ником, а не последнего в списке (находка
+      // аудита — Map перезаписывал первого).
       const byNick = new Map();
       for (const r of rows) {
         const nick = r.nickname ?? r.client_nickname;
-        if (nick != null) byNick.set(norm(nick), r);
+        if (nick == null) continue;
+        const key = norm(nick);
+        if (!byNick.has(key)) byNick.set(key, []);
+        byNick.get(key).push(r);
       }
       const muted = [], missed = [];
       for (const nick of list) {
-        const row = byNick.get(norm(nick));
-        const dbId = row && Number(row.client_database_id);
-        if (!row || !dbId) { missed.push(nick); continue; } // не зашёл в TS
-        // Дубликат (уже в группе / уже не в группе) — молча успех.
-        await run(conn, `${commandName} sgid=${group} cldbid=${dbId}`, { duplicateOk: true });
-        muted.push({ nick: row.nickname ?? row.client_nickname, clId: Number(row.clid) || null, dbId });
+        const found = byNick.get(norm(nick));
+        if (!found || !found.length) { missed.push(nick); continue; } // не зашёл в TS
+        for (const row of found) {
+          const dbId = Number(row.client_database_id);
+          if (!dbId) continue;
+          // Дубликат (уже в группе / уже не в группе) — молча успех.
+          await run(conn, `${commandName} sgid=${group} cldbid=${dbId}`, { duplicateOk: true });
+          muted.push({ nick: row.nickname ?? row.client_nickname, clId: Number(row.clid) || null, dbId });
+        }
       }
       return { muted, missed };
     });

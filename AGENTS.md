@@ -399,6 +399,49 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   Прокси: GET `/api/ebot?view=<id>` и POST `?heatmap=<id>` (валидация
   тела, кэш view 60 с). Панель+eBot на одном сервере — `EBOT_URL`
   локальный.
+- `server/ebot-live.js` — живой поток eBot: постоянная подписка на комнаты
+  matchs+livemap админского socket.io поверх `socketioSession` из
+  `ebot-admin.js` (импорт, не копия); `createEbotLive({getJwt, baseWsUrl,
+  matchId})` → start/subscribe/setMatchId/stop/done, нормализованные
+  события (score/status/paused/stop/teams/map/kill/newRound), фазы
+  `ebotPhase`, реконнект 5с→30с со свежим JWT. `server/ebot-live-hub.js`
+  — хаб живого потока (только server.js): ОДНА сессия на лайв-матч,
+  SSE `/api/ebot-live` (hello + replay-буфер 200 событий, keepalive 20 с,
+  кап 10 клиентов), POST start/stop с same-origin-гейтом и
+  `EBOT_ADMIN_TOKEN` (как консоль). Строки лога консольного хаба
+  (`feedLogLine`) кормят движок мьюта. `server/teamspeak.js` — клиент TS3
+  ServerQuery на `node:net` (подключение-на-операцию: login → use →
+  команда → quit), мьют через сервер-группу по `client_database_id`
+  (переживает реконнект тренера), 2561-дубликат — успех, пароль не
+  логируется. `server/ts-mute.js` — чистый движок правил мьюта тренера:
+  freeze (Round_Start) → размьют, живой раунд (килл/бомба) → мьют, пауза
+  → размьют с возвратом состояния, warmup/ножи/not-started/finished →
+  размьют; киллы без известной live-фазы не мьютят. Интеграция в
+  `server.js` (`ebotLive()`): TS-клиент из env `TS_HOST`/
+  `TS_QUERY_LOGIN`/`TS_QUERY_PASSWORD` (+`TS_QUERY_PORT`/`TS_USE_PORT`/
+  `TS_MUTE_GROUP`), ники тренеров панель шлёт в POST start (`coaches`,
+  из составов по роли «Тренер»); очередь мьют-операций — цепочкой
+  промисов. Группа мьюта НЕ меняет talk power: канал тренера должен
+  иметь needed talk power больше нуля (гайд развёртывания). Демо и
+  экспорт: `server/ebot-media.js` — `ebotDemo` стрим-прокси (тело в
+  память не читается, backpressure), `ebotExport` с лимитом 10 МБ;
+  экспорты живым eBot сейчас отдают 500 (нет sfDoctrineRoute-маршрутов),
+  демо работает по `/matchs/demo/<id карты>`; роут `/api/ebot-demo`
+  (GET `?demo=<mapId>`, цифры, без тела в память).
+- `ebot-live-ui.js` (только сайт) + `ebot-global-ui.js` (только сайт) —
+  живой блок и «Турнир в цифрах». `ebot-live-ui`: `initEbotLive` (глобал
+  `window.oneshotEbotLive`, в Node-тестах регистрации нет) — EventSource
+  `/api/ebot-live`, лента киллов (newKillFeed, лимит 50), точки
+  убийца/жертва на мини-радаре (константы радаров продублированы из
+  ebot-stats.js — у того DOM-код на верхнем уровне), ретраи 3×5 с,
+  чистые функции покрыты тестами. `ebot-global-ui`: «Собрать сводку» —
+  `?archived=<страница>` (1..4) + `?view=` на матч, таблицы игроков и
+  карт (`collectTournament`, `topPlayers`, `mapSummary` из `ebot-global.js`),
+  всё textContent. Кнопки «В эфир» в карточках — ebot-ui.js (MutationObserver
+  + делегирование, как «Статистика»): POST start с тренерами, «× Закрыть»
+  (id `ebotLiveClose`) гасит панель и шлёт stop (снимает мьют). Прокси
+  `?archived=` — `netlify/functions/ebot.mjs` (кэш 60 с, ОТДЕЛЬНАЯ ячейка
+  от view — выбор кэша явным селектором, не по TTL).
 - `netlify/functions/faceit.mjs` — прокси FACEIT для браузера (только пути
   лобби). Ключ админа из заголовка идёт в FACEIT и не хранится; без него
   `proxyFaceit` берёт ключ сайта из секрета хостинга `FACEIT_API_KEY`

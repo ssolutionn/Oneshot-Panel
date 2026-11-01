@@ -19,6 +19,9 @@ export function ebotPhase(text) {
   if (t === 'Not started') return 'not-started';
   if (t === 'Starting') return 'starting';
   if (t === 'Finished') return 'finished';
+  // «Stop» — матч остановлен оператором (кнопка «Стоп без RS» и др.):
+  // для мьюта тренера это терминальное состояние, как Finished.
+  if (t === 'Stop') return 'finished';
   if (t === 'Warmup Knife') return 'warmup'; // разминка перед ножевым раундом
   if (t === 'Knife Round') return 'knife';
   if (t === 'Waiting choose team - Knife Round') return 'waiting';
@@ -73,6 +76,7 @@ function matchsEvent(data) {
       return { type: 'status', matchId, text, phase: ebotPhase(text) };
     }
     case 'button':
+      // «Стоп» и «Стоп без RS» шлют один button:stop — оба снимают мьют.
       return data.content === 'stop' ? { type: 'stop', matchId } : null;
     case 'score': {
       const scoreA = toNum(data.scoreA);

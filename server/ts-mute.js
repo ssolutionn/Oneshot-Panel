@@ -139,6 +139,13 @@ export function createMuteEngine({ onMute = () => {}, onUnmute = () => {}, onNot
           phase = p;
           roundSeen = false;
           muted = false;
+          // Смена фазы снимает зависшую паузу: из прошлого матча мог
+          // остаться paused=true, а is_unpaused нового уже не придёт
+          // (находка аудита: пауза глушала мьют бесконечно).
+          if (paused && p !== 'live') {
+            paused = false;
+            transition('смена фазы, пауза снята', true);
+          }
           transition(p === 'live' ? 'live-фаза матча, ждём freeze-time' : NOT_LIVE[p], true);
           break;
         }

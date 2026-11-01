@@ -219,3 +219,89 @@ test('parseLogLine: Round_Start и килл распознаются для ко
   assert.equal(kill?.type, 'kill');
   assert.equal(parseLogLine('garbage'), null);
 });
+
+test('движок мьюта игнорирует события чужих матчей', async () => {
+  const ebot = mockEbot({ scripts: [[
+    matchs({ message: 'status', content: 'First side - #1', id: 42 }) + '\x1e' +
+      // Чужой матч: пауза и стоп не должны тронуть движок матча 42.
+      matchs({ message: 'status', content: 'is_paused', id: 99 }) + '\x1e' +
+      matchs({ message: 'button', content: 'stop', id: 99 }),
+  ]] });
+  const calls = [];
+  const engine = createMuteEngine({
+    onMute: () => calls.push('mute'),
+    onUnmute: () => calls.push('unmute'),
+    onNote: () => {},
+  });
+  const hub = makeHub(ebot);
+  try {
+    await hub.start(42, engine);
+    const res = fakeRes();
+    hub.sseHandler(fakeReq('/api/ebot-live'), res);
+    await until(() => sseData(res).some(e => e.type === 'status' && e.phase === 'live'), 'фаза live пришла');
+    // Кормим свои строки: чужая пауза не должна была сломать мьют.
+    hub.feedLogLine('World triggered "Round_Start"');
+    hub.feedLogLine('"Nick<2><[U:1:5]><CT>" [-1070 1271 -108] killed "Foe<3><[U:1:9]><TERRORIST>" [892 1188 -63] with "ak47"');
+    await until(() => calls.includes('mute'), 'килл замьютил несмотря на чужую паузу');
+  } finally {
+    hub.stop();
+  }
+});
+
+test('stop() хаба шлёт движку finished — мьют снимается при закрытии', async () => {
+  const ebot = mockEbot({ scripts: [[
+    matchs({ message: 'status', content: 'First side - #1', id: 42 }),
+  ]] });
+  const calls = [];
+  const engine = createMuteEngine({
+    onMute: () => calls.push('mute'),
+    onUnmute: () => calls.push('unmute'),
+    onNote: () => {},
+  });
+  const hub = makeHub(ebot);
+  await hub.start(42, engine);
+  const res = fakeRes();
+  hub.sseHandler(fakeReq('/api/ebot-live'), res);
+  await until(() => sseData(res).some(e => e.type === 'status' && e.phase === 'live'), 'фаза live');
+  hub.feedLogLine('World triggered "Round_Start"');
+  hub.feedLogLine('"Nick<2><[U:1:5]><CT>" [-1070 1271 -108] killed "Foe<3><[U:1:9]><TERRORIST>" [892 1188 -63] with "ak47"');
+  await until(() => calls.includes('mute'), 'килл замьютил');
+  // Закрытие потока оператором — мьют обязан сняться без событий eBot.
+  hub.stop();
+  await until(() => calls.lastIndexOf('unmute') > calls.lastIndexOf('mute'), 'stop снял мьют');
+});
+
+test('attachMute сбрасывает движок: новый матч стартует с чистого состояния', async () => {
+  const ebot = mockEbot({ scripts: [[
+    matchs({ message: 'status', content: 'First side - #1', id: 1 }),
+  ], [
+    // Второй матч — тот же текст статуса: без reset подавился бы.
+    matchs({ message: 'status', content: 'First side - #1', id: 2 }),
+  ]] });
+  const calls = [];
+  const engine = createMuteEngine({
+    onMute: () => calls.push('mute'),
+    onUnmute: () => calls.push('unmute'),
+    onNote: () => {},
+  });
+  const hub = makeHub(ebot);
+  try {
+    await hub.start(1, engine);
+    const res = fakeRes();
+    hub.sseHandler(fakeReq('/api/ebot-live'), res);
+    await until(() => sseData(res).some(e => e.type === 'status' && e.phase === 'live'), 'фаза матча 1');
+    // Пауза в первом матче зависла (is_unpaused не пришёл).
+    engine.feed({ type: 'paused', paused: true });
+    // Смена матча: reset обязан снять зависшую паузу.
+    await hub.start(2, engine);
+    const res2 = fakeRes();
+    hub.sseHandler(fakeReq('/api/ebot-live'), res2);
+    await until(() => sseData(res2).some(e => e.type === 'status' && e.phase === 'live'), 'фаза матча 2');
+    // Килл во втором матче должен мьютить: зависшая пауза снята.
+    hub.feedLogLine('World triggered "Round_Start"');
+    hub.feedLogLine('"Nick<2><[U:1:5]><CT>" [-1070 1271 -108] killed "Foe<3><[U:1:9]><TERRORIST>" [892 1188 -63] with "ak47"');
+    await until(() => calls.includes('mute'), 'килл нового матча мьютит после reset');
+  } finally {
+    hub.stop();
+  }
+});

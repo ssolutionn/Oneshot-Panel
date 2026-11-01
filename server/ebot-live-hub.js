@@ -41,8 +41,12 @@ class LiveSession {
   // движок зависит от env TS_*, которых тут нет.
   attachMute(engine) {
     this.#engine = engine;
-    // Текущая фаза могла уже прийти до подключения движка — договоримся
-    // сразу, чтобы «Not started» не мьютил никого до первого события.
+    // Новый матч = чистый движок: состояние прошлого матча (мьют,
+    // зависшая пауза, та же live-фаза с подавлением) не должно течь
+    // в новый (находка аудита правил).
+    if (typeof engine.reset === 'function') {
+      try { engine.reset(); } catch { /* движок не обязан */ }
+    }
   }
 
   async start() {
@@ -61,12 +65,19 @@ class LiveSession {
     if (this.#history.length > 200) this.#history.shift();
     if (this.#engine) {
       try {
-        // Статусы → фазы движка; килы двигают «раунд живой» только в live.
-        if (ev.type === 'status' && ev.phase) this.#engine.feed({ type: 'phase', phase: ev.phase });
-        if (ev.type === 'paused') this.#engine.feed({ type: 'paused', paused: ev.paused });
-        if (ev.type === 'kill') this.#engine.feed({ type: 'kill' });
-        if (ev.type === 'stop') this.#engine.feed({ type: 'phase', phase: 'finished' });
-        if (ev.type === 'newRound') this.#engine.feed({ type: 'round_start' });
+        // Комната matchs несёт события ВСЕХ матчей eBot: движок мьюта
+        // слушает только свой матч — чужие is_paused/stop сбивали бы
+        // фазу (находка аудита правил).
+        if (ev.matchId !== undefined && String(ev.matchId) !== String(this.matchId)) {
+          // SSE-клиентам событие уже ушло (он фильтрует сам), движку — нет.
+        } else {
+          // Статусы → фазы движка; килы двигают «раунд живой» только в live.
+          if (ev.type === 'status' && ev.phase) this.#engine.feed({ type: 'phase', phase: ev.phase });
+          if (ev.type === 'paused') this.#engine.feed({ type: 'paused', paused: ev.paused });
+          if (ev.type === 'kill') this.#engine.feed({ type: 'kill' });
+          if (ev.type === 'stop') this.#engine.feed({ type: 'phase', phase: 'finished' });
+          if (ev.type === 'newRound') this.#engine.feed({ type: 'round_start' });
+        }
       } catch { /* сломанный движок не роняет поток */ }
     }
     const line = `data: ${JSON.stringify(ev)}\n\n`;
@@ -116,6 +127,12 @@ class LiveSession {
   stop(reason = '') {
     this.#stopped = true;
     try { this.#live.stop(); } catch { /* already */ }
+    // Закрытие потока (оператором или сменой матча) обязано снять мьют:
+    // событий больше не будет, «finished» движку шлём сами (находка
+    // аудита: без этого тренер оставался замьючен навсегда).
+    if (this.#engine) {
+      try { this.#engine.feed({ type: 'phase', phase: 'finished' }); } catch { /* уже */ }
+    }
     for (const client of this.#clients) {
       try {
         client.res.write(`data: ${JSON.stringify({ type: 'stop', reason: String(reason || '') })}\n\n`);
