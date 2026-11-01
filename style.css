@@ -691,3 +691,37 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .ebot-stats-map { position:relative; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:8px; display:flex; justify-content:center; }
 .ebot-stats-map canvas { max-width:100%; height:auto; border-radius:5px; }
 @media (max-width:720px) { .ebot-stats-table th, .ebot-stats-table td { padding:6px 7px; font-size:11px; } .ebot-stats-filters select { min-width:110px; } }
+
+/* Живой матч eBot (ebot-live-ui.js): лента киллов + мини-радар */
+.ebot-live-grid { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; margin-top:8px; }
+.ebot-live-feed { list-style:none; margin:0; padding:8px 10px; max-height:300px; overflow:auto; border:1px solid var(--line); border-radius:6px; background:var(--surface); display:grid; gap:4px; font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; }
+.ebot-live-feed time { color:var(--muted); margin-right:8px; font-variant-numeric:tabular-nums; }
+.ebot-live-feed li { display:flex; gap:8px; align-items:baseline; overflow-wrap:anywhere; }
+.ebot-live-kill span:last-child { color:var(--ink); font-weight:600; }
+.ebot-live-note { color:var(--warn-ink); font-style:italic; }
+.ebot-live-radar-box { padding:6px; border:1px solid var(--line); border-radius:6px; background:#08090b; justify-self:start; }
+.ebot-live-radar { display:block; width:180px; height:auto; border-radius:4px; }
+.lobby-match.ebot-live-live { border-left-color:var(--success); }
+.lobby-match.ebot-live-paused { border-left-color:var(--warn-line); background:var(--warn); }
+.lobby-match.ebot-live-paused .lm-status { background:var(--warn); color:var(--warn-ink); }
+.lobby-match.ebot-live-warmup { border-left-color:var(--toggle-track); }
+.lobby-match.ebot-live-finished { opacity:.75; }
+@media (max-width:720px) { .ebot-live-grid { grid-template-columns:1fr; } .ebot-live-radar { width:150px; } }
+
+/* Турнир в цифрах (ebot-global.js) */
+.ebot-global-summary { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 10px; }
+.ebot-global-chip { font-size:11px; color:var(--soft-ink); background:var(--soft); border-radius:5px; padding:4px 9px; }
+.ebot-global-table { width:100%; border-collapse:collapse; font-size:12px; margin-bottom:12px; }
+.ebot-global-table th { padding:7px 9px; border-bottom:2px solid var(--line); color:var(--muted); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; text-align:right; white-space:nowrap; }
+.ebot-global-table th.left { text-align:left; }
+.ebot-global-table td { padding:6px 9px; border-bottom:1px solid var(--divider); font-variant-numeric:tabular-nums; text-align:right; }
+.ebot-global-table td.left { text-align:left; font-weight:600; overflow-wrap:anywhere; }
+.ebot-global-table tbody tr:nth-child(even) td { background:var(--surface-2); }
+.ebot-global-map { display:flex; align-items:center; gap:8px; padding:6px 9px; border-bottom:1px solid var(--divider); font-size:12px; }
+.ebot-global-map .ebot-global-bar { height:6px; border-radius:3px; background:var(--divider); flex:1; overflow:hidden; }
+.ebot-global-map .ebot-global-bar i { display:block; height:100%; background:var(--cs2-ct); }
+.ebot-global-map .ebot-global-bar i.t { background:var(--cs2-t); }
+.ebot-global-failed { margin:0; font-size:11px; color:var(--warn-ink); background:var(--warn); border:1px solid var(--warn-line); border-radius:5px; padding:6px 9px; }
+
+/* Кнопка демки в диалоге статистики */
+.ebot-demo-box { margin:0 0 10px; }

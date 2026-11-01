@@ -140,3 +140,23 @@ function text(html) {
     .replace(/&([a-z#0-9]+);/gi, (whole, name) => ENTITIES[name.toLowerCase()] ?? whole)
     .replace(/\s+/g, ' ').trim();
 }
+
+// Демки матча из секции #demos страницы view: eBot рисует таблицу карт с
+// #<id карты> в первой ячейке и ссылкой matchs_demo на скачивание. Строка
+// без демо-файла не рисуется вовсе (file_exists), так что наличие строки =
+// наличие записи. [{mapId, map}] — id нужен для /api/ebot-demo?demo=.
+export function parseDemos(html) {
+  const source = String(html ?? '');
+  const box = source.match(/id="demos"[\s\S]*?<\/table>/i);
+  if (!box) return [];
+  const demos = [];
+  for (const row of (box[0].match(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi) || [])) {
+    if (/<th\b/i.test(row)) continue;
+    const cells = [...row.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map(m => text(m[1]));
+    if (!cells.length) continue;
+    const m = cells[0].match(/^#(\d+)$/);
+    if (!m) continue;
+    demos.push({ mapId: m[1], map: cells[4] || '' });
+  }
+  return demos;
+}

@@ -9,6 +9,7 @@ import { proxyEbot } from './netlify/functions/ebot.mjs';
 import { proxyEbotAdmin, checkToken } from './netlify/functions/ebot-admin.mjs';
 import { createEbotAdmin, ebotSocketUrl } from './server/ebot-admin.js';
 import { ebotTarget } from './netlify/functions/ebot.mjs';
+import { ebotDemo } from './server/ebot-media.js';
 import { nodeRelay } from './server/veto-relay-node.mjs';
 import { FileRelayStore } from './server/veto-relay-file.js';
 import {shortIdValid,shortPathValid} from './assets/veto-short-protocol.js';
@@ -262,7 +263,8 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
     // The eBot match list (netlify/functions/ebot.mjs), locally too: the
     // same proxy as the hosting function, server-side fetch of the public
     // eBot page. POST ?heatmap=<id> — точки хитмапы, читаем тело до
-    // GET-гейта и передаём в тот же proxyEbot.
+    // GET-гейта и передаём в тот же proxyEbot. GET ?view=/?archived= — те
+    // же страницы, что в функциях хостинга (см. ebot.mjs).
     if (request.url.split('?')[0] === '/api/ebot' &&
         (request.method === 'GET' || request.method === 'POST')) {
       // POST (хитмапа) — тот же same-origin гейт, что остальные POST-роуты
@@ -303,6 +305,43 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
           response.writeHead(tooBig ? 413 : 502, { 'Content-Type': 'application/json; charset=utf-8' });
           response.end(JSON.stringify(tooBig ? { error: 'size', message: 'Запрос хитмапы слишком большой.' }
             : { error: 'upstream', message: 'eBot не ответил.' }));
+        }
+      }
+      return;
+    }
+    // Демка матча eBot (GOTV-запись): GET ?demo=<id карты>, стрим-прокси —
+    // тело не читается в память, десятки МБ проходят насквозь. Адрес eBot
+    // — из env, id проверяется; скачивает оператор панели по прямой ссылке
+    // (download-атрибут, same-origin — как остальной eBot-блок).
+    if (request.url.split('?')[0] === '/api/ebot-demo' && request.method === 'GET') {
+      const mapId = new URL(request.url, 'http://localhost').searchParams.get('demo') || '';
+      if (!/^\d{1,9}$/.test(mapId)) {
+        response.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify({ error: 'not-allowed', message: 'Параметр demo — номер карты матча.' }));
+        return;
+      }
+      const target = ebotTarget(process.env.EBOT_URL || '');
+      if (!target) {
+        response.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify({ error: 'config', message: 'EBOT_URL задан неверно.' }));
+        return;
+      }
+      try {
+        const upstream = await ebotDemo({ targetHref: target.href, mapId });
+        response.writeHead(upstream.status, {
+          'content-type': upstream.headers.get('content-type') || 'application/octet-stream',
+          'content-disposition': 'attachment; filename="match-' + mapId + '.dem.zip"',
+          'cache-control': 'no-store'
+        });
+        if (upstream.body) {
+          for await (const chunk of upstream.body) response.write(chunk);
+        }
+        response.end();
+      } catch (error) {
+        console.warn('api/ebot-demo:', error.message || 'нет ответа');
+        if (!response.headersSent) {
+          response.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+          response.end(JSON.stringify({ error: 'upstream', message: 'eBot не отдал демо.' }));
         }
       }
       return;

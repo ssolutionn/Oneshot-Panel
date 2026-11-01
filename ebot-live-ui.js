@@ -355,3 +355,8 @@ export function initEbotLive({ getMatch, feedList, radarCanvas, mapName, note = 
 
   return { open, close };
 }
+
+// Точка входа для ebot-ui.js (модульный импорт из него тянул бы DOM-код в
+// тесты): фабрика под глобальным именем, как snapshot() панели. В Node
+// (тесты чистых функций) окна нет — регистрация молча пропускается.
+if (typeof window !== 'undefined') window.oneshotEbotLive = initEbotLive;

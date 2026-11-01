@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   parseEbotMatches, isLive, ebotEvents, ebotStatusLine, EBOT_PROXY
 } from '../ebot.js';
+import { parseDemos } from '../ebot-stats-parse.js';
 import { proxyEbot, ebotTarget, __ttlScale } from '../netlify/functions/ebot.mjs';
 
 // TTL кэшей страницы списка/вьюхи масштабируем в тестах: соседние проверки
@@ -355,4 +356,54 @@ test('heatmap types: the short forms eBot rejects are not offered', () => {
   assert.ok(!values.includes('he'));
   assert.ok(!values.includes('flash'));
   assert.ok(!values.includes('smoke'));
+});
+
+test('the proxy serves archive pages: ?archived=<page>, digits only, cached', async () => {
+  const calls = [];
+  const fetchImpl = (url, init) => {
+    calls.push(String(url));
+    return Promise.resolve(new Response('<html>archived</html>', { status: 200 }));
+  };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = fetchImpl;
+  __ttlScale.ms = 1;
+  try {
+    const reply = await proxyEbot(new Request('http://localhost/api/ebot?archived=2'), '');
+    assert.equal(reply.status, 200);
+    const body = await reply.json();
+    assert.equal(body.page, '<html>archived</html>');
+    assert.match(calls[0], /\/matchs\/archived\/2$/);
+    // Кэш: повторный запрос той же страницы не ходит в eBot.
+    await proxyEbot(new Request('http://localhost/api/ebot?archived=2'), '');
+    assert.equal(calls.length, 1);
+    // Номер страницы зажат в 1..4 и из запроса в URL eBot идёт только он.
+    const bad = await proxyEbot(new Request('http://localhost/api/ebot?archived=99'), '');
+    assert.equal(bad.status, 200);
+    assert.match(calls[calls.length - 1], /\/matchs\/archived\/4$/);
+    const post = await proxyEbot(new Request('http://localhost/api/ebot?archived=1', { method: 'POST' }), '');
+    assert.equal(post.status, 400);
+  } finally {
+    globalThis.fetch = originalFetch;
+    __ttlScale.ms = 1;
+  }
+});
+
+test('parseDemos reads the #demos table: map ids and names, no header rows', () => {
+  const html = `
+  <div class="tab-pane" id="demos"><table class="table">
+    <thead><tr><th>#ID</th><th>Team 1</th></tr></thead>
+    <tbody>
+      <tr><td>#51</td><td>Alpha</td><td>13 - 7</td><td>Bravo</td><td>de_mirage</td><td>Season</td><td>88.4 MB</td><td><a href="/matchs/demo/51"><button>Download</button></a></td></tr>
+      <tr><td>#52</td><td>Alpha</td><td>7 - 13</td><td>Bravo</td><td>de_inferno</td><td>Season</td><td>91.1 MB</td><td><a href="/matchs/demo/52"><button>Download</button></a></td></tr>
+    </tbody>
+  </table></div>`;
+  const demos = parseDemos(html);
+  assert.deepEqual(demos, [
+    { mapId: '51', map: 'de_mirage' },
+    { mapId: '52', map: 'de_inferno' },
+  ]);
+  assert.deepEqual(parseDemos('<div id="demos">There are currently no Demofiles available.</div>'), []);
+  assert.deepEqual(parseDemos(''), []);
+  // Строки без демо-файла eBot не рисует вовсе — но защита от мусора есть.
+  assert.deepEqual(parseDemos('<div id="demos"><table><tbody><tr><td>no id</td></tr></tbody></table></div>'), []);
 });

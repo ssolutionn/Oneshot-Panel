@@ -6,7 +6,7 @@
 // для карт без радара — наша миниатюра с честной пометкой.
 // Всё из eBot — только textContent; рисование — canvas. Без eBot
 // диалог просто показывает ошибку, блок не ломается.
-import { parseStatsPage, parseHeatmap, heatmapParams, HEATMAP_TYPES } from './ebot-stats-parse.js';
+import { parseStatsPage, parseDemos, parseHeatmap, heatmapParams, HEATMAP_TYPES } from './ebot-stats-parse.js';
 
 const $ = id => document.getElementById(id);
 // Радиары eBot кладём рядом с миниатюрами; фоллбэк — наши jpg.
@@ -57,7 +57,7 @@ document.addEventListener('click', event => {
 // ---------- диалог ----------
 
 const state = {
-  matchId: null, match: null, players: [], teams: ['', ''],
+  matchId: null, match: null, players: [], teams: ['', ''], demos: [],
   sort: { key: 'kill', dir: -1 },
   heat: { points: [], mode: 'heat', busy: false },
   radar: { img: null, width: 500, height: 509, approximate: false }
@@ -88,13 +88,50 @@ async function openStats(matchId) {
     const parsed = parseStatsPage(body.page);
     state.players = parsed.players;
     state.teams = parsed.teams;
+    state.demos = parseDemos(body.page);
     renderMatch();
     renderTable();
+    renderDemos();
     status(state.players.length ? '' : 'eBot не показал статистику игроков этого матча.');
   } catch (error) {
     status(`Статистика не загрузилась: ${error.message}`);
   }
 }
+
+// Демки GOTV этого матча: по одной кнопке на карту (server.js стримит
+// /api/ebot-demo?demo=<id карты> насквозь, имя файла даёт сервер).
+function renderDemos() {
+  const box = $('ebotDemoBox');
+  const button = $('ebotDemoBtn');
+  box.replaceChildren();
+  const demos = state.demos || [];
+  if (!demos.length) { box.hidden = true; return; }
+  // Одна карта — прежняя кнопка; несколько — по строке на карту.
+  if (demos.length === 1) {
+    button.textContent = 'Скачать демо (GOTV)';
+    button.dataset.mapId = demos[0].mapId;
+    box.append(button);
+  } else {
+    for (const demo of demos) {
+      const one = Object.assign(document.createElement('button'), {
+        type: 'button', className: 'button small',
+        textContent: 'Демо · ' + (demo.map || 'карта #' + demo.mapId)
+      });
+      one.dataset.mapId = demo.mapId;
+      box.append(one);
+    }
+  }
+  box.hidden = false;
+}
+
+document.addEventListener('click', event => {
+  const button = event.target.closest('#ebotDemoBox button[data-map-id]');
+  if (!button) return;
+  const mapId = button.dataset.mapId || '';
+  if (!/^\d{1,9}$/.test(mapId)) return;
+  // Прямая ссылка на стрим-прокси: браузер качает сам, имя даёт сервер.
+  window.open('/api/ebot-demo?demo=' + mapId, '_self');
+});
 
 // Шапка: команды и счёт карточки (счёт у списка свежее, чем у страницы).
 function currentMatchCard() {

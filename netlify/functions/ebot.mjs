@@ -45,6 +45,17 @@ export async function proxyEbot(request, envUrl = '') {
     }
     return proxyEbotView(request, url, target);
   }
+  // Архив завершённых матчей: ?archived=<страница> (1..4, по умолчанию 1),
+  // «Турнир в цифрах» читает все страницы по одной. Кэш 60 с: архив меняется
+  // только когда матч уезжает в finished.
+  if (url.searchParams.get('archived') !== null) {
+    if (request.method !== 'GET') {
+      return Response.json({ error: 'not-allowed', message: 'Архив — GET.' }, { status: 400 });
+    }
+    const page = Math.min(Math.max(parseInt(url.searchParams.get('archived'), 10) || 1, 1), 4);
+    target.pathname = '/matchs/archived/' + page;
+    return proxyEbotPageCached(target, 60_000, 'eBot закрыл архив матчей.');
+  }
   if (request.method !== 'GET' || url.search) {
     return Response.json({ error: 'not-allowed', message: 'Прокси отдаёт только список матчей eBot.' }, { status: 400 });
   }
@@ -80,6 +91,29 @@ export async function proxyEbot(request, envUrl = '') {
 // открывают её одновременно. Список в кэш не смешивается: свой ключ.
 const VIEW_TTL_MS = () => 60000 * __ttlScale.ms;
 let viewCache = { at: 0, url: '', page: '' };
+let archiveCache = { at: 0, url: '', page: '' };
+
+// Общая ветка «страница eBot с кэшем»: список (7 с), view (60 с), архив
+// (60 с) — разный только TTL и сообщение про закрытую страницу.
+async function proxyEbotPageCached(target, ttlMs, closedMessage) {
+  const at = Date.now();
+  const cache = ttlMs === PAGE_TTL_MS() ? pageCache : ttlMs === VIEW_TTL_MS() ? viewCache : archiveCache;
+  if (cache.at && cache.url === target.href && at - cache.at < ttlMs) {
+    return Response.json({ page: cache.page }, { headers: JSON_HEADERS });
+  }
+  let response;
+  try {
+    response = await fetchPage(target);
+  } catch {
+    return upstream('eBot не ответил.');
+  }
+  if (response.status >= 300) {
+    return upstream(closedMessage);
+  }
+  const html = await response.text();
+  cache.at = at; cache.url = target.href; cache.page = html;
+  return Response.json({ page: html }, { headers: JSON_HEADERS });
+}
 
 async function proxyEbotView(request, url, target) {
   const matchId = url.searchParams.get('view');
@@ -94,23 +128,7 @@ async function proxyEbotView(request, url, target) {
     }
   }
   target.pathname = '/matchs/view/' + matchId;
-  const at = Date.now();
-  if (viewCache.at && viewCache.url === target.href && at - viewCache.at < VIEW_TTL_MS()) {
-    return Response.json({ page: viewCache.page }, { headers: JSON_HEADERS });
-  }
-  let response;
-  try {
-    response = await fetchPage(target);
-  } catch {
-    return upstream('eBot не ответил.');
-  }
-  if (response.status >= 300) {
-    // Как у списка: редирект на логин — страница не публична.
-    return upstream('eBot закрыл страницу матча.');
-  }
-  const html = await response.text();
-  viewCache = { at, url: target.href, page: html };
-  return Response.json({ page: html }, { headers: JSON_HEADERS });
+  return proxyEbotPageCached(target, VIEW_TTL_MS(), 'eBot закрыл страницу матча.');
 }
 
 // ---------- хитмапа: POST ?heatmap=<matchId>, тело form-urlencoded ----------

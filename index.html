@@ -299,6 +299,24 @@
         <div id="ebotMatches" class="lobby-matches" aria-label="Матчи eBot">
           <div class="empty-panel">Здесь появятся матчи, которые ведёт eBot.</div>
         </div>
+        <!-- web-only --><section id="ebotLivePanel" class="lobby-panel ebot-live" hidden aria-labelledby="ebotLiveHeading">
+          <div class="panel-heading">
+            <div><span class="eyebrow">LIVE</span><h2 id="ebotLiveHeading">Живой матч</h2></div>
+          </div>
+          <p id="ebotLiveStatus" class="lobby-status" role="status">Матч не выбран.</p>
+          <div class="ebot-live-grid">
+            <ul id="ebotLiveFeed" class="ebot-live-feed" aria-label="Лента киллов"></ul>
+            <div id="ebotLiveRadarBox" class="ebot-live-radar-box"><canvas id="ebotLiveRadar" class="ebot-live-radar" width="500" height="509"></canvas></div>
+          </div>
+        </section>
+        <section id="ebotGlobalPanel" class="lobby-panel" aria-labelledby="ebotGlobalHeading">
+          <div class="panel-heading">
+            <div><span class="eyebrow">EBOT</span><h2 id="ebotGlobalHeading">Турнир в цифрах</h2></div>
+            <button id="ebotGlobalBtn" class="button small" type="button">Собрать сводку</button>
+          </div>
+          <p id="ebotGlobalStatus" class="lobby-status" role="status">Сводка по завершённым матчам eBot: игроки, карты, винрейты.</p>
+          <div id="ebotGlobalBody" hidden></div>
+        </section><!-- /web-only -->
       </section>
       <dialog id="ebotConsole" class="ebot-console-dialog" aria-labelledby="ebotConsoleHeading">
         <div class="dialog-head">
@@ -334,6 +352,7 @@
         </div>
         <p id="ebotStatsMatch" class="ebot-stats-match"></p>
         <p id="ebotStatsStatus" class="lobby-status" role="status"></p>
+        <!-- web-only --><p id="ebotDemoBox" class="ebot-demo-box" hidden><button id="ebotDemoBtn" class="button small" type="button">Скачать демо (GOTV)</button></p><!-- /web-only -->
         <div class="copy-tabs ebot-stats-tabs" role="tablist">
           <button id="ebotStatsTabPlayers" class="tab selected" type="button" role="tab" aria-selected="true">Игроки</button>
           <button id="ebotStatsTabHeat" class="tab" type="button" role="tab" aria-selected="false">Хитмапа</button>
@@ -873,6 +892,8 @@
   <script type="module" src="/lobby.js"></script>
   <script type="module" src="/bookies.js"></script>
   <script type="module" src="/ebot-ui.js"></script>
-  <script type="module" src="/ebot-stats.js"></script><!-- /web-only -->
+  <script type="module" src="/ebot-stats.js"></script>
+  <script type="module" src="/ebot-global-ui.js"></script>
+  <script type="module" src="/ebot-live-ui.js"></script><!-- /web-only -->
 </body>
 </html>

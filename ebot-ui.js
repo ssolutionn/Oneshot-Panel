@@ -270,6 +270,87 @@ document.addEventListener('visibilitychange', wake);
 window.addEventListener('focus', wake);
 window.addEventListener('online', wake);
 render();
+
+// ---------- живой поток (ebot-live-ui.js + /api/ebot-live) ----------
+
+// Кнопка «В эфир» открывает живой поток матча: счёт/статус/пауза приходят
+// мгновенно (без 20-с опроса), плюс лента киллов и мини-радар. Тот же
+// POST включает мьют тренера в TeamSpeak (сервер сам знает, включён ли TS
+// по env). Тренеров берём из составов панели (роль «Тренер») — ники те же,
+// что в TS.
+const coaches = () => {
+  try {
+    const snap = window.oneshotPanel?.snapshot?.() || null;
+    if (!snap) return [];
+    const pick = t => (t?.players || []).filter(p => p && p.role === 'Тренер' && p.nick).map(p => p.nick);
+    return [...pick(snap.a), ...pick(snap.b)];
+  } catch { return []; }
+};
+
+const livePanel = document.getElementById('ebotLivePanel');
+let liveStream = null;
+let liveMatchId = null;
+
+async function startLive(matchId) {
+  livePanel.hidden = false;
+  $('ebotLiveStatus').textContent = 'Открываем живой поток матча #' + matchId + '…';
+  try {
+    const res = await fetch('/api/ebot-live', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'start', matchId: String(matchId), coaches: coaches() })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.message || 'HTTP ' + res.status);
+    if (!liveStream) {
+      liveStream = window.oneshotEbotLive({
+        getMatch: id => state.matches.find(m => String(m.id) === String(id)) || null,
+        feedList: 'ebotLiveFeed',
+        radarCanvas: 'ebotLiveRadar',
+        mapName: () => (state.matches.find(m => String(m.id) === String(liveMatchId)) || {}).map || '',
+        note: text => { $('ebotLiveStatus').textContent = text; },
+        log: text => window.dispatchEvent(new CustomEvent('oneshot:lobby-note', { detail: text }))
+      });
+    }
+    liveMatchId = String(matchId);
+    liveStream.open(matchId);
+    window.dispatchEvent(new CustomEvent('oneshot:lobby-note',
+      { detail: 'eBot: живой поток матча #' + matchId + '.' }));
+  } catch (error) {
+    $('ebotLiveStatus').textContent = 'Живой поток не открылся: ' + (error.message || 'eBot не ответил.');
+  }
+}
+
+// Кнопки в карточки — тем же паттерном, что «Статистика» у ebot-stats.js
+// (MutationObserver + делегирование): карточки рисует render() этого модуля.
+const liveObserver = new MutationObserver(addLiveButtons);
+liveObserver.observe($('ebotMatches'), { childList: true, subtree: true });
+addLiveButtons();
+
+function addLiveButtons() {
+  for (const card of $('ebotMatches').querySelectorAll('.lobby-match')) {
+    if (card.querySelector('[data-ebot-live]')) continue;
+    const top = card.querySelector('.lm-top');
+    if (!top) continue;
+    const live = card.classList.contains('live');
+    const button = Object.assign(document.createElement('button'), {
+      type: 'button', className: 'button small',
+      textContent: liveMatchId === card.dataset.match ? '● В эфире' : 'В эфир',
+      title: 'Живой счёт, лента киллов, мини-радар; включает мьют тренера в TeamSpeak'
+    });
+    button.setAttribute('data-ebot-live', '');
+    if (liveMatchId === card.dataset.match) button.setAttribute('aria-pressed', 'true');
+    if (!live) button.disabled = true; // завершённым матчам поток не нужен
+    top.append(button);
+  }
+}
+
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-ebot-live]');
+  if (!button || button.disabled) return;
+  const matchId = button.closest('.lobby-match')?.dataset.match;
+  if (matchId) startLive(matchId);
+});
 check();
 probeAdmin();
 
