@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "day": "2026-11-05",
+  "startedAt": 1793832717618,
+  "updatedAt": 1793832717689,
+  "books": {
+    "fonbet": {
+      "checkedAt": 1793832717656,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "pari": {
+      "checkedAt": 1793832717661,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "bettery": {
+      "checkedAt": 1793832717618,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "bet24": {
+      "checkedAt": 1793832717636,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "olimp": {
+      "checkedAt": 1793832717624,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "marathon": {
+      "checkedAt": 1793832717680,
+      "status": "ok",
+      "coverage": "prematch",
+      "events": []
+    },
+    "betcity": {
+      "checkedAt": 1793832717651,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "sportbet": {
+      "checkedAt": 1793832717674,
+      "status": "ok",
+      "coverage": "line-and-live",
+      "events": []
+    },
+    "baltbet": {
+      "checkedAt": 1793832717666,
+      "status": "ok",
+      "coverage": "prematch",
+      "events": []
+    },
+    "winline": {
+      "checkedAt": 1793832717689,
+      "status": "ok",
+      "coverage": "prematch",
+      "events": []
+    },
+    "leon": {
+      "checkedAt": 1793832717668,
+      "status": "ok",
+      "coverage": "prematch",
+      "events": []
+    }
+  }
+}
