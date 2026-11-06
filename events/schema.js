@@ -24,6 +24,7 @@ export const MODULES = [
   { id: 'cameras', label: 'Подготовка', default: true },
   { id: 'veto', label: 'Вето', default: true },
   { id: 'lobby', label: 'Лобби', default: false },
+  { id: 'ebot', label: 'eBot', default: false },
   { id: 'server', label: 'Сервер', default: false },
   { id: 'seats', label: 'Компы', default: false },
   { id: 'obs', label: 'OBS', default: true },

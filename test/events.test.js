@@ -16,7 +16,7 @@ test('the CyberClash manifest is valid and every default is filled in', () => {
   const { event, errors } = validateEvent(cyberclash());
   assert.deepEqual(errors, []);
   assert.equal(event.v, EVENT_VERSION);
-  assert.deepEqual(enabledModules(event), ['cameras', 'veto', 'lobby', 'obs', 'bookmakers']);
+  assert.deepEqual(enabledModules(event), ['cameras', 'veto', 'lobby', 'ebot', 'obs', 'bookmakers']);
   assert.deepEqual(brandWarnings(event), []);
   // A bare event gets every default.
   const bare = loadEvent({ slug: 'bare', name: 'Bare', kind: 'manual' });
@@ -60,7 +60,7 @@ test('contract: pool, timers, frame and files of the manifest exist in the code'
 
 test('contract: every module the manifest can switch on has a tab in the panel', () => {
   const html = read('index.html');
-  const tabs = { teams: 'teamsNavBtn', matches: 'matchesNavBtn', cameras: 'viewPrep', veto: 'vetoNavBtn', lobby: 'viewLobby',
+  const tabs = { teams: 'teamsNavBtn', matches: 'matchesNavBtn', cameras: 'viewPrep', veto: 'vetoNavBtn', lobby: 'viewLobby', ebot: 'ebotNavBtn',
     server: 'serverNavBtn', seats: 'seatsNavBtn', obs: 'obsNavBtn', bookmakers: 'bookiesNavBtn', settings: 'eventNavBtn' };
   assert.deepEqual(Object.keys(tabs).sort(), MODULES.map(m => m.id).sort());
   for (const [module, id] of Object.entries(tabs)) assert.ok(html.includes(`id="${id}"`), `${module}: no #${id} in index.html`);

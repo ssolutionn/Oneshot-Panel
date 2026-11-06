@@ -38,6 +38,7 @@
       <button id="viewPrep" class="view-tab active" type="button" role="tab" aria-selected="true" aria-controls="prepView">Подготовка</button>
       <button id="vetoNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="vetoView" tabindex="-1">Вето<span id="vetoBadge" class="tab-badge" hidden></span></button>
       <button id="viewLobby" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="lobbyView" tabindex="-1">Лобби<span id="lobbyBadge" class="tab-badge" hidden></span></button>
+      <button id="ebotNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="ebotAdminView" tabindex="-1">eBot</button>
       <button id="serverNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="serverView" tabindex="-1" hidden>Сервер<i id="serverDot" class="obs-tab-dot" aria-hidden="true"></i></button>
       <button id="seatsNavBtn" class="view-tab event-tab" type="button" role="tab" aria-selected="false" aria-controls="seatsView" tabindex="-1" hidden>Компы<i id="seatsDot" class="obs-tab-dot" aria-hidden="true"></i></button>
       <button id="obsNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="obsView" tabindex="-1">OBS<i id="obsTabDot" class="obs-tab-dot" aria-hidden="true"></i></button>
@@ -290,7 +291,7 @@
         <div class="empty-panel">Матчи появятся после подключения турнира.</div>
       </section>
 
-      <section id="ebotPanel" class="lobby-panel" aria-labelledby="ebotHeading">
+      <section id="ebotPanel" class="lobby-panel" aria-labelledby="ebotAdminHeading">
         <div class="panel-heading">
           <div><span class="eyebrow">EBOT</span><h2 id="ebotHeading">Матчи eBot</h2></div>
           <label class="lobby-delay"><input id="ebotWatch" type="checkbox" checked> Следить</label>
@@ -418,6 +419,66 @@
         </div>
         <ol id="lobbyLog" class="lobby-log"></ol>
       </section>
+    </div><!-- /web-only -->
+    <!-- web-only --><div id="ebotAdminView" class="lobby" role="tabpanel" aria-labelledby="ebotNavBtn" hidden>
+      <section class="lobby-panel" aria-labelledby="ebotAdminHeading">
+        <div class="panel-heading">
+          <div><span class="eyebrow">EBOT</span><h2 id="ebotAdminHeading">Админка матчей eBot</h2></div>
+        </div>
+        <p id="ebotAdminStatus" class="lobby-status" role="status">Здесь появится список матчей eBot.</p>
+
+        <div class="ebot-admin-cards">
+          <div class="ebot-admin-card">
+            <h3>Серверы</h3>
+            <p class="ebot-admin-count" id="ebotAdminServersCount">—</p>
+            <ul id="ebotAdminServersList" class="ebot-admin-list"></ul>
+          </div>
+          <div class="ebot-admin-card">
+            <h3>Сезоны</h3>
+            <p class="ebot-admin-count" id="ebotAdminSeasonsCount">—</p>
+            <ul id="ebotAdminSeasonsList" class="ebot-admin-list"></ul>
+          </div>
+          <div class="ebot-admin-card">
+            <h3>Команды</h3>
+            <p class="ebot-admin-count" id="ebotAdminTeamsCount">—</p>
+          </div>
+        </div>
+
+        <div class="ebot-admin-scroll">
+          <table id="ebotAdminTable" class="ebot-admin-table">
+            <thead><tr>
+              <th scope="col">ID</th><th scope="col">Команда A</th><th scope="col">Счёт</th>
+              <th scope="col">Команда B</th><th scope="col">Карта</th><th scope="col">Статус</th><th scope="col">Действия</th>
+            </tr></thead>
+            <tbody id="ebotAdminBody"></tbody>
+          </table>
+        </div>
+
+        <div id="ebotAdminCreateBody"></div>
+      </section>
+
+      <section id="ebotAdminTeamsBox" class="lobby-panel" aria-labelledby="ebotTeamsHeading" hidden>
+        <div class="panel-heading">
+          <div><span class="eyebrow">EBOT</span><h2 id="ebotAdminTeamsHeading">Команды eBot</h2></div>
+        </div>
+        <p id="ebotAdminTeamsStatus" class="lobby-status" role="status">Синхронизация создаёт eBot-команду из состава панели, если её ещё нет.</p>
+        <div class="ebot-admin-scroll">
+          <table id="ebotAdminTeamsTable" class="ebot-admin-table">
+            <thead><tr><th scope="col">Название</th><th scope="col">Состав</th><th scope="col"></th></tr></thead>
+            <tbody id="ebotAdminTeamsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <dialog id="ebotAdminMatchDialog" class="ebot-admin-dialog" aria-labelledby="ebotMatchTitle">
+        <div class="dialog-head">
+          <h2 id="ebotAdminMatchTitle">Матч</h2>
+          <button id="ebotAdminMatchClose" class="icon-button" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <p id="ebotAdminMatchScore" class="ebot-admin-match-score"></p>
+        <p id="ebotAdminMatchStatus" class="lobby-status" role="status"></p>
+        <button id="ebotAdminMatchStart" class="button primary" type="button" hidden>▶ Стартовать</button>
+      </dialog>
     </div><!-- /web-only -->
     <!-- web-only --><div id="serverView" class="lobby cs2" role="tabpanel" aria-labelledby="serverNavBtn" hidden>
       <section class="lobby-panel" aria-labelledby="serverHeading">
@@ -895,6 +956,7 @@
   <script type="module" src="/ebot-ui.js"></script>
   <script type="module" src="/ebot-stats.js"></script>
   <script type="module" src="/ebot-global-ui.js"></script>
-  <script type="module" src="/ebot-live-ui.js"></script><!-- /web-only -->
+  <script type="module" src="/ebot-live-ui.js"></script>
+  <script type="module" src="/ebot-admin-ui.js"></script><!-- /web-only -->
 </body>
 </html>

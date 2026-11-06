@@ -34,12 +34,13 @@ const cardBase = () => /^https?:$/.test(location.protocol) ? location.origin : D
 // ---------- tabs ----------
 const views = [['teams', 'teamsNavBtn', 'teamsView'], ['matches', 'matchesNavBtn', 'matchesView'],
   ['prep', 'viewPrep', 'prepView'], ['veto', 'vetoNavBtn', 'vetoView'], ['lobby', 'viewLobby', 'lobbyView'],
+  ['ebot', 'ebotNavBtn', 'ebotAdminView'],
   ['server', 'serverNavBtn', 'serverView'], ['seats', 'seatsNavBtn', 'seatsView'], ['obs', 'obsNavBtn', 'obsView'],
   ['bookies', 'bookiesNavBtn', 'bookiesView'], ['event', 'eventNavBtn', 'eventView']];
 // The event's modules decide its tabs (events/schema.js MODULES); «Сервер» is
 // cs2.js's: it appears where a journal answers, or on an event that has one.
 const MODULE_TABS = { teams: 'teamsNavBtn', matches: 'matchesNavBtn', cameras: 'viewPrep', veto: 'vetoNavBtn',
-  lobby: 'viewLobby', seats: 'seatsNavBtn', obs: 'obsNavBtn', bookmakers: 'bookiesNavBtn', settings: 'eventNavBtn' };
+  lobby: 'viewLobby', ebot: 'ebotNavBtn', seats: 'seatsNavBtn', obs: 'obsNavBtn', bookmakers: 'bookiesNavBtn', settings: 'eventNavBtn' };
 if (EVENT) for (const [module, tab] of Object.entries(MODULE_TABS)) $(tab).hidden = !EVENT.modules?.[module];
 if (EVENT?.kind === 'manual') $('viewPrep').textContent = 'Эфир';
 document.documentElement.dataset.tabs = 'ready';
@@ -76,6 +77,11 @@ const startView = location.hash.slice(1) || read(VIEW_STORE);
 // A new event starts where it is filled in: its teams.
 const firstView = !$('teamsNavBtn').hidden && !panel.lan().teams.length ? 'teams' : 'prep';
 showView(views.some(v => v[0] === startView && (!$(v[1]).hidden || v[0] === 'server' && EVENT?.modules?.server)) ? startView : firstView);
+// Вкладка «eBot»: полноценная админка матчей поверх лобби-блока ebot-ui.js
+// (она независима, лобби-блок не ломается). Запускаем только на сайте
+// (web-only разметка) и когда модуль события включён.
+import { initEbotAdminTab } from './ebot-admin-ui.js';
+if ($('ebotNavBtn') && !$('ebotNavBtn').hidden) initEbotAdminTab({ showLobby: () => showView('lobby', true) });
 
 // ---------- match payload ----------
 function matchPayload() {

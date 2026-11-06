@@ -10,6 +10,13 @@
 //     команда живому матчу (stop/pauseunpause/forcestart/.../executeCommand);
 //   {action: 'catalog'} → {servers, maps} — серверы и карты для формы;
 //     только при EBOT_ADMIN_OPEN=1, иначе 403 (адреса серверов не публичны);
+//   {action: 'servers'|'seasons'|'teams'} → списки страниц админки
+//     (server/ebot-catalog.js поверх admin.page); teams при
+//     EBOT_ADMIN_OPEN=1 несёт ещё и логин/пароль eBot-ссылки — нет;
+//     списки без адресов серверов отдаются и при закрытом каталоге;
+//   {action: 'sync-team', name, players[]} → {created?, players} — команда
+//     eBot создаётся из состава панели (server/ebot-sync.js решает
+//     reuse/create, формы — server/ebot-forms.js);
 //   {action: 'create', teamA, teamB, map, serverId, side?, password?} →
 //     {created, id?} — создание матча через формы админки;
 //   {action: 'start', matchId, serverId} → {started} — старт матча.
@@ -17,6 +24,9 @@
 // POST дополнительно обязан нести заголовок x-ebot-token с тем же значением.
 import { fromThisSite } from './faceit.mjs';
 import { createEbotAdmin, ebotSocketUrl } from '../../server/ebot-admin.js';
+import { createEbotCatalog } from '../../server/ebot-catalog.js';
+import { createEbotForms } from '../../server/ebot-forms.js';
+import { syncTeamToEbot } from '../../server/ebot-sync.js';
 import { ebotTarget } from './ebot.mjs';
 // Netlify бандлит функцию и инлайнит server/ebot-admin.js, но
 // server/vendor/ в деплой функций не попадает: defaultLoadAes (node:fs)
@@ -28,6 +38,14 @@ import { Aes as AesEsm } from '../../server/vendor/aes-ctr-esm.js';
 // каждый POST логинился бы заново. В ключе длина пароля, а не сам пароль:
 // смена учётных данных в env всё же перезаводит клиента.
 let adminCache = null; // { key, admin }
+
+// Абсолютный базовый URL eBot из env (для форм, если сессию ведёт не
+// admin-клиент, а своя FormSession — fallback, который ebot-forms.js
+// использует, когда у клиента нет formRequest).
+const adminBase = env => {
+  const t = ebotTarget(env.EBOT_URL);
+  return t ? t.href : '';
+};
 
 // На edge (Cloudflare) нет node:fs/node:vm для defaultLoadAes: свой загрузчик
 // передаёт вызывающий (functions/api/ebot-admin.js), иначе — значение по
@@ -118,6 +136,18 @@ export async function proxyEbotAdmin(request, env = {}, loadAes = null) {
   const matchId = /^\d{1,9}$/.test(String(body.matchId)) ? String(body.matchId) : '';
   const command = typeof body.command === 'string' ? body.command : '';
   const open = String(env.EBOT_ADMIN_OPEN || '') === '1';
+  // Каталог страниц админки (серверы/сезоны/команды): лениво поверх того же
+  // admin-клиента (его page() ходит тем же логином/кукой, что и команды).
+  // Без OPEN не отдаём адреса серверов — списки команд/сезонов без них.
+  let catalogClient = null;
+  const catalog = () => (catalogClient ||= createEbotCatalog({ admin: built.admin }));
+  let formsClient = null;
+  // Формы делегируют сессию админ-клиенту (formRequest), когда он её ведёт.
+  const forms = () => (formsClient ||= createEbotForms({
+    admin: typeof built.admin.formRequest === 'function' ? built.admin : null,
+    baseUrl: built.admin.formRequest ? undefined : adminBase(env),
+    user: env.EBOT_USER, password: env.EBOT_PASSWORD,
+  }));
   try {
     if (body.action === 'commands') {
       if (!matchId) throw Object.assign(new Error('Номер матча обязателен.'), { status: 400 });
@@ -143,6 +173,41 @@ export async function proxyEbotAdmin(request, env = {}, loadAes = null) {
         return Response.json({ error: 'not-allowed', message: 'Каталог серверов eBot закрыт (EBOT_ADMIN_OPEN).' }, { status: 403 });
       }
       return Response.json(await built.admin.catalog(), { headers: { 'cache-control': 'no-store' } });
+    }
+    if (body.action === 'servers') {
+      // Список серверов с адресами — как и каталог, только при OPEN.
+      if (!open) {
+        return Response.json({ error: 'not-allowed', message: 'Список серверов eBot закрыт (EBOT_ADMIN_OPEN).' }, { status: 403 });
+      }
+      return Response.json({ servers: await catalog().servers() }, { headers: { 'cache-control': 'no-store' } });
+    }
+    if (body.action === 'seasons') {
+      return Response.json({ seasons: await catalog().seasons() }, { headers: { 'cache-control': 'no-store' } });
+    }
+    if (body.action === 'teams') {
+      // Составов на странице списка нет (viewSuccess — заглушка): players
+      // не отдаём, вкладка показывает «—» до синхронизации из панели.
+      return Response.json({ teams: await catalog().teams() }, { headers: { 'cache-control': 'no-store' } });
+    }
+    if (body.action === 'sync-team') {
+      // eBot берёт состав из панели: панель присылает название и ники
+      // (из своей таблицы), здесь решаем reuse/create и создаём форму.
+      const name = str(body.name, 25);
+      const players = Array.isArray(body.players)
+        ? body.players.map(p => str(typeof p === 'string' ? p : p?.nick, 25)).filter(Boolean).slice(0, 10)
+        : [];
+      if (!name || !players.length) {
+        throw Object.assign(new Error('Название команды и состав обязательны.'), { status: 400 });
+      }
+      const teams = await catalog().teams();
+      const decision = syncTeamToEbot({ panelTeam: { name, players: players.map(nick => ({ nick, role: 'Основной' })) }, ebotTeams: teams });
+      if (decision.action === 'reuse') {
+        return Response.json({ created: false, id: decision.id, name: decision.name, players }, { headers: { 'cache-control': 'no-store' } });
+      }
+      // createTeam в eBot не принимает состав (полей игроков в форме нет) —
+      // players возвращаем панели, чтобы таблица показала их сразу.
+      await forms().createTeam({ name, players: players.map(nick => ({ nick })) });
+      return Response.json({ created: true, name, players }, { headers: { 'cache-control': 'no-store' } });
     }
     if (body.action === 'create') {
       const teamA = str(body.teamA, 25), teamB = str(body.teamB, 25);

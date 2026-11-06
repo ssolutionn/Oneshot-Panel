@@ -603,6 +603,22 @@ class EbotAdmin {
     });
   }
 
+  // Авторизованный GET произвольной страницы админки (Response целиком).
+  // Каталоги (server/ebot-catalog.js) ходят только сюда — свой транспорт
+  // (логин, кука, перелогин при протухшей сессии) не дублируют.
+  // Относительный путь: resolve против своего #base, абсолютный чужой URL
+  // с нашей кукой сессии никому не отдаём (SSRF-граница та же, что у
+  // createMatch — только свой eBot).
+  async page(path) {
+    return this.#withSession(() => this.#authed(path));
+  }
+
+  // Авторизованный запрос любым методом (для форм server/ebot-forms.js:
+  // GET страницы формы + её POST). Та же сессия и перелогин, что у page().
+  async formRequest(path, init = {}) {
+    return this.#withSession(() => this.#authed(path, init));
+  }
+
   // ── Консоль матча (живые логи + RCON), отдельный блок ─────────────────────
   // Комнаты rcon-*/logger-* и сам rconSend доступны только с admin-JWT
   // (websocket_server.mjs), поэтому всё идёт через ту же авторизацию, что и
