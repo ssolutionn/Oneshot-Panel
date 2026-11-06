@@ -442,6 +442,34 @@ Discord, журнал пауз. «OBS»: подключение и инстру�
   (id `ebotLiveClose`) гасит панель и шлёт stop (снимает мьют). Прокси
   `?archived=` — `netlify/functions/ebot.mjs` (кэш 60 с, ОТДЕЛЬНАЯ ячейка
   от view — выбор кэша явным селектором, не по TTL).
+- `ebot-admin-ui.js` + `ebot-admin-core.js` (только сайт) — вкладка «eBot»
+  (`ebotNavBtn`/`ebotAdminView`): полная админка поверх `/api/ebot-admin` —
+  таблица всех матчей (опрос 20 с, пока вкладка открыта), команды матча
+  (Пауза/Стоп шлёт сама; Консоль/Статистика/«В эфир» — события
+  `oneshot:ebot-console-open`/`stats-open`/`live-open`, их механизмы живут в
+  лобби), карточки Серверы/Сезоны/Команды, форма создания матча, модалка
+  деталей, синхронизация команд из составов панели. Лобби-блок не тронут:
+  вкладка независима. Чистые функции (formatMatchRow, statusClass,
+  validateCreateForm, teamRowText) в core, DOM только в initEbotAdminTab.
+  Все данные eBot — только textContent.
+- `server/ebot-catalog.js` — списки админки eBot: `createEbotCatalog({admin})`
+  → servers()/seasons()/teams() через `admin.page()` (авторизованный GET из
+  ebot-admin.js, транспорт не дублируется). Парсеры толерантны к макету:
+  таблица опознаётся по тексту заголовков, страницы команд идут
+  /teams/index/<n> с детектом повтора первой. RCON-пароль серверов страница
+  не отдаёт (поле появится, только если eBot начнёт его показывать).
+- `server/ebot-forms.js` — полные формы админки (symfony 1.4):
+  `createEbotForms({admin})` делегирует сессию `admin.formRequest()` (без
+  него — своя FormSession по baseUrl/user/password). createMatch с полным
+  набором MatchsForm (сезон, овертайм, streamer, auto_start…), createTeam/
+  editTeam (TeamsForm; полей игроков в eBot нет — состав только проверяется).
+  Белый список полей формы, ошибки — из <ul class="error_list"> по-русски.
+- `server/ebot-sync.js` — без запросов: `panelTeamToEbot` (состав панели →
+  Основной/Запасной/Тренер, дубли ников — ошибка), `syncTeamToEbot`
+  (reuse существующей eBot-команды по имени или поля для создания),
+  `syncMatch` (оба + поля матча). Источник составов — таблицы панели.
+  Действия роутера `/api/ebot-admin`: servers (только EBOT_ADMIN_OPEN=1 —
+  адреса), seasons, teams, sync-team {name, players[]} → {created?, players}.
 - `netlify/functions/faceit.mjs` — прокси FACEIT для браузера (только пути
   лобби). Ключ админа из заголовка идёт в FACEIT и не хранится; без него
   `proxyFaceit` берёт ключ сайта из секрета хостинга `FACEIT_API_KEY`
