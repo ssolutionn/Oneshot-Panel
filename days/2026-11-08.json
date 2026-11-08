@@ -2,70 +2,70 @@
   "version": 1,
   "day": "2026-11-08",
   "startedAt": 1794092874156,
-  "updatedAt": 1794092874186,
+  "updatedAt": 1794104973934,
   "books": {
     "fonbet": {
-      "checkedAt": 1794092874169,
+      "checkedAt": 1794104973897,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "pari": {
-      "checkedAt": 1794092874172,
+      "checkedAt": 1794104973901,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "bettery": {
-      "checkedAt": 1794092874156,
+      "checkedAt": 1794104973878,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "bet24": {
-      "checkedAt": 1794092874179,
+      "checkedAt": 1794104973888,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "olimp": {
-      "checkedAt": 1794092874163,
+      "checkedAt": 1794104973895,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "marathon": {
-      "checkedAt": 1794092874181,
+      "checkedAt": 1794104973893,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "betcity": {
-      "checkedAt": 1794092874182,
+      "checkedAt": 1794104973902,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "sportbet": {
-      "checkedAt": 1794092874176,
+      "checkedAt": 1794104973886,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "baltbet": {
-      "checkedAt": 1794092874161,
+      "checkedAt": 1794104973900,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "winline": {
-      "checkedAt": 1794092874186,
+      "checkedAt": 1794104973904,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "leon": {
-      "checkedAt": 1794092874184,
+      "checkedAt": 1794104973934,
       "status": "ok",
       "coverage": "prematch",
       "events": []
