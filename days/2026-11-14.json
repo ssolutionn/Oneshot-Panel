@@ -2,70 +2,70 @@
   "version": 1,
   "day": "2026-11-14",
   "startedAt": 1794617979063,
-  "updatedAt": 1794666378373,
+  "updatedAt": 1794684150880,
   "books": {
     "fonbet": {
-      "checkedAt": 1794666378349,
+      "checkedAt": 1794684150863,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "pari": {
-      "checkedAt": 1794666378367,
+      "checkedAt": 1794684150856,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "bettery": {
-      "checkedAt": 1794666378361,
+      "checkedAt": 1794684150877,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "bet24": {
-      "checkedAt": 1794666378362,
+      "checkedAt": 1794684150869,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "olimp": {
-      "checkedAt": 1794666378346,
+      "checkedAt": 1794684150854,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "marathon": {
-      "checkedAt": 1794666378368,
+      "checkedAt": 1794684150851,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "betcity": {
-      "checkedAt": 1794666378370,
+      "checkedAt": 1794684150873,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "sportbet": {
-      "checkedAt": 1794666378365,
-      "status": "partial",
+      "checkedAt": 1794684150873,
+      "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "baltbet": {
-      "checkedAt": 1794666378373,
+      "checkedAt": 1794684150880,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "winline": {
-      "checkedAt": 1794666378354,
+      "checkedAt": 1794684150866,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "leon": {
-      "checkedAt": 1794666378369,
+      "checkedAt": 1794684150872,
       "status": "ok",
       "coverage": "prematch",
       "events": []
