@@ -9,6 +9,34 @@ const POLL_MS = 20000;
 const MAX_MATCHES = 32;
 const MAX_CONNECT_LENGTH = 300;
 const $ = id => typeof document === 'undefined' ? null : document.getElementById(id);
+const identityKey = value => String(value || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+export function matchQualificationPlayers(teams, snapshot) {
+  const existing = [...(snapshot?.playersA || []), ...(snapshot?.playersB || [])].filter(player => player?.id && player?.room);
+  const allPlayers = (teams || []).flatMap(team => team.players || []);
+  const counts = new Map();
+  for (const player of allPlayers) counts.set(player.id, (counts.get(player.id) || 0) + 1);
+  return (teams || []).map(team => ({
+    ...team,
+    players: (team.players || []).map(player => {
+      if (counts.get(player.id) > 1) return { ...player, camera: null, matchMethod: 'duplicate-id' };
+      const nick = identityKey(player.nickname);
+      const teamName = identityKey(team.name);
+      const exact = existing.filter(candidate => identityKey(candidate.nick) === nick &&
+        (!teamName || !teamNameFromPlayer(candidate, snapshot) || identityKey(teamNameFromPlayer(candidate, snapshot)) === teamName));
+      const nickMatches = existing.filter(candidate => identityKey(candidate.nick) === nick);
+      const matches = exact.length ? exact : nickMatches;
+      const camera = matches.length === 1 ? matches[0] : null;
+      return { ...player, camera, matchMethod: camera ? exact.length ? 'team-nickname' : 'nickname' : matches.length ? 'ambiguous' : 'missing' };
+    })
+  }));
+}
+
+function teamNameFromPlayer(player, snapshot) {
+  if ((snapshot?.playersA || []).includes(player)) return snapshot?.a?.name || '';
+  if ((snapshot?.playersB || []).includes(player)) return snapshot?.b?.name || '';
+  return '';
+}
 
 function safeText(node, value) {
   if (node) node.textContent = String(value ?? '');
@@ -18,8 +46,7 @@ export function createQualificationsController({
   root = $('qualificationsView'),
   input = $('qualificationsUrl'),
   keyInput = $('qualificationsKey'),
-  roomInput = $('qualificationsRoom'),
-  passwordInput = $('qualificationsPassword'),
+  panel = typeof window !== 'undefined' ? window.oneshotPanel : null,
   rosterStatus = $('qualificationsRosterStatus'),
   status = $('qualificationsStatus'),
   list = $('qualificationsMatches'),
@@ -34,12 +61,13 @@ export function createQualificationsController({
     seeded: false, stopped: true, lastError: ''
   };
 
-  const room = () => String(roomInput?.value || '').trim();
-  const password = () => String(passwordInput?.value || '');
-  const streamFor = (matchId, playerId) => {
+  const cameraAssignments = new Map();
+  const streamFor = playerId => {
     const valid = validateQualificationId(playerId);
-    return valid ? vdoId(`q_${matchId}_${valid}`) : '';
+    const camera = valid ? cameraAssignments.get(valid) : null;
+    return camera ? vdoId(camera.id) : '';
   };
+  const cameraFor = playerId => cameraAssignments.get(validateQualificationId(playerId)) || null;
 
   function render() {
     if (!list || typeof document === 'undefined') return;
@@ -71,11 +99,12 @@ export function createQualificationsController({
             const nick = document.createElement('span');
             safeText(nick, player.nickname);
             row.append(nick);
-            const stream = streamFor(match.id, player.id);
+            const stream = streamFor(player.id);
+            const assigned = cameraFor(player.id);
             const camera = document.createElement('span');
-            safeText(camera, state.checking.has(stream) ? 'Проверяем вебку' : state.online.has(stream) ? 'Вебка подключена' : 'Вебка не подключена');
+            safeText(camera, assigned ? state.checking.has(stream) ? 'Проверяем вебку' : state.online.has(stream) ? 'Вебка подключена' : 'Вебка не подключена' : player.matchMethod === 'ambiguous' ? 'Нужно уточнить игрока' : 'Нет камеры в OneShot');
             row.append(' ', camera);
-            if (stream && room()) {
+            if (assigned) {
               const copy = document.createElement('button');
               copy.type = 'button';
               copy.dataset.qualificationCopyPlayer = player.id;
@@ -130,29 +159,39 @@ export function createQualificationsController({
     list.replaceChildren(fragment);
   }
 
-  function rebuildWatchers() {
+  function rebuildWatchers(snapshot) {
     for (const watcher of state.watchers) watcher.stop();
     state.watchers = [];
     state.online = new Set();
     state.checking = new Set();
-    const streamIds = [];
+    cameraAssignments.clear();
+    const groups = new Map();
     for (const record of state.matches.values()) {
       for (const team of record.teams || []) for (const player of team.players || []) {
-        const id = streamFor(record.match.id, player.id);
-        if (id) streamIds.push(id);
+        const camera = player.camera;
+        const id = camera ? vdoId(camera.id) : '';
+        if (!camera || !id) continue;
+        cameraAssignments.set(validateQualificationId(player.id), camera);
+        const key = `${camera.room}\0${camera.password || ''}`;
+        if (!groups.has(key)) groups.set(key, { room: camera.room, password: camera.password || '', ids: [] });
+        groups.get(key).ids.push(id);
       }
     }
-    const collisions = new Set(qualificationIdCollisions(streamIds));
-    const ids = [...new Set(streamIds.filter(id => !collisions.has(id)))];
-    if (room() && ids.length && typeof window !== 'undefined' && window.CamWatch) {
+    const allIds = [...groups.values()].flatMap(group => group.ids);
+    const collisions = new Set(qualificationIdCollisions(allIds));
+    const safeGroups = [...groups.values()].map(group => ({
+      ...group, ids: [...new Set(group.ids.filter(id => !collisions.has(id)))]
+    })).filter(group => group.ids.length);
+    if (safeGroups.length && typeof window !== 'undefined' && window.CamWatch) {
       const watcher = watchFactory((online, checking) => {
         state.online = online;
         state.checking = checking;
         render();
       });
-      watcher.watch([{ room: room(), password: password(), ids }]);
+      watcher.watch(safeGroups);
       state.watchers.push(watcher);
     }
+    return snapshot;
   }
 
   async function poll() {
@@ -172,16 +211,21 @@ export function createQualificationsController({
         if (!successes.length) throw new Error('FACEIT временно недоступен; последние данные сохранены.');
         state.matches = merged;
         state.seeded = true;
-        for (const record of state.matches.values()) record.raw ||= record.match;
+        const snapshot = panel?.snapshot?.();
+        for (const record of state.matches.values()) {
+          record.raw ||= record.match;
+          record.teams = matchQualificationPlayers(record.teams, snapshot);
+          record.rosterAvailable = record.teams.some(team => team.players.length > 0);
+        }
         const events = [];
         for (const [id, record] of state.matches) {
           const prior = before.get(id)?.match;
           if (prior) events.push(...qualificationEvents(prior, record.match));
         }
-        rebuildWatchers();
+        rebuildWatchers(snapshot);
         render();
-        const rosterAvailable = [...state.matches.values()].some(record => record.teams?.some(team => team.players?.length));
-        safeText(rosterStatus, rosterAvailable ? '' : 'FACEIT не отдал подтверждённый публичный состав.');
+        const rosterAvailable = [...state.matches.values()].some(record => record.rosterAvailable);
+        safeText(rosterStatus, rosterAvailable ? '' : 'FACEIT не отдал участников матча в API.');
         safeText(status, results.every(result => result.status === 'fulfilled') ? 'Обновлено.' : 'Часть списков FACEIT недоступна; последние данные сохранены.');
         if (events.length) notify(`Обновился статус или счёт в ${events.length} матче FACEIT.`);
         if (results.some(result => result.status === 'rejected')) notify('Часть списков FACEIT недоступна.');
@@ -220,11 +264,10 @@ export function createQualificationsController({
   const clickHandler = event => {
     if (!event.target?.matches?.('[data-qualification-copy-player]')) return;
     const card = event.target.closest('[data-match-id]');
-    const matchId = card?.dataset.matchId;
     const playerId = event.target.dataset.qualificationCopyPlayer;
-    const stream = streamFor(matchId, playerId);
-    if (!stream || !room()) return;
-    const value = pushUrl({ id: stream, room: room(), password: password() });
+    const camera = cameraFor(playerId);
+    if (!camera?.id || !camera.room) return;
+    const value = pushUrl(camera);
     navigator.clipboard?.writeText(value).catch(() => safeText(status, 'Не удалось скопировать ссылку.'));
   };
   root?.addEventListener('click', clickHandler);

@@ -329,13 +329,12 @@
         <div class="panel-heading"><div><span class="eyebrow">FACEIT QUALIFICATIONS</span><h2 id="qualificationsHeading">Квалификации</h2></div></div>
         <form id="qualificationsForm" class="lobby-form" autocomplete="off">
           <label class="lobby-url"><span class="mini-label">Ссылка на чемпионат FACEIT</span><input id="qualificationsUrl" type="url" autocomplete="off" spellcheck="false" required></label>
-          <label><span class="mini-label">Комната VDO.Ninja</span><input id="qualificationsRoom" type="text" autocomplete="off" spellcheck="false"></label>
-          <label><span class="mini-label">Пароль комнаты</span><input id="qualificationsPassword" type="password" autocomplete="off"></label>
           <label><span class="mini-label">API-ключ FACEIT</span><input id="qualificationsKey" class="api-token" type="password" autocomplete="off"></label>
           <button class="button primary" type="submit">Следить</button>
         </form>
         <p id="qualificationsStatus" class="lobby-status" role="status">Вставь ссылку на чемпионат.</p>
         <p id="qualificationsRosterStatus" class="notification-hint" role="status"></p>
+        <p id="qualificationsCameraStatus" class="notification-hint" role="status">Камеры автоматически сопоставляются по команде и нику с текущим составом OneShot.</p>
         <div id="qualificationsAlert" class="error-box" role="alert" hidden></div>
         <div id="qualificationsMatches" class="qualifications-grid" aria-label="Матчи квалификаций"></div>
       </section>
