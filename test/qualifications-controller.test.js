@@ -25,6 +25,7 @@ function makeController({ matches, node = null } = {}) {
 test('assigns existing OneShot cameras by normalized team and nickname', () => {
   const faceitTeams = [{ name: 'TEAM ALPHA', players: [{ id: 'faceit-1', nickname: 'Player.One' }] }];
   const snapshot = {
+    a: { name: 'Team Alpha' },
     playersA: [{ key: 'sheet-1', nick: 'Player One', id: 'stream_a', room: 'room_a', password: 'secret-a' }],
     playersB: []
   };
@@ -33,6 +34,29 @@ test('assigns existing OneShot cameras by normalized team and nickname', () => {
   assert.equal(result[0].players[0].camera.room, 'room_a');
   assert.equal(result[0].players[0].camera.password, 'secret-a');
   assert.equal(result[0].players[0].matchMethod, 'team-nickname');
+});
+
+test('keeps camera assignments isolated by match when FACEIT repeats a player ID', async () => {
+  const rows = [
+    { ...fixture('match-1'), teams: { faction1: { name: 'Team Alpha', players: [{ player_id: 'same-id', nickname: 'Ace' }] }, faction2: { name: 'X' } } },
+    { ...fixture('match-2'), teams: { faction1: { name: 'Team Beta', players: [{ player_id: 'same-id', nickname: 'Ace' }] }, faction2: { name: 'Y' } } }
+  ];
+  const controller = createQualificationsController({
+    input: { value: `https://www.faceit.com/en/championship/${uuid}/test` },
+    list: { replaceChildren() {} },
+    panel: { snapshot: () => ({
+      a: { name: 'Team Alpha' }, b: { name: 'Team Beta' },
+      playersA: [{ nick: 'Ace', id: 'stream-a', room: 'room-a' }],
+      playersB: [{ nick: 'Ace', id: 'stream-b', room: 'room-b' }]
+    }) },
+    clientFactory: () => ({ async matches() { return rows; } }),
+    watchFactory: () => ({ watch() {}, stop() {} }),
+    interval: 100000
+  });
+  await controller.start();
+  assert.equal(controller.state.matches.get('match-1').teams[0].players[0].camera.id, 'stream-a');
+  assert.equal(controller.state.matches.get('match-2').teams[0].players[0].camera.id, 'stream-b');
+  controller.destroy();
 });
 
 test('does not overwrite matched camera records with raw FACEIT teams on later polls', async () => {
@@ -66,6 +90,15 @@ test('refuses duplicated FACEIT player IDs instead of sharing one camera', () =>
   assert.equal(result[0].players[0].camera, null);
   assert.equal(result[1].players[0].camera, null);
   assert.equal(result[0].players[0].matchMethod, 'duplicate-id');
+});
+
+test('does not use a unique nickname from a different known team', () => {
+  const result = matchQualificationPlayers([{ name: 'Team Alpha', players: [{ id: 'f1', nickname: 'Ace' }] }], {
+    a: { name: 'Team Beta' }, b: { name: 'Team Gamma' },
+    playersA: [{ nick: 'Ace', id: 'stream-b', room: 'room-b' }], playersB: []
+  });
+  assert.equal(result[0].players[0].camera, null);
+  assert.equal(result[0].players[0].matchMethod, 'missing');
 });
 
 test('does not assign a camera when the nickname match is ambiguous', () => {

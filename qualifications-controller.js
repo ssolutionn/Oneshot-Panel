@@ -22,10 +22,14 @@ export function matchQualificationPlayers(teams, snapshot) {
       if (counts.get(player.id) > 1) return { ...player, camera: null, matchMethod: 'duplicate-id' };
       const nick = identityKey(player.nickname);
       const teamName = identityKey(team.name);
-      const exact = existing.filter(candidate => identityKey(candidate.nick) === nick &&
-        (!teamName || !teamNameFromPlayer(candidate, snapshot) || identityKey(teamNameFromPlayer(candidate, snapshot)) === teamName));
       const nickMatches = existing.filter(candidate => identityKey(candidate.nick) === nick);
-      const matches = exact.length ? exact : nickMatches;
+      const exact = teamName ? nickMatches.filter(candidate => {
+        const candidateTeam = identityKey(teamNameFromPlayer(candidate, snapshot));
+        return candidateTeam === teamName;
+      }) : [];
+      const knownOtherTeam = nickMatches.some(candidate => identityKey(teamNameFromPlayer(candidate, snapshot)) &&
+        identityKey(teamNameFromPlayer(candidate, snapshot)) !== teamName);
+      const matches = exact.length ? exact : teamName && knownOtherTeam ? [] : nickMatches;
       const camera = matches.length === 1 ? matches[0] : null;
       return { ...player, camera, matchMethod: camera ? exact.length ? 'team-nickname' : 'nickname' : matches.length ? 'ambiguous' : 'missing' };
     })
