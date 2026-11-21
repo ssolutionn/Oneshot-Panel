@@ -57,3 +57,21 @@ test('connect values are held only in controller memory and first observation is
   assert.equal(controller.state.seeded, true);
   controller.destroy();
 });
+
+test('match-room URL is rejected instead of queried as championship ID', async () => {
+  const calls = [];
+  const controller = createQualificationsController({
+    input: { value: `https://www.faceit.com/en/cs2/room/1-${uuid}` },
+    list: { replaceChildren() {} },
+    clientFactory: () => ({ async matches(...args) { calls.push(args); return []; } }),
+    watchFactory: () => ({ watch() {}, stop() {} }),
+    interval: 100000
+  });
+  try {
+    await controller.start();
+    assert.deepEqual(calls, []);
+    assert.match(controller.state.lastError || '', /чемпионат/i);
+  } finally {
+    controller.destroy();
+  }
+});

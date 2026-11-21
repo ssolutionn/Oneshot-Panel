@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   normalizeQualificationMatch, safeQualificationUrl, mergeQualificationMatches,
-  qualificationEvents, validateQualificationConnect, validateQualificationId
+  qualificationEvents, validateQualificationConnect, validateQualificationId, qualificationIdCollisions
 } from '../qualifications-data.js';
 
 const match = (id, status = 'ONGOING') => ({ match_id: id, status, teams: {
@@ -21,7 +21,7 @@ test('normalizes an available roster as text and reports absent roster as empty'
 
 test('accepts only HTTPS FACEIT URLs', () => {
   assert.equal(safeQualificationUrl('https://www.faceit.com/en/room/x'), 'https://www.faceit.com/en/room/x');
-  for (const value of ['javascript:alert(1)', 'http://faceit.com/x', 'https://faceit.com.attacker.test/x', ''])
+  for (const value of ['javascript:alert(1)', 'http://faceit.com/x', 'https://faceit.com.attacker.test/x', 'https://evil.faceit.com/x', ''])
     assert.equal(safeQualificationUrl(value), '');
 });
 
@@ -55,4 +55,8 @@ test('validates connect input and generated stream IDs without accepting control
   for (const value of ['', 'connect\nsecret', 'x'.repeat(257)]) assert.equal(validateQualificationConnect(value), '');
   assert.equal(validateQualificationId('match_player_1'), 'match_player_1');
   for (const value of ['../player', 'x'.repeat(65), '']) assert.equal(validateQualificationId(value), '');
+});
+
+test('reports duplicate stream IDs after sanitization', () => {
+  assert.deepEqual(qualificationIdCollisions(['q_match_player', 'q_match_player', 'q_other']), ['q_match_player']);
 });

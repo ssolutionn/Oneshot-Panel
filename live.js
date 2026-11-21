@@ -34,6 +34,7 @@ const cardBase = () => /^https?:$/.test(location.protocol) ? location.origin : D
 // ---------- tabs ----------
 const views = [['teams', 'teamsNavBtn', 'teamsView'], ['matches', 'matchesNavBtn', 'matchesView'],
   ['prep', 'viewPrep', 'prepView'], ['veto', 'vetoNavBtn', 'vetoView'], ['lobby', 'viewLobby', 'lobbyView'],
+  ['qualifications', 'qualificationsNavBtn', 'qualificationsView'],
   ['server', 'serverNavBtn', 'serverView'], ['seats', 'seatsNavBtn', 'seatsView'], ['obs', 'obsNavBtn', 'obsView'],
   ['bookies', 'bookiesNavBtn', 'bookiesView'], ['event', 'eventNavBtn', 'eventView']];
 // The event's modules decide its tabs (events/schema.js MODULES); «Сервер» is
@@ -71,7 +72,7 @@ for (const [view, tab] of views) {
     showView(shown[next][0], true);
   });
 }
-window.addEventListener('oneshot:notification-open',event=>showView(event.detail==='veto'?'veto':'lobby',true));
+window.addEventListener('oneshot:notification-open',event=>showView(event.detail==='veto'?'veto':event.detail==='qualifications'?'qualifications':'lobby',true));
 const startView = location.hash.slice(1) || read(VIEW_STORE);
 // A new event starts where it is filled in: its teams.
 const firstView = !$('teamsNavBtn').hidden && !panel.lan().teams.length ? 'teams' : 'prep';

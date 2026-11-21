@@ -38,6 +38,7 @@
       <button id="viewPrep" class="view-tab active" type="button" role="tab" aria-selected="true" aria-controls="prepView">Подготовка</button>
       <button id="vetoNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="vetoView" tabindex="-1">Вето<span id="vetoBadge" class="tab-badge" hidden></span></button>
       <button id="viewLobby" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="lobbyView" tabindex="-1">Лобби<span id="lobbyBadge" class="tab-badge" hidden></span></button>
+      <button id="qualificationsNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="qualificationsView" tabindex="-1">Квалификации</button>
       <button id="serverNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="serverView" tabindex="-1" hidden>Сервер<i id="serverDot" class="obs-tab-dot" aria-hidden="true"></i></button>
       <button id="seatsNavBtn" class="view-tab event-tab" type="button" role="tab" aria-selected="false" aria-controls="seatsView" tabindex="-1" hidden>Компы<i id="seatsDot" class="obs-tab-dot" aria-hidden="true"></i></button>
       <button id="obsNavBtn" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="obsView" tabindex="-1">OBS<i id="obsTabDot" class="obs-tab-dot" aria-hidden="true"></i></button>
@@ -321,6 +322,22 @@
           <button id="copyJournal" class="button small" type="button">Копировать журнал</button>
         </div>
         <ol id="lobbyLog" class="lobby-log"></ol>
+      </section>
+    </div><!-- /web-only -->
+    <!-- web-only --><div id="qualificationsView" class="lobby qualifications-view" role="tabpanel" aria-labelledby="qualificationsNavBtn" hidden>
+      <section class="lobby-panel" aria-labelledby="qualificationsHeading">
+        <div class="panel-heading"><div><span class="eyebrow">FACEIT QUALIFICATIONS</span><h2 id="qualificationsHeading">Квалификации</h2></div></div>
+        <form id="qualificationsForm" class="lobby-form" autocomplete="off">
+          <label class="lobby-url"><span class="mini-label">Ссылка на чемпионат FACEIT</span><input id="qualificationsUrl" type="url" autocomplete="off" spellcheck="false" required></label>
+          <label><span class="mini-label">Комната VDO.Ninja</span><input id="qualificationsRoom" type="text" autocomplete="off" spellcheck="false"></label>
+          <label><span class="mini-label">Пароль комнаты</span><input id="qualificationsPassword" type="password" autocomplete="off"></label>
+          <label><span class="mini-label">API-ключ FACEIT</span><input id="qualificationsKey" class="api-token" type="password" autocomplete="off"></label>
+          <button class="button primary" type="submit">Следить</button>
+        </form>
+        <p id="qualificationsStatus" class="lobby-status" role="status">Вставь ссылку на чемпионат.</p>
+        <p id="qualificationsRosterStatus" class="notification-hint" role="status"></p>
+        <div id="qualificationsAlert" class="error-box" role="alert" hidden></div>
+        <div id="qualificationsMatches" class="qualifications-grid" aria-label="Матчи квалификаций"></div>
       </section>
     </div><!-- /web-only -->
     <!-- web-only --><div id="serverView" class="lobby cs2" role="tabpanel" aria-labelledby="serverNavBtn" hidden>
@@ -795,6 +812,7 @@
   <script type="module" src="/lan.js"></script>
   <script type="module" src="/cs2.js"></script>
   <script type="module" src="/lobby.js"></script>
+  <script type="module" src="/qualifications-controller.js"></script>
   <script type="module" src="/bookies.js"></script><!-- /web-only -->
 </body>
 </html>

@@ -3,13 +3,25 @@ import { summarizeMatch } from './faceit.js';
 export function safeQualificationUrl(value) {
   try {
     const url = new URL(String(value || ''));
-    return url.protocol === 'https:' && /(^|\.)faceit\.com$/i.test(url.hostname) ? url.href : '';
+    return url.protocol === 'https:' && url.hostname.toLowerCase() === 'www.faceit.com' ? url.href : '';
   } catch { return ''; }
 }
 
 export function validateQualificationId(value) {
   const id = String(value ?? '').trim();
   return /^[a-zA-Z0-9_-]{1,64}$/.test(id) ? id : '';
+}
+
+export function qualificationIdCollisions(values) {
+  const seen = new Set();
+  const collisions = new Set();
+  for (const value of values || []) {
+    const id = String(value || '');
+    if (!id) continue;
+    if (seen.has(id)) collisions.add(id);
+    seen.add(id);
+  }
+  return [...collisions];
 }
 
 export function validateQualificationConnect(value) {
