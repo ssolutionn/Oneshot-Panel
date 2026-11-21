@@ -2,70 +2,70 @@
   "version": 1,
   "day": "2026-11-21",
   "startedAt": 1795222062434,
-  "updatedAt": 1795247225863,
+  "updatedAt": 1795275577360,
   "books": {
     "fonbet": {
-      "checkedAt": 1795247225832,
+      "checkedAt": 1795275577346,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "pari": {
-      "checkedAt": 1795247225835,
+      "checkedAt": 1795275577324,
       "status": "error",
       "coverage": "line-and-live",
       "events": []
     },
     "bettery": {
-      "checkedAt": 1795247225836,
+      "checkedAt": 1795275577343,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "bet24": {
-      "checkedAt": 1795247225840,
+      "checkedAt": 1795275577357,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "olimp": {
-      "checkedAt": 1795247225845,
+      "checkedAt": 1795275577337,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "marathon": {
-      "checkedAt": 1795247225857,
+      "checkedAt": 1795275577344,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "betcity": {
-      "checkedAt": 1795247225844,
+      "checkedAt": 1795275577349,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "sportbet": {
-      "checkedAt": 1795247225859,
+      "checkedAt": 1795275577360,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "baltbet": {
-      "checkedAt": 1795247225838,
+      "checkedAt": 1795275577336,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "winline": {
-      "checkedAt": 1795247225863,
+      "checkedAt": 1795275577355,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "leon": {
-      "checkedAt": 1795247225842,
+      "checkedAt": 1795275577354,
       "status": "ok",
       "coverage": "prematch",
       "events": []
