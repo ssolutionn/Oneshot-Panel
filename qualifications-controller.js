@@ -108,7 +108,7 @@ export function createQualificationsController({
             const camera = document.createElement('span');
             safeText(camera, assigned ? state.checking.has(stream) ? 'Проверяем вебку' : state.online.has(stream) ? 'Вебка подключена' : 'Вебка не подключена' : player.matchMethod === 'ambiguous' ? 'Нужно уточнить игрока' : 'Нет камеры в OneShot');
             row.append(' ', camera);
-            if (assigned) {
+            if (assigned?.id && assigned.room) {
               const copy = document.createElement('button');
               copy.type = 'button';
               copy.dataset.qualificationCopyPlayer = player.id;
