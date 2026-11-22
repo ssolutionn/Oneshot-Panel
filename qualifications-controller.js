@@ -5,7 +5,7 @@ import { showNotification } from './notifications.js';
 import {
   normalizeQualificationMatch, mergeQualificationMatches, qualificationEvents,
   safeQualificationUrl, validateQualificationConnect, validateQualificationId, qualificationIdCollisions,
-  qualificationVdo
+  qualificationVdo, qualificationPushLink, qualificationRoomLink, qualificationTeamText, qualificationMatchText
 } from './qualifications-data.js';
 
 const POLL_MS = 20000;
@@ -109,6 +109,21 @@ export function createQualificationsController({
   };
   const cameraFor = playerId => cameraAssignments.get(validateQualificationId(playerId)) || null;
 
+  // Checked players live in localStorage as plain keys, never links or secrets.
+  const checkedSet = new Set();
+  const CHECK_STORE = 'oneshot-qualifications-checked';
+  const checkedKeyFor = player => `${state.championshipId}|${player.id || player.nickname}`;
+  const loadChecked = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CHECK_STORE) || '[]');
+      for (const key of Array.isArray(saved) ? saved : []) if (typeof key === 'string') checkedSet.add(key);
+    } catch { /* nothing kept */ }
+  };
+  const saveChecked = () => {
+    try { localStorage.setItem(CHECK_STORE, JSON.stringify([...checkedSet].slice(-500))); } catch { /* not kept */ }
+  };
+  loadChecked();
+
   function render() {
     if (!list || typeof document === 'undefined') return;
     if (inputFocusedIn(list)) return;
@@ -116,58 +131,154 @@ export function createQualificationsController({
     for (const record of state.matches.values()) {
       const { match, teams, rosterAvailable } = record;
       const card = document.createElement('article');
-      card.className = 'qualification-card';
+      card.className = 'qcard';
       card.dataset.matchId = match.id;
-      const heading = document.createElement('h3');
-      safeText(heading, `${match.teams[0]} — ${match.teams[1]}`);
-      card.append(heading);
-      const score = document.createElement('p');
-      safeText(score, `${match.statusText}: ${match.score[0]} : ${match.score[1]}`);
-      card.append(score);
-      if (!rosterAvailable) {
+      const live = match.status === 'ONGOING';
+      const soon = match.status === 'SCHEDULED';
+      const done = match.status === 'FINISHED' || match.status === 'CANCELLED';
+      card.dataset.state = live ? 'live' : soon ? 'soon' : 'done';
+
+      // Top bar: status chip + score
+      const top = document.createElement('header');
+      top.className = 'qcard-top';
+      const chip = document.createElement('span');
+      chip.className = 'qchip';
+      safeText(chip, live ? 'идёт' : soon ? 'скоро' : 'завершён');
+      top.append(chip);
+      const score = document.createElement('span');
+      score.className = 'qscore';
+      safeText(score, `${match.score[0]} : ${match.score[1]}`);
+      top.append(score);
+      card.append(top);
+
+      // Title with teams
+      const title = document.createElement('h3');
+      title.className = 'qcard-title';
+      const t0 = document.createElement('span');
+      safeText(t0, teams[0]?.name || match.teams[0]);
+      const vs = document.createElement('span');
+      vs.className = 'qvs';
+      safeText(vs, ' vs ');
+      const t1 = document.createElement('span');
+      safeText(t1, teams[1]?.name || match.teams[1]);
+      title.append(t0, vs, t1);
+      card.append(title);
+
+      // Teams with players
+      if (rosterAvailable) {
+        const qteams = document.createElement('div');
+        qteams.className = 'qteams';
+        for (let idx = 0; idx < teams.length; idx++) {
+          const team = teams[idx];
+          const section = document.createElement('section');
+          section.className = 'qteam';
+          const h4 = document.createElement('h4');
+          safeText(h4, team.name);
+          const count = document.createElement('span');
+          count.className = 'qcount';
+          const checkedCount = team.players.filter(p => checkedSet.has(checkedKeyFor(p))).length;
+          safeText(count, `${checkedCount}/${team.players.length}`);
+          h4.append(' ', count);
+          section.append(h4);
+          const ul = document.createElement('ul');
+          for (const player of team.players) {
+            const li = document.createElement('li');
+            const cam = player.camera;
+            const streamUrl = cam?.id ? `https://vdo.ninja/?room=${encodeURIComponent(cam.room)}&push=${encodeURIComponent(cam.id)}` : '';
+            const online = state.online.has(streamUrl);
+            const checking = state.checking.has(streamUrl);
+            li.dataset.cam = online ? 'online' : checking ? 'checking' : 'off';
+            const dot = document.createElement('span');
+            dot.className = 'qdot';
+            li.append(dot);
+            const nick = document.createElement('span');
+            nick.className = 'qnick';
+            safeText(nick, player.nickname);
+            li.append(nick);
+            const acts = document.createElement('span');
+            acts.className = 'qacts';
+            // Player push link
+            if (cam?.id) {
+              const copy = document.createElement('button');
+              copy.type = 'button';
+              copy.dataset.qCopyPush = player.nickname;
+              copy.setAttribute('aria-label', `Ссылка VDO.Ninja для ${player.nickname}`);
+              safeText(copy, 'Ссылка');
+              acts.append(copy);
+            }
+            // Verify checkbox
+            const key = checkedKeyFor(player);
+            const label = document.createElement('label');
+            label.className = 'qverify';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.dataset.qVerify = key;
+            cb.checked = checkedSet.has(key);
+            label.append(cb);
+            label.append(document.createTextNode(' ок'));
+            acts.append(label);
+            li.append(acts);
+            ul.append(li);
+          }
+          section.append(ul);
+          qteams.append(section);
+        }
+        card.append(qteams);
+      } else {
         const missing = document.createElement('p');
         missing.className = 'muted';
         safeText(missing, 'FACEIT не отдал состав');
         card.append(missing);
-      } else {
-        for (const team of teams) {
-          const group = document.createElement('section');
-          const name = document.createElement('h4');
-          safeText(name, team.name);
-          group.append(name);
-          for (const player of team.players) {
-            const row = document.createElement('p');
-            const nick = document.createElement('span');
-            safeText(nick, player.nickname);
-            row.append(nick);
-            const stream = streamFor(player.id);
-            const assigned = cameraFor(player.id);
-            const camera = document.createElement('span');
-            safeText(camera, assigned ? state.checking.has(stream) ? 'Проверяем вебку' : state.online.has(stream) ? 'Вебка подключена' : 'Вебка не подключена' : player.matchMethod === 'ambiguous' ? 'Нужно уточнить игрока' : 'Нет камеры в OneShot');
-            row.append(' ', camera);
-            if (assigned?.id && assigned.room) {
-              const copy = document.createElement('button');
-              copy.type = 'button';
-              copy.dataset.qualificationCopyPlayer = player.id;
-              copy.setAttribute('aria-label', `Скопировать ссылку VDO.Ninja: ${player.nickname}, ${team.name}`);
-              safeText(copy, 'Копировать ссылку');
-              row.append(' ', copy);
-            }
-            group.append(row);
-          }
-          card.append(group);
-        }
       }
+
+      // Footer: room, copy buttons, FACEIT link, connect
+      const foot = document.createElement('footer');
+      foot.className = 'qcard-foot';
+      if (record.room) {
+        const openRoom = document.createElement('button');
+        openRoom.type = 'button';
+        openRoom.dataset.qOpenRoom = '';
+        safeText(openRoom, 'Комната ↗');
+        foot.append(openRoom);
+        const copyRoom = document.createElement('button');
+        copyRoom.type = 'button';
+        copyRoom.dataset.qCopyRoom = '';
+        safeText(copyRoom, 'Ссылка на комнату');
+        foot.append(copyRoom);
+      }
+      if (teams[0]) {
+        const copyA = document.createElement('button');
+        copyA.type = 'button';
+        copyA.dataset.qCopyTeam = '0';
+        safeText(copyA, 'Ссылки A');
+        foot.append(copyA);
+      }
+      if (teams[1]) {
+        const copyB = document.createElement('button');
+        copyB.type = 'button';
+        copyB.dataset.qCopyTeam = '1';
+        safeText(copyB, 'Ссылки B');
+        foot.append(copyB);
+      }
+      const copyAll = document.createElement('button');
+      copyAll.type = 'button';
+      copyAll.dataset.qCopyAll = '';
+      safeText(copyAll, 'Все ссылки');
+      foot.append(copyAll);
+
       const href = safeQualificationUrl(record.raw?.faceit_url || match.url);
       if (href) {
         const link = document.createElement('a');
+        link.className = 'qlink';
         link.href = href;
         link.rel = 'noopener';
-        safeText(link, 'Матч FACEIT');
-        card.append(link);
+        safeText(link, 'FACEIT');
+        foot.append(link);
       }
+
       const connect = document.createElement('input');
       connect.type = 'text';
+      connect.className = 'qconnect';
       connect.maxLength = MAX_CONNECT_LENGTH;
       connect.setAttribute('aria-label', `Ручная CS2 connect-команда для ${match.teams.join(' vs ')}`);
       connect.value = state.connects.get(match.id) || '';
@@ -180,11 +291,12 @@ export function createQualificationsController({
           state.connects.set(match.id, value);
         }
       });
-      card.append(connect);
-      const copy = document.createElement('button');
-      copy.type = 'button';
-      safeText(copy, 'Копировать connect');
-      copy.addEventListener('click', async () => {
+      foot.append(connect);
+      const copyConnect = document.createElement('button');
+      copyConnect.type = 'button';
+      copyConnect.dataset.qCopyConnect = '';
+      safeText(copyConnect, 'Копировать connect');
+      copyConnect.addEventListener('click', async () => {
         const value = state.connects.get(match.id);
         if (!value) return;
         try {
@@ -194,8 +306,16 @@ export function createQualificationsController({
           safeText(status, 'Не удалось скопировать команду.');
         }
       });
-      card.append(copy);
+      foot.append(copyConnect);
+
+      card.append(foot);
       fragment.append(card);
+    }
+    if (!state.matches.size) {
+      const empty = document.createElement('div');
+      empty.className = 'qualifications-empty';
+      safeText(empty, 'Матчей нет. Вставьте ссылку на чемпионат FACEIT.');
+      fragment.append(empty);
     }
     list.replaceChildren(fragment);
   }
@@ -383,13 +503,71 @@ export function createQualificationsController({
     await poll();
   }
 
+  const copyToClipboard = async (text, okMessage = 'Ссылка скопирована.') => {
+    if (!text) return;
+    try {
+      await navigator.clipboard?.writeText(text);
+      safeText(status, okMessage);
+    } catch { safeText(status, 'Не удалось скопировать.'); }
+  };
   const clickHandler = event => {
-    if (!event.target?.matches?.('[data-qualification-copy-player]')) return;
-    const playerId = event.target.dataset.qualificationCopyPlayer;
-    const camera = cameraFor(playerId);
-    if (!camera?.id || !camera.room) return;
-    const value = pushUrl(camera);
-    navigator.clipboard?.writeText(value).catch(() => safeText(status, 'Не удалось скопировать ссылку.'));
+    const target = event.target;
+    const card = target?.closest?.('[data-match-id]');
+    const record = card ? state.matches.get(card.dataset.matchId) : null;
+
+    if (target?.matches?.('[data-qualification-copy-player]')) {
+      const playerId = target.dataset.qualificationCopyPlayer;
+      const camera = cameraFor(playerId);
+      if (!camera?.id || !camera.room) return;
+      void copyToClipboard(pushUrl(camera));
+      return;
+    }
+
+    if (!record) return;
+    // Player push link by nickname (the generated one)
+    if (target?.matches?.('[data-q-copy-push]')) {
+      const nickname = target.dataset.qCopyPush;
+      const player = record.teams.flatMap(t => t.players).find(p => p.nickname === nickname);
+      if (player?.camera?.id) void copyToClipboard(qualificationPushLink(player.camera));
+      return;
+    }
+    // Team links
+    if (target?.matches?.('[data-q-copy-team]')) {
+      const idx = Number(target.dataset.qCopyTeam);
+      const team = record.teams[idx];
+      if (team) {
+        const players = team.players.map(p => ({ nickname: p.nickname, link: p.camera?.id ? qualificationPushLink(p.camera) : '' }));
+        void copyToClipboard(qualificationTeamText(team.name, players), 'Ссылки команды скопированы.');
+      }
+      return;
+    }
+    // All links (both teams)
+    if (target?.matches?.('[data-q-copy-all]')) {
+      const teams = record.teams.map(t => ({
+        name: t.name,
+        players: t.players.map(p => ({ nickname: p.nickname, link: p.camera?.id ? qualificationPushLink(p.camera) : '' }))
+      }));
+      void copyToClipboard(qualificationMatchText(teams), 'Ссылки матча скопированы.');
+      return;
+    }
+    // Room link
+    if (target?.matches?.('[data-q-copy-room]') && record.room) {
+      void copyToClipboard(qualificationRoomLink(record.room), 'Ссылка на комнату скопирована.');
+      return;
+    }
+    // Open room
+    if (target?.matches?.('[data-q-open-room]') && record.room) {
+      window.open?.(qualificationRoomLink(record.room), '_blank', 'noopener');
+      return;
+    }
+    // Verify checkbox
+    if (target?.matches?.('[data-q-verify]') && target.type === 'checkbox') {
+      const key = target.dataset.qVerify;
+      if (target.checked) checkedSet.add(key); else checkedSet.delete(key);
+      saveChecked();
+      render();
+      return;
+    }
   };
   root?.addEventListener('click', clickHandler);
   const submitHandler = event => {

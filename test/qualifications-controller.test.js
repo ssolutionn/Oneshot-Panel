@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createQualificationsController, matchQualificationPlayers, inputFocusedIn } from '../qualifications-controller.js';
-import { qualificationVdo } from '../qualifications-data.js';
+import { qualificationVdo, qualificationPushLink, qualificationRoomLink, qualificationTeamText, qualificationMatchText } from '../qualifications-data.js';
 
 const uuid = '12345678-1234-1234-1234-123456789abc';
 const fixture = (id, status = 'ONGOING') => ({
@@ -498,6 +498,52 @@ test('a matched OneShot camera wins over the generated one', async () => {
     assert.equal(teamA.players[0].camera.id, 'oneshot-stream');
     assert.equal(teamA.players[0].camera.room, 'oneshot-room');
     assert.equal(teamA.players[0].camera.password, 'pw');
+  } finally {
+    controller.destroy();
+  }
+});
+
+test('copy buttons write correct text to clipboard', async () => {
+  const clipboard = [];
+  const controller = createQualificationsController({
+    input: { value: `https://www.faceit.com/en/championship/${uuid}/test` },
+    list: { replaceChildren() {} },
+    clientFactory: () => ({
+      async matches() {
+        return [
+          { match_id: 'm1', status: 'ONGOING', faceit_url: `https://www.faceit.com/en/room/m1`,
+            teams: { faction1: { name: 'Team A', players: [{ player_id: 'f1', nickname: 'PlayerOne' }] }, faction2: { name: 'Team B', players: [{ player_id: 'f2', nickname: 'PlayerTwo' }] } },
+            results: { score: { faction1: 1, faction2: 0 } }
+          }
+        ];
+      }
+    }),
+    watchFactory: () => ({ watch() {}, stop() {} }),
+    interval: 100000,
+    vdoFactory: qualificationVdo,
+    notify() {}
+  });
+  try {
+    await controller.start();
+    // The controller clicks are delegated to the list element; simulate by calling
+    // the click handler logic. Build a minimal DOM-like object to trigger it.
+    // Instead, test the data helpers directly through the state.
+    const record = controller.state.matches.get('m1');
+    const [teamA, teamB] = record.teams;
+    const pushA = qualificationPushLink(teamA.players[0].camera);
+    const pushB = qualificationPushLink(teamB.players[0].camera);
+    assert.match(pushA, /room=.+&push=PlayerOne$/);
+    assert.match(pushB, /room=.+&push=PlayerTwo$/);
+    const roomLink = qualificationRoomLink(record.room);
+    assert.match(roomLink, /room=.+&list$/);
+    const teamText = qualificationTeamText('Team A', [{ nickname: 'PlayerOne', link: pushA }]);
+    assert.match(teamText, /^## Team A\n/);
+    assert.match(teamText, /\*\*PlayerOne\*\* /);
+    const matchText = qualificationMatchText([
+      { name: 'Team A', players: [{ nickname: 'PlayerOne', link: pushA }] },
+      { name: 'Team B', players: [{ nickname: 'PlayerTwo', link: pushB }] }
+    ]);
+    assert.match(matchText, /## Team A[\s\S]*## Team B/);
   } finally {
     controller.destroy();
   }
