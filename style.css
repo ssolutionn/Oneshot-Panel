@@ -421,6 +421,30 @@ body.dock { background:var(--bg); font-size:12px; }
   background: var(--success-bg);
   color: var(--success-ink);
 }
+.qualifications-view .qcard[data-state=soon] .qchip {
+  background: var(--accent-soft, #fff3c4);
+  color: var(--accent-ink, #6b4e00);
+}
+.qualifications-view .qcard[data-state=done] .qchip {
+  background: var(--red-soft, #fde2e2);
+  color: var(--red, #b42318);
+}
+.qualifications-view .qfilter {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line, #d5d9e0);
+  background: transparent;
+  color: var(--sub);
+  cursor: pointer;
+}
+.qualifications-view .qfilter.active {
+  background: var(--ink, #1c2430);
+  color: var(--on-accent, #fff);
+  border-color: var(--ink, #1c2430);
+}
+.qfilters { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
 .qualifications-view .qscore {
   font-size: 16px;
   font-variant-numeric: tabular-nums;
@@ -432,7 +456,7 @@ body.dock { background:var(--bg); font-size:12px; }
   align-items: center;
   justify-content: center;
   text-align: center;
-  margin: 0;
+  margin: 10px 0 0;
   font-size: 19px;
   font-weight: 800;
   line-height: 1.3;

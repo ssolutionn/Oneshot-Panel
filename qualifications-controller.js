@@ -5,13 +5,26 @@ import { showNotification } from './notifications.js';
 import {
   normalizeQualificationMatch, mergeQualificationMatches, qualificationEvents,
   safeQualificationUrl, validateQualificationConnect, validateQualificationId, qualificationIdCollisions,
-  qualificationVdo, qualificationPushLink, qualificationRoomLink, qualificationTeamText, qualificationMatchText
+  qualificationVdo, qualificationPushLink, qualificationRoomLink, qualificationTeamText, qualificationMatchText,
+  sortQualificationMatches, qualificationDirectorLink, filterQualificationMatches
 } from './qualifications-data.js';
 
 const POLL_MS = 20000;
 const URL_STORE = 'oneshot-qualifications';
+const KEY_SESSION_STORE = 'oneshot-qualifications-key'; // sessionStorage only: never a persistent secret
 const savedUrl = () => {
   try { return String(JSON.parse(localStorage.getItem(URL_STORE)) || ''); } catch { return ''; }
+};
+// The FACEIT key is a secret: it survives a page reload in sessionStorage but
+// is never written to localStorage or disk.
+const savedKey = () => {
+  try { return String(sessionStorage.getItem(KEY_SESSION_STORE) || ''); } catch { return ''; }
+};
+const rememberKey = value => {
+  try {
+    if (value) sessionStorage.setItem(KEY_SESSION_STORE, value);
+    else sessionStorage.removeItem(KEY_SESSION_STORE);
+  } catch { /* session-only convenience */ }
 };
 const MAX_MATCHES = 32;
 const MAX_CONNECT_LENGTH = 256; // same cap as validateQualificationConnect
@@ -98,10 +111,41 @@ export function createQualificationsController({
   const state = {
     client: null, timer: null, generation: 0, inFlight: null, matches: new Map(),
     connects: new Map(), watcher: null, online: new Set(), checking: new Set(),
-    seeded: false, stopped: true, lastError: '', championshipId: '', degraded: false, down: false, rosterCache: new Map()
+    seeded: false, stopped: true, lastError: '', championshipId: '', degraded: false, down: false, rosterCache: new Map(),
+    filter: 'all', notifiedStarts: new Set(), lastNotified: '', unreadStarts: 0
   };
 
   const cameraAssignments = new Map();
+  // One beep per match start, same tone as the lobby siren. Audio unlocks on
+  // the first user gesture (submit/клик), otherwise the browser blocks it.
+  let audio = null;
+  const unlockAudio = () => {
+    try {
+      audio ||= new AudioContext();
+      if (audio.state === 'suspended') audio.resume();
+    } catch { audio = null; }
+  };
+  const beep = () => {
+    if (!audio) return;
+    const now = audio.currentTime;
+    [[880, 0], [660, 0.22], [880, 0.44]].forEach(([freq, at]) => {
+      const osc = audio.createOscillator(), gain = audio.createGain();
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, now + at);
+      gain.gain.exponentialRampToValueAtTime(0.35, now + at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.2);
+      osc.connect(gain).connect(audio.destination);
+      osc.start(now + at);
+      osc.stop(now + at + 0.21);
+    });
+  };
+  const badge = () => {
+    const el = $('qualificationsBadge');
+    if (!el) return;
+    const unread = state.unreadStarts;
+    el.hidden = !unread;
+    el.textContent = String(unread);
+  };
   const streamFor = playerId => {
     const valid = validateQualificationId(playerId);
     const camera = valid ? cameraAssignments.get(valid) : null;
@@ -112,8 +156,10 @@ export function createQualificationsController({
   function render() {
     if (!list || typeof document === 'undefined') return;
     if (inputFocusedIn(list)) return;
+    const sorted = sortQualificationMatches([...state.matches.values()]);
+    const visible = filterQualificationMatches(sorted, state.filter);
     const fragment = document.createDocumentFragment();
-    for (const record of state.matches.values()) {
+    for (const record of visible) {
       const { match, teams, rosterAvailable } = record;
       const card = document.createElement('article');
       card.className = 'qcard';
@@ -274,10 +320,10 @@ export function createQualificationsController({
       card.append(foot);
       fragment.append(card);
     }
-    if (!state.matches.size) {
+    if (!visible.length) {
       const empty = document.createElement('div');
       empty.className = 'qualifications-empty';
-      safeText(empty, 'Матчей нет. Вставьте ссылку на чемпионат FACEIT.');
+      safeText(empty, state.matches.size ? 'Под этот фильтр матчей нет.' : 'Матчей нет. Вставьте ссылку на чемпионат FACEIT.');
       fragment.append(empty);
     }
     list.replaceChildren(fragment);
@@ -426,6 +472,19 @@ export function createQualificationsController({
           const prior = before.get(id)?.match;
           if (prior) events.push(...qualificationEvents(prior, record.match));
         }
+        // A beep per match start, once per match; badge counts starts unseen.
+        for (const event of events) {
+          if (event.type !== 'start') continue;
+          const id = event.match.id;
+          if (state.notifiedStarts.has(id)) continue;
+          state.notifiedStarts.add(id);
+          beep();
+          void showNotification('Oneshot · Квалификации', `Матч начался: ${event.match.teams.join(' vs ')}`, { tag: `oneshot-qual-start-${id}`, section: 'qualifications' });
+          if (state.filter === 'done' || state.filter === 'soon') state.filter = 'all'; // a live match must be visible
+          if (typeof document === 'undefined' || $('qualificationsView')?.hidden) state.unreadStarts++;
+        }
+        badge();
+        paintFilters();
         rebuildWatchers(snapshot);
         render();
         const rosterAvailable = [...state.matches.values()].some(record => record.rosterAvailable);
@@ -469,6 +528,7 @@ export function createQualificationsController({
   async function start() {
     stop();
     if (input && !input.value && savedUrl()) input.value = savedUrl();
+    if (keyInput && !keyInput.value) keyInput.value = savedKey(); // survives F5, not a browser restart
     state.stopped = false;
     state.generation++;
     state.client = null;
@@ -518,20 +578,42 @@ export function createQualificationsController({
       void copyToClipboard(qualificationRoomLink(record.room), 'Ссылка на комнату скопирована.');
       return;
     }
-    // Open room
+    // Room link: open the VDO director view, not a plain room page.
     if (target?.matches?.('[data-q-open-room]') && record.room) {
-      window.open?.(qualificationRoomLink(record.room), '_blank', 'noopener');
+      window.open?.(qualificationDirectorLink(record.room), '_blank', 'noopener');
       return;
     }
   };
   root?.addEventListener('click', clickHandler);
+  // Filter toolbar: one active button, re-render on switch.
+  const filterHandler = event => {
+    const button = event.target?.closest?.('.qfilter');
+    if (!button || !filtersBar) return;
+    state.filter = button.dataset.filter || 'all';
+    for (const b of filtersBar.querySelectorAll('.qfilter')) b.classList.toggle('active', b === button);
+    render();
+  };
+  const filtersBar = $('qualificationsFilters');
+  filtersBar?.addEventListener('click', filterHandler);
+  const paintFilters = () => {
+    if (!filtersBar) return;
+    for (const b of filtersBar.querySelectorAll('.qfilter')) b.classList.toggle('active', (b.dataset.filter || 'all') === state.filter);
+  };
+  paintFilters();
   const submitHandler = event => {
     event.preventDefault();
+    unlockAudio(); // a gesture: the browser now allows beeps
+    if (keyInput) rememberKey(keyInput.value);
     start();
   };
   $('qualificationsForm')?.addEventListener('submit', submitHandler);
   const viewHandler = event => {
-    if (event.detail === 'qualifications') start();
+    if (event.detail === 'qualifications') {
+      state.unreadStarts = 0; // the operator is looking at the desk now
+      badge();
+      unlockAudio();
+      start();
+    }
     else stop();
   };
   if (typeof document !== 'undefined') document.addEventListener('oneshot:view', viewHandler);

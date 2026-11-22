@@ -90,6 +90,25 @@ export function qualificationRoomLink(room) {
   return `https://vdo.ninja/?room=${encodeURIComponent(room)}`;
 }
 
+// The director view lets the operator mute/reposition/see every stream of the room.
+// Same shape as core.directorUrl, without the sheet-only password branch.
+export function qualificationDirectorLink(room) {
+  return `https://vdo.ninja/?director=${encodeURIComponent(room)}`;
+}
+
+// Pure filter so the toolbar behaviour is testable without the DOM.
+// filter: 'all' | 'live' | 'soon' | 'done'
+export function filterQualificationMatches(records, filter) {
+  if (filter === 'all' || !filter) return records;
+  return records.filter(r => {
+    const m = r.match;
+    if (filter === 'live') return m?.live;
+    if (filter === 'done') return m?.done;
+    if (filter === 'soon') return !m?.live && !m?.done;
+    return true;
+  });
+}
+
 // Text for one team, same contract as core.playerText (## Team / **Nick** <push>).
 export function qualificationTeamText(teamName, players = []) {
   return `## ${teamName}\nOpen your link and turn on your camera.\n\n` +
@@ -130,7 +149,47 @@ export function mergeQualificationMatches(previous, settledResults) {
       if (!merged.has(id)) merged.set(id, record);
     }
   }
+  // FACEIT swaps faction1/faction2 between polls; the first-seen order wins
+  // so teams do not swap places on the desk after a restart.
+  for (const [id, record] of merged) {
+    const prior = previousMap.get(id);
+    if (prior?.match?.teams?.length === 2 && record.match?.teams?.length === 2) {
+      const priorNames = prior.match.teams.map(t => String(t || '').toLowerCase());
+      const names = record.match.teams.map(t => String(t || '').toLowerCase());
+      if (priorNames[0] === names[1] && priorNames[1] === names[0]) {
+        const teams = record.match.teams;
+        record.match.teams = [teams[1], teams[0]];
+        if (Array.isArray(record.match.factions) && record.match.factions.length === 2) {
+          record.match.factions = [record.match.factions[1], record.match.factions[0]];
+        }
+        if (Array.isArray(record.teams) && record.teams.length === 2) {
+          const roster = record.teams;
+          record.teams = [roster[1], roster[0]];
+        }
+        if (record.match.score) record.match.score = [record.match.score[1], record.match.score[0]];
+      }
+    }
+  }
   return merged;
+}
+
+// Live matches first, then upcoming by scheduled time, finished at the bottom.
+// Finished matches are kept (not dropped): they sink as new ones arrive.
+// Within each group: live any order, upcoming ascending time, finished descending time.
+export function sortQualificationMatches(records) {
+  const isLive = r => r.match?.live;
+  const isSoon = r => !r.match?.done && !r.match?.live;
+  const isDone = r => r.match?.done;
+  const when = r => Number(r.match?.scheduledAt) || 0;
+  return [...records].sort((a, b) => {
+    if (isLive(a) && !isLive(b)) return -1;
+    if (isLive(b) && !isLive(a)) return 1;
+    if (isDone(a) && isSoon(b)) return 1;
+    if (isDone(b) && isSoon(a)) return -1;
+    if (isDone(a) && isDone(b)) return when(b) - when(a); // newest finished first
+    if (isSoon(a) && isSoon(b)) return when(a) - when(b); // soonest upcoming first
+    return String(a.match?.id).localeCompare(String(b.match?.id));
+  });
 }
 
 export function qualificationEvents(before, after) {

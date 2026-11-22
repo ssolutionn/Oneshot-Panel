@@ -4,7 +4,8 @@ import {
   normalizeQualificationMatch, safeQualificationUrl, mergeQualificationMatches,
   qualificationEvents, validateQualificationConnect, validateQualificationId, qualificationIdCollisions,
   qualificationVdo, vdoSafeName,
-  qualificationPushLink, qualificationRoomLink, qualificationTeamText, qualificationMatchText
+  qualificationPushLink, qualificationRoomLink, qualificationTeamText, qualificationMatchText,
+  sortQualificationMatches, qualificationDirectorLink, filterQualificationMatches
 } from '../qualifications-data.js';
 
 const match = (id, status = 'ONGOING') => ({ match_id: id, status, teams: {
@@ -154,4 +155,45 @@ test('qualificationTeamText and qualificationMatchText format like playerText in
 
 test('reports duplicate stream IDs after sanitization', () => {
   assert.deepEqual(qualificationIdCollisions(['q_match_player', 'q_match_player', 'q_other']), ['q_match_player']);
+});
+
+test('sortQualificationMatches: live first, then upcoming by time, finished at the bottom', () => {
+  const rec = (id, status, scheduledAt) => ({
+    match: { id, status, live: status === 'ONGOING', done: status === 'FINISHED' || status === 'CANCELLED', scheduledAt },
+    teams: []
+  });
+  const input = [
+    rec('done1', 'FINISHED', 1000), rec('soon2', 'SCHEDULED', 2000),
+    rec('live1', 'ONGOING', 0), rec('done2', 'CANCELLED', 500),
+    rec('soon1', 'SCHEDULED', 1500), rec('live2', 'ONGOING', 0)
+  ];
+  const order = sortQualificationMatches(input).map(r => r.match.id);
+  assert.deepEqual(order, ['live1', 'live2', 'soon1', 'soon2', 'done1', 'done2']); // finished: most recent first
+});
+
+test('qualificationDirectorLink opens the VDO director, not a plain room', () => {
+  assert.equal(qualificationDirectorLink('teama_teamb_ab12cd'),
+    'https://vdo.ninja/?director=teama_teamb_ab12cd');
+  assert.ok(!qualificationDirectorLink('room').includes('room='));
+});
+
+test('filterQualificationMatches keeps only the requested status group', () => {
+  const rec = (id, live, done) => ({ match: { id, live, done } });
+  const records = [rec('l1', true, false), rec('s1', false, false), rec('d1', false, true)];
+  assert.deepEqual(filterQualificationMatches(records, 'live').map(r => r.match.id), ['l1']);
+  assert.deepEqual(filterQualificationMatches(records, 'soon').map(r => r.match.id), ['s1']);
+  assert.deepEqual(filterQualificationMatches(records, 'done').map(r => r.match.id), ['d1']);
+  assert.equal(filterQualificationMatches(records, 'all').length, 3);
+});
+
+test('mergeQualificationMatches keeps the first-seen team order across polls', () => {
+  const raw = winner => ({ match_id: 'm1', status: 'ONGOING', best_of: 1, results: { score: { faction1: 0, faction2: 0 } }, teams: {
+    faction1: { name: winner ? 'Beta' : 'Alpha', players: [] },
+    faction2: { name: winner ? 'Alpha' : 'Beta', players: [] }
+  } });
+  const settled = [{ status: 'fulfilled', value: [raw(0)] }, { status: 'rejected', reason: new Error('x') }];
+  const first = mergeQualificationMatches(new Map(), settled);
+  const second = mergeQualificationMatches(first, [{ status: 'fulfilled', value: [raw(1)] }, { status: 'rejected', reason: new Error('x') }]);
+  assert.equal(first.get('m1').match.teams[0], 'Alpha');
+  assert.equal(second.get('m1').match.teams[0], 'Alpha'); // FACEIT swapped factions; we keep Alpha first
 });
