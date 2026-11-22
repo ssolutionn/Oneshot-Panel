@@ -1,0 +1,60 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="style.css">
+</head><body>
+<div class="lobby qualifications-view"><section class="lobby-panel">
+<div id="qualificationsMatches" class="qualifications-grid"></div>
+</section></div>
+<script>
+const list=document.getElementById('qualificationsMatches');
+function card(state, roster){
+  const c=document.createElement('article');c.className='qcard';c.dataset.state=state;
+  const top=document.createElement('header');top.className='qcard-top';
+  const chip=document.createElement('span');chip.className='qchip';chip.textContent=state;
+  const score=document.createElement('span');score.className='qscore';score.textContent='0 : 0';
+  top.append(chip,score);c.append(top);
+  const t=document.createElement('h3');t.className='qcard-title';
+  const a=document.createElement('span');a.textContent='Team Alpha';
+  const vs=document.createElement('span');vs.className='qvs';vs.textContent=' vs ';
+  const b=document.createElement('span');b.textContent='Team Beta';t.append(a,vs,b);c.append(t);
+  if(roster){
+    const q=document.createElement('div');q.className='qteams';
+    for(const team of roster){
+      const s=document.createElement('section');s.className='qteam';
+      const h=document.createElement('h4');h.textContent=team.name;
+      const n=document.createElement('span');n.className='qcount';n.textContent=(team.players||[]).length+'/'+(team.players||[]).length+' онлайн';
+      h.append(' ',n);s.append(h);
+      const ul=document.createElement('ul');
+      for(const p of team.players||[]){const li=document.createElement('li');li.dataset.cam='off';
+        const d=document.createElement('span');d.className='qdot';
+        const nick=document.createElement('span');nick.className='qnick';nick.textContent=p;
+        const acts=document.createElement('span');acts.className='qacts';
+        const btn=document.createElement('button');btn.type='button';btn.textContent='Ссылка';acts.append(btn);
+        li.append(d,nick,acts);ul.append(li);}
+      s.append(ul);q.append(s);}
+    c.append(q);
+  } else {
+    const m=document.createElement('p');m.className='muted';m.textContent='FACEIT не отдал состав';c.append(m);
+  }
+  const f=document.createElement('footer');f.className='qcard-foot';
+  const b1=document.createElement('button');b1.type='button';b1.className='qprimary';b1.textContent='Открыть комнату';
+  const b2=document.createElement('button');b2.type='button';b2.textContent='Скопировать все ссылки';
+  const link=document.createElement('a');link.className='qlink';link.textContent='Матч на FACEIT';link.href='#';
+  f.append(b1,b2,link);
+  const row=document.createElement('div');row.className='qconnect-row';
+  const inp=document.createElement('input');inp.type='text';inp.className='qconnect';inp.placeholder='connect 1.2.3.4:27015';
+  const cb=document.createElement('button');cb.type='button';cb.textContent='Копировать';row.append(inp,cb);f.append(row);
+  c.append(f);list.append(c);
+}
+card('live',[{name:'Team Alpha',players:['Ace','Bee','Cee','Dee','Eee']},{name:'Team Beta',players:['Fay','Gee','Hee','Iee','Jee']}]);
+card('soon',null);
+card('soon',[{name:'Team Alpha',players:[]},{name:'Team Beta',players:[]}]);
+window.__m=[...document.querySelectorAll('.qcard')].map(c=>({
+  state:c.dataset.state,
+  h:Math.round(c.getBoundingClientRect().height),
+  rows:getComputedStyle(c).gridTemplateRows,
+  alignContent:getComputedStyle(c).alignContent,
+  gridAlign:getComputedStyle(c.parentElement).alignItems,
+  pMargin:getComputedStyle(c.querySelector('p')||c).margin
+}));
+</script></body></html>

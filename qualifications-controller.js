@@ -411,9 +411,12 @@ export function createQualificationsController({
     for (const record of state.matches.values()) {
       if (record.teams.some(team => team.players.length)) continue;
       const detail = state.rosterCache.get(record.match?.id);
-      // Only a real match answer may replace the list data; a stray payload
-      // (proxy error body, an {items} list) must not erase the existing card.
-      if (detail?.match_id) Object.assign(record, normalizeQualificationMatch(detail));
+      // Take ONLY the roster: the detail answer is cached, while the list is
+      // fresh every poll. Replacing the whole record froze the score/status.
+      if (detail?.match_id) {
+        record.teams = normalizeQualificationMatch(detail).teams;
+        record.raw ||= record.match;
+      }
     }
   }
 

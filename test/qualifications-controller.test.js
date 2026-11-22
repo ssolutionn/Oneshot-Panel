@@ -411,6 +411,44 @@ test('alerts the first outage of the new championship after a switch', async () 
   }
 });
 
+test('a cached roster answer never overwrites the fresh score or status', async () => {
+  const roomId = `1-${uuid}`;
+  const controller = createQualificationsController({
+    input: { value: `https://www.faceit.com/en/championship/${uuid}/test` },
+    list: { replaceChildren() {} },
+    clientFactory: () => ({
+      async matches() {
+        return [{
+          match_id: roomId, status: 'ONGOING', faceit_url: `https://www.faceit.com/en/room/${roomId}`,
+          teams: { faction1: { name: 'Alpha' }, faction2: { name: 'Beta' } },
+          results: { score: { faction1: 7, faction2: 4 } }
+        }];
+      },
+      // A stale detail answer: no live score, an old status, only the roster is useful.
+      async match(id) {
+        return {
+          match_id: id, status: 'SCHEDULED',
+          teams: { faction1: { name: 'Alpha', roster: [{ player_id: 'p1', nickname: 'Ace' }] }, faction2: { name: 'Beta' } }
+        };
+      }
+    }),
+    watchFactory: () => ({ watch() {}, stop() {} }),
+    interval: 100000,
+    vdoFactory: qualificationVdo
+  });
+  try {
+    await controller.start();
+    const record = controller.state.matches.get(roomId);
+    // While a map is played the list carries rounds 7:4 and an empty series;
+    // the cached detail has neither, so it must not replace them.
+    assert.deepEqual(record.match.rounds, [7, 4]);
+    assert.equal(record.match.status, 'ONGOING');
+    assert.equal(record.teams[0].players.length, 1);    // roster was added
+  } finally {
+    controller.destroy();
+  }
+});
+
 test('match-room URL is rejected instead of queried as championship ID', async () => {
   const calls = [];
   const controller = createQualificationsController({
