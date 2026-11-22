@@ -2,7 +2,7 @@
 // it does not cache pages, poll FACEIT or subscribe the device to Web Push.
 let workerPromise;
 const permission = () => typeof Notification==='undefined' ? 'unsupported' : Notification.permission;
-const sectionOf = value => value==='veto' ? 'veto' : 'lobby';
+const sectionOf = value => ['veto','qualifications'].includes(value) ? value : 'lobby';
 async function bounded(task) {
   let timer;
   try{return await Promise.race([task,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Notification API timeout')),8000);})]);}

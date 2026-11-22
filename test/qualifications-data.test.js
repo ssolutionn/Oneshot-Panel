@@ -23,6 +23,8 @@ test('accepts only HTTPS FACEIT URLs', () => {
   assert.equal(safeQualificationUrl('https://www.faceit.com/en/room/x'), 'https://www.faceit.com/en/room/x');
   for (const value of ['javascript:alert(1)', 'http://faceit.com/x', 'https://faceit.com.attacker.test/x', 'https://evil.faceit.com/x', ''])
     assert.equal(safeQualificationUrl(value), '');
+  // faceit.js builds room links with {lang}; they must survive sanitizing.
+  assert.equal(safeQualificationUrl('https://www.faceit.com/{lang}/cs2/room/x'), 'https://www.faceit.com/ru/cs2/room/x');
 });
 
 test('caps normalized lists at 32, preferring fresh matches over retained ones', () => {

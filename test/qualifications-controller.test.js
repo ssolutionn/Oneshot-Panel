@@ -171,6 +171,76 @@ test('changing the championship clears the previous cards and connect strings', 
   }
 });
 
+test('keeps one camera watcher across polls while the watched cameras stay the same', async () => {
+  let created = 0;
+  const watchCalls = [];
+  const watcher = { watch(groups) { watchCalls.push(groups); }, stop() { this.stopped = true; } };
+  const controller = createQualificationsController({
+    input: { value: `https://www.faceit.com/en/championship/${uuid}/test` },
+    list: { replaceChildren() {} },
+    panel: { snapshot: () => ({
+      a: { name: 'Team Alpha' }, playersA: [{ nick: 'Player One', id: 'stream_a', room: 'room_a', password: 'pw' }], playersB: []
+    }) },
+    clientFactory: () => ({ async matches() { return [fixture('match-1')]; } }),
+    watchFactory: () => { created++; return watcher; },
+    interval: 100000
+  });
+  try {
+    await controller.start();
+    await controller.poll();
+    assert.equal(created, 1);
+    assert.equal(watchCalls.length, 2);
+    assert.deepEqual(watchCalls[0], watchCalls[1]);
+    controller.stop();
+    assert.equal(watcher.stopped, true);
+  } finally {
+    controller.destroy();
+  }
+});
+
+test('shows FACEIT failures in the panel alert and clears it on the next success', async () => {
+  const alert = { textContent: '', hidden: true };
+  let fail = true;
+  const controller = createQualificationsController({
+    input: { value: `https://www.faceit.com/en/championship/${uuid}/test` },
+    list: { replaceChildren() {} }, alert,
+    clientFactory: () => ({ async matches() { if (fail) throw Error('offline'); return [fixture(uuid)]; } }),
+    watchFactory: () => ({ watch() {}, stop() {} }),
+    interval: 100000
+  });
+  try {
+    await controller.start();
+    assert.equal(alert.hidden, false);
+    assert.match(alert.textContent, /недоступен/);
+    fail = false;
+    await controller.poll();
+    assert.equal(alert.hidden, true);
+  } finally {
+    controller.destroy();
+  }
+});
+
+test('waits quietly for a championship link instead of alerting on every poll', async () => {
+  const alert = { textContent: '', hidden: true };
+  const status = { textContent: '' };
+  let calls = 0;
+  const controller = createQualificationsController({
+    input: { value: '' }, list: { replaceChildren() {} }, alert, status,
+    clientFactory: () => ({ async matches() { calls++; return []; } }),
+    watchFactory: () => ({ watch() {}, stop() {} }),
+    interval: 100000
+  });
+  try {
+    await controller.start();
+    assert.equal(calls, 0);
+    assert.equal(alert.hidden, true);
+    assert.equal(controller.state.lastError, '');
+    assert.match(status.textContent, /Вставь ссылку/);
+  } finally {
+    controller.destroy();
+  }
+});
+
 test('match-room URL is rejected instead of queried as championship ID', async () => {
   const calls = [];
   const controller = createQualificationsController({

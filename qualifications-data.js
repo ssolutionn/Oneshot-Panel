@@ -2,7 +2,8 @@ import { summarizeMatch } from './faceit.js';
 
 export function safeQualificationUrl(value) {
   try {
-    const url = new URL(String(value || ''));
+    // faceit.js room links carry the {lang} placeholder; show them in Russian.
+    const url = new URL(String(value || '').replace('{lang}', 'ru'));
     return url.protocol === 'https:' && url.hostname.toLowerCase() === 'www.faceit.com' ? url.href : '';
   } catch { return ''; }
 }

@@ -1,14 +1,21 @@
 import { FaceitClient, FACEIT_PROXY, parseFaceitUrl } from './faceit.js';
 import { pushUrl, vdoId } from './core.js';
+import { CamWatch } from './vdo.js';
+import { showNotification } from './notifications.js';
 import {
   normalizeQualificationMatch, mergeQualificationMatches, qualificationEvents,
   safeQualificationUrl, validateQualificationConnect, validateQualificationId, qualificationIdCollisions
 } from './qualifications-data.js';
 
 const POLL_MS = 20000;
+const URL_STORE = 'oneshot-qualifications';
+const savedUrl = () => {
+  try { return String(JSON.parse(localStorage.getItem(URL_STORE)) || ''); } catch { return ''; }
+};
 const MAX_MATCHES = 32;
-const MAX_CONNECT_LENGTH = 300;
+const MAX_CONNECT_LENGTH = 256; // same cap as validateQualificationConnect
 const $ = id => typeof document === 'undefined' ? null : document.getElementById(id);
+const setsEqual = (a, b) => a.size === b.size && [...a].every(value => b.has(value));
 const identityKey = value => String(value || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 export function matchQualificationPlayers(teams, snapshot) {
@@ -54,15 +61,22 @@ export function createQualificationsController({
   rosterStatus = $('qualificationsRosterStatus'),
   status = $('qualificationsStatus'),
   list = $('qualificationsMatches'),
+  alert = $('qualificationsAlert'),
   clientFactory = key => new FaceitClient(key, (...args) => fetch(...args), { proxy: FACEIT_PROXY }),
-  watchFactory = onChange => new window.CamWatch(onChange),
-  notify = message => window.oneshotQualificationAlert?.(message),
+  watchFactory = onChange => new CamWatch(onChange),
+  notify = (message, { error = false } = {}) => {
+    if (alert) {
+      alert.textContent = message;
+      alert.hidden = !error;
+    }
+    void showNotification('Oneshot · Квалификации', message, { tag: 'oneshot-qualifications', section: 'qualifications' });
+  },
   interval = POLL_MS
 } = {}) {
   const state = {
     client: null, timer: null, generation: 0, inFlight: null, matches: new Map(),
-    connects: new Map(), watchers: [], online: new Set(), checking: new Set(),
-    seeded: false, stopped: true, lastError: '', championshipId: ''
+    connects: new Map(), watcher: null, online: new Set(), checking: new Set(),
+    seeded: false, stopped: true, lastError: '', championshipId: '', degraded: false
   };
 
   const cameraAssignments = new Map();
@@ -75,6 +89,8 @@ export function createQualificationsController({
 
   function render() {
     if (!list || typeof document === 'undefined') return;
+    // A camera tick must not yank the field the operator is typing into.
+    if (list.contains?.(document.activeElement) && document.activeElement?.id === 'qualificationsConnect') return;
     const fragment = document.createDocumentFragment();
     for (const record of state.matches.values()) {
       const { match, teams, rosterAvailable } = record;
@@ -163,9 +179,7 @@ export function createQualificationsController({
     list.replaceChildren(fragment);
   }
 
-  function rebuildWatchers(snapshot) {
-    for (const watcher of state.watchers) watcher.stop();
-    state.watchers = [];
+  const rebuildWatchers = snapshot => {
     state.online = new Set();
     state.checking = new Set();
     cameraAssignments.clear();
@@ -186,17 +200,19 @@ export function createQualificationsController({
     const safeGroups = [...groups.values()].map(group => ({
       ...group, ids: [...new Set(group.ids.filter(id => !collisions.has(id)))]
     })).filter(group => group.ids.length);
-    if (safeGroups.length && typeof window !== 'undefined' && window.CamWatch) {
-      const watcher = watchFactory((online, checking) => {
+    // CamWatch keeps an unchanged room's iframe, so a steady camera list keeps
+    // one signalling session across polls instead of reconnecting every tick.
+    if (!state.watcher && safeGroups.length) {
+      state.watcher = watchFactory((online, checking) => {
+        const same = setsEqual(state.online, online) && setsEqual(state.checking, checking);
         state.online = online;
         state.checking = checking;
-        render();
+        if (!same) render();
       });
-      watcher.watch(safeGroups);
-      state.watchers.push(watcher);
     }
+    state.watcher?.watch(safeGroups);
     return snapshot;
-  }
+  };
 
   async function poll() {
     if (state.stopped || state.inFlight) return state.inFlight;
@@ -204,12 +220,21 @@ export function createQualificationsController({
     const request = (async () => {
       try {
         const target = parseFaceitUrl(input?.value);
+        if (!input?.value) {
+          state.stopped = true;
+          clearInterval(state.timer);
+          state.timer = null;
+          state.watcher?.stop();
+          state.watcher = null;
+          safeText(status, 'Вставь ссылку на чемпионат FACEIT.');
+          return;
+        }
         if (!target || target.kind !== 'championship') throw new Error('Вставьте ссылку на чемпионат FACEIT, не на комнату матча.');
         if (state.championshipId && state.championshipId !== target.id) {
           state.matches = new Map();
           state.connects.clear();
-          for (const watcher of state.watchers) watcher.stop();
-          state.watchers = [];
+          state.watcher?.stop();
+          state.watcher = null;
           state.online = new Set();
           state.checking = new Set();
           cameraAssignments.clear();
@@ -244,12 +269,18 @@ export function createQualificationsController({
         safeText(rosterStatus, rosterAvailable ? '' : 'FACEIT не отдал участников матча в API.');
         safeText(status, results.every(result => result.status === 'fulfilled') ? 'Обновлено.' : 'Часть списков FACEIT недоступна; последние данные сохранены.');
         if (events.length) notify(`Обновился статус или счёт в ${events.length} матче FACEIT.`);
-        if (results.some(result => result.status === 'rejected')) notify('Часть списков FACEIT недоступна.');
+        // One alert per outage, not one per 20-second poll.
+        const degraded = results.some(result => result.status === 'rejected');
+        if (degraded && !state.degraded) notify('Часть списков FACEIT недоступна.');
+        state.degraded = degraded;
         state.lastError = '';
+        if (alert) alert.hidden = true;
+        try { localStorage.setItem(URL_STORE, JSON.stringify(input?.value || '')); } catch { /* not kept */ }
       } catch (error) {
         if (generation !== state.generation || state.stopped) return;
         state.lastError = error?.message || 'Не удалось обновить FACEIT.';
         safeText(status, state.lastError);
+        notify(state.lastError, { error: true });
       }
     })();
     const wrapped = request.finally(() => {
@@ -264,12 +295,13 @@ export function createQualificationsController({
     state.generation++;
     clearInterval(state.timer);
     state.timer = null;
-    for (const watcher of state.watchers) watcher.stop();
-    state.watchers = [];
+    state.watcher?.stop();
+    state.watcher = null;
   }
 
   async function start() {
     stop();
+    if (input && !input.value && savedUrl()) input.value = savedUrl();
     state.stopped = false;
     state.generation++;
     state.client = null;

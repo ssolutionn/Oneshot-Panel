@@ -23,3 +23,6 @@ test('notification clicks focus the existing panel without reloading its active 
 test('a notification without a panel opens only a fixed same-origin destination',async()=>{
   assert.deepEqual(await click(['https://panel.example/card.html'],'https://evil.example'),['close','open:/#lobby']);
 });
+test('a qualifications notification opens the qualifications tab',async()=>{
+  assert.deepEqual(await click([],'qualifications'),['close','open:/#qualifications']);
+});

@@ -2,7 +2,7 @@
 self.addEventListener('install',event=>event.waitUntil(self.skipWaiting()));
 self.addEventListener('notificationclick',event=>{
   event.notification.close();
-  const section=event.notification.data?.section==='veto' ? 'veto' : 'lobby';
+  const section=['veto','qualifications'].includes(event.notification.data?.section) ? event.notification.data.section : 'lobby';
   event.waitUntil((async()=>{
     const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
     for(const client of windows){
