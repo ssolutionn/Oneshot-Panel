@@ -6,7 +6,7 @@ import {
   normalizeQualificationMatch, mergeQualificationMatches, qualificationEvents,
   safeQualificationUrl, validateQualificationConnect, validateQualificationId, qualificationIdCollisions,
   qualificationVdo, qualificationPushLink, qualificationRoomLink, qualificationTeamText, qualificationMatchText,
-  sortQualificationMatches, qualificationDirectorLink, filterQualificationMatches
+  sortQualificationMatches, qualificationDirectorLink, filterQualificationMatches, canonicalTeamOrder
 } from './qualifications-data.js';
 
 const POLL_MS = 20000;
@@ -112,7 +112,7 @@ export function createQualificationsController({
     client: null, timer: null, generation: 0, inFlight: null, matches: new Map(),
     connects: new Map(), watcher: null, online: new Set(), checking: new Set(),
     seeded: false, stopped: true, lastError: '', championshipId: '', degraded: false, down: false, rosterCache: new Map(),
-    filter: 'all', notifiedStarts: new Set(), lastNotified: '', unreadStarts: 0
+    filter: 'all', notifiedStarts: new Set(), lastNotified: '', unreadStarts: 0, streamRoom: new Map()
   };
 
   const cameraAssignments = new Map();
@@ -156,6 +156,7 @@ export function createQualificationsController({
   function render() {
     if (!list || typeof document === 'undefined') return;
     if (inputFocusedIn(list)) return;
+    paintFilters();
     const sorted = sortQualificationMatches([...state.matches.values()]);
     const visible = filterQualificationMatches(sorted, state.filter);
     const fragment = document.createDocumentFragment();
@@ -176,9 +177,18 @@ export function createQualificationsController({
       chip.className = 'qchip';
       safeText(chip, live ? 'идёт' : soon ? 'скоро' : 'завершён');
       top.append(chip);
+      // While a map is played, `rounds` holds its score and `score` stays 0:0
+      // until the map ends. Show the live rounds, otherwise the series score.
+      const shownScore = match.rounds ? match.rounds : match.score;
       const score = document.createElement('span');
       score.className = 'qscore';
-      safeText(score, `${match.score[0]} : ${match.score[1]}`);
+      safeText(score, `${shownScore[0]} : ${shownScore[1]}`);
+      if (match.rounds) {
+        const roundsNote = document.createElement('span');
+        roundsNote.className = 'qrounds';
+        safeText(roundsNote, `карта · серия ${match.score[0]}:${match.score[1]}`);
+        score.append(' ', roundsNote);
+      }
       top.append(score);
       card.append(top);
 
@@ -342,24 +352,33 @@ export function createQualificationsController({
     state.online = new Set();
     state.checking = new Set();
     cameraAssignments.clear();
+    state.streamRoom = new Map();
     const groups = new Map();
     for (const record of state.matches.values()) {
       if (!isWatched(record)) continue;
+      // Links already sent may point at the pre-sort room; watch both so the
+      // desk still sees players who opened an older link.
+      const rooms = [record.room, record.altRoom].filter(Boolean);
       for (const team of record.teams || []) for (const player of team.players || []) {
         const camera = player.camera;
         const id = camera ? vdoId(camera.id) : '';
         if (!camera || !id) continue;
         cameraAssignments.set(validateQualificationId(player.id), camera);
-        const key = `${camera.room}\0${camera.password || ''}`;
-        if (!groups.has(key)) groups.set(key, { room: camera.room, password: camera.password || '', ids: [] });
-        groups.get(key).ids.push(id);
+        for (const room of rooms.length ? rooms : [camera.room]) {
+          const key = `${room}\0${camera.password || ''}`;
+          if (!groups.has(key)) groups.set(key, { room, password: camera.password || '', ids: [] });
+          groups.get(key).ids.push(id);
+          state.streamRoom.set(id, room);
+        }
       }
     }
-    const allIds = [...groups.values()].flatMap(group => group.ids);
-    const collisions = new Set(qualificationIdCollisions(allIds));
-    const safeGroups = [...groups.values()].map(group => ({
-      ...group, ids: [...new Set(group.ids.filter(id => !collisions.has(id)))]
-    })).filter(group => group.ids.length);
+    // Stream IDs live inside their own room: the same nickname in two matches
+    // is two different streams. Counting duplicates across every match threw
+    // those players out of CamWatch entirely ("видно 3 из 10").
+    const safeGroups = [...groups.values()].map(group => {
+      const collisions = new Set(qualificationIdCollisions(group.ids));
+      return { ...group, ids: [...new Set(group.ids.filter(id => !collisions.has(id)))] };
+    }).filter(group => group.ids.length);
     // CamWatch keeps an unchanged room's iframe, so a steady camera list keeps
     // one signalling session across polls instead of reconnecting every tick.
     if (!state.watcher && safeGroups.length) {
@@ -457,15 +476,20 @@ export function createQualificationsController({
         }
         // Generate VDO rooms and stream IDs: every player gets a VDO link.
         // One room per match, IDs read as FACEIT nicknames. OneShot camera wins if matched.
+        // canonicalTeamOrder keeps the sides alphabetical so a FACEIT faction
+        // swap never mirrors the card (and the room name stays put).
         for (const record of state.matches.values()) {
+          // VDO first, in the order FACEIT sent: vdo.players pairs by index.
           const vdo = vdoFactory(state.championshipId, record.match.id, record.teams);
           record.room = vdo.room;
+          record.altRoom = vdo.altRoom || '';
           const roster = record.teams.flatMap(t => t.players);
-          const generated = new Map(roster.map((p, i) => [p, vdo.players[i]?.id]));
-          for (const team of record.teams) for (const player of team.players) {
-            if (!player.camera) player.camera = { id: generated.get(player) || '', room: vdo.room, password: '', source: 'generated' };
+          for (let i = 0; i < roster.length; i++) {
+            const player = roster[i];
+            if (!player.camera) player.camera = { id: vdo.players[i]?.id || '', room: vdo.room, password: '', source: 'generated' };
             else player.camera.source = 'oneshot';
           }
+          canonicalTeamOrder(record);
         }
         const events = [];
         for (const [id, record] of state.matches) {
@@ -578,22 +602,48 @@ export function createQualificationsController({
       void copyToClipboard(qualificationRoomLink(record.room), 'Ссылка на комнату скопирована.');
       return;
     }
-    // Room link: open the VDO director view, not a plain room page.
+    // Room link: open the VDO director view, not a plain room page. If a
+    // player is online in the old (pre-sort) room, open that one instead.
     if (target?.matches?.('[data-q-open-room]') && record.room) {
-      window.open?.(qualificationDirectorLink(record.room), '_blank', 'noopener');
+      let room = record.room;
+      for (const team of record.teams) for (const player of team.players) {
+        const stream = streamFor(player.id);
+        if (stream && state.online.has(stream)) { room = state.streamRoom.get(stream) || room; break; }
+      }
+      window.open?.(qualificationDirectorLink(room), '_blank', 'noopener');
       return;
     }
   };
   root?.addEventListener('click', clickHandler);
-  // Filter toolbar: one active button, re-render on switch.
+  // Filter toolbar is built from JS so a cached HTML (an operator refreshing
+  // mid-tournament) still gets the filters — the desk must not depend on a
+  // fresh index.html reaching every browser.
+  const filtersBar = $('qualificationsFilters') || (() => {
+    if (typeof document === 'undefined' || !list) return null;
+    const bar = document.createElement('div');
+    bar.id = 'qualificationsFilters';
+    bar.className = 'qfilters';
+    bar.setAttribute('role', 'group');
+    bar.setAttribute('aria-label', 'Фильтр матчей');
+    const labels = { all: 'Все', live: 'Идут', soon: 'Скоро', done: 'Завершённые' };
+    for (const key of ['all', 'live', 'soon', 'done']) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'qfilter';
+      button.dataset.filter = key;
+      button.textContent = labels[key];
+      bar.append(button);
+    }
+    list.before(bar);
+    return bar;
+  })();
   const filterHandler = event => {
     const button = event.target?.closest?.('.qfilter');
     if (!button || !filtersBar) return;
     state.filter = button.dataset.filter || 'all';
-    for (const b of filtersBar.querySelectorAll('.qfilter')) b.classList.toggle('active', b === button);
+    paintFilters();
     render();
   };
-  const filtersBar = $('qualificationsFilters');
   filtersBar?.addEventListener('click', filterHandler);
   const paintFilters = () => {
     if (!filtersBar) return;

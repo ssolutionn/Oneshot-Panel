@@ -63,18 +63,46 @@ const tail = (text, n) => {
 // Stream IDs read as FACEIT nicknames so a player recognises his own link,
 // and one match is one room. Same input gives the same links after a reload,
 // else links sent to players die; a repeated nickname gets `_2`, `_3`.
+// FACEIT swaps faction1/faction2 between polls, so a room named after the
+// teams in API order changes under players' feet (links already sent point to
+// the old room). The canonical room sorts the names; `altRoom` keeps the
+// input order so the panel can still watch links handed out before the sort.
+// The tail depends only on championship+match, so the room never drifts.
 export function qualificationVdo(championshipId, matchId, teams = []) {
-  const prefix = (teams || []).map(team => vdoSafeName(team.name, 12).toLowerCase()).join('_') || 'match';
-  const room = `${prefix}_${tail(`${championshipId}|${matchId}`, 6)}`.slice(0, 60);
+  const tailPart = tail(`${championshipId}|${matchId}`, 6);
+  const names = (teams || []).map(team => vdoSafeName(team.name, 12).toLowerCase());
+  const sortedPrefix = [...names].sort().join('_') || 'match';
+  const inputPrefix = names.join('_') || 'match';
+  const room = `${sortedPrefix}_${tailPart}`.slice(0, 60);
+  const altRoom = inputPrefix === sortedPrefix ? '' : `${inputPrefix}_${tailPart}`.slice(0, 60);
+  const nicks = [];
+  for (const team of teams || []) for (const player of team.players || []) nicks.push(player.nickname || '');
+  const order = nicks.map((nick, index) => ({ nick, index }))
+    .sort((a, b) => String(a.nick).localeCompare(String(b.nick)) || a.index - b.index);
   const used = new Map();
-  const players = [];
-  for (const team of teams || []) for (const player of team.players || []) {
-    const base = vdoSafeName(player.nickname, 16);
+  const ids = new Array(nicks.length);
+  for (const { nick, index } of order) {
+    const base = vdoSafeName(nick, 16);
     const seen = (used.get(base.toLowerCase()) || 0) + 1;
     used.set(base.toLowerCase(), seen);
-    players.push({ nickname: player.nickname, id: seen === 1 ? base : `${base}_${seen}` });
+    ids[index] = seen === 1 ? base : `${base}_${seen}`;
   }
-  return { room, players };
+  return { room, altRoom, players: nicks.map((nickname, i) => ({ nickname, id: ids[i] })) };
+}
+
+// FACEIT may put either team into faction1 between restarts; sort the sides by
+// name so the desk never shows the same match mirrored. Index-based arrays
+// (score/rounds) flip with the teams.
+export function canonicalTeamOrder(record) {
+  const names = (record?.match?.teams || []).map(name => String(name || ''));
+  if (names.length !== 2 || names[0].toLowerCase() <= names[1].toLowerCase()) return record;
+  const flip = arr => Array.isArray(arr) && arr.length === 2 ? [arr[1], arr[0]] : arr;
+  record.match.teams = flip(record.match.teams);
+  record.match.factions = flip(record.match.factions);
+  record.match.score = flip(record.match.score);
+  if (record.match.rounds) record.match.rounds = flip(record.match.rounds);
+  if (Array.isArray(record.teams) && record.teams.length === 2) record.teams = flip(record.teams);
+  return record;
 }
 
 // Push link for a single player — identical format to core.pushUrl so the
