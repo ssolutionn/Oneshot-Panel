@@ -38,7 +38,10 @@
       "exit_code": 0,
       "seconds": 0.1,
       "tail": "wrote claude-artifact/oneshot-panel.html (2743078 bytes)\n"
+    },
+    "real_obs": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-11-22T15:29:51.141721+00:00"
+  "updated_at": "2026-11-22T15:29:52.917885+00:00"
 }
