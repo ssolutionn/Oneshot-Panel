@@ -77,6 +77,30 @@ export function qualificationVdo(championshipId, matchId, teams = []) {
   return { room, players };
 }
 
+// Push link for a single player — identical format to core.pushUrl so the
+// copied text is exactly what a player receives in the "Подготовка" tab.
+export function qualificationPushLink({ id, room, password = '' }) {
+  const pw = password ? `&password=${encodeURIComponent(password)}` : '';
+  return `https://vdo.ninja/?room=${encodeURIComponent(room)}${pw}&broadcast&do&push=${encodeURIComponent(id)}`;
+}
+
+// Room link opens the VDO room so the operator sees all active streams of the match.
+export function qualificationRoomLink(room) {
+  return `https://vdo.ninja/?room=${encodeURIComponent(room)}&list`;
+}
+
+// Text for one team, same contract as core.playerText (## Team / **Nick** <push>).
+export function qualificationTeamText(teamName, players = []) {
+  return `## ${teamName}\nOpen your link and turn on your camera.\n\n` +
+    players.map(p => `**${p.nickname}** ${p.link}`).join('\n');
+}
+
+// Text for both teams in one message — operator sends this to chat, players see
+// their team heading and their own nickname in the line.
+export function qualificationMatchText(teams = []) {
+  return teams.map(team => qualificationTeamText(team.name, team.players)).join('\n\n');
+}
+
 // A normalized record has a match summary; a raw FACEIT item does not. The
 // summary may still carry its own `match` key tomorrow, so do not test for it.
 const isRecord = value => Boolean(value?.match?.statusText !== undefined || value?.match?.teams);

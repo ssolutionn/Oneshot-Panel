@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {
   normalizeQualificationMatch, safeQualificationUrl, mergeQualificationMatches,
   qualificationEvents, validateQualificationConnect, validateQualificationId, qualificationIdCollisions,
-  qualificationVdo, vdoSafeName
+  qualificationVdo, vdoSafeName,
+  qualificationPushLink, qualificationRoomLink, qualificationTeamText, qualificationMatchText
 } from '../qualifications-data.js';
 
 const match = (id, status = 'ONGOING') => ({ match_id: id, status, teams: {
@@ -126,6 +127,29 @@ test('vdoSafeName strips what VDO.Ninja strips and never returns empty', () => {
   assert.equal(vdoSafeName('Player.One'), 'PlayerOne');
   assert.equal(vdoSafeName('💥💥'), 'cam');
   assert.equal(vdoSafeName('x'.repeat(40)).length, 16);
+});
+
+test('qualificationPushLink matches core.pushUrl format', () => {
+  assert.equal(qualificationPushLink({ id: 'Ace_abc', room: 'q123' }),
+    'https://vdo.ninja/?room=q123&broadcast&do&push=Ace_abc');
+  assert.equal(qualificationPushLink({ id: 'Ace_abc', room: 'q123', password: 'pw' }),
+    'https://vdo.ninja/?room=q123&password=pw&broadcast&do&push=Ace_abc');
+});
+
+test('qualificationRoomLink opens the room list of active streams', () => {
+  assert.equal(qualificationRoomLink('q123'), 'https://vdo.ninja/?room=q123&list');
+});
+
+test('qualificationTeamText and qualificationMatchText format like playerText in core.js', () => {
+  const text = qualificationTeamText('Team A', [{ nickname: 'Ace', link: 'https://vdo.ninja/?room=q1&push=x' }]);
+  assert.match(text, /^## Team A\n/);
+  assert.match(text, /\*\*Ace\*\* https:\/\/vdo\.ninja\/\?room=q1&push=x/);
+  const both = qualificationMatchText([
+    { name: 'Team A', players: [{ nickname: 'Ace', link: 'https://vdo.ninja/?room=q1&push=x' }] },
+    { name: 'Team B', players: [{ nickname: 'Bee', link: 'https://vdo.ninja/?room=q1&push=y' }] }
+  ]);
+  assert.match(both, /## Team A[\s\S]*## Team B/);   // each block names its team
+  assert.match(both, /\*\*Bee\*\* https:\/\/vdo\.ninja\/\?room=q1&push=y/);
 });
 
 test('reports duplicate stream IDs after sanitization', () => {
