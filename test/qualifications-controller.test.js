@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createQualificationsController, matchQualificationPlayers, inputFocusedIn } from '../qualifications-controller.js';
+import { qualificationVdo } from '../qualifications-data.js';
 
 const uuid = '12345678-1234-1234-1234-123456789abc';
 const fixture = (id, status = 'ONGOING') => ({
@@ -423,6 +424,80 @@ test('match-room URL is rejected instead of queried as championship ID', async (
     await controller.start();
     assert.deepEqual(calls, []);
     assert.match(controller.state.lastError || '', /чемпионат/i);
+  } finally {
+    controller.destroy();
+  }
+});
+
+test('gives every FACEIT player a VDO link even without a OneShot camera', async () => {
+  const calls = [];
+  const controller = createQualificationsController({
+    input: { value: `https://www.faceit.com/en/championship/${uuid}/test` },
+    list: { replaceChildren() {} },
+    clientFactory: () => ({
+      async matches() {
+        calls.push('matches');
+        return [
+          { match_id: 'm1', status: 'ONGOING', faceit_url: `https://www.faceit.com/en/room/m1`,
+            teams: { faction1: { name: 'Team A', players: [{ player_id: 'f1', nickname: 'Player.One' }] }, faction2: { name: 'Team B', players: [] } },
+            results: { score: { faction1: 1, faction2: 0 } }
+          }
+        ];
+      }
+    }),
+    watchFactory: () => ({ watch() {}, stop() {} }),
+    interval: 100000,
+    vdoFactory: qualificationVdo
+  });
+  try {
+    await controller.start();
+    const record = controller.state.matches.get('m1');
+    const [teamA] = record.teams;
+    assert.equal(teamA.players[0].camera.source, 'generated');
+    assert.equal(teamA.players[0].camera.id, 'PlayerOne');      // from FACEIT nickname
+    assert.equal(teamA.players[0].camera.room, record.room);
+  } finally {
+    controller.destroy();
+  }
+});
+
+test('a matched OneShot camera wins over the generated one', async () => {
+  const calls = [];
+  const controller = createQualificationsController({
+    input: { value: `https://www.faceit.com/en/championship/${uuid}/test` },
+    list: { replaceChildren() {} },
+    clientFactory: () => ({
+      async matches() {
+        calls.push('matches');
+        return [
+          { match_id: 'm1', status: 'ONGOING', faceit_url: `https://www.faceit.com/en/room/m1`,
+            teams: { faction1: { name: 'Team A', players: [{ player_id: 'f1', nickname: 'Player.One' }] }, faction2: { name: 'Team B', players: [] } },
+            results: { score: { faction1: 1, faction2: 0 } }
+          }
+        ];
+      }
+    }),
+    watchFactory: () => ({ watch() {}, stop() {} }),
+    interval: 100000,
+    vdoFactory: qualificationVdo,
+    panel: {
+      snapshot() {
+        return {
+          a: { name: 'Team A' }, b: { name: 'Team B' },
+          playersA: [{ key: 'faceit-1', nick: 'Player.One', id: 'oneshot-stream', room: 'oneshot-room', password: 'pw', camera: 'oneshot-camera' }],
+          playersB: []
+        };
+      }
+    }
+  });
+  try {
+    await controller.start();
+    const record = controller.state.matches.get('m1');
+    const [teamA] = record.teams;
+    assert.equal(teamA.players[0].camera.source, 'oneshot');
+    assert.equal(teamA.players[0].camera.id, 'oneshot-stream');
+    assert.equal(teamA.players[0].camera.room, 'oneshot-room');
+    assert.equal(teamA.players[0].camera.password, 'pw');
   } finally {
     controller.destroy();
   }

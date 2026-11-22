@@ -4,7 +4,8 @@ import { CamWatch } from './vdo.js';
 import { showNotification } from './notifications.js';
 import {
   normalizeQualificationMatch, mergeQualificationMatches, qualificationEvents,
-  safeQualificationUrl, validateQualificationConnect, validateQualificationId, qualificationIdCollisions
+  safeQualificationUrl, validateQualificationConnect, validateQualificationId, qualificationIdCollisions,
+  qualificationVdo
 } from './qualifications-data.js';
 
 const POLL_MS = 20000;
@@ -84,6 +85,7 @@ export function createQualificationsController({
   clientFactory = key => new FaceitClient(key, (...args) => fetch(...args),
     { proxy: typeof location === 'undefined' ? FACEIT_PROXY : new URL(FACEIT_PROXY, location.origin).href }),
   watchFactory = onChange => new CamWatch(onChange),
+  vdoFactory = qualificationVdo,
   notify = (message, { error = false } = {}) => {
     if (alert) {
       alert.textContent = message;
@@ -313,6 +315,18 @@ export function createQualificationsController({
           record.raw ||= record.match;
           record.teams = matchQualificationPlayers(record.teams, snapshot, allTeams);
           record.rosterAvailable = record.teams.some(team => team.players.length > 0);
+        }
+        // Generate VDO rooms and stream IDs: every player gets a VDO link.
+        // One room per match, IDs read as FACEIT nicknames. OneShot camera wins if matched.
+        for (const record of state.matches.values()) {
+          const vdo = vdoFactory(state.championshipId, record.match.id, record.teams);
+          record.room = vdo.room;
+          const roster = record.teams.flatMap(t => t.players);
+          const generated = new Map(roster.map((p, i) => [p, vdo.players[i]?.id]));
+          for (const team of record.teams) for (const player of team.players) {
+            if (!player.camera) player.camera = { id: generated.get(player) || '', room: vdo.room, password: '', source: 'generated' };
+            else player.camera.source = 'oneshot';
+          }
         }
         const events = [];
         for (const [id, record] of state.matches) {
