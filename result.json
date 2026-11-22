@@ -1,7 +1,7 @@
 {
   "source_sha": "31b887afcfd2c0f97455497bcb087e03cdefd34d",
   "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/45005188749",
-  "status": "running",
+  "status": "failed",
   "steps": {
     "python_tools": {
       "status": "passed",
@@ -130,5 +130,5 @@
       "tail": "Traceback (most recent call last):\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/scripts/qa_live.py\", line 747, in <module>\n    asyncio.run(run(parser.parse_args()))\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/asyncio/runners.py\", line 195, in run\n    return runner.run(main)\n           ^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/asyncio/runners.py\", line 118, in run\n    return self._loop.run_until_complete(task)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/asyncio/base_events.py\", line 691, in run_until_complete\n    return future.result()\n           ^^^^^^^^^^^^^^^\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/scripts/qa_live.py\", line 263, in run\n    assert tabs == [\"viewPrep\", \"vetoNavBtn\", \"viewLobby\", \"obsNavBtn\", \"bookiesNavBtn\"], tabs\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: ['viewPrep', 'vetoNavBtn', 'viewLobby', 'qualificationsNavBtn', 'obsNavBtn', 'bookiesNavBtn']\n"
     }
   },
-  "updated_at": "2026-11-22T09:04:43.373106+00:00"
+  "updated_at": "2026-11-22T09:04:45.156929+00:00"
 }
