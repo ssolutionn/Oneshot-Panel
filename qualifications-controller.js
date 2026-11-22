@@ -1,11 +1,11 @@
 import { FaceitClient, FACEIT_PROXY, parseFaceitUrl } from './faceit.js';
 import { pushUrl, vdoId } from './core.js';
 import { CamWatch } from './vdo.js';
-import { showNotification } from './notifications.js';
+import { showNotification, unlockAudio, beep } from './notifications.js';
 import {
   normalizeQualificationMatch, mergeQualificationMatches, qualificationEvents,
-  safeQualificationUrl, validateQualificationConnect, validateQualificationId, qualificationIdCollisions,
-  qualificationVdo, qualificationPushLink, qualificationRoomLink, qualificationTeamText, qualificationMatchText,
+  safeQualificationUrl, validateQualificationConnect, qualificationIdCollisions,
+  qualificationVdo, qualificationMatchText,
   sortQualificationMatches, qualificationDirectorLink, filterQualificationMatches, canonicalTeamOrder
 } from './qualifications-data.js';
 
@@ -30,7 +30,10 @@ const MAX_MATCHES = 32;
 const MAX_CONNECT_LENGTH = 256; // same cap as validateQualificationConnect
 const $ = id => typeof document === 'undefined' ? null : document.getElementById(id);
 const setsEqual = (a, b) => a.size === b.size && [...a].every(value => b.has(value));
-const identityKey = value => String(value || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+// Letters of any alphabet (core.personKey does the same): with [a-z0-9] only,
+// «Петя» and «Коля» both became '' and matched each other's camera.
+const identityKey = value => String(value || '').normalize('NFKD')
+  .replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
 
 // `allTeams` is window.oneshotPanel.teams(): every team parsed from the sheet,
 // so a 32-match championship is not limited to the two teams picked for air.
@@ -55,6 +58,8 @@ export function matchQualificationPlayers(teams, snapshot, allTeams = []) {
     players: (team.players || []).map(player => {
       if (counts.get(player.id) > 1) return { ...player, camera: null, matchMethod: 'duplicate-id' };
       const nick = identityKey(player.nickname);
+      // No usable nickname means no match, never «matches everyone».
+      if (!nick) return { ...player, camera: null, matchMethod: 'missing' };
       const teamName = identityKey(team.name);
       const nickMatches = existing.filter(candidate => identityKey(candidate.nick) === nick);
       // A player carrying his own team (sheet roster) is compared by it; the
@@ -111,34 +116,10 @@ export function createQualificationsController({
   const state = {
     client: null, timer: null, generation: 0, inFlight: null, matches: new Map(),
     connects: new Map(), watcher: null, online: new Set(), checking: new Set(),
-    seeded: false, stopped: true, lastError: '', championshipId: '', degraded: false, down: false, rosterCache: new Map(),
-    filter: 'all', notifiedStarts: new Set(), lastNotified: '', unreadStarts: 0, streamRoom: new Map()
+    stopped: true, lastError: '', championshipId: '', degraded: false, down: false, rosterCache: new Map(),
+    filter: 'all', notifiedStarts: new Set(), lastNotified: '', unreadStarts: 0
   };
 
-  const cameraAssignments = new Map();
-  // One beep per match start, same tone as the lobby siren. Audio unlocks on
-  // the first user gesture (submit/клик), otherwise the browser blocks it.
-  let audio = null;
-  const unlockAudio = () => {
-    try {
-      audio ||= new AudioContext();
-      if (audio.state === 'suspended') audio.resume();
-    } catch { audio = null; }
-  };
-  const beep = () => {
-    if (!audio) return;
-    const now = audio.currentTime;
-    [[880, 0], [660, 0.22], [880, 0.44]].forEach(([freq, at]) => {
-      const osc = audio.createOscillator(), gain = audio.createGain();
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.0001, now + at);
-      gain.gain.exponentialRampToValueAtTime(0.35, now + at + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.2);
-      osc.connect(gain).connect(audio.destination);
-      osc.start(now + at);
-      osc.stop(now + at + 0.21);
-    });
-  };
   const badge = () => {
     const el = $('qualificationsBadge');
     if (!el) return;
@@ -146,12 +127,9 @@ export function createQualificationsController({
     el.hidden = !unread;
     el.textContent = String(unread);
   };
-  const streamFor = playerId => {
-    const valid = validateQualificationId(playerId);
-    const camera = valid ? cameraAssignments.get(valid) : null;
-    return camera ? vdoId(camera.id) : '';
-  };
-  const cameraFor = playerId => cameraAssignments.get(validateQualificationId(playerId)) || null;
+  // The player object already carries the resolved camera; a global map keyed
+  // by FACEIT id let the same id in two matches overwrite itself.
+  const streamOf = player => (player?.camera?.id ? vdoId(player.camera.id) : '');
 
   function render() {
     if (!list || typeof document === 'undefined') return;
@@ -165,17 +143,18 @@ export function createQualificationsController({
       const card = document.createElement('article');
       card.className = 'qcard';
       card.dataset.matchId = match.id;
-      const live = match.status === 'ONGOING';
-      const soon = match.status === 'SCHEDULED';
-      const done = match.status === 'FINISHED' || match.status === 'CANCELLED';
-      card.dataset.state = live ? 'live' : soon ? 'soon' : 'done';
+      // LIVE in faceit.js also covers veto, server setup and pauses: a match in
+      // READY/VOTING/PAUSED is on air, not finished.
+      const live = Boolean(match.live);
+      const done = Boolean(match.done);
+      card.dataset.state = live ? 'live' : done ? 'done' : 'soon';
 
       // Top bar: status chip + score
       const top = document.createElement('header');
       top.className = 'qcard-top';
       const chip = document.createElement('span');
       chip.className = 'qchip';
-      safeText(chip, live ? 'идёт' : soon ? 'скоро' : 'завершён');
+      safeText(chip, live ? 'идёт' : done ? 'завершён' : 'скоро');
       top.append(chip);
       // While a map is played, `rounds` holds its score and `score` stays 0:0
       // until the map ends. Show the live rounds, otherwise the series score.
@@ -218,7 +197,7 @@ export function createQualificationsController({
           const count = document.createElement('span');
           count.className = 'qcount';
           const onlineCount = team.players.filter(p => {
-            const stream = streamFor(p.id);
+            const stream = streamOf(p);
             return stream && state.online.has(stream);
           }).length;
           safeText(count, `${onlineCount}/${team.players.length} онлайн`);
@@ -228,7 +207,7 @@ export function createQualificationsController({
           for (const player of team.players) {
             const li = document.createElement('li');
             const cam = player.camera;
-            const stream = streamFor(player.id);
+            const stream = streamOf(player);
             const online = Boolean(stream) && state.online.has(stream);
             const checking = Boolean(stream) && state.checking.has(stream);
             li.dataset.cam = online ? 'online' : checking ? 'checking' : 'off';
@@ -274,6 +253,16 @@ export function createQualificationsController({
         openRoom.dataset.qOpenRoom = '';
         safeText(openRoom, 'Открыть комнату');
         foot.append(openRoom);
+        // Links handed out before the room name was stabilised live in the
+        // other ordering; keep one way to reach those players too.
+        if (record.altRoom) {
+          const altRoom = document.createElement('button');
+          altRoom.type = 'button';
+          altRoom.dataset.qOpenAltRoom = '';
+          altRoom.title = 'Игроки по ссылкам, выданным до обновления';
+          safeText(altRoom, 'Старая комната');
+          foot.append(altRoom);
+        }
       }
       const copyAll = document.createElement('button');
       copyAll.type = 'button';
@@ -281,7 +270,7 @@ export function createQualificationsController({
       safeText(copyAll, 'Скопировать все ссылки');
       foot.append(copyAll);
 
-      const href = safeQualificationUrl(record.raw?.faceit_url || match.url);
+      const href = safeQualificationUrl(match.url);
       if (href) {
         const link = document.createElement('a');
         link.className = 'qlink';
@@ -318,6 +307,7 @@ export function createQualificationsController({
         const value = state.connects.get(match.id);
         if (!value) return;
         try {
+          if (!navigator.clipboard) throw new Error('no clipboard');
           await navigator.clipboard.writeText(value);
           safeText(status, 'Команда скопирована.');
         } catch {
@@ -343,16 +333,14 @@ export function createQualificationsController({
 // Otherwise 32 matches × 10 players = 320 hidden iframes, and CamWatch reconnects waste resources.
   const isWatched = (record, now = Date.now()) => {
     const m = record.match;
-    if (m.status === 'ONGOING') return true;
-    if (m.status === 'SCHEDULED' && m.scheduledAt && m.scheduledAt - now < 60 * 60 * 1000) return true;
+    if (m.live) return true;                       // ONGOING, VOTING, READY, PAUSED…
+    if (!m.done && m.scheduledAt && m.scheduledAt - now < 60 * 60 * 1000) return true;
     return false;
   };
 
   const rebuildWatchers = snapshot => {
     state.online = new Set();
     state.checking = new Set();
-    cameraAssignments.clear();
-    state.streamRoom = new Map();
     const groups = new Map();
     for (const record of state.matches.values()) {
       if (!isWatched(record)) continue;
@@ -363,12 +351,16 @@ export function createQualificationsController({
         const camera = player.camera;
         const id = camera ? vdoId(camera.id) : '';
         if (!camera || !id) continue;
-        cameraAssignments.set(validateQualificationId(player.id), camera);
-        for (const room of rooms.length ? rooms : [camera.room]) {
+        // A player with a camera from the sheet publishes into that camera's
+        // room, not the generated one; watching the generated room showed
+        // "0/5 онлайн" while the players were live. Old pre-sort links land in
+        // record.altRoom, so those stay watched for generated cameras only.
+        const camRooms = new Set([camera.room]);
+        if (camera.source !== 'oneshot') for (const room of rooms) camRooms.add(room);
+        for (const room of camRooms) {
           const key = `${room}\0${camera.password || ''}`;
           if (!groups.has(key)) groups.set(key, { room, password: camera.password || '', ids: [] });
           groups.get(key).ids.push(id);
-          state.streamRoom.set(id, room);
         }
       }
     }
@@ -411,12 +403,16 @@ export function createQualificationsController({
     for (const record of state.matches.values()) {
       if (record.teams.some(team => team.players.length)) continue;
       const detail = state.rosterCache.get(record.match?.id);
-      // Take ONLY the roster: the detail answer is cached, while the list is
-      // fresh every poll. Replacing the whole record froze the score/status.
-      if (detail?.match_id) {
-        record.teams = normalizeQualificationMatch(detail).teams;
-        record.raw ||= record.match;
-      }
+      if (!detail?.match_id) continue;
+      // Take ONLY the roster: the detail answer is cached while the list is
+      // fresh every poll (replacing the record froze the score and status), and
+      // FACEIT may order factions differently there, so match teams by name.
+      const detailTeams = normalizeQualificationMatch(detail).teams;
+      const byName = new Map(detailTeams.map(team => [identityKey(team.name), team]));
+      const sameNames = record.match.teams.every(name => byName.has(identityKey(name)));
+      record.teams = sameNames
+        ? record.match.teams.map(name => byName.get(identityKey(name)))
+        : detailTeams;
     }
   }
 
@@ -443,9 +439,7 @@ export function createQualificationsController({
           state.watcher = null;
           state.online = new Set();
           state.checking = new Set();
-          cameraAssignments.clear();
           state.rosterCache.clear();
-          state.seeded = false;
           state.down = false;
           state.degraded = false;
           state.lastNotified = '';
@@ -468,12 +462,11 @@ export function createQualificationsController({
           return;
         }
         state.matches = merged;
-        state.seeded = true;
         await hydrateRosters();
+        if (generation !== state.generation || state.stopped) return;
         const snapshot = panel?.snapshot?.();
         const allTeams = panel?.teams?.() || [];
         for (const record of state.matches.values()) {
-          record.raw ||= record.match;
           record.teams = matchQualificationPlayers(record.teams, snapshot, allTeams);
           record.rosterAvailable = record.teams.some(team => team.players.length > 0);
         }
@@ -546,6 +539,7 @@ export function createQualificationsController({
   function stop() {
     state.stopped = true;
     state.generation++;
+    state.inFlight = null;
     clearInterval(state.timer);
     state.timer = null;
     state.watcher?.stop();
@@ -565,8 +559,9 @@ export function createQualificationsController({
 
   const copyToClipboard = async (text, okMessage = 'Ссылка скопирована.') => {
     if (!text) return;
+    if (!navigator.clipboard) { safeText(status, 'Браузер не даёт копировать на этом адресе (нужен https).'); return; }
     try {
-      await navigator.clipboard?.writeText(text);
+      await navigator.clipboard.writeText(text);
       safeText(status, okMessage);
     } catch { safeText(status, 'Не удалось скопировать.'); }
   };
@@ -575,34 +570,21 @@ export function createQualificationsController({
     const card = target?.closest?.('[data-match-id]');
     const record = card ? state.matches.get(card.dataset.matchId) : null;
 
-    if (target?.matches?.('[data-qualification-copy-player]')) {
-      const playerId = target.dataset.qualificationCopyPlayer;
-      const camera = cameraFor(playerId);
-      if (!camera?.id || !camera.room) return;
-      void copyToClipboard(pushUrl(camera));
-      return;
-    }
-
     if (!record) return;
     // Player push link by nickname (the generated one)
     if (target?.matches?.('[data-q-copy-push]')) {
       const nickname = target.dataset.qCopyPush;
       const player = record.teams.flatMap(t => t.players).find(p => p.nickname === nickname);
-      if (player?.camera?.id) void copyToClipboard(qualificationPushLink(player.camera));
+      if (player?.camera?.id) void copyToClipboard(pushUrl(player.camera));
       return;
     }
     // All links (both teams)
     if (target?.matches?.('[data-q-copy-all]')) {
       const teams = record.teams.map(t => ({
         name: t.name,
-        players: t.players.map(p => ({ nickname: p.nickname, link: p.camera?.id ? qualificationPushLink(p.camera) : '' }))
+        players: t.players.map(p => ({ nickname: p.nickname, link: p.camera?.id ? pushUrl(p.camera) : '' }))
       }));
       void copyToClipboard(qualificationMatchText(teams), 'Ссылки матча скопированы.');
-      return;
-    }
-    // Room link
-    if (target?.matches?.('[data-q-copy-room]') && record.room) {
-      void copyToClipboard(qualificationRoomLink(record.room), 'Ссылка на комнату скопирована.');
       return;
     }
     // Room link: open the VDO director view, not a plain room page. If a
@@ -610,10 +592,14 @@ export function createQualificationsController({
     if (target?.matches?.('[data-q-open-room]') && record.room) {
       let room = record.room;
       for (const team of record.teams) for (const player of team.players) {
-        const stream = streamFor(player.id);
-        if (stream && state.online.has(stream)) { room = state.streamRoom.get(stream) || room; break; }
+        const stream = streamOf(player);
+        if (stream && state.online.has(stream)) { room = player.camera?.room || room; break; }
       }
       window.open?.(qualificationDirectorLink(room), '_blank', 'noopener');
+      return;
+    }
+    if (target?.matches?.('[data-q-open-alt-room]') && record.altRoom) {
+      window.open?.(qualificationDirectorLink(record.altRoom), '_blank', 'noopener');
       return;
     }
   };
@@ -650,7 +636,11 @@ export function createQualificationsController({
   filtersBar?.addEventListener('click', filterHandler);
   const paintFilters = () => {
     if (!filtersBar) return;
-    for (const b of filtersBar.querySelectorAll('.qfilter')) b.classList.toggle('active', (b.dataset.filter || 'all') === state.filter);
+    for (const b of filtersBar.querySelectorAll('.qfilter')) {
+      const on = (b.dataset.filter || 'all') === state.filter;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+    }
   };
   paintFilters();
   const submitHandler = event => {
@@ -671,6 +661,10 @@ export function createQualificationsController({
   };
   if (typeof document !== 'undefined') document.addEventListener('oneshot:view', viewHandler);
   if (typeof window !== 'undefined') window.addEventListener('pagehide', stop);
+  // A Back navigation restores the page from bfcache without any event here,
+  // so polling must be restarted by hand.
+  const resumeHandler = event => { if (event.persisted && !root?.hidden) start(); };
+  if (typeof window !== 'undefined') window.addEventListener('pageshow', resumeHandler);
 
   return {
     start, stop, poll, render, state,
@@ -680,6 +674,7 @@ export function createQualificationsController({
       $('qualificationsForm')?.removeEventListener('submit', submitHandler);
       if (typeof document !== 'undefined') document.removeEventListener('oneshot:view', viewHandler);
       if (typeof window !== 'undefined') window.removeEventListener('pagehide', stop);
+      if (typeof window !== 'undefined') window.removeEventListener('pageshow', resumeHandler);
       state.connects.clear();
     }
   };

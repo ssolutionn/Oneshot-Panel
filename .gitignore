@@ -2,6 +2,7 @@ node_modules/
 artifacts/
 *.log
 .DS_Store
+.tmp-*/
 __pycache__/
 claude-artifact/dist/
 public/

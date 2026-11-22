@@ -4,8 +4,9 @@ import {
   normalizeQualificationMatch, safeQualificationUrl, mergeQualificationMatches,
   qualificationEvents, validateQualificationConnect, validateQualificationId, qualificationIdCollisions,
   qualificationVdo, vdoSafeName,
-  qualificationPushLink, qualificationRoomLink, qualificationTeamText, qualificationMatchText,
-  sortQualificationMatches, qualificationDirectorLink, filterQualificationMatches
+  qualificationTeamText, qualificationMatchText,
+  sortQualificationMatches, qualificationDirectorLink, filterQualificationMatches,
+  canonicalTeamOrder
 } from '../qualifications-data.js';
 
 const match = (id, status = 'ONGOING') => ({ match_id: id, status, teams: {
@@ -130,17 +131,6 @@ test('vdoSafeName strips what VDO.Ninja strips and never returns empty', () => {
   assert.equal(vdoSafeName('x'.repeat(40)).length, 16);
 });
 
-test('qualificationPushLink matches core.pushUrl format', () => {
-  assert.equal(qualificationPushLink({ id: 'Ace_abc', room: 'q123' }),
-    'https://vdo.ninja/?room=q123&broadcast&do&push=Ace_abc');
-  assert.equal(qualificationPushLink({ id: 'Ace_abc', room: 'q123', password: 'pw' }),
-    'https://vdo.ninja/?room=q123&password=pw&broadcast&do&push=Ace_abc');
-});
-
-test('qualificationRoomLink opens the room of active streams', () => {
-  assert.equal(qualificationRoomLink('q123'), 'https://vdo.ninja/?room=q123');
-});
-
 test('qualificationTeamText and qualificationMatchText format like playerText in core.js', () => {
   const text = qualificationTeamText('Team A', [{ nickname: 'Ace', link: 'https://vdo.ninja/?room=q1&push=x' }]);
   assert.match(text, /^## Team A\n/);
@@ -186,14 +176,27 @@ test('filterQualificationMatches keeps only the requested status group', () => {
   assert.equal(filterQualificationMatches(records, 'all').length, 3);
 });
 
-test('mergeQualificationMatches keeps the first-seen team order across polls', () => {
-  const raw = winner => ({ match_id: 'm1', status: 'ONGOING', best_of: 1, results: { score: { faction1: 0, faction2: 0 } }, teams: {
-    faction1: { name: winner ? 'Beta' : 'Alpha', players: [] },
-    faction2: { name: winner ? 'Alpha' : 'Beta', players: [] }
-  } });
-  const settled = [{ status: 'fulfilled', value: [raw(0)] }, { status: 'rejected', reason: new Error('x') }];
-  const first = mergeQualificationMatches(new Map(), settled);
-  const second = mergeQualificationMatches(first, [{ status: 'fulfilled', value: [raw(1)] }, { status: 'rejected', reason: new Error('x') }]);
-  assert.equal(first.get('m1').match.teams[0], 'Alpha');
-  assert.equal(second.get('m1').match.teams[0], 'Alpha'); // FACEIT swapped factions; we keep Alpha first
+test('mergeQualificationMatches does not reorder; canonicalTeamOrder is the single place that flips', () => {
+  const raw = swap => ({ match_id: 'm1', status: 'ONGOING', best_of: 1,
+    results: { score: { faction1: 9, faction2: 7 } }, teams: {
+      faction1: { name: swap ? 'Beta' : 'Alpha', players: [{ nickname: swap ? 'B1' : 'A1' }] },
+      faction2: { name: swap ? 'Alpha' : 'Beta', players: [{ nickname: swap ? 'A1' : 'B1' }] }
+    } });
+  const settled = value => [{ status: 'fulfilled', value: [value] }];
+  // Merge keeps whatever order FACEIT sent — no hidden second swap.
+  const merged = mergeQualificationMatches(new Map(), settled(raw(false)));
+  assert.deepEqual(merged.get('m1').match.teams, ['Alpha', 'Beta']);
+  const swapped = mergeQualificationMatches(new Map(), settled(raw(true)));
+  assert.deepEqual(swapped.get('m1').match.teams, ['Beta', 'Alpha']);
+  // canonicalTeamOrder realigns the sides and every index-based array with them.
+  const record = swapped.get('m1');
+  record.match.rounds = [9, 7];
+  const scoreBefore = [...record.match.score];
+  canonicalTeamOrder(record);
+  assert.deepEqual(record.match.teams, ['Alpha', 'Beta']);
+  assert.deepEqual(record.match.factions, ['faction2', 'faction1']);
+  assert.deepEqual(record.match.score, [scoreBefore[1], scoreBefore[0]]);
+  assert.deepEqual(record.match.rounds, [7, 9]);
+  assert.equal(record.teams[0].name, 'Alpha');
+  assert.equal(record.teams[0].players[0].nickname, 'A1');
 });

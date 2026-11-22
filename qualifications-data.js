@@ -32,9 +32,15 @@ export function validateQualificationConnect(value) {
 
 export function normalizeQualificationMatch(raw) {
   const match = summarizeMatch(raw);
-  const teams = Object.entries(raw?.teams || {}).map(([faction, team]) => ({
-    name: String(team?.name || team?.nickname || faction || ''),
-    players: (Array.isArray(team?.players) ? team.players : Array.isArray(team?.roster) ? team.roster : []).map(player => ({
+  // Build the roster in the SAME order summarizeMatch used for the title and
+  // the score: FACEIT may return faction2 before faction1, and Object.entries
+  // would then put the roster under the wrong name. A faction missing from the
+  // payload contributes nothing.
+  const byFaction = raw?.teams || {};
+  const teams = (match.factions || []).filter(faction => faction in byFaction).map(faction => ({
+    name: String(byFaction[faction]?.name || byFaction[faction]?.nickname || faction || ''),
+    players: (Array.isArray(byFaction[faction]?.players) ? byFaction[faction].players
+      : Array.isArray(byFaction[faction]?.roster) ? byFaction[faction].roster : []).map(player => ({
       id: validateQualificationId(player?.id || player?.player_id),
       nickname: String(player?.nickname || player?.nick || '')
     })).filter(player => player.id || player.nickname)
@@ -105,19 +111,6 @@ export function canonicalTeamOrder(record) {
   return record;
 }
 
-// Push link for a single player — identical format to core.pushUrl so the
-// copied text is exactly what a player receives in the "Подготовка" tab.
-export function qualificationPushLink({ id, room, password = '' }) {
-  const pw = password ? `&password=${encodeURIComponent(password)}` : '';
-  return `https://vdo.ninja/?room=${encodeURIComponent(room)}${pw}&broadcast&do&push=${encodeURIComponent(id)}`;
-}
-
-// The VDO room page itself lists every stream that is publishing there —
-// one click shows all players of the match, no extra parameters needed.
-export function qualificationRoomLink(room) {
-  return `https://vdo.ninja/?room=${encodeURIComponent(room)}`;
-}
-
 // The director view lets the operator mute/reposition/see every stream of the room.
 // Same shape as core.directorUrl, without the sheet-only password branch.
 export function qualificationDirectorLink(room) {
@@ -177,27 +170,8 @@ export function mergeQualificationMatches(previous, settledResults) {
       if (!merged.has(id)) merged.set(id, record);
     }
   }
-  // FACEIT swaps faction1/faction2 between polls; the first-seen order wins
-  // so teams do not swap places on the desk after a restart.
-  for (const [id, record] of merged) {
-    const prior = previousMap.get(id);
-    if (prior?.match?.teams?.length === 2 && record.match?.teams?.length === 2) {
-      const priorNames = prior.match.teams.map(t => String(t || '').toLowerCase());
-      const names = record.match.teams.map(t => String(t || '').toLowerCase());
-      if (priorNames[0] === names[1] && priorNames[1] === names[0]) {
-        const teams = record.match.teams;
-        record.match.teams = [teams[1], teams[0]];
-        if (Array.isArray(record.match.factions) && record.match.factions.length === 2) {
-          record.match.factions = [record.match.factions[1], record.match.factions[0]];
-        }
-        if (Array.isArray(record.teams) && record.teams.length === 2) {
-          const roster = record.teams;
-          record.teams = [roster[1], roster[0]];
-        }
-        if (record.match.score) record.match.score = [record.match.score[1], record.match.score[0]];
-      }
-    }
-  }
+  // Team order is stabilised in one place only: canonicalTeamOrder(), called
+  // after every poll. A second swap here missed `rounds` and mirrored the score.
   return merged;
 }
 

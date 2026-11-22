@@ -6,7 +6,7 @@ import {
   nextStart, fillTemplate, DEFAULT_TEMPLATES, scoreLine, mapScores
 } from './faceit.js';
 import { personKey } from './core.js';
-import {notificationPermission,enableNotifications,showNotification} from './notifications.js';
+import {notificationPermission,enableNotifications,showNotification,unlockAudio,beep} from './notifications.js';
 
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
@@ -57,27 +57,6 @@ function renderLog() {
 }
 
 // ---------- alerts ----------
-let audio = null;
-function unlockAudio() {
-  try {
-    audio ||= new AudioContext();
-    if (audio.state === 'suspended') audio.resume();
-  } catch { audio = null; }
-}
-function beep() {
-  if (!audio) return;
-  const now = audio.currentTime;
-  [[880, 0], [660, 0.22], [880, 0.44]].forEach(([freq, at]) => {
-    const osc = audio.createOscillator(), gain = audio.createGain();
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0.0001, now + at);
-    gain.gain.exponentialRampToValueAtTime(0.35, now + at + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.2);
-    osc.connect(gain).connect(audio.destination);
-    osc.start(now + at);
-    osc.stop(now + at + 0.21);
-  });
-}
 function notifyState() {
   const state=notificationPermission(),supported=state!=='unsupported';
   const granted = state==='granted';

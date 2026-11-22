@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createQualificationsController, matchQualificationPlayers, inputFocusedIn } from '../qualifications-controller.js';
-import { qualificationVdo, qualificationPushLink, qualificationRoomLink, qualificationTeamText, qualificationMatchText } from '../qualifications-data.js';
+import { qualificationVdo, qualificationTeamText, qualificationMatchText } from '../qualifications-data.js';
+import { pushUrl } from '../core.js';
 
 const uuid = '12345678-1234-1234-1234-123456789abc';
 const fixture = (id, status = 'ONGOING') => ({
@@ -10,7 +11,7 @@ const fixture = (id, status = 'ONGOING') => ({
   results: { score: { faction1: 1, faction2: 0 } }
 });
 
-function makeController({ matches, node = null } = {}) {
+function makeController({ matches, node = null, notify = () => {} } = {}) {
   const status = { textContent: '' };
   const list = node || { replaceChildren(value) { this.content = value; } };
   const input = { value: `https://www.faceit.com/en/championship/${uuid}/test` };
@@ -18,7 +19,7 @@ function makeController({ matches, node = null } = {}) {
     input, status, list, interval: 100000,
     clientFactory: () => ({ matches: matches || (async () => []) }),
     watchFactory: () => ({ watch() {}, stop() {} }),
-    notify() {}
+    notify
   });
   return { controller, status, list };
 }
@@ -161,11 +162,13 @@ test('retains prior cards when all sources fail', async () => {
 });
 
 test('connect values are held only in controller memory and first observation is non-alerting', async () => {
-  const { controller } = makeController({ matches: async () => [fixture(uuid)] });
+  const alerts = [];
+  const { controller } = makeController({ matches: async () => [fixture(uuid)], notify: m => alerts.push(m) });
   await controller.start();
   assert.equal(controller.state.matches.size, 1);
-  assert.equal(controller.state.connects.size, 0);
-  assert.equal(controller.state.seeded, true);
+  assert.equal(controller.state.connects.size, 0); // nothing persisted, nothing to restore
+  assert.equal([...controller.state.matches.values()][0].connect, null);
+  assert.deepEqual(alerts, []); // a first successful poll is not an event
   controller.destroy();
 });
 
@@ -568,12 +571,10 @@ test('copy buttons write correct text to clipboard', async () => {
     // Instead, test the data helpers directly through the state.
     const record = controller.state.matches.get('m1');
     const [teamA, teamB] = record.teams;
-    const pushA = qualificationPushLink(teamA.players[0].camera);
-    const pushB = qualificationPushLink(teamB.players[0].camera);
+    const pushA = pushUrl(teamA.players[0].camera);
+    const pushB = pushUrl(teamB.players[0].camera);
     assert.match(pushA, /room=.+&push=PlayerOne$/);
     assert.match(pushB, /room=.+&push=PlayerTwo$/);
-    const roomLink = qualificationRoomLink(record.room);
-    assert.match(roomLink, /^https:\/\/vdo\.ninja\/\?room=[a-z0-9_]+$/);
     const teamText = qualificationTeamText('Team A', [{ nickname: 'PlayerOne', link: pushA }]);
     assert.match(teamText, /^## Team A\n/);
     assert.match(teamText, /\*\*PlayerOne\*\* /);
