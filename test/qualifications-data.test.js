@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   normalizeQualificationMatch, safeQualificationUrl, mergeQualificationMatches,
-  qualificationEvents, validateQualificationConnect, validateQualificationId, qualificationIdCollisions
+  qualificationEvents, validateQualificationConnect, validateQualificationId, qualificationIdCollisions,
+  qualificationVdo, vdoSafeName
 } from '../qualifications-data.js';
 
 const match = (id, status = 'ONGOING') => ({ match_id: id, status, teams: {
@@ -96,6 +97,35 @@ test('a raw match that happens to carry a match object is not mistaken for a nor
   assert.equal(merged.has('real-1'), true);
   assert.equal(merged.has('decoy'), false);
   assert.deepEqual(merged.get('real-1').match.teams, ['<img src=x>', 'B']);
+});
+
+test('stream IDs read as FACEIT nicknames, one room per match', () => {
+  const teams = [
+    { name: 'Team Alpha', players: [{ nickname: 'Player.One' }, { nickname: 'Ace' }] },
+    { name: 'Team Beta', players: [{ nickname: 'Ace' }] }
+  ];
+  const a = qualificationVdo('champ-1', '1-uuid-a', teams);
+  assert.deepEqual(a, qualificationVdo('champ-1', '1-uuid-a', teams)); // reload keeps links
+  assert.equal(a.players[0].id, 'PlayerOne');                          // nickname drives the ID
+  assert.equal(a.players[1].id, 'Ace');
+  assert.equal(a.players[2].id, 'Ace_2');            // same nick, one room: no collision
+  for (const player of a.players) assert.match(player.id, /^[A-Za-z0-9_]{1,64}$/);
+  assert.match(a.room, /^[a-z0-9_]{1,64}$/);
+  assert.match(a.room, /teamalpha_teambeta/);        // the room says who plays
+  assert.notEqual(a.room, qualificationVdo('champ-1', '1-uuid-b', teams).room);
+});
+
+test('Cyrillic, emoji and punctuation never break a VDO ID', () => {
+  const v = qualificationVdo('c', 'm', [{ name: 'Команда «А»', players: [{ nickname: 'Игрок #7' }, { nickname: '💥boom' }] }]);
+  for (const player of v.players) assert.match(player.id, /^[A-Za-z0-9_]{1,64}$/);
+  assert.equal(v.players[0].id, 'player7');          // one Latin char is not a readable name
+  assert.equal(v.players[1].id, 'boom');
+});
+
+test('vdoSafeName strips what VDO.Ninja strips and never returns empty', () => {
+  assert.equal(vdoSafeName('Player.One'), 'PlayerOne');
+  assert.equal(vdoSafeName('💥💥'), 'cam');
+  assert.equal(vdoSafeName('x'.repeat(40)).length, 16);
 });
 
 test('reports duplicate stream IDs after sanitization', () => {

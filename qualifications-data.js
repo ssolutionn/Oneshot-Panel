@@ -42,6 +42,41 @@ export function normalizeQualificationMatch(raw) {
   return { match, teams, connect: null };
 }
 
+// VDO keeps only [A-Za-z0-9_] in an ID; a one-letter base reads as noise.
+export const vdoSafeName = (text, max = 16) => {
+  const base = String(text || '').normalize('NFKD').replace(/[^A-Za-z0-9]/g, '').slice(0, max);
+  return base.length >= 2 ? base : (base ? 'player' + base : 'cam');
+};
+const fnv = text => {
+  let hash = 0x811c9dc5;
+  for (const ch of String(text)) { hash ^= ch.codePointAt(0); hash = Math.imul(hash, 0x01000193) >>> 0; }
+  return hash;
+};
+const tail = (text, n) => {
+  let hash = fnv(text), out = '';
+  for (let i = 0; i < n; i++) {
+    out += 'abcdefghijkmnpqrstuvwxyz23456789'[hash % 32];
+    hash = Math.floor(hash / 32) + fnv(out);
+  }
+  return out;
+};
+// Stream IDs read as FACEIT nicknames so a player recognises his own link,
+// and one match is one room. Same input gives the same links after a reload,
+// else links sent to players die; a repeated nickname gets `_2`, `_3`.
+export function qualificationVdo(championshipId, matchId, teams = []) {
+  const prefix = (teams || []).map(team => vdoSafeName(team.name, 12).toLowerCase()).join('_') || 'match';
+  const room = `${prefix}_${tail(`${championshipId}|${matchId}`, 6)}`.slice(0, 60);
+  const used = new Map();
+  const players = [];
+  for (const team of teams || []) for (const player of team.players || []) {
+    const base = vdoSafeName(player.nickname, 16);
+    const seen = (used.get(base.toLowerCase()) || 0) + 1;
+    used.set(base.toLowerCase(), seen);
+    players.push({ nickname: player.nickname, id: seen === 1 ? base : `${base}_${seen}` });
+  }
+  return { room, players };
+}
+
 // A normalized record has a match summary; a raw FACEIT item does not. The
 // summary may still carry its own `match` key tomorrow, so do not test for it.
 const isRecord = value => Boolean(value?.match?.statusText !== undefined || value?.match?.teams);
