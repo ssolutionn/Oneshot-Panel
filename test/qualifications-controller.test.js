@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createQualificationsController, matchQualificationPlayers } from '../qualifications-controller.js';
+import { createQualificationsController, matchQualificationPlayers, inputFocusedIn } from '../qualifications-controller.js';
 
 const uuid = '12345678-1234-1234-1234-123456789abc';
 const fixture = (id, status = 'ONGOING') => ({
@@ -287,6 +287,48 @@ test('loads players from match details when the championship list has no roster'
     assert.deepEqual(detailCalls, [roomId]);
   } finally {
     controller.destroy();
+  }
+});
+
+test('retries a failed roster detail call on a later poll', async () => {
+  const roomId = `1-${uuid}`;
+  const bare = { match_id: roomId, status: 'ONGOING', teams: { faction1: { name: 'Team Alpha' }, faction2: { name: 'Team Beta' } }, results: { score: { faction1: 0, faction2: 0 } } };
+  let fail = true;
+  const calls = [];
+  const controller = createQualificationsController({
+    input: { value: `https://www.faceit.com/en/championship/${uuid}/test` },
+    list: { replaceChildren() {} },
+    clientFactory: () => ({
+      async matches() { return [bare]; },
+      async match(id) { calls.push(id); if (fail) throw Error('offline'); return { ...bare, teams: { faction1: { name: 'Team Alpha', roster: [] }, faction2: { name: 'Team Beta' } } }; }
+    }),
+    watchFactory: () => ({ watch() {}, stop() {} }),
+    interval: 100000
+  });
+  try {
+    await controller.start();
+    assert.deepEqual(calls, [roomId]);
+    fail = false;
+    await controller.poll();
+    assert.deepEqual(calls, [roomId, roomId]);
+  } finally {
+    controller.destroy();
+  }
+});
+
+test('inputFocusedIn detects only a text input focus inside the card list', () => {
+  const previous = globalThis.document;
+  const input = { tagName: 'INPUT', type: 'text' };
+  const list = { contains: el => el === input };
+  globalThis.document = { activeElement: input };
+  try {
+    assert.equal(inputFocusedIn(list), true);
+    globalThis.document = { activeElement: { tagName: 'BUTTON' } };
+    assert.equal(inputFocusedIn(list), false);
+    globalThis.document = { activeElement: null };
+    assert.equal(inputFocusedIn(list), false);
+  } finally {
+    globalThis.document = previous;
   }
 });
 

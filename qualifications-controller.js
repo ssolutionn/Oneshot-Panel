@@ -61,6 +61,13 @@ function teamNameFromPlayer(player, snapshot) {
   return '';
 }
 
+// A camera tick or poll must not wipe the field the operator is typing into.
+export function inputFocusedIn(list) {
+  if (typeof document === 'undefined') return false;
+  const active = document.activeElement;
+  return Boolean(list?.contains?.(active) && active?.tagName === 'INPUT' && active.type === 'text');
+}
+
 function safeText(node, value) {
   if (node) node.textContent = String(value ?? '');
 }
@@ -88,7 +95,7 @@ export function createQualificationsController({
   const state = {
     client: null, timer: null, generation: 0, inFlight: null, matches: new Map(),
     connects: new Map(), watcher: null, online: new Set(), checking: new Set(),
-    seeded: false, stopped: true, lastError: '', championshipId: '', degraded: false, rosterCache: new Map()
+    seeded: false, stopped: true, lastError: '', championshipId: '', degraded: false, down: false, rosterCache: new Map()
   };
 
   const cameraAssignments = new Map();
@@ -101,8 +108,7 @@ export function createQualificationsController({
 
   function render() {
     if (!list || typeof document === 'undefined') return;
-    // A camera tick must not yank the field the operator is typing into.
-    if (list.contains?.(document.activeElement) && document.activeElement?.id === 'qualificationsConnect') return;
+    if (inputFocusedIn(list)) return;
     const fragment = document.createDocumentFragment();
     for (const record of state.matches.values()) {
       const { match, teams, rosterAvailable } = record;
@@ -239,7 +245,7 @@ export function createQualificationsController({
     }
     await Promise.all([...new Set(wanted)].map(async id => {
       try { state.rosterCache.set(id, await state.client.match(id)); }
-      catch { state.rosterCache.set(id, null); }
+      catch { /* retry on a later poll rather than freezing the empty roster */ }
     }));
     for (const record of state.matches.values()) {
       if (record.teams.some(team => team.players.length)) continue;
@@ -284,7 +290,14 @@ export function createQualificationsController({
         const previous = state.matches;
         const before = new Map(previous);
         const merged = mergeQualificationMatches(previous, results);
-        if (!successes.length) throw new Error('FACEIT временно недоступен; последние данные сохранены.');
+        if (!successes.length) {
+          // Keep the cards, but say it once per outage, not every poll.
+          if (!state.down) notify('FACEIT временно недоступен; последние данные сохранены.', { error: true });
+          state.down = true;
+          state.lastError = 'FACEIT временно недоступен; последние данные сохранены.';
+          safeText(status, state.lastError);
+          return;
+        }
         state.matches = merged;
         state.seeded = true;
         await hydrateRosters();
@@ -310,14 +323,18 @@ export function createQualificationsController({
         const degraded = results.some(result => result.status === 'rejected');
         if (degraded && !state.degraded) notify('Часть списков FACEIT недоступна.');
         state.degraded = degraded;
+        state.down = false;
         state.lastError = '';
+        state.lastNotified = '';
         if (alert) alert.hidden = true;
         try { localStorage.setItem(URL_STORE, JSON.stringify(input?.value || '')); } catch { /* not kept */ }
       } catch (error) {
         if (generation !== state.generation || state.stopped) return;
         state.lastError = error?.message || 'Не удалось обновить FACEIT.';
         safeText(status, state.lastError);
-        notify(state.lastError, { error: true });
+        // A bad link or a missing key repeats identically; say it once.
+        if (state.lastError !== state.lastNotified) notify(state.lastError, { error: true });
+        state.lastNotified = state.lastError;
       }
     })();
     const wrapped = request.finally(() => {
@@ -348,7 +365,6 @@ export function createQualificationsController({
 
   const clickHandler = event => {
     if (!event.target?.matches?.('[data-qualification-copy-player]')) return;
-    const card = event.target.closest('[data-match-id]');
     const playerId = event.target.dataset.qualificationCopyPlayer;
     const camera = cameraFor(playerId);
     if (!camera?.id || !camera.room) return;
