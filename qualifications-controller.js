@@ -320,12 +320,22 @@ export function createQualificationsController({
     list.replaceChildren(fragment);
   }
 
+  // Only watch live matches and upcoming matches starting within 1 hour.
+// Otherwise 32 matches × 10 players = 320 hidden iframes, and CamWatch reconnects waste resources.
+  const isWatched = (record, now = Date.now()) => {
+    const m = record.match;
+    if (m.status === 'ONGOING') return true;
+    if (m.status === 'SCHEDULED' && m.scheduledAt && m.scheduledAt - now < 60 * 60 * 1000) return true;
+    return false;
+  };
+
   const rebuildWatchers = snapshot => {
     state.online = new Set();
     state.checking = new Set();
     cameraAssignments.clear();
     const groups = new Map();
     for (const record of state.matches.values()) {
+      if (!isWatched(record)) continue;
       for (const team of record.teams || []) for (const player of team.players || []) {
         const camera = player.camera;
         const id = camera ? vdoId(camera.id) : '';
