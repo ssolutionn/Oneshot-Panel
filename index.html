@@ -329,7 +329,11 @@
         <div class="panel-heading"><div><span class="eyebrow">FACEIT QUALIFICATIONS</span><h2 id="qualificationsHeading">Квалификации</h2></div></div>
         <form id="qualificationsForm" class="lobby-form" autocomplete="off">
           <label class="lobby-url"><span class="mini-label">Ссылка на чемпионат FACEIT</span><input id="qualificationsUrl" type="url" autocomplete="off" spellcheck="false" required></label>
-          <label><span class="mini-label">API-ключ FACEIT</span><input id="qualificationsKey" class="api-token" type="password" autocomplete="off"></label>
+          <details class="qkey-more">
+            <summary>Свой API-ключ FACEIT (необязательно)</summary>
+            <label class="qkey-hint"><span class="mini-label">API-ключ FACEIT</span><input id="qualificationsKey" class="api-token" type="password" autocomplete="off"></label>
+            <p class="qkey-note">На сайте ключ уже настроен в секретах Cloudflare Pages (<code>FACEIT_API_KEY</code>); поле нужно только для локальной проверки.</p>
+          </details>
           <button class="button primary" type="submit">Следить</button>
         </form>
         <p id="qualificationsStatus" class="lobby-status" role="status">Вставь ссылку на чемпионат.</p>
