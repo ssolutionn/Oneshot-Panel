@@ -445,6 +445,24 @@ body.dock { background:var(--bg); font-size:12px; }
 .lobby-form input,.lobby-delay input,.next-pick select { display:block; width:100%; min-width:0; padding:9px 10px; border:1px solid var(--field-line); border-radius:5px; background:var(--field); color:var(--ink); font-size:12px; }
 .lobby-status { margin:0; padding:10px 16px; border-top:1px solid var(--divider); background:var(--surface-2); color:var(--muted); font-size:11px; line-height:1.6; }
 .lobby-panel .error-box { margin:0 16px 12px; }
+.qualifications-view .qualifications-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 12px;
+}
+.qualifications-view .qualification-card {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  overflow-wrap: anywhere;
+}
+.qualifications-view .qualification-card h3,
+.qualifications-view .qualification-card h4 { margin: 0 0 8px; }
+.qualifications-view .qualification-card input { max-width: 100%; }
+.qualifications-view .qualification-card button { margin: 4px; }
+
 .lobby-alert { position:sticky; top:8px; z-index:5; display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; padding:14px 16px; border-radius:8px; background:var(--red); color:var(--on-accent); box-shadow:var(--panel-shadow); font-size:13px; line-height:1.5; }
 .lobby-matches { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:12px; margin-bottom:12px; }
 .lobby-match { display:grid; gap:12px; padding:14px 16px; background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--btn-line); border-radius:8px; min-width:0; }
@@ -856,6 +874,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
     </section>
 
     </div>
+
 
 
 
