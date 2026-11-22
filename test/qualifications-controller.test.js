@@ -241,6 +241,33 @@ test('waits quietly for a championship link instead of alerting on every poll', 
   }
 });
 
+test('loads players from match details when the championship list has no roster', async () => {
+  const detailCalls = [];
+  const roomId = `1-${uuid}`;
+  const bare = { match_id: roomId, status: 'ONGOING', teams: { faction1: { name: 'Team Alpha' }, faction2: { name: 'Team Beta' } }, results: { score: { faction1: 0, faction2: 0 } } };
+  const detail = { ...bare, teams: { faction1: { name: 'Team Alpha', roster: [{ player_id: 'p1', nickname: 'Player.One' }] }, faction2: { name: 'Team Beta' } } };
+  const controller = createQualificationsController({
+    input: { value: `https://www.faceit.com/en/championship/${uuid}/test` },
+    list: { replaceChildren() {} },
+    panel: { snapshot: () => ({ a: { name: 'Team Alpha' }, playersA: [{ nick: 'Player One', id: 'stream_a', room: 'room_a' }], playersB: [] }) },
+    clientFactory: () => ({
+      async matches() { return [bare]; },
+      async match(id) { detailCalls.push(id); return detail; }
+    }),
+    watchFactory: () => ({ watch() {}, stop() {} }),
+    interval: 100000
+  });
+  try {
+    await controller.start();
+    assert.deepEqual(detailCalls, [roomId]);
+    assert.equal(controller.state.matches.get(roomId).teams[0].players[0].camera.id, 'stream_a');
+    await controller.poll();
+    assert.deepEqual(detailCalls, [roomId]);
+  } finally {
+    controller.destroy();
+  }
+});
+
 test('match-room URL is rejected instead of queried as championship ID', async () => {
   const calls = [];
   const controller = createQualificationsController({

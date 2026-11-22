@@ -76,7 +76,7 @@ export function createQualificationsController({
   const state = {
     client: null, timer: null, generation: 0, inFlight: null, matches: new Map(),
     connects: new Map(), watcher: null, online: new Set(), checking: new Set(),
-    seeded: false, stopped: true, lastError: '', championshipId: '', degraded: false
+    seeded: false, stopped: true, lastError: '', championshipId: '', degraded: false, rosterCache: new Map()
   };
 
   const cameraAssignments = new Map();
@@ -214,6 +214,28 @@ export function createQualificationsController({
     return snapshot;
   };
 
+  // The championship matches list can omit players; match details carry the
+  // roster. One detail call per room id, cached until the championship changes.
+  async function hydrateRosters() {
+    if (typeof state.client?.match !== 'function') return;
+    const wanted = [];
+    for (const record of state.matches.values()) {
+      if (record.teams.some(team => team.players.length)) continue;
+      const id = record.match?.id || '';
+      if (!/^1-[0-9a-f-]{36}$/i.test(id)) continue;
+      if (!state.rosterCache.has(id)) wanted.push(id);
+    }
+    await Promise.all([...new Set(wanted)].map(async id => {
+      try { state.rosterCache.set(id, await state.client.match(id)); }
+      catch { state.rosterCache.set(id, null); }
+    }));
+    for (const record of state.matches.values()) {
+      if (record.teams.some(team => team.players.length)) continue;
+      const detail = state.rosterCache.get(record.match?.id);
+      if (detail) Object.assign(record, normalizeQualificationMatch(detail));
+    }
+  }
+
   async function poll() {
     if (state.stopped || state.inFlight) return state.inFlight;
     const generation = state.generation;
@@ -238,6 +260,7 @@ export function createQualificationsController({
           state.online = new Set();
           state.checking = new Set();
           cameraAssignments.clear();
+          state.rosterCache.clear();
           state.seeded = false;
           render();
         }
@@ -252,6 +275,7 @@ export function createQualificationsController({
         if (!successes.length) throw new Error('FACEIT временно недоступен; последние данные сохранены.');
         state.matches = merged;
         state.seeded = true;
+        await hydrateRosters();
         const snapshot = panel?.snapshot?.();
         for (const record of state.matches.values()) {
           record.raw ||= record.match;
