@@ -84,9 +84,10 @@ export function qualificationPushLink({ id, room, password = '' }) {
   return `https://vdo.ninja/?room=${encodeURIComponent(room)}${pw}&broadcast&do&push=${encodeURIComponent(id)}`;
 }
 
-// Room link opens the VDO room so the operator sees all active streams of the match.
+// The VDO room page itself lists every stream that is publishing there —
+// one click shows all players of the match, no extra parameters needed.
 export function qualificationRoomLink(room) {
-  return `https://vdo.ninja/?room=${encodeURIComponent(room)}&list`;
+  return `https://vdo.ninja/?room=${encodeURIComponent(room)}`;
 }
 
 // Text for one team, same contract as core.playerText (## Team / **Nick** <push>).

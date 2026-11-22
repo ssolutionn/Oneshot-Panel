@@ -109,21 +109,6 @@ export function createQualificationsController({
   };
   const cameraFor = playerId => cameraAssignments.get(validateQualificationId(playerId)) || null;
 
-  // Checked players live in localStorage as plain keys, never links or secrets.
-  const checkedSet = new Set();
-  const CHECK_STORE = 'oneshot-qualifications-checked';
-  const checkedKeyFor = player => `${state.championshipId}|${player.id || player.nickname}`;
-  const loadChecked = () => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(CHECK_STORE) || '[]');
-      for (const key of Array.isArray(saved) ? saved : []) if (typeof key === 'string') checkedSet.add(key);
-    } catch { /* nothing kept */ }
-  };
-  const saveChecked = () => {
-    try { localStorage.setItem(CHECK_STORE, JSON.stringify([...checkedSet].slice(-500))); } catch { /* not kept */ }
-  };
-  loadChecked();
-
   function render() {
     if (!list || typeof document === 'undefined') return;
     if (inputFocusedIn(list)) return;
@@ -176,17 +161,20 @@ export function createQualificationsController({
           safeText(h4, team.name);
           const count = document.createElement('span');
           count.className = 'qcount';
-          const checkedCount = team.players.filter(p => checkedSet.has(checkedKeyFor(p))).length;
-          safeText(count, `${checkedCount}/${team.players.length}`);
+          const onlineCount = team.players.filter(p => {
+            const stream = streamFor(p.id);
+            return stream && state.online.has(stream);
+          }).length;
+          safeText(count, `${onlineCount}/${team.players.length} онлайн`);
           h4.append(' ', count);
           section.append(h4);
           const ul = document.createElement('ul');
           for (const player of team.players) {
             const li = document.createElement('li');
             const cam = player.camera;
-            const streamUrl = cam?.id ? `https://vdo.ninja/?room=${encodeURIComponent(cam.room)}&push=${encodeURIComponent(cam.id)}` : '';
-            const online = state.online.has(streamUrl);
-            const checking = state.checking.has(streamUrl);
+            const stream = streamFor(player.id);
+            const online = Boolean(stream) && state.online.has(stream);
+            const checking = Boolean(stream) && state.checking.has(stream);
             li.dataset.cam = online ? 'online' : checking ? 'checking' : 'off';
             const dot = document.createElement('span');
             dot.className = 'qdot';
@@ -206,17 +194,6 @@ export function createQualificationsController({
               safeText(copy, 'Ссылка');
               acts.append(copy);
             }
-            // Verify checkbox
-            const key = checkedKeyFor(player);
-            const label = document.createElement('label');
-            label.className = 'qverify';
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.dataset.qVerify = key;
-            cb.checked = checkedSet.has(key);
-            label.append(cb);
-            label.append(document.createTextNode(' ок'));
-            acts.append(label);
             li.append(acts);
             ul.append(li);
           }
@@ -231,39 +208,21 @@ export function createQualificationsController({
         card.append(missing);
       }
 
-      // Footer: room, copy buttons, FACEIT link, connect
+      // Footer: four clear actions only, no jargon.
       const foot = document.createElement('footer');
       foot.className = 'qcard-foot';
       if (record.room) {
         const openRoom = document.createElement('button');
         openRoom.type = 'button';
+        openRoom.className = 'qprimary';
         openRoom.dataset.qOpenRoom = '';
-        safeText(openRoom, 'Комната ↗');
+        safeText(openRoom, 'Открыть комнату');
         foot.append(openRoom);
-        const copyRoom = document.createElement('button');
-        copyRoom.type = 'button';
-        copyRoom.dataset.qCopyRoom = '';
-        safeText(copyRoom, 'Ссылка на комнату');
-        foot.append(copyRoom);
-      }
-      if (teams[0]) {
-        const copyA = document.createElement('button');
-        copyA.type = 'button';
-        copyA.dataset.qCopyTeam = '0';
-        safeText(copyA, 'Ссылки A');
-        foot.append(copyA);
-      }
-      if (teams[1]) {
-        const copyB = document.createElement('button');
-        copyB.type = 'button';
-        copyB.dataset.qCopyTeam = '1';
-        safeText(copyB, 'Ссылки B');
-        foot.append(copyB);
       }
       const copyAll = document.createElement('button');
       copyAll.type = 'button';
       copyAll.dataset.qCopyAll = '';
-      safeText(copyAll, 'Все ссылки');
+      safeText(copyAll, 'Скопировать все ссылки');
       foot.append(copyAll);
 
       const href = safeQualificationUrl(record.raw?.faceit_url || match.url);
@@ -272,14 +231,17 @@ export function createQualificationsController({
         link.className = 'qlink';
         link.href = href;
         link.rel = 'noopener';
-        safeText(link, 'FACEIT');
+        safeText(link, 'Матч на FACEIT ↗');
         foot.append(link);
       }
 
+      const connectRow = document.createElement('div');
+      connectRow.className = 'qconnect-row';
       const connect = document.createElement('input');
       connect.type = 'text';
       connect.className = 'qconnect';
       connect.maxLength = MAX_CONNECT_LENGTH;
+      connect.placeholder = 'connect 1.2.3.4:27015';
       connect.setAttribute('aria-label', `Ручная CS2 connect-команда для ${match.teams.join(' vs ')}`);
       connect.value = state.connects.get(match.id) || '';
       connect.addEventListener('input', () => {
@@ -291,11 +253,11 @@ export function createQualificationsController({
           state.connects.set(match.id, value);
         }
       });
-      foot.append(connect);
+      connectRow.append(connect);
       const copyConnect = document.createElement('button');
       copyConnect.type = 'button';
       copyConnect.dataset.qCopyConnect = '';
-      safeText(copyConnect, 'Копировать connect');
+      safeText(copyConnect, 'Копировать');
       copyConnect.addEventListener('click', async () => {
         const value = state.connects.get(match.id);
         if (!value) return;
@@ -306,7 +268,8 @@ export function createQualificationsController({
           safeText(status, 'Не удалось скопировать команду.');
         }
       });
-      foot.append(copyConnect);
+      connectRow.append(copyConnect);
+      foot.append(connectRow);
 
       card.append(foot);
       fragment.append(card);
@@ -541,16 +504,6 @@ export function createQualificationsController({
       if (player?.camera?.id) void copyToClipboard(qualificationPushLink(player.camera));
       return;
     }
-    // Team links
-    if (target?.matches?.('[data-q-copy-team]')) {
-      const idx = Number(target.dataset.qCopyTeam);
-      const team = record.teams[idx];
-      if (team) {
-        const players = team.players.map(p => ({ nickname: p.nickname, link: p.camera?.id ? qualificationPushLink(p.camera) : '' }));
-        void copyToClipboard(qualificationTeamText(team.name, players), 'Ссылки команды скопированы.');
-      }
-      return;
-    }
     // All links (both teams)
     if (target?.matches?.('[data-q-copy-all]')) {
       const teams = record.teams.map(t => ({
@@ -568,14 +521,6 @@ export function createQualificationsController({
     // Open room
     if (target?.matches?.('[data-q-open-room]') && record.room) {
       window.open?.(qualificationRoomLink(record.room), '_blank', 'noopener');
-      return;
-    }
-    // Verify checkbox
-    if (target?.matches?.('[data-q-verify]') && target.type === 'checkbox') {
-      const key = target.dataset.qVerify;
-      if (target.checked) checkedSet.add(key); else checkedSet.delete(key);
-      saveChecked();
-      render();
       return;
     }
   };

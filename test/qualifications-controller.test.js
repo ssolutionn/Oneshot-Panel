@@ -535,7 +535,7 @@ test('copy buttons write correct text to clipboard', async () => {
     assert.match(pushA, /room=.+&push=PlayerOne$/);
     assert.match(pushB, /room=.+&push=PlayerTwo$/);
     const roomLink = qualificationRoomLink(record.room);
-    assert.match(roomLink, /room=.+&list$/);
+    assert.match(roomLink, /^https:\/\/vdo\.ninja\/\?room=[a-z0-9_]+$/);
     const teamText = qualificationTeamText('Team A', [{ nickname: 'PlayerOne', link: pushA }]);
     assert.match(teamText, /^## Team A\n/);
     assert.match(teamText, /\*\*PlayerOne\*\* /);

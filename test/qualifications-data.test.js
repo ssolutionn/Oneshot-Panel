@@ -136,8 +136,8 @@ test('qualificationPushLink matches core.pushUrl format', () => {
     'https://vdo.ninja/?room=q123&password=pw&broadcast&do&push=Ace_abc');
 });
 
-test('qualificationRoomLink opens the room list of active streams', () => {
-  assert.equal(qualificationRoomLink('q123'), 'https://vdo.ninja/?room=q123&list');
+test('qualificationRoomLink opens the room of active streams', () => {
+  assert.equal(qualificationRoomLink('q123'), 'https://vdo.ninja/?room=q123');
 });
 
 test('qualificationTeamText and qualificationMatchText format like playerText in core.js', () => {
