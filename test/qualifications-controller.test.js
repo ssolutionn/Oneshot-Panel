@@ -290,6 +290,30 @@ test('loads players from match details when the championship list has no roster'
   }
 });
 
+test('keeps the list card when the detail endpoint returns a non-match payload', async () => {
+  const roomId = `1-${uuid}`;
+  const bare = { match_id: roomId, status: 'ONGOING', faceit_url: `https://www.faceit.com/en/room/${roomId}`,
+    teams: { faction1: { name: 'Team Alpha' }, faction2: { name: 'Team Beta' } }, results: { score: { faction1: 0, faction2: 0 } } };
+  const controller = createQualificationsController({
+    input: { value: `https://www.faceit.com/en/championship/${uuid}/test` },
+    list: { replaceChildren() {} },
+    clientFactory: () => ({
+      async matches() { return [bare]; },
+      async match() { return { items: [] }; }
+    }),
+    watchFactory: () => ({ watch() {}, stop() {} }),
+    interval: 100000
+  });
+  try {
+    await controller.start();
+    const record = controller.state.matches.get(roomId);
+    assert.equal(record.match.teams[0], 'Team Alpha');
+    assert.equal(record.rosterAvailable, false);
+  } finally {
+    controller.destroy();
+  }
+});
+
 test('retries a failed roster detail call on a later poll', async () => {
   const roomId = `1-${uuid}`;
   const bare = { match_id: roomId, status: 'ONGOING', teams: { faction1: { name: 'Team Alpha' }, faction2: { name: 'Team Beta' } }, results: { score: { faction1: 0, faction2: 0 } } };
@@ -329,6 +353,31 @@ test('inputFocusedIn detects only a text input focus inside the card list', () =
     assert.equal(inputFocusedIn(list), false);
   } finally {
     globalThis.document = previous;
+  }
+});
+
+test('the default client calls the same-origin proxy with an absolute URL', async () => {
+  const previous = { location: globalThis.location, fetch: globalThis.fetch };
+  const calls = [];
+  globalThis.location = new URL('https://panel.example/prep');
+  globalThis.fetch = async (url, options) => {
+    calls.push(String(url));
+    return new Response(JSON.stringify({ items: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  const controller = createQualificationsController({
+    input: { value: `https://www.faceit.com/en/championship/${uuid}/test` },
+    list: { replaceChildren() {} },
+    watchFactory: () => ({ watch() {}, stop() {} }),
+    interval: 100000
+  });
+  try {
+    await controller.start();
+    assert.equal(calls.length, 3);
+    assert.ok(calls.every(url => url.startsWith('https://panel.example/api/faceit?')), calls.join('\n'));
+  } finally {
+    controller.destroy();
+    globalThis.location = previous.location;
+    globalThis.fetch = previous.fetch;
   }
 });
 

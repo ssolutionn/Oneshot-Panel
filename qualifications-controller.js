@@ -81,7 +81,8 @@ export function createQualificationsController({
   status = $('qualificationsStatus'),
   list = $('qualificationsMatches'),
   alert = $('qualificationsAlert'),
-  clientFactory = key => new FaceitClient(key, (...args) => fetch(...args), { proxy: FACEIT_PROXY }),
+  clientFactory = key => new FaceitClient(key, (...args) => fetch(...args),
+    { proxy: typeof location === 'undefined' ? FACEIT_PROXY : new URL(FACEIT_PROXY, location.origin).href }),
   watchFactory = onChange => new CamWatch(onChange),
   notify = (message, { error = false } = {}) => {
     if (alert) {
@@ -250,7 +251,9 @@ export function createQualificationsController({
     for (const record of state.matches.values()) {
       if (record.teams.some(team => team.players.length)) continue;
       const detail = state.rosterCache.get(record.match?.id);
-      if (detail) Object.assign(record, normalizeQualificationMatch(detail));
+      // Only a real match answer may replace the list data; a stray payload
+      // (proxy error body, an {items} list) must not erase the existing card.
+      if (detail?.match_id) Object.assign(record, normalizeQualificationMatch(detail));
     }
   }
 

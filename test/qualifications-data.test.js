@@ -88,6 +88,16 @@ test('retains previous cards when any list type failed', () => {
   assert.equal(merged.has('new-1'), true);
 });
 
+test('a raw match that happens to carry a match object is not mistaken for a normalized record', () => {
+  // Regression: detection used to be `raw.match ? raw : normalize(raw)`, so any
+  // future API field named `match` produced empty cards instead of data.
+  const raw = { ...match('real-1'), match: { id: 'decoy' } };
+  const merged = mergeQualificationMatches(new Map(), [{ status: 'fulfilled', value: [raw] }]);
+  assert.equal(merged.has('real-1'), true);
+  assert.equal(merged.has('decoy'), false);
+  assert.deepEqual(merged.get('real-1').match.teams, ['<img src=x>', 'B']);
+});
+
 test('reports duplicate stream IDs after sanitization', () => {
   assert.deepEqual(qualificationIdCollisions(['q_match_player', 'q_match_player', 'q_other']), ['q_match_player']);
 });

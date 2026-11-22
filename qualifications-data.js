@@ -42,6 +42,10 @@ export function normalizeQualificationMatch(raw) {
   return { match, teams, connect: null };
 }
 
+// A normalized record has a match summary; a raw FACEIT item does not. The
+// summary may still carry its own `match` key tomorrow, so do not test for it.
+const isRecord = value => Boolean(value?.match?.statusText !== undefined || value?.match?.teams);
+
 // A fully successful poll replaces the card set, so matches that left the API
 // disappear. If any list failed, the previous cards not seen are kept for the
 // duration of the outage rather than silently vanishing from the desk.
@@ -56,7 +60,7 @@ export function mergeQualificationMatches(previous, settledResults) {
     }
     for (const raw of result.value) {
       if (merged.size >= 32) break;
-      const normalized = raw?.match ? raw : normalizeQualificationMatch(raw);
+      const normalized = isRecord(raw) ? raw : normalizeQualificationMatch(raw);
       if (normalized.match?.id) merged.set(normalized.match.id, normalized);
     }
   }
