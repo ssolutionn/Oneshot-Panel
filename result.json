@@ -88,8 +88,11 @@
       "tail": "PASS: chromium camera cover/pan/rotation preview, one connection, player persistence across slots/reload, JSON/live parity, mobile, frame setting and outdated-dock rejection\n"
     },
     "editor_webkit": {
-      "status": "running"
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 5.9,
+      "tail": "PASS: webkit camera cover/pan/rotation preview, one connection, player persistence across slots/reload, JSON/live parity, mobile, frame setting and outdated-dock rejection\n"
     }
   },
-  "updated_at": "2026-11-22T09:32:17.544136+00:00"
+  "updated_at": "2026-11-22T09:32:25.117837+00:00"
 }
