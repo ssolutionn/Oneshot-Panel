@@ -62,7 +62,7 @@ export function createQualificationsController({
   const state = {
     client: null, timer: null, generation: 0, inFlight: null, matches: new Map(),
     connects: new Map(), watchers: [], online: new Set(), checking: new Set(),
-    seeded: false, stopped: true, lastError: ''
+    seeded: false, stopped: true, lastError: '', championshipId: ''
   };
 
   const cameraAssignments = new Map();
@@ -205,6 +205,18 @@ export function createQualificationsController({
       try {
         const target = parseFaceitUrl(input?.value);
         if (!target || target.kind !== 'championship') throw new Error('Вставьте ссылку на чемпионат FACEIT, не на комнату матча.');
+        if (state.championshipId && state.championshipId !== target.id) {
+          state.matches = new Map();
+          state.connects.clear();
+          for (const watcher of state.watchers) watcher.stop();
+          state.watchers = [];
+          state.online = new Set();
+          state.checking = new Set();
+          cameraAssignments.clear();
+          state.seeded = false;
+          render();
+        }
+        state.championshipId = target.id;
         if (!state.client) state.client = clientFactory(keyInput?.value || '');
         const results = await Promise.allSettled(['ongoing', 'upcoming', 'past'].map(type => state.client.matches(target.id, type, MAX_MATCHES)));
         if (generation !== state.generation || state.stopped) return;

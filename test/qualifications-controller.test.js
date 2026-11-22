@@ -146,6 +146,31 @@ test('connect values are held only in controller memory and first observation is
   controller.destroy();
 });
 
+test('changing the championship clears the previous cards and connect strings', async () => {
+  const otherUuid = '87654321-4321-4321-4321-cba987654321';
+  const input = { value: `https://www.faceit.com/en/championship/${uuid}/a` };
+  let fail = false;
+  const controller = createQualificationsController({
+    input, list: { replaceChildren() {} },
+    clientFactory: () => ({ async matches() { if (fail) throw Error('offline'); return [fixture('match-1')]; } }),
+    watchFactory: () => ({ watch() {}, stop() {} }),
+    interval: 100000
+  });
+  try {
+    await controller.start();
+    assert.equal(controller.state.matches.has('match-1'), true);
+    controller.state.connects.set('match-1', 'connect 1.2.3.4');
+    input.value = `https://www.faceit.com/en/championship/${otherUuid}/b`;
+    fail = true;
+    await controller.poll();
+    assert.equal(controller.state.matches.size, 0);
+    assert.equal(controller.state.connects.size, 0);
+    assert.match(controller.state.lastError || '', /недоступен/);
+  } finally {
+    controller.destroy();
+  }
+});
+
 test('match-room URL is rejected instead of queried as championship ID', async () => {
   const calls = [];
   const controller = createQualificationsController({

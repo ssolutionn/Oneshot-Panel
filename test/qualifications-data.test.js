@@ -25,7 +25,7 @@ test('accepts only HTTPS FACEIT URLs', () => {
     assert.equal(safeQualificationUrl(value), '');
 });
 
-test('caps normalized lists at 32 and preserves prior cards through partial failures', () => {
+test('caps normalized lists at 32, preferring fresh matches over retained ones', () => {
   const source = Array.from({ length: 40 }, (_, i) => match(`m${i}`));
   const bounded = source.slice(0, 32);
   const previous = mergeQualificationMatches(new Map(), [{ status: 'fulfilled', value: [match('healthy')] }]);
@@ -33,9 +33,8 @@ test('caps normalized lists at 32 and preserves prior cards through partial fail
     { status: 'fulfilled', value: bounded }, { status: 'rejected', reason: Error('offline') }
   ]);
   assert.equal(next.size, 32);
-  assert.equal(next.has('healthy'), true);
-  assert.equal(next.has('m30'), true);
-  assert.equal(next.has('m31'), false);
+  assert.equal(next.has('m31'), true);
+  assert.equal(next.has('healthy'), false);
   assert.equal(next.has('m32'), false);
 });
 
@@ -55,6 +54,36 @@ test('validates connect input and generated stream IDs without accepting control
   for (const value of ['', 'connect\nsecret', 'x'.repeat(257)]) assert.equal(validateQualificationConnect(value), '');
   assert.equal(validateQualificationId('match_player_1'), 'match_player_1');
   for (const value of ['../player', 'x'.repeat(65), '']) assert.equal(validateQualificationId(value), '');
+});
+
+test('does not keep stale matches absent from all successful lists', () => {
+  const previous = new Map([
+    ['old-1', { match: { id: 'old-1' }, teams: [], connect: null }],
+    ['old-2', { match: { id: 'old-2' }, teams: [], connect: null }]
+  ]);
+  const settled = [
+    { status: 'fulfilled', value: [{ match_id: 'new-1', status: 'ONGOING', faceit_url: 'https://www.faceit.com/en/room/new-1', teams: {}, results: { score: { faction1: 0, faction2: 0 } } }] },
+    { status: 'fulfilled', value: [] },
+    { status: 'fulfilled', value: [] }
+  ];
+  const merged = mergeQualificationMatches(previous, settled);
+  assert.equal(merged.has('old-1'), false);
+  assert.equal(merged.has('old-2'), false);
+  assert.equal(merged.has('new-1'), true);
+});
+
+test('retains previous cards when any list type failed', () => {
+  const previous = new Map([
+    ['keep-1', { match: { id: 'keep-1' }, teams: [], connect: null }]
+  ]);
+  const settled = [
+    { status: 'fulfilled', value: [{ match_id: 'new-1', status: 'ONGOING', faceit_url: 'https://www.faceit.com/en/room/new-1', teams: {}, results: { score: { faction1: 0, faction2: 0 } } }] },
+    { status: 'rejected', reason: new Error('network') },
+    { status: 'fulfilled', value: [] }
+  ];
+  const merged = mergeQualificationMatches(previous, settled);
+  assert.equal(merged.has('keep-1'), true);
+  assert.equal(merged.has('new-1'), true);
 });
 
 test('reports duplicate stream IDs after sanitization', () => {

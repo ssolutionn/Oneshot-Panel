@@ -41,18 +41,31 @@ export function normalizeQualificationMatch(raw) {
   return { match, teams, connect: null };
 }
 
-// Successful result lists replace matching IDs; failures retain last-known-good cards.
+// A fully successful poll replaces the card set, so matches that left the API
+// disappear. If any list failed, the previous cards not seen are kept for the
+// duration of the outage rather than silently vanishing from the desk.
 export function mergeQualificationMatches(previous, settledResults) {
-  const merged = new Map(previous instanceof Map ? previous : []);
+  const previousMap = previous instanceof Map ? previous : new Map(previous || []);
+  const merged = new Map();
+  let allSucceeded = true;
   for (const result of settledResults || []) {
-    if (result?.status !== 'fulfilled' || !Array.isArray(result.value)) continue;
+    if (result?.status !== 'fulfilled' || !Array.isArray(result.value)) {
+      allSucceeded = false;
+      continue;
+    }
     for (const raw of result.value) {
       if (merged.size >= 32) break;
       const normalized = raw?.match ? raw : normalizeQualificationMatch(raw);
       if (normalized.match?.id) merged.set(normalized.match.id, normalized);
     }
   }
-  return new Map([...merged].slice(0, 32));
+  if (!allSucceeded) {
+    for (const [id, record] of previousMap) {
+      if (merged.size >= 32) break;
+      if (!merged.has(id)) merged.set(id, record);
+    }
+  }
+  return merged;
 }
 
 export function qualificationEvents(before, after) {
