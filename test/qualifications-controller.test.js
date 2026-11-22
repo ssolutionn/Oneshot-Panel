@@ -101,6 +101,28 @@ test('does not use a unique nickname from a different known team', () => {
   assert.equal(result[0].players[0].matchMethod, 'missing');
 });
 
+test('assigns cameras from the full sheet roster, not only the selected two teams', () => {
+  const faceitTeams = [{ name: 'Team Gamma', players: [{ id: 'f9', nickname: 'Ace' }] }];
+  const snapshot = {
+    a: { name: 'Team Alpha' }, b: { name: 'Team Beta' }, playersA: [], playersB: []
+  };
+  const allTeams = [{ name: 'Team Gamma', players: [{ nick: 'Ace', id: 'stream-g', room: 'room-g', password: 'pw' }] }];
+  const result = matchQualificationPlayers(faceitTeams, snapshot, allTeams);
+  assert.equal(result[0].players[0].camera.id, 'stream-g');
+  assert.equal(result[0].players[0].matchMethod, 'team-nickname');
+});
+
+test('counts a picked-match player once when he is also in the sheet roster', () => {
+  const player = { key: 'sheet-1', nick: 'Ace', id: 'stream-a', room: 'room-a' };
+  const result = matchQualificationPlayers(
+    [{ name: 'Team Alpha', players: [{ id: 'f1', nickname: 'Ace' }] }],
+    { a: { name: 'Team Alpha' }, playersA: [player], playersB: [] },
+    [{ name: 'Team Alpha', players: [player] }]
+  );
+  assert.equal(result[0].players[0].camera.id, 'stream-a');
+  assert.equal(result[0].players[0].matchMethod, 'team-nickname');
+});
+
 test('does not assign a camera when the nickname match is ambiguous', () => {
   const result = matchQualificationPlayers([{ name: 'Unknown Team', players: [{ id: 'f1', nickname: 'Ace' }] }], {
     playersA: [{ nick: 'Ace', id: 's1', room: 'r1' }],

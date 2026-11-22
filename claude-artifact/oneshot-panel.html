@@ -2230,6 +2230,11 @@ function notify() {
 }
 window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, setVeto: next => setVeto(next),
   lan: () => ({ ...state.lan }), setLan,
+  // The «Квалификации» tab matches FACEIT rooms to every sheet team, not only
+  // the two picked for air. Read-only; stream IDs and rooms already applied.
+  teams: () => state.teams.map(team => ({ name: team.name, players: team.players.map(player => ({
+    key: player.key, nick: player.nick, id: player.id, room: player.room, password: player.password
+  })) })),
   // lan.js registers the maker of self-contained cards (photos inside).
   setCardDocs: provider => { cardDocsProvider = provider; }, cardDocs: () => cardDocsNow() };
 let cardDocsProvider = null;

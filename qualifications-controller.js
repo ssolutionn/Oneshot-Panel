@@ -18,8 +18,21 @@ const $ = id => typeof document === 'undefined' ? null : document.getElementById
 const setsEqual = (a, b) => a.size === b.size && [...a].every(value => b.has(value));
 const identityKey = value => String(value || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
-export function matchQualificationPlayers(teams, snapshot) {
-  const existing = [...(snapshot?.playersA || []), ...(snapshot?.playersB || [])].filter(player => player?.id && player?.room);
+// `allTeams` is window.oneshotPanel.teams(): every team parsed from the sheet,
+// so a 32-match championship is not limited to the two teams picked for air.
+export function matchQualificationPlayers(teams, snapshot, allTeams = []) {
+  const roster = allTeams.flatMap(team => (team.players || []).map(player => ({ ...player, teamName: team.name })))
+    .concat([...(snapshot?.playersA || []).map(player => ({ ...player, teamName: snapshot?.a?.name || '' })),
+      ...(snapshot?.playersB || []).map(player => ({ ...player, teamName: snapshot?.b?.name || '' }))])
+    .filter(player => player?.id && player?.room);
+  // The picked match is also part of the sheet roster; count each player once.
+  const seen = new Set();
+  const existing = roster.filter(player => {
+    const key = `${player.key || player.id}\0${player.room}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   const allPlayers = (teams || []).flatMap(team => team.players || []);
   const counts = new Map();
   for (const player of allPlayers) counts.set(player.id, (counts.get(player.id) || 0) + 1);
@@ -30,12 +43,11 @@ export function matchQualificationPlayers(teams, snapshot) {
       const nick = identityKey(player.nickname);
       const teamName = identityKey(team.name);
       const nickMatches = existing.filter(candidate => identityKey(candidate.nick) === nick);
-      const exact = teamName ? nickMatches.filter(candidate => {
-        const candidateTeam = identityKey(teamNameFromPlayer(candidate, snapshot));
-        return candidateTeam === teamName;
-      }) : [];
-      const knownOtherTeam = nickMatches.some(candidate => identityKey(teamNameFromPlayer(candidate, snapshot)) &&
-        identityKey(teamNameFromPlayer(candidate, snapshot)) !== teamName);
+      // A player carrying his own team (sheet roster) is compared by it; the
+      // selected-two view falls back to finding the player in playersA/playersB.
+      const candidateTeam = candidate => identityKey(candidate.teamName || teamNameFromPlayer(candidate, snapshot));
+      const exact = teamName ? nickMatches.filter(candidate => candidateTeam(candidate) === teamName) : [];
+      const knownOtherTeam = nickMatches.some(candidate => candidateTeam(candidate) && candidateTeam(candidate) !== teamName);
       const matches = exact.length ? exact : teamName && knownOtherTeam ? [] : nickMatches;
       const camera = matches.length === 1 ? matches[0] : null;
       return { ...player, camera, matchMethod: camera ? exact.length ? 'team-nickname' : 'nickname' : matches.length ? 'ambiguous' : 'missing' };
@@ -277,9 +289,10 @@ export function createQualificationsController({
         state.seeded = true;
         await hydrateRosters();
         const snapshot = panel?.snapshot?.();
+        const allTeams = panel?.teams?.() || [];
         for (const record of state.matches.values()) {
           record.raw ||= record.match;
-          record.teams = matchQualificationPlayers(record.teams, snapshot);
+          record.teams = matchQualificationPlayers(record.teams, snapshot, allTeams);
           record.rosterAvailable = record.teams.some(team => team.players.length > 0);
         }
         const events = [];
