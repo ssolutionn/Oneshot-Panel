@@ -283,6 +283,9 @@ export function createQualificationsController({
           cameraAssignments.clear();
           state.rosterCache.clear();
           state.seeded = false;
+          state.down = false;
+          state.degraded = false;
+          state.lastNotified = '';
           render();
         }
         state.championshipId = target.id;

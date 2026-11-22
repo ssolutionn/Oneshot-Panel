@@ -381,6 +381,35 @@ test('the default client calls the same-origin proxy with an absolute URL', asyn
   }
 });
 
+test('alerts the first outage of the new championship after a switch', async () => {
+  const otherUuid = '87654321-4321-4321-4321-cba987654321';
+  const input = { value: `https://www.faceit.com/en/championship/${uuid}/a` };
+  let fail = false;
+  const notes = [];
+  const controller = createQualificationsController({
+    input, list: { replaceChildren() {} }, alert: { textContent: '', hidden: true },
+    notify(message, opts) { notes.push(opts?.error ? 'error' : 'info'); },
+    clientFactory: () => ({ async matches() { if (fail) throw Error('offline'); return [fixture('match-1')]; } }),
+    watchFactory: () => ({ watch() {}, stop() {} }),
+    interval: 100000
+  });
+  try {
+    fail = true;
+    await controller.start();
+    assert.equal(controller.state.down, true);
+    fail = false;
+    input.value = `https://www.faceit.com/en/championship/${otherUuid}/b`;
+    await controller.poll();
+    assert.equal(controller.state.down, false);
+    fail = true;
+    await controller.poll();
+    assert.equal(controller.state.down, true);
+    assert.deepEqual(notes, ['error', 'error']);
+  } finally {
+    controller.destroy();
+  }
+});
+
 test('match-room URL is rejected instead of queried as championship ID', async () => {
   const calls = [];
   const controller = createQualificationsController({
