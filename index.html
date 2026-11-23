@@ -280,9 +280,25 @@
         <div id="lobbyError" class="error-box" role="alert" hidden></div>
       </section>
 
-      <div id="lobbyAlert" class="lobby-alert" role="alert" hidden>
-        <strong id="lobbyAlertText"></strong>
-        <button id="lobbyAck" class="button dark small" type="button">Принял</button>
+      <!-- Live score block: the pinned or first live match, shown prominently. -->
+      <div id="lobbyLive" class="lobby-live" hidden>
+        <div class="ll-top">
+          <span class="ll-eyebrow" id="llEyebrow">Сейчас</span>
+          <div class="ll-actions">
+            <span id="llLiveBadge" class="ll-live-badge" hidden>● LIVE</span>
+            <button id="llPin" class="button small" type="button">Закрепить</button>
+          </div>
+        </div>
+        <div class="ll-teams">
+          <span class="ll-team" id="llTeam0"></span>
+          <span class="ll-score"><b class="ll-wins" id="llWins0">0</b><i class="ll-colon">:</i><b class="ll-wins" id="llWins1">0</b></span>
+          <span class="ll-team right" id="llTeam1"></span>
+        </div>
+        <div id="llCards" class="ll-cards" aria-label="Карты серии"></div>
+        <div class="ll-game">
+          <span class="ll-status" id="llStatus"></span>
+          <span class="ll-point" id="llPoint" hidden>МАП-ПОИНТ</span>
+        </div>
       </div>
 
       <section id="lobbyMatches" class="lobby-matches" aria-label="Матчи турнира">
