@@ -8,6 +8,20 @@ export const DEFAULT_SOURCE = {
   playoffsGid: '1212769715'
 };
 
+const SEASON3_SHEET_ID = '1hglUuahUqEEcTZjiok63ZcGDQByJiV4Ic5Vh_R-A82A';
+export const SEASON3_SOURCE = {
+  id: SEASON3_SHEET_ID,
+  gid: '1118827901',
+  scheduleId: SEASON3_SHEET_ID,
+  scheduleGid: '1325268422',
+  playoffsGid: '1361112809'
+};
+
+export function scheduleRange(id, gid) {
+  return id === SEASON3_SOURCE.scheduleId &&
+    [SEASON3_SOURCE.scheduleGid, SEASON3_SOURCE.playoffsGid].includes(gid) ? 'A6:N300' : 'A1:N300';
+}
+
 const line = value => String(value ?? '').replace(/[\r\n\t]+/g, ' ').trim();
 
 export function decodeGviz(text) {
@@ -78,12 +92,75 @@ export function parseTeams(rows) {
   return teams;
 }
 
+// Season 3 has two team blocks per row. Room credentials are assigned locally.
+export function parseSeason3Roster(rows) {
+  const teams = [];
+  for (const column of [1, 7]) {
+    let team;
+    for (const row of rows) {
+      const role = line(row[column]);
+      if (/^TEAM \d+$/i.test(role)) {
+        const name = line(row[column + 2]);
+        team = name ? { name, players: [] } : null;
+        if (team) teams.push(team);
+        continue;
+      }
+      const nick = line(row[column + 1]);
+      if (!team || !nick || nick === '-' || !/^[1-5SCС]$/i.test(role)) continue;
+      team.players.push({
+        key: `${personKey(team.name)}:${personKey(nick)}`, nick, slot: role,
+        role: /^[1-5]$/.test(role) ? 'Основной' : role.toUpperCase() === 'S' ? 'Запасной' : 'Тренер'
+      });
+    }
+  }
+  if (!teams.some(team => team.players.length)) throw new Error('На листе Team Rosters не найдены составы сезона 3.');
+  return teams.filter(team => team.players.length);
+}
+
+export function season3VdoAccess(teams, saved = {}) {
+  const token = size => Array.from(crypto.getRandomValues(new Uint8Array(size)), byte =>
+    byte.toString(16).padStart(2, '0')).join('');
+  const access = { ...saved };
+  for (const team of teams) {
+    const name = personKey(team.name);
+    const existing = Object.hasOwn(access, name) ? access[name] : null;
+    const room = existing?.room || `cc3_${token(7)}`;
+    const password = existing?.password || token(10);
+    const ids = { ...existing?.ids };
+    for (const player of team.players) {
+      const nick = personKey(player.nick);
+      if (!Object.hasOwn(ids, nick)) ids[nick] = `${vdoId(player.nick).slice(0, 40)}_${token(4)}`;
+      Object.assign(player, { room, password, id: ids[nick] });
+    }
+    Object.assign(team, { room, password });
+    access[name] = { room, password, ids };
+  }
+  return access;
+}
+
+export function validateSeason3VdoAccess(value) {
+  const object = x => x && typeof x === 'object' && !Array.isArray(x);
+  if (!object(value) || !Object.keys(value).length) return false;
+  const rooms = new Set(), ids = new Set();
+  for (const [name, team] of Object.entries(value)) {
+    if (!name || name !== personKey(name) || !object(team) ||
+        typeof team.room !== 'string' || !/^cc3_[a-f0-9]{14}$/.test(team.room) || rooms.has(team.room) ||
+        typeof team.password !== 'string' || !/^[a-f0-9]{20}$/.test(team.password) || !object(team.ids)) return false;
+    rooms.add(team.room);
+    for (const [nick, id] of Object.entries(team.ids)) {
+      if (nick !== personKey(nick) || typeof id !== 'string' || !/^\w{1,64}$/.test(id) || ids.has(id)) return false;
+      ids.add(id);
+    }
+  }
+  return true;
+}
+
 const TIME = /^(\d{1,2}):([0-5]\d)(?::[0-5]\d)?$/;
 const EN_MONTHS = ['january', 'february', 'march', 'april', 'may', 'june',
   'july', 'august', 'september', 'october', 'november', 'december'];
 const PLAYOFF_STAGES = [
   [/^quarter-?finals?\b/i, 'Четвертьфинал'], [/^semi-?finals?\b/i, 'Полуфинал'],
-  [/^3rd place/i, 'Матч за 3 место'], [/^grand final/i, 'Гранд-финал']
+  [/^(?:3rd place|third[ -]place)/i, 'Матч за 3 место'], [/^grand final/i, 'Гранд-финал']
 ];
 
 // The organizer's sheet ("Schedule (Group Stage)", "Schedule (Playoffs)")
@@ -98,10 +175,12 @@ function organizerColumns(v) {
   return Object.values(cols).every(i => i >= 0) ? cols : null;
 }
 function organizerDate(text) {
-  const m = text.toLowerCase().match(/^([a-z]+)\s+(\d{1,2})$/);
-  const month = m ? EN_MONTHS.indexOf(m[1]) : -1;
-  return month < 0 ? '' :
-    `${m[2].padStart(2, '0')}.${String(month + 1).padStart(2, '0')}`;
+  const parts = text.toLowerCase().split(/\s+/);
+  if (parts.length !== 2) return '';
+  const [monthName, day] = /^\d/.test(parts[0]) ? parts.reverse() : parts;
+  const month = EN_MONTHS.findIndex(name => monthName === name || monthName === name.slice(0, 3));
+  if (month < 0 || !/^\d{1,2}$/.test(day) || Number(day) < 1 || Number(day) > 31) return '';
+  return `${day.padStart(2, '0')}.${String(month + 1).padStart(2, '0')}`;
 }
 function organizerStage(text) {
   const group = text.match(/\b([A-H])\d+$/);
@@ -126,7 +205,7 @@ export function rosterMatch(match, names) {
 
 // Two layouts: the organizer's sheet (found by its header row, dated rows)
 // and a day sheet «Матчи ДД.ММ» (B time, C/D teams, E group; no dates).
-export function parseSchedule(rows) {
+export function parseSchedule(rows, { includePending = false } = {}) {
   // The key names the match, not its row: a row inserted above it in the
   // sheet must not reset a veto in progress. Identical rows get a counter.
   const seen = new Map();
@@ -146,13 +225,25 @@ export function parseSchedule(rows) {
       stage: /^[A-H]$/.test(v[4] || '') ? `Группа ${v[4]}` : v[4] || ''
     };
     const time = match.time.match(TIME);
-    if (!match.team1 || !match.team2 || !time || Number(time[1]) > 23) return [];
-    match.time = `${time[1].padStart(2, '0')}:${time[2]}`;
+    match.time = time && Number(time[1]) <= 23 ? `${time[1].padStart(2, '0')}:${time[2]}` : '';
+    if (includePending && cols) {
+      if (!match.date || !match.stage) return [];
+    } else if (!match.team1 || !match.team2 || !match.time) return [];
     const fields = [match.date, match.time, match.team1, match.team2, match.stage];
     const id = JSON.stringify(fields);
     const repeat = seen.get(id) || 0;
     seen.set(id, repeat + 1);
     return [{ ...match, key: JSON.stringify([...fields, repeat]) }];
+  });
+}
+
+export function season3Schedule(rows, teams) {
+  const names = new Map(teams.map(team => [personKey(team.name), team.name]));
+  return parseSchedule(rows, { includePending: true }).map(match => {
+    const a = names.get(personKey(match.team1)) || names.get(personKey(match.team1Was));
+    const b = names.get(personKey(match.team2)) || names.get(personKey(match.team2Was));
+    return { ...match, team1: a || match.team1, team2: b || match.team2,
+      unavailable: !a || !b || a === b, format: 'BO3' };
   });
 }
 

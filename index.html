@@ -759,6 +759,7 @@
       <label>GID листа «Все игроки»<input id="sourceGid" inputmode="numeric" pattern="[0-9]+" required></label>
       <label>Таблица расписания (необязательно)<input id="scheduleUrl" type="url"></label>
       <label>GID расписания<input id="scheduleGid" inputmode="numeric" pattern="[0-9]+"></label>
+      <label>Ключи выданных VDO-ссылок сезона 3 (.json)<input id="season3Access" type="file" accept=".json,application/json"></label>
       <p class="muted">
         Расписание: лист организатора «Schedule (...)» (Stage, Date, MSK,
         Team 1, Team 2 — матчи на сегодня и дальше) или дневной лист
@@ -768,6 +769,7 @@
       </p>
       <div class="dialog-actions">
         <button type="button" class="button" id="resetSource">Исходная таблица</button>
+        <button type="button" class="button" id="season3Source">CyberClash Season 3</button>
         <button type="submit" class="button primary">Подключить</button>
       </div>
     </form>

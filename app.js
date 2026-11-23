@@ -1,5 +1,6 @@
 import {
-  DEFAULT_SOURCE, decodeGviz, parseTeams, parseSchedule, scheduleDay,
+  DEFAULT_SOURCE, SEASON3_SOURCE, scheduleRange, decodeGviz, parseTeams, parseSchedule, scheduleDay,
+  parseSeason3Roster, season3Schedule, season3VdoAccess, validateSeason3VdoAccess,
   defaultLineup, lineupCandidates, roleSuffix, selectedPlayers,
   validatePlayers, validateMatch, viewUrl, directorUrl,
   newStreamId, applyStreamIds, playerLine, vdoId, vdoPushId, rosterMatch,
@@ -10,6 +11,8 @@ import {
 } from './core.js';
 
 const $ = id => document.getElementById(id);
+const SEASON3_ACCESS_KEY = 'oneshot-season3-vdo-access';
+const SEASON3_ACCESS_HINT = 'Импортируй файл ключей VDO в «Источнике данных», чтобы открыть выданные ссылки и скачать OBS JSON.';
 const state = {
   teams: [], schedule: [], a: '', b: '', keysA: [], keysB: [],
   matchKey: '', tab: 'observer', lastSync: null, stale: false,
@@ -51,8 +54,6 @@ if (savedSource &&
     state.source.scheduleGid = DEFAULT_SOURCE.scheduleGid;
   }
 }
-// New stream IDs made with ↻ next to a player (core.applyStreamIds).
-state.streamIds = readStorage('oneshot-stream-ids') || {};
 // LAN mode (lan.js edits it): the event's own teams, cameras fixed per seat.
 // The address decides (event.js, events/<slug>/event.json): an event without
 // sheets (kind manual) is always LAN, any other never is.
@@ -64,11 +65,25 @@ if (EVENT_LAN !== state.lan.on) {
     prefix: state.lan.prefix || newLanPrefix(crypto.getRandomValues(new Uint8Array(4))) });
   writeStorage(LAN_STORE, state.lan);
 }
+const seasonPage = new URL(location.href).searchParams.get('season') === '3';
+if (seasonPage && !state.lan.on) state.source = { ...SEASON3_SOURCE };
+function isSeason3(source = state.source) {
+  return !state.lan.on && source.id === SEASON3_SOURCE.id && source.gid === SEASON3_SOURCE.gid;
+}
+function matchStorageKey() {
+  return isSeason3() ? 'oneshot-season3-match' : 'oneshot-webcam-match-v1';
+}
+function streamStorageKey() {
+  return isSeason3() ? 'oneshot-season3-stream-ids' : 'oneshot-stream-ids';
+}
+// New stream IDs made with ↻ next to a player (core.applyStreamIds).
+state.streamIds = readStorage(streamStorageKey()) || {};
 // A saved match belongs to the data source it was picked from.
 function sourceTag() {
+  if (isSeason3()) return JSON.stringify(['cyberclash', 3]);
   return state.lan.on ? JSON.stringify(['lan', state.lan.prefix]) : JSON.stringify(state.source);
 }
-const savedMatch = readStorage('oneshot-webcam-match-v1');
+const savedMatch = readStorage(matchStorageKey());
 const savedCameraFrame=readStorage('oneshot-camera-frame-v1');
 if(typeof savedCameraFrame==='string' && Object.hasOwn(CAMERA_FRAMES,savedCameraFrame))state.cameraFrame=savedCameraFrame;
 else if(Object.hasOwn(CAMERA_FRAMES,globalThis.oneshotEvent?.cameras?.frame))state.cameraFrame=globalThis.oneshotEvent.cameras.frame;
@@ -92,6 +107,7 @@ if (savedMatch && savedMatch.source === sourceTag()) {
   } catch { /* Ignore invalid stored progress. */ }
 }
 $('matchTime').value =
+  (isSeason3() && savedMatch?.source === sourceTag() && state.matchKey && savedMatch.time === '') ||
   !validateMetadata(savedMatch?.time || '', 'Матч') ?
     savedMatch.time :
     new Intl.DateTimeFormat('ru-RU', {
@@ -103,7 +119,7 @@ $('matchStage').value =
     savedMatch.stage.slice(0, 100) : '';
 
 function persist() {
-  writeStorage('oneshot-webcam-match-v1', {
+  writeStorage(matchStorageKey(), {
     source: sourceTag(),
     a: state.a, b: state.b, keysA: state.keysA, keysB: state.keysB,
     matchKey: state.matchKey, time: $('matchTime').value,
@@ -131,7 +147,7 @@ function applyIds() {
   }))}));
   if (state.lan.on) return;
   state.streamIds = applied.saved;
-  writeStorage('oneshot-stream-ids', state.streamIds);
+  writeStorage(streamStorageKey(), state.streamIds);
 }
 const CAMERA_STORE='oneshot-camera-settings-v1';
 function cameraKey(player) {
@@ -338,6 +354,7 @@ function chosen(side) {
     state[side === 'a' ? 'keysA' : 'keysB']);
 }
 function valid() {
+  if (isSeason3() && state.teams.length && !state.teams[0].room) return SEASON3_ACCESS_HINT;
   return validateMatch(getTeam('a'), getTeam('b'),
     state.keysA, state.keysB);
 }
@@ -355,7 +372,7 @@ function snapshot() {
     includeCards: $('includeCards').checked, logos: state.logos,
     cameraFrame:state.cameraFrame,
     veto: { ...state.veto, actions: [...state.veto.actions] }, pending: state.pending,
-    schedule: state.schedule, matchKey: state.matchKey,
+    schedule: state.schedule.filter(match => !match.unavailable), matchKey: state.matchKey,
     time: $('matchTime').value, stage: $('matchStage').value
   };
 }
@@ -441,9 +458,10 @@ function syncScheduledSelection() {
   if (!Array.isArray(previous) || previous.length !== 6 ||
       !previous.slice(0, 5).every(value => typeof value === 'string')) return;
   const [date, time, team1, team2, stage] = previous;
-  if (state.a !== team1 || state.b !== team2) return;
-  const candidates = state.schedule.filter(match => match.date === date &&
-    match.team1 === team1 && match.team2 === team2 && match.stage === stage);
+  const sameTeam = (a, b) => isSeason3() ? personKey(a) === personKey(b) : a === b;
+  if (!sameTeam(state.a, team1) || !sameTeam(state.b, team2)) return;
+  const candidates = state.schedule.filter(match => !match.unavailable && match.date === date &&
+    sameTeam(match.team1, team1) && sameTeam(match.team2, team2) && match.stage === stage);
   const match = candidates.find(match => match.key === state.matchKey) ||
     (candidates.length === 1 ? candidates[0] : null);
   if (!match) return;
@@ -492,34 +510,55 @@ async function refresh() {
   try {
     // The organizer's default sheet: the playoffs tab comes along with the
     // group stage; it may be missing or empty without failing the schedule.
-    const organizer = source.scheduleGid === DEFAULT_SOURCE.scheduleGid &&
-      (source.scheduleId || source.id) === DEFAULT_SOURCE.scheduleId;
+    const season3 = isSeason3(source);
+    const scheduleId = source.scheduleId || source.id;
+    const organizer = [DEFAULT_SOURCE, SEASON3_SOURCE].find(event =>
+      event.scheduleId === scheduleId && event.scheduleGid === source.scheduleGid);
     // LAN: the event's own teams and matches, no sheets.
     const lan = state.lan.on;
     const [roster, schedule, playoffs] = lan ? [
       { status: 'fulfilled', value: null }, { status: 'fulfilled', value: [] }, { status: 'fulfilled', value: [] }
     ] : await Promise.allSettled([
-      sheetRows(source, source.gid, 'A1:L2000', signal),
+      sheetRows(source, source.gid, season3 ? 'A7:L2000' : 'A1:L2000', signal),
       source.scheduleGid ?
         // Header row as labels: the organizer's columns are found by name.
-        sheetRows(source, source.scheduleGid, 'A1:Z300',
-          signal, source.scheduleId || source.id, '1') :
+        sheetRows(source, source.scheduleGid, season3 ? scheduleRange(scheduleId, source.scheduleGid) : 'A1:Z300',
+          signal, scheduleId, '1') :
         Promise.resolve([]),
-      organizer ? sheetRows(source, DEFAULT_SOURCE.playoffsGid, 'A1:Z100',
-        signal, DEFAULT_SOURCE.scheduleId, '1') : Promise.resolve([])
+      organizer ? sheetRows(source, organizer.playoffsGid, season3 ? scheduleRange(scheduleId, organizer.playoffsGid) : 'A1:Z100',
+        signal, scheduleId, '1') : Promise.resolve([])
     ]);
+    const seasonRows = season3 ? [schedule, playoffs].flatMap(tab => tab.value || []) : [];
     if (schedule.status === 'fulfilled' && playoffs.status === 'fulfilled') {
       schedule.value = [...schedule.value, ...playoffs.value];
     }
     if (request !== refreshId) return;
     if (roster.status !== 'fulfilled') throw roster.reason;
-    state.sheetTeams = lan ? lanTeams(state.lan) : parseTeams(roster.value);
+    let accessHint = '';
+    if (season3) {
+      const teams = parseSeason3Roster(roster.value);
+      const saved = readStorage(SEASON3_ACCESS_KEY);
+      if (validateSeason3VdoAccess(saved) && teams.every(team => Object.hasOwn(saved, personKey(team.name)))) {
+        const access = season3VdoAccess(teams, saved);
+        if (!writeStorage(SEASON3_ACCESS_KEY, access)) throw new Error('Браузер не смог сохранить ключи VDO.');
+      } else {
+        accessHint = SEASON3_ACCESS_HINT;
+      }
+      state.sheetTeams = teams;
+    } else {
+      state.sheetTeams = lan ? lanTeams(state.lan) : parseTeams(roster.value);
+    }
     const skipped = state.sheetTeams.skipped || [];
     applyIds();
     const teams = state.teams;
     const names = teams.map(t => t.name);
-    state.schedule = lan ? lanSchedule(state.lan) : upcoming(schedule.status === 'fulfilled' ?
-      parseSchedule(schedule.value) : state.schedule, names);
+    if (season3) {
+      const complete = schedule.status === 'fulfilled' && playoffs.status === 'fulfilled';
+      if (complete || !state.schedule.length) state.schedule = season3Schedule(seasonRows, teams);
+    } else {
+      state.schedule = lan ? lanSchedule(state.lan) : upcoming(schedule.status === 'fulfilled' ?
+        parseSchedule(schedule.value) : state.schedule, names);
+    }
 
     const pair = state.a + '\n' + state.b;
     if (!names.includes(state.a)) {
@@ -549,7 +588,11 @@ async function refresh() {
       state.scheduleDay = scheduleDay(schedule.value);
     }
     renderScheduleDay();
-    if (schedule.status === 'rejected') {
+    if (season3) {
+      const incomplete = schedule.status === 'rejected' || playoffs.status === 'rejected';
+      showError([incomplete ? 'Часть расписания сезона 3 недоступна. Нажми «Обновить», чтобы повторить запрос.' : '', accessHint]
+        .filter(Boolean).join(' '));
+    } else if (schedule.status === 'rejected') {
       showError('Составы загружены. Расписание недоступно — выбери команды, время и стадию вручную.');
     } else if (state.scheduleDay && state.scheduleDay !== mskToday()) {
       showError(`Расписание в таблице на ${state.scheduleDay}, а сегодня ${mskToday()} по МСК. Если для нового дня завели новый лист, укажи его GID в «Источник данных».`);
@@ -614,7 +657,8 @@ async function loadLogos() {
   } catch { /* No logos: cards keep the A/B badge. */ }
 }
 function renderScheduleDay() {
-  $('scheduleLabel').textContent = state.lan.on ? 'Матч из вкладки «Матчи»' : 'Матч по расписанию' +
+  $('scheduleLabel').textContent = isSeason3() ? 'CyberClash Season 3 · все матчи' :
+    state.lan.on ? 'Матч из вкладки «Матчи»' : 'Матч по расписанию' +
     (state.scheduleDay ? ` · ${state.scheduleDay}` : '');
 }
 // Images come from veto.oneshot.su; if a file is missing, show no broken icon.
@@ -629,8 +673,10 @@ function render() {
   const focusId = $('teamGrid').contains(active) ? active.id : '';
   const focusPlayer = active?.dataset.player;
   const focusSlot = active?.dataset.slot;
-  const option = m => `<option value="${escapeHtml(m.key)}">${escapeHtml(
-    [m.time, m.stage, `${m.team1} vs ${m.team2}`].filter(Boolean).join(' · ')
+  const option = m => `<option value="${escapeHtml(m.key)}"${m.unavailable ? ' disabled' : ''}>${escapeHtml(
+    [m.time || (isSeason3() ? 'Время уточняется' : ''), m.stage,
+      `${m.team1 || 'Уточняется'} vs ${m.team2 || 'Уточняется'}`,
+      m.unavailable && m.team1 && m.team2 ? 'Составы уточняются' : ''].filter(Boolean).join(' · ')
   )}</option>`;
   const days = [...new Set(state.schedule.map(m => m.date))];
   $('matchSelect').innerHTML =
@@ -641,7 +687,7 @@ function render() {
       state.schedule.map(option).join(''));
   // A match that left the list (past midnight, the organizer edited it,
   // the schedule is down) keeps its veto: only the select shows «вручную».
-  const listed = state.schedule.find(m => m.key === state.matchKey);
+  const listed = state.schedule.find(m => m.key === state.matchKey && !m.unavailable);
   if (listed && (listed.team1 !== state.a || listed.team2 !== state.b)) state.matchKey = '';
   $('matchSelect').value = listed && state.matchKey ? state.matchKey : '';
 
@@ -668,6 +714,7 @@ function render() {
       </div>
       <div class="camera-list">${Array.from({ length: 5 }, (_, i) => {
         const player = team.players.find(p => p.key === keys[i]);
+        const cameraReady = player && (!isSeason3() || player.room && player.id);
         return `<div class="player-row" draggable="true" data-drag-side="${side}" data-drag-slot="${i}">
           <span class="slot-number">${String(index * 5 + i + 1).padStart(2, '0')}</span>
           <div class="player-info">
@@ -684,9 +731,9 @@ function render() {
               (player.sheetId ? `<b class="new-id">${player.manualId ? 'Свой ID' : 'Новый ID'}</b> <button type="button" class="link-button"
                 data-unregen="${side}" data-slot="${i}"
                 title="Вернуть ID из таблицы (${escapeHtml(player.sheetId)})">вернуть</button> · ` : '') +
-              escapeHtml(viewUrl(player)) :
+              (cameraReady ? escapeHtml(viewUrl(player)) : 'Импортируй ключи VDO') :
               'Место не заполнено'}</span>
-            <button class="link-button camera-adjust" type="button" id="camera-${side}-${i}" data-camera="${side}" data-slot="${i}" ${!player ? 'disabled' : ''}>Кадр${player?.camera?.rotation ? ' · '+player.camera.rotation+'°' : ''}</button>
+            <button class="link-button camera-adjust" type="button" id="camera-${side}-${i}" data-camera="${side}" data-slot="${i}" ${!cameraReady ? 'disabled' : ''}>Кадр${player?.camera?.rotation ? ' · '+player.camera.rotation+'°' : ''}</button>
           </div>
           ${state.lan.on ? '' : `<button class="copy-icon regen-icon${state.regenAsk === `${side}${i}` ? ' asking' : ''}"
             id="regen-${side}-${i}" type="button" data-regen="${side}" data-slot="${i}"
@@ -694,17 +741,17 @@ function render() {
               `Нажми ещё раз: новая ссылка для ${player ? escapeHtml(player.nick) : ''}` :
               `Новая ссылка игроку ${player ? escapeHtml(player.nick) : ''}`}"
             title="${state.regenAsk === `${side}${i}` ? 'Нажми ещё раз — сделать новую ссылку' :
-              'Новая ссылка игроку (если старая утекла)'}" ${!player ? 'disabled' : ''}
+              'Новая ссылка игроку (если старая утекла)'}" ${!cameraReady ? 'disabled' : ''}
             >${state.regenAsk === `${side}${i}` ? '✓?' : '↻'}</button>
           <button class="copy-icon setid-icon" type="button" data-setid="${side}" data-slot="${i}"
             aria-label="Указать ID потока вручную ${player ? escapeHtml(player.nick) : ''}"
-            title="Указать ID вручную (игрок зашёл по другой ссылке)" ${!player ? 'disabled' : ''}>✎</button>`}
+            title="Указать ID вручную (игрок зашёл по другой ссылке)" ${!cameraReady ? 'disabled' : ''}>✎</button>`}
           <button class="give-button" type="button" data-give="${side}" data-slot="${i}"
             aria-label="Скопировать ссылку игроку ${player ? escapeHtml(player.nick) : ''}"
-            title="${state.lan.on ? 'Скопировать PUSH-ссылку места' : 'Скопировать PUSH-ссылку, чтобы отдать игроку'}" ${!player ? 'disabled' : ''}>${state.lan.on ? 'Ссылка места' : 'Игроку'}</button>
+            title="${state.lan.on ? 'Скопировать PUSH-ссылку места' : 'Скопировать PUSH-ссылку, чтобы отдать игроку'}" ${!cameraReady ? 'disabled' : ''}>${state.lan.on ? 'Ссылка места' : 'Игроку'}</button>
           <button class="copy-icon" data-view="${side}" data-slot="${i}"
             aria-label="Скопировать VIEW ${player ? escapeHtml(player.nick) : ''}"
-            title="Копировать VIEW" ${!player ? 'disabled' : ''}>⧉</button>
+            title="Копировать VIEW" ${!cameraReady ? 'disabled' : ''}>⧉</button>
         </div>`;
       }).join('')}</div>
       <div class="card-actions">
@@ -713,9 +760,9 @@ function render() {
         <div class="card-bottom">
           <button class="text-button roster-action" data-reset="${side}"
             title="${state.lan.on ? 'Первые пять из состава команды' : 'Восстановить порядок из таблицы'}" aria-label="Восстановить порядок ${escapeHtml(team.name)}">↻</button>
-          <a class="text-button roster-action" target="_blank" rel="noreferrer"
+          ${team.room ? `<a class="text-button" target="_blank" rel="noreferrer"
             title="Открыть комнату директора" aria-label="Директор ${escapeHtml(team.name)}"
-            href="${escapeHtml(directorUrl(team))}">↗</a>
+            href="${escapeHtml(directorUrl(team))}">Директорка ↗</a>` : ''}
         </div>
       </div>
     </article>`;
@@ -1046,8 +1093,9 @@ $('swapBtn').addEventListener('click', () => {
   toast('Команды поменялись сторонами');
 });
 $('matchSelect').addEventListener('change', () => {
-  state.matchKey = $('matchSelect').value;
-  const match = state.schedule.find(m => m.key === state.matchKey);
+  const match = state.schedule.find(m => m.key === $('matchSelect').value && !m.unavailable);
+  if (isSeason3() && match && match.key !== state.matchKey) resetVeto();
+  state.matchKey = match?.key || '';
   if (match && (match.team1 !== state.a || match.team2 !== state.b)) resetVeto();
   if (match) {
     state.a = match.team1;
@@ -1225,6 +1273,32 @@ $('settingsBtn').addEventListener('click', () => {
 $('closeSettings').addEventListener('click', () => $('settingsDialog').close());
 $('closeCopy').addEventListener('click', () => $('copyDialog').close());
 $('resetSource').addEventListener('click', () => fillSource(DEFAULT_SOURCE));
+$('season3Source').addEventListener('click', () => {
+  if (isSeason3()) return $('settingsDialog').close();
+  fillSource(SEASON3_SOURCE);
+  $('settingsForm').requestSubmit();
+});
+$('season3Access').addEventListener('change', async event => {
+  const input = event.currentTarget;
+  const file = input.files?.[0];
+  if (!file) return;
+  const errorBox = $('sourceError');
+  try {
+    const access = JSON.parse(await file.text());
+    if (!validateSeason3VdoAccess(access)) throw new Error('Проверь, что выбран JSON с ключами VDO сезона 3.');
+    if (!writeStorage(SEASON3_ACCESS_KEY, access)) throw new Error('Браузер не смог сохранить ключи VDO.');
+    if (isSeason3()) {
+      $('settingsDialog').close();
+      refresh();
+    } else {
+      fillSource(SEASON3_SOURCE);
+      $('settingsForm').requestSubmit();
+    }
+  } catch (error) {
+    errorBox.textContent = error instanceof SyntaxError ? 'Файл ключей должен быть в формате JSON.' : error.message;
+    errorBox.hidden = false;
+  } finally { input.value = ''; }
+});
 $('settingsForm').addEventListener('submit', event => {
   event.preventDefault();
   try {
@@ -1240,7 +1314,13 @@ $('settingsForm').addEventListener('submit', event => {
       id, gid, scheduleId: scheduleUrl ? sheetId(scheduleUrl) : null,
       scheduleGid: scheduleUrl ? scheduleGid : null
     };
+    if (seasonPage && !isSeason3()) {
+      const url = new URL(location.href);
+      url.searchParams.delete('season');
+      history.replaceState(history.state, '', url);
+    }
     const stored = writeStorage('webcam-desk-source', state.source);
+    state.streamIds = readStorage(streamStorageKey()) || {};
     state.teams = [];
     state.schedule = [];
     state.scheduleDay = '';
