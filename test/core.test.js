@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   decodeGviz, parseTeams, parseSchedule, scheduleDay, defaultLineup, observerText,
-  selectedPlayers, validateMatch, playerText, viewUrl, pushUrl, directorUrl,
+  selectedPlayers, validateMatch, playerText, viewUrl, pushUrl, directorUrl, applyFemaleStreamIds,
   safeFilename, buildObs, cardUrl, personKey, DEFAULT_CARD_BASE, MAP_POOL, VETO_RULES,
   validateVeto, appendVeto, vetoText, photoMatches, playerPhoto, teamLogo, cameraViewUrl
 } from '../core.js';
@@ -488,6 +488,19 @@ test('newStreamId: nick letters plus a random tail VDO.Ninja keeps as is', async
   assert.equal(newStreamId('', fixed), 'cam_bbbbbb');
   assert.match(newStreamId('synyx'), /^synyx_[a-z2-9]{6}$/);
   assert.notEqual(newStreamId('synyx'), newStreamId('synyx'));
+});
+
+test('female stream IDs are stable, unique and separate from sheet IDs', () => {
+  const teams = [{ name: 'HAZE', players: [
+    { key: 'female|HAZE|1', nick: 'Madam', id: 'Madam' },
+    { key: 'female|HAZE|2', nick: 'Madam', id: 'Madam' }
+  ]}];
+  let next = 0;
+  const makeId = () => `cam_${++next}`;
+  const first = applyFemaleStreamIds(teams, {}, makeId);
+  assert.deepEqual(first.teams[0].players.map(p => p.id), ['cam_1', 'cam_2']);
+  const second = applyFemaleStreamIds(teams, first.saved, makeId);
+  assert.deepEqual(second.teams[0].players.map(p => p.id), ['cam_1', 'cam_2']);
 });
 
 test('vdoId: the stream ID as VDO.Ninja keeps it, links and status use it', async () => {

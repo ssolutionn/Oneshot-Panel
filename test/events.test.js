@@ -30,6 +30,7 @@ test('the CyberClash manifest is valid and every default is filled in', () => {
 test('contract: the sheets in the manifest are the ones the panel reads', () => {
   const { source } = cyberclash();
   assert.deepEqual([source.roster.id, source.roster.gid], [DEFAULT_SOURCE.id, DEFAULT_SOURCE.gid]);
+  assert.equal(DEFAULT_SOURCE.femaleGid, '20261121');
   assert.deepEqual([source.schedule.id, source.schedule.gid, source.schedule.playoffsGid],
     [DEFAULT_SOURCE.scheduleId, DEFAULT_SOURCE.scheduleGid, DEFAULT_SOURCE.playoffsGid]);
 });

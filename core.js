@@ -4,6 +4,8 @@ export const DEFAULT_SOURCE = {
   // Schedule (Group Stage) of the organizer's sheet: every day, by date.
   scheduleId: '1GtwcpVnyxY1YOs6ZTrXwJr5mjZqI0QxjLSKjimn9G2o',
   scheduleGid: '815739139',
+  // The women's 21.11 roster lives in the same workbook.
+  femaleGid: '20261121',
   // Schedule (Playoffs), read together with the group stage (from 29.10).
   playoffsGid: '1212769715'
 };
@@ -310,6 +312,20 @@ export function newStreamId(nick, random = n => crypto.getRandomValues(new Uint8
 // the player really joined with, typed by hand. An entry counts only
 // while the sheet still has the ID it replaced; once the sheet holds the
 // new ID, or anything else, the sheet wins and the entry is dropped.
+export function applyFemaleStreamIds(teams, saved = {}, makeId = newStreamId) {
+  const next = { ...saved }, used = new Set();
+  const result = teams.map(team => ({
+    ...team,
+    players: team.players.map(player => {
+      let id = next[player.key];
+      do { id ||= makeId(player.nick); } while (used.has(id));
+      used.add(id); next[player.key] = id;
+      return { ...player, id };
+    })
+  }));
+  return { teams: result, saved: next };
+}
+
 export function applyStreamIds(teams, saved) {
   const kept = {};
   const entries = saved && typeof saved === 'object' ? saved : {};

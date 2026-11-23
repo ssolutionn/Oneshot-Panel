@@ -2,7 +2,7 @@ import {
   DEFAULT_SOURCE, decodeGviz, parseTeams, parseSchedule, scheduleDay,
   defaultLineup, lineupCandidates, roleSuffix, selectedPlayers,
   validatePlayers, validateMatch, viewUrl, directorUrl,
-  newStreamId, applyStreamIds, playerLine, vdoId, vdoPushId, rosterMatch,
+  newStreamId, applyStreamIds, applyFemaleStreamIds, playerLine, vdoId, vdoPushId, rosterMatch,
   observerText, playerText, buildObs, safeFilename, validateMetadata,
   CAMERA_FRAMES, DEFAULT_CAMERA_FRAME, cameraFrame, normalizeCamera, cameraCss, cameraViewUrl,
   MAP_POOL, VETO_RULES, validateVeto, appendVeto, vetoText,
@@ -14,10 +14,10 @@ const state = {
   teams: [], schedule: [], a: '', b: '', keysA: [], keysB: [],
   matchKey: '', tab: 'observer', lastSync: null, stale: false,
   scheduleDay: '',
-  source: { ...DEFAULT_SOURCE }, template: null, templateError: '', logos: {},
+  source: { ...DEFAULT_SOURCE }, template: null, templateError: '', logos: {}, femaleTeams: [],
   veto: { format: 'BO3', first: 0, actions: [], matchKey: '' },
   cameras: readStorage('oneshot-camera-settings-v1') || {}, cameraFrame: DEFAULT_CAMERA_FRAME,
-  pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false,
+  pending: null, sheetTeams: [], streamIds: {}, femaleStreamIds: readStorage('oneshot-female-stream-ids-v1') || {}, regenAsk: '', exporting: false,
   webcamMode: readStorage('oneshot-webcam-mode-v1') || 'online',
   vdoOptions: readStorage('oneshot-vdo-options-v1') || { bitrate: 2500, fps: 30 }
 };
@@ -41,7 +41,9 @@ if (savedSource &&
     scheduleId: /^[\w-]{20,100}$/.test(savedSource.scheduleId || '') ?
       savedSource.scheduleId : savedSource.id,
     scheduleGid: /^\d+$/.test(savedSource.scheduleGid || '') ?
-      savedSource.scheduleGid : null
+      savedSource.scheduleGid : null,
+    femaleGid: /^\d+$/.test(savedSource.femaleGid || '') ?
+      savedSource.femaleGid : DEFAULT_SOURCE.femaleGid
   };
   // The schedule used to be the roster sheet's day tab «Матчи 14.10»; the
   // organizer's sheet has every day, so that old default moves over.
@@ -66,7 +68,7 @@ if (EVENT_LAN !== state.lan.on) {
 }
 // A saved match belongs to the data source it was picked from.
 function sourceTag() {
-  return state.lan.on ? JSON.stringify(['lan', state.lan.prefix]) : JSON.stringify(state.source);
+  return state.lan.on ? JSON.stringify(['lan', state.lan.prefix]) : JSON.stringify({ ...state.source, femaleGid: state.source.femaleGid || '' });
 }
 const savedMatch = readStorage('oneshot-webcam-match-v1');
 const savedCameraFrame=readStorage('oneshot-camera-frame-v1');
@@ -126,9 +128,19 @@ function applyIds() {
   // A LAN seat's stream is fixed: the new IDs saved for the sheet players stay
   // untouched (pruning them against LAN keys would lose them for good).
   const applied = state.lan.on ? { teams: state.sheetTeams } : applyStreamIds(state.sheetTeams, state.streamIds);
-  state.teams = applied.teams.map(team=>({...team,players:team.players.map(player=>({
+  const mainTeams = applied.teams.map(team=>({...team,players:team.players.map(player=>({
     ...player,camera:normalizeCamera(state.cameras[cameraKey(player)])
   }))}));
+  const female = state.lan.on ? { teams: [], saved: state.femaleStreamIds } :
+    applyFemaleStreamIds(state.femaleTeams, state.femaleStreamIds);
+  state.femaleStreamIds = female.saved;
+  if (!state.lan.on) writeStorage('oneshot-female-stream-ids-v1', state.femaleStreamIds);
+  const femaleTeams = female.teams.map(team => ({
+    ...team, players: team.players.map(player => ({
+      ...player, camera: normalizeCamera(state.cameras[cameraKey(player)])
+    }))
+  }));
+  state.teams = [...mainTeams, ...femaleTeams];
   if (state.lan.on) return;
   state.streamIds = applied.saved;
   writeStorage('oneshot-stream-ids', state.streamIds);
@@ -489,12 +501,15 @@ async function refresh() {
     // group stage; it may be missing or empty without failing the schedule.
     const organizer = source.scheduleGid === DEFAULT_SOURCE.scheduleGid &&
       (source.scheduleId || source.id) === DEFAULT_SOURCE.scheduleId;
+    const hasFemaleRoster = source.femaleGid && source.id === DEFAULT_SOURCE.id;
     // LAN: the event's own teams and matches, no sheets.
     const lan = state.lan.on;
-    const [roster, schedule, playoffs] = lan ? [
-      { status: 'fulfilled', value: null }, { status: 'fulfilled', value: [] }, { status: 'fulfilled', value: [] }
+    const [roster, femaleRoster, schedule, playoffs] = lan ? [
+      { status: 'fulfilled', value: null }, { status: 'fulfilled', value: [] },
+      { status: 'fulfilled', value: [] }, { status: 'fulfilled', value: [] }
     ] : await Promise.allSettled([
       sheetRows(source, source.gid, 'A1:L2000', signal),
+      hasFemaleRoster ? sheetRows(source, source.femaleGid, 'A1:L2000', signal) : Promise.resolve([]),
       source.scheduleGid ?
         // Header row as labels: the organizer's columns are found by name.
         sheetRows(source, source.scheduleGid, 'A1:Z300',
@@ -509,6 +524,14 @@ async function refresh() {
     if (request !== refreshId) return;
     if (roster.status !== 'fulfilled') throw roster.reason;
     state.sheetTeams = lan ? lanTeams(state.lan) : parseTeams(roster.value);
+    state.femaleTeams = [];
+    if (!lan && femaleRoster.status === 'fulfilled' && source.femaleGid) {
+      try {
+        state.femaleTeams = parseTeams(femaleRoster.value).map(team => ({
+          ...team, players: team.players.map(player => ({ ...player, key: `female|${player.key}` }))
+        })).filter(team => !state.sheetTeams.some(main => main.name === team.name));
+      } catch { /* The optional women's tab may be empty while it is prepared. */ }
+    }
     const skipped = state.sheetTeams.skipped || [];
     applyIds();
     const teams = state.teams;
@@ -534,7 +557,8 @@ async function refresh() {
     render();
     const word = teams.length % 10 === 1 && teams.length % 100 !== 11 ? 'команда' :
       [2, 3, 4].includes(teams.length % 10) && ![12, 13, 14].includes(teams.length % 100) ? 'команды' : 'команд';
-    $('syncTitle').textContent = lan ? `${teams.length} ${word} · ЛАН` : `${teams.length} команд из таблицы`;
+    $('syncTitle').textContent = lan ? `${teams.length} ${word} · ЛАН` :
+      `${state.sheetTeams.length} команд из таблицы${state.femaleTeams.length ? ` + ${state.femaleTeams.length} женских` : ''}`;
     $('syncDot').className = 'good';
     $('syncTime').textContent = lan ? 'команды и матчи — во вкладках «Команды» и «Матчи»' :
       'Обновлено ' + state.lastSync.toLocaleTimeString('ru-RU', {
@@ -1233,7 +1257,7 @@ $('settingsForm').addEventListener('submit', event => {
     }
     state.source = {
       id, gid, scheduleId: scheduleUrl ? sheetId(scheduleUrl) : null,
-      scheduleGid: scheduleUrl ? scheduleGid : null
+      scheduleGid: scheduleUrl ? scheduleGid : null, femaleGid: state.source.femaleGid || DEFAULT_SOURCE.femaleGid
     };
     const stored = writeStorage('webcam-desk-source', state.source);
     state.teams = [];

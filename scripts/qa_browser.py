@@ -56,6 +56,10 @@ async def run(args):
         ["", "16:00", "6yuBoJlbl", "HYPERSPIRIT", "B"],
         ["", "19:00", "6yuBoJlbl", "HYPERSPIRIT", "Финал"],
     ])
+    female_roster = gviz([
+        [f"F-{i}", "HAZE", str(i), nick, nick, "oneshot_haze_261121", "", "", "Основной"]
+        for i, nick in enumerate(["Madam", "kim_", "kz_antimony", "Shiransky", "Siljeeeh"], 1)
+    ])
     artifacts = Path(args.artifacts)
     artifacts.mkdir(parents=True, exist_ok=True)
     checks = []
@@ -98,6 +102,7 @@ async def run(args):
         async def sheets(route):
             params = parse_qs(urlsplit(route.request.url).query)
             is_schedule = params.get("gid") == ["815739139"]
+            is_female = params.get("gid") == ["20261121"]
             if (modes["delay"] and
                     "/1e__ijBjufD19SWBkSJL177vmmfMh2tdykYQHAS06S8I/"
                     in route.request.url):
@@ -109,6 +114,8 @@ async def run(args):
             if is_schedule:
                 body = (with_row_above(schedule) if modes["row_above"]
                         else schedule)
+            elif is_female:
+                body = female_roster
             elif (modes["new_source"] and
                     "/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/" in route.request.url):
                 body = sample_roster(("New Team A", "New Team B"))
@@ -134,6 +141,39 @@ async def run(args):
         source_link = await page.get_attribute("#sidebarSource", "href")
         assert "1GtwcpVnyxY1YOs6ZTrXwJr5mjZqI0QxjLSKjimn9G2o" in source_link
         assert "#gid=815739139" in source_link
+        await expect(page.locator("#team-a")).to_contain_text("HAZE")
+        await page.select_option("#team-a", label="HAZE")
+        assert await page.locator('#team-a').input_value() == "HAZE"
+        assert await page.locator('[data-player="a"][data-slot="0"] option').count() == 6
+        await page.evaluate(
+            "Object.defineProperty(navigator, 'clipboard', {value: "
+            "{writeText: async () => {throw Error('denied')}}}); "
+            "document.execCommand = () => false;"
+        )
+        await page.click('[data-give="a"][data-slot="0"]')
+        await expect(page.locator("#copyDialog")).to_be_visible()
+        female_link = await page.input_value("#manualCopy")
+        assert "room=oneshot_haze_261121" in female_link and "&push=Madam_" in female_link, female_link
+        female_id = re.search(r"&push=([^& ]+)", female_link).group(1)
+        await page.click("#closeCopy")
+        assert await page.locator('[data-view="a"][data-slot="0"]').get_attribute("aria-label")
+        await page.reload()
+        await page.select_option("#team-a", label="HAZE")
+        await expect(page.locator("#teamGrid")).to_contain_text(f"view={female_id}&")
+        await page.select_option("#team-a", label="HYPERSPIRIT")
+        await page.select_option("#team-a", label="HAZE")
+        await page.select_option("#team-b", label="HYPERSPIRIT")
+        await page.evaluate(
+            "Object.defineProperty(navigator, 'clipboard', {value: "
+            "{writeText: async () => {throw Error('denied')}}}); "
+            "document.execCommand = () => false;"
+        )
+        await page.click('[data-copy-team="a"]')
+        await expect(page.locator("#copyDialog")).to_be_visible()
+        team_message = await page.input_value("#manualCopy")
+        assert team_message.count("room=oneshot_haze_261121") == 5
+        await page.click("#closeCopy")
+        passed("female roster loaded, per-player PUSH uses team room and stable custom IDs")
         passed("load rosters, schedule and OBS template")
 
         await page.wait_for_load_state("networkidle")
