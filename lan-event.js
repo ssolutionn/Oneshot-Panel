@@ -3,7 +3,7 @@
 // and every CARD in OBS becomes a self-contained page with its photo inside
 // (a data: URL), so OBS needs nothing from the site. No DOM here: the pure
 // parts run in Node tests; lan-images.js does the canvas work in the browser.
-import { personKey, cardKey } from './core.js';
+import { personKey, cardKey, playerPhoto, teamLogo } from './core.js';
 
 const NAME_FIT = 4;
 export const IMAGE_EXT = /\.(png|jpe?g|webp)$/i;
@@ -189,16 +189,17 @@ export function paletteFrom(profile) {
   if (accent || deep) palette.teal = blend(deep || DEFAULT_COLORS.deep, accent || DEFAULT_COLORS.accent, 0.35);
   return palette;
 }
-export function eventCardHtml({ team = '', nick = '', photo = '', logo = '', colors = {} } = {}) {
+export function eventCardHtml({ team = '', nick = '', photo = '', logo = '', eventLogo = '', colors = {} } = {}) {
   const c = Object.fromEntries(Object.entries(DEFAULT_COLORS).map(([k, v]) => [k, HEX.test(colors?.[k] || '') ? colors[k] : v]));
   const image = value => DATA_IMAGE.test(value || '') ? value : '';
-  const p = image(photo), l = image(logo);
+  const p = image(photo), l = image(logo), event = image(eventLogo);
   const layout = p ? 'photo' : 'no-photo';
   const name = String(nick || 'Игрок').trim();
   return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>${esc(name)} · ${esc(team)}</title><style>
 :root{--ink:#fff;--muted:#d2edf1;--accent:${c.accent};--deep:${c.deep};--black:${c.black};--cyan:${c.cyan};--teal:${c.teal};--scale:1}
 *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:var(--black)}
 .card{position:absolute;left:calc((100vw - 1920px * var(--scale)) / 2);top:calc((100vh - 1080px * var(--scale)) / 2);width:1920px;height:1080px;overflow:hidden;transform:scale(var(--scale));transform-origin:0 0;color:var(--ink);font-family:"Arial Black","Segoe UI",Arial,sans-serif;background:radial-gradient(ellipse at 50% 15%,var(--cyan),transparent 65%),linear-gradient(120deg,var(--teal),var(--deep) 48%,var(--teal))}
+.event-logo{position:absolute;z-index:2;top:100px;right:340px;width:290px;height:147px;object-fit:contain}
 .photo{position:absolute;left:50%;top:35px;transform:translateX(-50%);height:1000px;width:auto;filter:drop-shadow(0 0 28px var(--teal))}
 .shade{position:absolute;inset:0;pointer-events:none}
 .id{position:absolute;left:160px;right:160px;top:160px;bottom:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
@@ -211,7 +212,7 @@ export function eventCardHtml({ team = '', nick = '', photo = '', logo = '', col
 .photo-layout .shade{background:linear-gradient(0deg,var(--black),transparent 43%)}
 .photo-layout .id{top:auto;bottom:60px}.photo-layout .emblem,.no-photo-layout .logo{display:none}
 .photo-layout .team{font-size:30px;letter-spacing:.1em}.photo-layout .nick{font-size:160px;margin-top:12px}.photo-layout .rule{display:none}
-</style></head><body><main class="card ${layout}-layout" id="card">${p ? `<img class="photo" alt="" src="${p}">` : ''}<div class="shade"></div><section class="id">${!p && l ? `<img class="emblem" alt="" src="${l}">` : ''}<div class="team">${p && l ? `<img class="logo" alt="" src="${l}">` : ''}<span>${esc(team)}</span></div><h1 class="nick" id="nick">${esc(name)}</h1><span class="rule"></span></section></main><script>
+</style></head><body><main class="card ${layout}-layout" id="card">${p ? `<img class="photo" alt="" src="${p}">` : ''}<div class="shade"></div>${event ? `<img class="event-logo" alt="CyberClash" src="${event}">` : ''}<section class="id">${!p && l ? `<img class="emblem" alt="" src="${l}">` : ''}<div class="team">${p && l ? `<img class="logo" alt="" src="${l}">` : ''}<span>${esc(team)}</span></div><h1 class="nick" id="nick">${esc(name)}</h1><span class="rule"></span></section></main><script>
 (function(){var s=function(){document.documentElement.style.setProperty('--scale',String(Math.min(innerWidth/1920,innerHeight/1080)||1))};s();addEventListener('resize',s);
 var n=document.getElementById('nick'),w=n.parentElement.clientWidth,z=${p ? 160 : 224};n.style.fontSize=z+'px';while(n.scrollWidth>w&&z>52){z-=${NAME_FIT};n.style.fontSize=z+'px'}n.classList.toggle('long',n.scrollWidth>w)})();
 </script></body></html>`;
@@ -225,12 +226,59 @@ export function cardDocs(players, assets, colors) {
     if (!p?.team || !p?.nick) continue;
     // An event's own teams keep photos by id (renaming keeps them); older ones by name.
     docs[cardKey(p.team, p.nick)] = eventCardUrl({
-      team: p.team, nick: p.nick, colors,
+      team: p.team, nick: p.nick, colors, eventLogo: assets.eventLogo,
       photo: (p.playerId && assets.photos[p.playerId]) || photoOf(assets, p.team, p.nick),
       logo: (p.teamId && assets.logos[p.teamId]) || logoOf(assets, p.team)
     });
   }
   return docs;
+}
+
+const season3Colors = { ...paletteFrom({ accent: '#ff81ba', deep: '#42102e', black: '#160a13' }), cyan: '#9d1a5a' };
+const sheetAssets = new Map();
+
+function cardAsset(path, decode, fallback) {
+  if (!sheetAssets.has(path)) {
+    sheetAssets.set(path, fetch(path, { signal: AbortSignal.timeout(7000) }).then(response => {
+      if (!response.ok) throw new Error('Card asset unavailable');
+      return decode(response);
+    }).catch(() => {
+      sheetAssets.delete(path);
+      return fallback;
+    }));
+  }
+  return sheetAssets.get(path);
+}
+
+function cardImage(path) {
+  if (!path) return '';
+  return cardAsset(path, async response => {
+    const blob = await response.blob();
+    if (!/^image\/(?:png|jpeg|webp)$/.test(blob.type) || blob.size > 200000) return '';
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  }, '');
+}
+
+// Only the panel fetches these assets. CARD URLs carry the whole document to OBS.
+export async function season3CardDocs(players) {
+  const [teams, catalog, eventLogo] = await Promise.all([
+    cardAsset('/assets/teams/teams.json', response => response.json(), {}),
+    cardAsset('/assets/players/players.json', response => response.json(), {}),
+    cardImage('/assets/card/cyberclash-logo.png')
+  ]);
+  const assets = { logos: {}, photos: {}, eventLogo };
+  await Promise.all(players.map(async player => {
+    const logo = teamLogo(teams, player.team), photo = playerPhoto(catalog?.players, player.team, player.nick);
+    const [l, p] = await Promise.all([cardImage(logo && '/assets/teams/' + logo), cardImage(photo && '/assets/players/' + photo)]);
+    assets.logos[personKey(player.team)] = l;
+    assets.photos[cardKey(player.team, player.nick)] = p;
+  }));
+  return cardDocs(players, assets, season3Colors);
 }
 
 // ---------- to the OBS dock in pieces ----------

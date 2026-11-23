@@ -639,7 +639,7 @@ $('vetoReset').addEventListener('click', () => {
 
 app = cut(app, "async function sheetRows(", "function reconcileKeys(", "")
 app = cut(app, "async function refresh() {", "function mskToday(", REFRESH)
-app = cut(app, "function exportObsFile() {", "function fillSource(source) {", DOWNLOAD)
+app = cut(app, "async function exportObsFile() {", "function fillSource(source) {", DOWNLOAD)
 app = replace_once(app, "  $('exportRecovery').disabled = $('downloadBtn').disabled;\n", "")
 # POV JSON is web-only (its button markup is stripped above, and the DOWNLOAD
 # block already drops the click handler), so the toggle must not remain either.

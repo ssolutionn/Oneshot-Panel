@@ -867,6 +867,182 @@
    "hltv": "https://www.hltv.org/player/25349/salazar",
    "photo": "https://img-cdn.hltv.org/playerbodyshot/V5IiNEHtU0wxi4AOdBj6QJ.png?ixlib=java-2.1.0&w=400&s=1ed2691286b73776d6ba07548341c4c7",
    "file": "salazar-25349.webp"
+  },
+  {
+   "team": "OzemPEEK",
+   "nick": "zAAz",
+   "role": "1",
+   "hltv": "https://www.hltv.org/player/1646/zaaz",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/3j8a11ykg5WcQP7t_pMOo-.png?ixlib=java-2.1.0&w=400&s=c017ae17f05257d0166b822d5f973f76",
+   "file": "zaaz-1646.webp"
+  },
+  {
+   "team": "OzemPEEK",
+   "nick": "twenty3",
+   "role": "2",
+   "hltv": "https://www.hltv.org/player/18775/twenty3",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/5cBqqwVIuJNeBrlrsdW5Fs.png?ixlib=java-2.1.0&w=400&s=76ecbd892ba30247bd8e40b8e1a2352f",
+   "file": "twenty3-18775.webp"
+  },
+  {
+   "team": "OzemPEEK",
+   "nick": "kyossa",
+   "role": "3",
+   "hltv": "https://www.hltv.org/player/23049/kyossa",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/2rNNqOPR9vwDSX7gWY4iy2.png?ixlib=java-2.1.0&w=400&s=e70e9eeabc5c7717c80880ba6a0953e0",
+   "file": "kyossa-23049.png"
+  },
+  {
+   "team": "OzemPEEK",
+   "nick": "ANa",
+   "role": "4",
+   "hltv": "https://www.hltv.org/player/12758/ana",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/zfbVDOY_n1fZqOLMYuqQ8a.png?ixlib=java-2.1.0&w=400&s=5a2d4c0c1c1d8ff6a3bdc6bbd9cb7737",
+   "file": "ana-12758.webp"
+  },
+  {
+   "team": "OzemPEEK",
+   "nick": "tory",
+   "role": "5",
+   "hltv": "https://www.hltv.org/player/16497/tory",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/jzo5AiY7ab9U3N6RXi90Pa.png?ixlib=java-2.1.0&w=400&s=460f9f3873022403ae48acaa39dc2591",
+   "file": "tory-16497.png"
+  },
+  {
+   "team": "OVERPEEK",
+   "nick": "Margo",
+   "role": "2",
+   "hltv": "https://www.hltv.org/player/22028/margo",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/bWcWhAZMbrXfE3tVg0lhdq.png?ixlib=java-2.1.0&w=400&s=39443689f5db0e4757bf66647b6d9213",
+   "file": "margo-22028.png"
+  },
+  {
+   "team": "OVERPEEK",
+   "nick": "f6tal",
+   "role": "3",
+   "hltv": "https://www.hltv.org/player/18773/f6tal",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/tvWNO3OckVKAXUIDE9-D1I.png?ixlib=java-2.1.0&w=400&s=7dd86342a755f8da37cc9e07d226f89a",
+   "file": "f6tal-18773.webp"
+  },
+  {
+   "team": "OVERPEEK",
+   "nick": "Stormy",
+   "role": "4",
+   "hltv": "https://www.hltv.org/player/18774/stormy",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/PJXSLeGBLimUaNk1mWMFq3.png?ixlib=java-2.1.0&w=400&s=87d080cb3f32c49c8625482dab62809d",
+   "file": "stormy-18774.png"
+  },
+  {
+   "team": "OVERPEEK",
+   "nick": "AverOna",
+   "role": "5",
+   "hltv": "https://www.hltv.org/player/22029/averona",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/kMuuvUG3ZFa2qud7DRlyax.png?ixlib=java-2.1.0&w=400&s=f3af515aefc1c8b15e3290e684787e38",
+   "file": "averona-22029.webp"
+  },
+  {
+   "team": "idk",
+   "nick": "vicu",
+   "role": "1",
+   "hltv": "https://www.hltv.org/player/22062/vicu",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/nkBkrWRTLVq_qah3pPAEBm.png?ixlib=java-2.1.0&w=400&s=c9fca870686f990ecdc0a8cd5fe710b0",
+   "file": "vicu-22062.webp"
+  },
+  {
+   "team": "idk",
+   "nick": "Angelka",
+   "role": "2",
+   "hltv": "https://www.hltv.org/player/22065/angelka",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/RVR5mpj3hwJDHPlamO_zO0.png?ixlib=java-2.1.0&w=400&s=835f0e6cd270a9a1b683aae16d064257",
+   "file": "angelka-22065.png"
+  },
+  {
+   "team": "idk",
+   "nick": "Hanka",
+   "role": "3",
+   "hltv": "https://www.hltv.org/player/22063/hanka",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/UWpkf_rtLlySLLPFyTFetT.png?ixlib=java-2.1.0&w=400&s=4cf75a16300f3176a405c86155b654c3",
+   "file": "hanka-22063.webp"
+  },
+  {
+   "team": "idk",
+   "nick": "LETI",
+   "role": "4",
+   "hltv": "https://www.hltv.org/player/21727/leti",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/xrJhPDXAai89cI9lUO35Qr.png?ixlib=java-2.1.0&w=400&s=983e0942a31ed0f73f17f9b884fe8ecd",
+   "file": "leti-21727.webp"
+  },
+  {
+   "team": "DesperateGirls",
+   "nick": "Jammie",
+   "role": "4",
+   "hltv": "https://www.hltv.org/player/18229/jammie",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/kdB8L_6d4r1vjOIJ6rQD79.png?ixlib=java-2.1.0&w=400&s=719bacb34ac476ac58003d9570e831e3",
+   "file": "jammie-18229.png"
+  },
+  {
+   "team": "EC2-DW",
+   "nick": "Monkey D Julie",
+   "role": "1",
+   "hltv": "https://www.hltv.org/player/1656/monkey-d-julie",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/uhzSHIqh8xEDkgXEjr2HHM.png?ixlib=java-2.1.0&w=400&s=100a1ce338598bf35f586f2af37320ca",
+   "file": "monkey-d-julie-1656.webp"
+  },
+  {
+   "team": "EC2-DW",
+   "nick": "kaoday",
+   "role": "2",
+   "hltv": "https://www.hltv.org/player/21793/kaoday",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/wkR94f8_0e3GepPcdErtAj.png?ixlib=java-2.1.0&w=400&s=aa92f1a8fc613de9bb2c6686912ceafb",
+   "file": "kaoday-21793.png"
+  },
+  {
+   "team": "EC2-DW",
+   "nick": "Ann4",
+   "role": "3",
+   "hltv": "https://www.hltv.org/player/22104/ann4",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/4Bf21KJ3MCLs4up9OvN8-g.png?ixlib=java-2.1.0&w=400&s=b9733e905c357a2c3292f8c911d60af7",
+   "file": "ann4-22104.webp"
+  },
+  {
+   "team": "EC2-DW",
+   "nick": "ASTRA",
+   "role": "5",
+   "hltv": "https://www.hltv.org/player/21849/astra",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/IvVaSlrE_UrJM-YMmjKkqn.png?ixlib=java-2.1.0&w=400&s=e58e507d587624fd1053a1b12f7bab39",
+   "file": "astra-21849.png"
+  },
+  {
+   "team": "El macaron",
+   "nick": "pauliiee",
+   "role": "1",
+   "hltv": "https://www.hltv.org/player/22871/pauliiee",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/lD6JyI1tLSiM95j5ODQoS6.png?ixlib=java-2.1.0&w=400&s=2c7ced2e1fd5c76da28bf532b9948e8c",
+   "file": "pauliiee-22871.png"
+  },
+  {
+   "team": "El macaron",
+   "nick": "JennyR",
+   "role": "2",
+   "hltv": "https://www.hltv.org/player/20165/jennyr",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/Ke8kmCoz1-RItPBbdlShi8.png?ixlib=java-2.1.0&w=400&s=730318a00b386eabc7a18bf945c7b8f6",
+   "file": "jennyr-20165.png"
+  },
+  {
+   "team": "El macaron",
+   "nick": "vilga",
+   "role": "4",
+   "hltv": "https://www.hltv.org/player/1572/vilga",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/5zuG6IZ-hpiNuGtu2EiN8I.png?ixlib=java-2.1.0&w=400&s=f365f60dcaf8467265f5ea02a65c9220",
+   "file": "vilga-1572.webp"
+  },
+  {
+   "team": "El macaron",
+   "nick": "xia",
+   "role": "5",
+   "hltv": "https://www.hltv.org/player/22604/xia",
+   "photo": "https://img-cdn.hltv.org/playerbodyshot/XhiOvHyYN_3_TjL8EOgxq2.png?ixlib=java-2.1.0&w=400&s=a696244c86f50e6491ed820a9b45fbfa",
+   "file": "xia-22604.webp"
   }
  ]
 }

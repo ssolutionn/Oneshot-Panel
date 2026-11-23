@@ -79,20 +79,19 @@ const firstView = !$('teamsNavBtn').hidden && !panel.lan().teams.length ? 'teams
 showView(views.some(v => v[0] === startView && (!$(v[1]).hidden || v[0] === 'server' && EVENT?.modules?.server)) ? startView : firstView);
 
 // ---------- match payload ----------
-function matchPayload() {
-  const s = panel.snapshot();
+function matchPayload(s) {
   if (s.matchError) throw new Error(s.matchError);
   const players = [
     ...s.playersA.map(p => ({ ...p, team: s.a.name })),
     ...s.playersB.map(p => ({ ...p, team: s.b.name }))
   ].map((p, i) => ({ slot: i + 1, team: p.team, nick: p.nick, id: p.id, room: p.room, password: p.password || '', camera:p.camera }));
-  return { title: `${s.a.name} vs ${s.b.name}`, match: { players, includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame, cardDocs: panel.cardDocs() } };
+  return { title: `${s.a.name} vs ${s.b.name}`, match: { players, includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame } };
 }
-function obsJson() {
+async function obsJson() {
   const s = panel.snapshot();
   if (!s.template) throw new Error(s.templateError || 'Шаблон OBS ещё загружается.');
   return JSON.stringify(buildObs(s.template, s.a, s.b, s.keysA, s.keysB, undefined,
-    { includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame, cardDocs: panel.cardDocs() }), null, 2) + '\n';
+    { includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame, cardDocs: await panel.cardDocs(s) }), null, 2) + '\n';
 }
 
 // ---------- OBS link ----------
@@ -453,8 +452,9 @@ $('cameraApplyObs').addEventListener('click',()=>{
 });
 $('sendObsBtn').addEventListener('click', async () => {
   if (sendingMatch) return;
+  const s = panel.snapshot();
   let payload;
-  try { payload = matchPayload(); } catch (error) { return panel.toast(error.message); }
+  try { payload = matchPayload(s); } catch (error) { return panel.toast(error.message); }
   if (!obsSettings().configured) {
     return openObsSettings();
   }
@@ -465,6 +465,7 @@ $('sendObsBtn').addEventListener('click', async () => {
   button.disabled = true;
   obsBadge('Отправляем в OBS…', 'wait');
   try {
+    payload.match.cardDocs = await panel.cardDocs(s);
     const type = payload.match.players.some(p=>normalizeCamera(p.camera).zoom!==1) ? 'apply-camera-zoom' : 'apply-camera';
     const { summary } = await obsCommand({ type, ...payload });
     delete button.dataset.attention;
@@ -488,8 +489,8 @@ document.addEventListener('oneshot:stream-id', event => {
   $('sendObsBtn').dataset.attention = '1';
   $('sendObsBtn').title = `У ${event.detail.nick} новая ссылка — отправь матч в OBS ещё раз`;
 });
-$('copyJsonBtn').addEventListener('click', () => {
-  try { panel.copy(obsJson()); } catch (error) { panel.showError(error.message); }
+$('copyJsonBtn').addEventListener('click', async () => {
+  try { await panel.copy(await obsJson()); } catch (error) { panel.showError(error.message); }
 });
 
 // ---------- webcam status ----------

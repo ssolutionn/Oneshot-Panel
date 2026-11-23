@@ -2629,7 +2629,7 @@ function snapshot() {
     a: getTeam('a'), b: getTeam('b'), playersA: chosen('a'), playersB: chosen('b'),
     keysA: [...state.keysA], keysB: [...state.keysB],
     matchError: valid(), template: state.template, templateError: state.templateError,
-    includeCards: $('includeCards').checked, logos: state.logos,
+    includeCards: $('includeCards').checked, season3: isSeason3(), logos: state.logos,
     cameraFrame:state.cameraFrame,
     veto: { ...state.veto, actions: [...state.veto.actions] }, pending: state.pending,
     schedule: state.schedule.filter(match => !match.unavailable), matchKey: state.matchKey,
@@ -2648,13 +2648,16 @@ window.oneshotPanel = { snapshot, copy: text => copy(text), toast, showError, se
     key: player.key, nick: player.nick, id: player.id, room: player.room, password: player.password
   })) })),
   // lan.js registers the maker of self-contained cards (photos inside).
-  setCardDocs: provider => { cardDocsProvider = provider; }, cardDocs: () => cardDocsNow() };
+  setCardDocs: provider => { cardDocsProvider = provider; }, cardDocs: cardDocsNow };
 let cardDocsProvider = null;
-// LAN cards with their photos inside, for the players of the current match.
-function cardDocsNow() {
-  if (!state.lan.on || !$('includeCards').checked || !cardDocsProvider) return {};
-  return cardDocsProvider(['a', 'b'].flatMap(side =>
-    chosen(side).filter(Boolean).map(p => ({ team: getTeam(side).name, nick: p.nick, teamId: getTeam(side).teamId, playerId: p.playerId }))));
+// Build cards from the same selection that supplies the camera sources.
+async function cardDocsNow(s = snapshot()) {
+  if (!s.includeCards || (!s.season3 && (!state.lan.on || !cardDocsProvider))) return {};
+  const players = [[s.a, s.playersA], [s.b, s.playersB]].flatMap(([team, lineup]) =>
+    lineup.filter(Boolean).map(p => ({ team: team.name, nick: p.nick, teamId: team.teamId, playerId: p.playerId })));
+  if (!s.season3) return cardDocsProvider(players);
+  const { season3CardDocs } = await import('./lan-event.js');
+  return season3CardDocs(players);
 }
 // lan.js: another prefix is a new data source; edited teams keep the match,
 // lineups and veto where they still fit, and a renamed team stays chosen.
