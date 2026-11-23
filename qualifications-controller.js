@@ -328,16 +328,6 @@ export function createQualificationsController({
         openRoom.dataset.qOpenRoom = '';
         safeText(openRoom, 'Открыть комнату');
         foot.append(openRoom);
-        // Links handed out before the room name was stabilised live in the
-        // other ordering; keep one way to reach those players too.
-        if (record.altRoom) {
-          const altRoom = document.createElement('button');
-          altRoom.type = 'button';
-          altRoom.dataset.qOpenAltRoom = '';
-          altRoom.title = 'Игроки по ссылкам, выданным до обновления';
-          safeText(altRoom, 'Старая комната');
-          foot.append(altRoom);
-        }
       }
       const copyAll = document.createElement('button');
       copyAll.type = 'button';
@@ -447,9 +437,7 @@ export function createQualificationsController({
     const groups = new Map();
     for (const record of state.matches.values()) {
       if (!isWatched(record)) continue;
-      // Links already sent may point at the pre-sort room; watch both so the
-      // desk still sees players who opened an older link.
-      const rooms = [record.room, record.altRoom].filter(Boolean);
+      const rooms = [record.room].filter(Boolean);
       for (const team of record.teams || []) for (const player of team.players || []) {
         const camera = player.camera;
         const id = camera ? vdoId(camera.id) : '';
@@ -584,8 +572,7 @@ export function createQualificationsController({
           // VDO first, in the order FACEIT sent: vdo.players pairs by index.
           const vdo = vdoFactory(state.championshipId, record.match.id, record.teams);
           record.room = vdo.room;
-          record.altRoom = vdo.altRoom || '';
-          const roster = record.teams.flatMap(t => t.players);
+                    const roster = record.teams.flatMap(t => t.players);
           for (let i = 0; i < roster.length; i++) {
             const player = roster[i];
             if (!player.camera) player.camera = { id: vdo.players[i]?.id || '', room: vdo.room, password: '', source: 'generated' };
@@ -706,11 +693,7 @@ export function createQualificationsController({
       window.open?.(qualificationDirectorLink(room), '_blank', 'noopener');
       return;
     }
-    if (target?.matches?.('[data-q-open-alt-room]') && record.altRoom) {
-      window.open?.(qualificationDirectorLink(record.altRoom), '_blank', 'noopener');
-      return;
-    }
-  };
+      };
   root?.addEventListener('click', clickHandler);
   // Filter toolbar is built from JS so a cached HTML (an operator refreshing
   // mid-tournament) still gets the filters — the desk must not depend on a
