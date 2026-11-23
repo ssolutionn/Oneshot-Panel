@@ -523,7 +523,7 @@ async function enterRoom(room) {
 
   $('vtTitle').removeAttribute('data-i18n');
   $('vtTitle').textContent = `${names[0]} vs ${names[1]}`;
-  $('vtEyebrow').textContent = `MAP VETO · ${room.f}`;
+  $('vtEyebrow').append(` · ${room.f}`);
   $('vtRoom').hidden = false;
   relabel.add(() => {
     document.title = t('roomTitle', names[0], names[1]);

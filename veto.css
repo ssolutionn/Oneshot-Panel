@@ -307,3 +307,39 @@ body{position:relative;isolation:isolate;background:var(--vt-bg)}
 @keyframes vt-fade-in { from { opacity:0; } to { opacity:1; } }
 ::selection { background:var(--vt-accent); color:var(--vt-accent-ink); }
 @media(prefers-reduced-motion:reduce){.vt-smoke-background canvas,.vt-create,.vt-room{animation:none}}
+
+/* Season 3 colours for the captains' page. The card and OBS overlay use the
+   shared event palette separately. */
+:root[data-veto-season="3"] {
+  --vt-bg:#160a13; --vt-bg-2:#42102e; --vt-muted:#dec3d3;
+  --vt-line:#f6bed63b; --vt-panel:#271321f2; --vt-panel-solid:#271321;
+  --vt-accent:#ff81ba; --vt-accent-ink:#29091c; --vt-accent-soft:#ff65ab26;
+  --vt-glow:#ff45954d; --vt-field:#1d0d18; --vt-coin-a:#9e245e; --vt-coin-b:#551339;
+  --vt-ban:#ff6b62; --vt-ban-soft:#ff6b6233; --vt-pick-soft:#63dba533;
+  --vt-shade:#10060ddd; --vt-online:var(--vt-pick); --vt-offline:#a7879b;
+  --vt-progress-muted:#c09db2; --vt-progress-track:#664455;
+}
+:where([data-veto-season="3"]) body {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%,var(--vt-accent-soft),transparent 70%),
+    linear-gradient(180deg,var(--vt-bg-2),var(--vt-bg) 60%) fixed;
+}
+:where([data-veto-season="3"]) .vt-smoke-background {
+  opacity:.66;
+  filter:hue-rotate(135deg) saturate(1.15) brightness(.68);
+}
+:where([data-veto-season="3"]) .vt-map.is-selected {
+  box-shadow:0 0 0 1px var(--vt-accent),0 0 24px var(--vt-glow);
+}
+:where([data-veto-season="3"]) .vt-progress-step { color:var(--vt-progress-muted); }
+:where([data-veto-season="3"]) .vt-progress-step:before { background:var(--vt-progress-track); }
+:where([data-veto-season="3"]) .vt-progress-number { background:var(--vt-field); }
+:where([data-veto-season="3"]) .vt-progress-step[data-kind][data-state=done]:before {
+  background:linear-gradient(90deg,currentColor,var(--vt-progress-track));
+}
+:where([data-veto-season="3"]) .vt-progress-step[data-state=active] .vt-progress-number {
+  background:var(--vt-bg-2); box-shadow:0 0 16px var(--vt-glow);
+}
+:where([data-veto-season="3"]) .vt-progress-step[data-state=active]:before {
+  background:linear-gradient(90deg,var(--vt-accent) 0 38%,var(--vt-progress-track) 38%);
+}
