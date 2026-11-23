@@ -74,7 +74,10 @@
       "exit_code": 0,
       "seconds": 8.9,
       "tail": "PASS: webkit white document after load, delayed API, zero decoded frames, video readiness, disconnect/reconnect and cleanup\n"
+    },
+    "editor_firefox": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-11-23T15:38:50.328375+00:00"
+  "updated_at": "2026-11-23T15:38:52.631029+00:00"
 }
