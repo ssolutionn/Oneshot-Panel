@@ -57,8 +57,7 @@ test('cover and pan use VDO options with numeric CSS, and screen directions surv
   assert.equal(url.searchParams.get('view'),'player');
   assert.equal(url.searchParams.get('password'),'secret');
   assert.ok(url.searchParams.has('cover') && url.searchParams.has('transparent'));
-  assert.equal(atob(url.searchParams.get('b64css')),
-    'html,body{background:transparent!important;}video{object-fit:cover!important;object-position:70% 80%!important;scale:1!important;transform-origin:70% 80%!important;}');
+  assert.match(atob(url.searchParams.get('b64css')),/object-fit:cover!important;object-position:70% 80%!important/);
   assert.match(cameraCss({rotation:270,panX:20,panY:70}),/30% 20%/);
   assert.match(cameraCss({rotation:180,panX:20,panY:70}),/80% 30%/);
   assert.deepEqual(normalizeCamera({rotation:'90;bad',panX:Infinity,panY:'0;bad'}),
@@ -78,9 +77,27 @@ test('zoom is bounded, remains per player, and reaches preview/export/live URLs'
   const css=atob(url.searchParams.get('b64css'));
   assert.equal(url.searchParams.has('darkmode'),false,'OBS keeps its existing transparent output');
   assert.match(css,/html,body\{background:transparent!important/);
-  assert.match(css,/scale:1.5!important/);
+  assert.ok(Math.abs(Number(css.match(/scale:([\d.]+)/)[1])-1.5*(1+40/1008))<1e-6);
   assert.match(css,/transform-origin:100% 50%/);
   assert.deepEqual(cameraGeometry({camera:{zoom:3}}),{rotation:0,x:300,y:36,width:1320,height:1008});
+});
+
+test('default framing extends at least 20 px on all sides, even with edge panning',()=>{
+  for (const frame of ['inner43','full43','wide','square']) {
+    for (const rotation of [0,90,180,270]) {
+      const player={id:'p',room:'r',camera:{rotation,panX:0,panY:100}};
+      const {width,height}=cameraGeometry(player,frame);
+      const css=atob(new URL(cameraViewUrl(player,{},frame)).searchParams.get('b64css'));
+      const scale=Number(css.match(/scale:([\d.]+)/)[1]);
+      const origin=css.match(/transform-origin:([\d.]+)% ([\d.]+)%/).slice(1).map(Number);
+      const translate=css.match(/translate:([-\d.]+)% ([-\d.]+)%/).slice(1).map(Number);
+      for (const [axis, size] of [width,height].entries()) {
+        const start=size*(translate[axis]+(1-scale)*origin[axis])/100;
+        assert.ok(start<=-19.999);
+        assert.ok(start+size*scale>=size+19.999);
+      }
+    }
+  }
 });
 
 test('an older panel keeps the previous full-frame and contain behavior through an updated dock',()=>{

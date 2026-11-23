@@ -29,6 +29,22 @@ addEventListener('message',e=>{
 </script>"""
 
 
+def camera_scale(zoom, short_side=1008):
+    return zoom * (1 + 40 / short_side)
+
+
+async def expect_camera_zoom(video, zoom, timeout=5):
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    expected = camera_scale(zoom)
+    while True:
+        actual = await video.evaluate('el => parseFloat(getComputedStyle(el).scale)')
+        if actual is not None and abs(actual - expected) < 0.00001:
+            return
+        assert loop.time() < deadline, (actual, expected)
+        await asyncio.sleep(0.05)
+
+
 async def run(args):
     output=Path(args.artifacts)
     output.mkdir(parents=True,exist_ok=True)
@@ -89,7 +105,7 @@ async def run(args):
             await page.click("#cameraRotate")
             await expect(frame.locator("#cameraQaMedia")).to_have_css("object-position","50% 60%",timeout=15000)
             await page.locator('#cameraZoom').press('End')
-            await expect(frame.locator('#cameraQaMedia')).to_have_css('scale','3',timeout=15000)
+            await expect_camera_zoom(frame.locator('#cameraQaMedia'), 3, timeout=15)
             # VDO may omit its theme class in clean/transparent output. The
             # contract is a transparent canvas, not a provider-internal class.
             await frame.wait_for_function("""() => [document.documentElement,document.body,document.querySelector('#main')].filter(Boolean).every(el=>{
@@ -149,11 +165,11 @@ async def run(args):
         await expect(page.locator("#cameraRotation")).to_have_value("90")
         await expect(video).to_have_css("object-position","50% 60%")
         await page.locator('#cameraZoom').press('End')
-        await expect(video).to_have_css('scale','3')
+        await expect_camera_zoom(video, 3)
         await page.locator('#cameraZoom').press('Home')
-        await expect(video).to_have_css('scale','1')
+        await expect_camera_zoom(video, 1)
         for _ in range(5): await page.locator('[data-camera-zoom="10"]').click()
-        await expect(video).to_have_css('scale','1.5')
+        await expect_camera_zoom(video, 1.5)
         await expect(page.locator('#cameraZoomValue')).to_have_text('150%')
         assert len(previews)==1,"Panning/rotation reconnected the video instead of editing its view"
         await page.locator("#cameraDialog").screenshot(path=str(output/"camera-editor.png"))
@@ -188,7 +204,7 @@ async def run(args):
         assert "&b64css=" in source["settings"]["url"]
         from urllib.parse import parse_qs,urlsplit
         css=base64.b64decode(parse_qs(urlsplit(source['settings']['url']).query)['b64css'][0]).decode()
-        assert 'scale:1.5!important' in css
+        assert f'scale:{camera_scale(1.5):.6f}!important' in css
         await page.select_option("#cameraFrame","wide")
         await page.reload()
         await expect(page.locator("#cameraFrame")).to_have_value("wide")
@@ -229,7 +245,7 @@ async def run(args):
         await expect(page.locator('#errorBox')).to_be_hidden()
         urls=[r['requestData']['inputSettings'].get('url','') for r in dock_obs.requests
               if r['requestType']=='SetInputSettings']
-        assert any('scale:1.5!important' in base64.b64decode(parse_qs(urlsplit(url).query)['b64css'][0]).decode()
+        assert any(f'scale:{camera_scale(1.5,1080):.6f}!important' in base64.b64decode(parse_qs(urlsplit(url).query)['b64css'][0]).decode()
                    for url in urls if 'b64css=' in url),'Updated dock lost zoom'
         await dock.close()
         assert not errors,errors

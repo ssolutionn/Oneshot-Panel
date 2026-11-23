@@ -183,7 +183,7 @@ function editorPlayer() {
 }
 function cameraPreviewStyle(camera) {
   // Only the video paints above our backdrop, including while VDO connects.
-  return cameraCss(camera)+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
+  return cameraCss(camera, state.cameraFrame)+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
 }
 function cameraPreviewLoading(loading) {
   $('cameraPreviewBox').dataset.loading=String(loading);
@@ -265,7 +265,7 @@ function openCamera(side,slot) {
   cameraPreview.title='Предпросмотр камеры '+player.nick;
   cameraPreview.allow='autoplay';
   cameraPreview.referrerPolicy='no-referrer';
-  const url=new URL(cameraViewUrl(player));
+  const url=new URL(cameraViewUrl(player, {}, state.cameraFrame));
   url.searchParams.set('b64css',btoa(cameraPreviewStyle(player.camera)));
   url.searchParams.set('darkmode','');url.searchParams.set('noaudio','');
   cameraPreview.src=url.href;

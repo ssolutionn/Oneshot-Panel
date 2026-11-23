@@ -1539,6 +1539,7 @@ function directorUrl(team) {
   return `https://vdo.ninja/?director=${encodeURIComponent(team.room)}${roomPassword(team)}`;
 }
 const DEFAULT_CAMERA_FRAME = 'inner43';
+const CAMERA_EDGE_BLEED = 20;
 const CAMERA_FRAMES = {
   // Key kept for saved settings: fields 300 px left/right and 36 px top/bottom.
   inner43: { x:300, y:36, width:1320, height:1008 },
@@ -1560,13 +1561,20 @@ function normalizeCamera(value) {
 // VDO's supported cover/base64css URL options and style iframe message use
 // this same CSS. Only normalized numbers enter it. Pan follows screen axes
 // after rotation, rather than making "left" move up on a sideways camera.
-function cameraCss(value) {
+function cameraCss(value, frame = DEFAULT_CAMERA_FRAME) {
   const c=normalizeCamera(value);
   let x=c.panX,y=c.panY;
   if(c.rotation===90)[x,y]=[y,100-x];
   else if(c.rotation===180)[x,y]=[100-x,100-y];
   else if(c.rotation===270)[x,y]=[100-y,x];
-  return 'html,body{background:transparent!important;}video{object-fit:cover!important;object-position:'+x+'% '+y+'%!important;scale:'+c.zoom+'!important;transform-origin:'+x+'% '+y+'%!important;}';
+  const {width, height} = cameraFrame(frame);
+  const bleed = 1 + 2 * CAMERA_EDGE_BLEED / Math.min(width, height);
+  const scale = Number((c.zoom * bleed).toFixed(6));
+  // Center the extra scale independently of the operator's zoom anchor.
+  const offset = position => Number(((position - 50) * (bleed - 1)).toFixed(6));
+  return 'html,body{background:transparent!important;overflow:hidden!important;}' +
+    `video{object-fit:cover!important;object-position:${x}% ${y}%!important;scale:${scale}!important;` +
+    `transform-origin:${x}% ${y}%!important;translate:${offset(x)}% ${offset(y)}%!important;}`;
 }
 function normalizeVdoOptions(options = {}) {
   const bitrate = Math.max(500, Math.min(8000, Number(options.bitrate) || 2500));
@@ -1575,14 +1583,13 @@ function normalizeVdoOptions(options = {}) {
   // enabled: the LAN mode switch — tuning parameters reach the URL only then.
   return { enabled: options.enabled === true, bitrate, fps, codec, lowLatency: options.lowLatency !== false };
 }
-function cameraViewUrl(player, vdoOptions = {}) {
+function cameraViewUrl(player, vdoOptions = {}, frame = DEFAULT_CAMERA_FRAME) {
   const c=normalizeCamera(player?.camera);
   const options=normalizeVdoOptions(vdoOptions);
   const base=viewUrl(player).replace('&codec=h264', `&codec=${options.codec}`);
   const url=base+'&cover';
   const tuned=options.enabled === true ? `&bitrate=${options.bitrate}&fps=${options.fps}${options.lowLatency ? '&lowlatency' : ''}` : '';
-  return url+tuned+(c.panX===50 && c.panY===50 && c.zoom===1 ? '' :
-    '&b64css='+encodeURIComponent(btoa(cameraCss(c))));
+  return url+tuned+'&b64css='+encodeURIComponent(btoa(cameraCss(c, frame)));
 }
 function cameraGeometry(player, frame = DEFAULT_CAMERA_FRAME) {
   const rect=cameraFrame(frame),{rotation}=normalizeCamera(player?.camera);
@@ -1962,7 +1969,7 @@ function buildObs(template, a, b, ka, kb,
     item.name = browser.name;
     const geometry=cameraGeometry(p,frame);
     Object.assign(browser.settings, {
-      url: cameraViewUrl(p, vdoOptions), width:geometry.width, height:geometry.height
+      url: cameraViewUrl(p, vdoOptions, frame), width:geometry.width, height:geometry.height
     });
     const slot = String(i + 1).padStart(2, '0');
     names.set(browser.name, `CAM ${slot} | ${p.team} | ${p.nick}`);
@@ -2410,7 +2417,7 @@ function editorPlayer() {
 }
 function cameraPreviewStyle(camera) {
   // Only the video paints above our backdrop, including while VDO connects.
-  return cameraCss(camera)+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
+  return cameraCss(camera, state.cameraFrame)+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
 }
 function cameraPreviewLoading(loading) {
   $('cameraPreviewBox').dataset.loading=String(loading);
@@ -2492,7 +2499,7 @@ function openCamera(side,slot) {
   cameraPreview.title='Предпросмотр камеры '+player.nick;
   cameraPreview.allow='autoplay';
   cameraPreview.referrerPolicy='no-referrer';
-  const url=new URL(cameraViewUrl(player));
+  const url=new URL(cameraViewUrl(player, {}, state.cameraFrame));
   url.searchParams.set('b64css',btoa(cameraPreviewStyle(player.camera)));
   url.searchParams.set('darkmode','');url.searchParams.set('noaudio','');
   cameraPreview.src=url.href;
