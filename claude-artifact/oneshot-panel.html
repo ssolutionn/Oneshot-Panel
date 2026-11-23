@@ -2297,6 +2297,27 @@ if (seasonPage && !state.lan.on) state.source = { ...SEASON3_SOURCE };
 function isSeason3(source = state.source) {
   return !state.lan.on && source.id === SEASON3_SOURCE.id && source.gid === SEASON3_SOURCE.gid;
 }
+function activateSeason3Access() {
+  const prefix = '#vdo-season3=';
+  if (!isSeason3() || !location.hash.startsWith(prefix)) return '';
+  const url = new URL(location.href);
+  const token = url.hash.slice(prefix.length);
+  // This fragment is a private setup link. Keep it out of the address bar and
+  // browser history after consuming it, even if browser storage is blocked.
+  url.hash = '';
+  history.replaceState(history.state, '', url);
+  if (validateSeason3VdoAccess(readStorage(SEASON3_ACCESS_KEY))) return '';
+  try {
+    if (!/^[A-Za-z0-9_-]{1,4096}$/.test(token)) throw new Error('Invalid VDO link');
+    const bytes = Uint8Array.from(atob(token.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+    const access = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+    if (!validateSeason3VdoAccess(access)) throw new Error('Invalid VDO access');
+    return writeStorage(SEASON3_ACCESS_KEY, access) ? '' : 'Браузер не разрешил сохранить доступ VDO.';
+  } catch {
+    return 'Ссылка подключения VDO неполная или повреждена.';
+  }
+}
+const season3LinkError = activateSeason3Access();
 function matchStorageKey() {
   return isSeason3() ? 'oneshot-season3-match' : 'oneshot-webcam-match-v1';
 }
