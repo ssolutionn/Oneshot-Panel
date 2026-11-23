@@ -122,7 +122,7 @@ export function createQualificationsController({
     connects: new Map(), watcher: null, online: new Set(), checking: new Set(),
     stopped: true, lastError: '', championshipId: '', degraded: false, down: false, rosterCache: new Map(),
     filter: 'all', notifiedStarts: new Set(), lastNotified: '', unreadStarts: 0,
-    notifiedProblems: new Set(), problems: new Map()
+    notifiedProblems: new Map(), problems: new Map()
   };
 
   const badge = () => {
@@ -163,12 +163,20 @@ export function createQualificationsController({
       for (const team of record.teams || []) {
         for (const player of team.players || []) {
           const stream = streamOf(player);
-          if (!stream) continue;
           const online = state.online.has(stream);
           const checking = state.checking.has(stream);
-          if (!online && !checking) {
+          if (!stream) {
+            // No camera assigned at all
             matchProblems.set(player.nickname, {
-              type: player.camera?.source === 'oneshot' ? 'offline' : 'missing-camera',
+              type: 'missing-camera',
+              since: now,
+              team: team.name,
+              matchId: match.id
+            });
+          } else if (!online && !checking) {
+            // Has camera but not streaming
+            matchProblems.set(player.nickname, {
+              type: 'offline',
               since: now,
               team: team.name,
               matchId: match.id
@@ -642,6 +650,8 @@ export function createQualificationsController({
     state.timer = null;
     state.watcher?.stop();
     state.watcher = null;
+    state.notifiedProblems.clear();
+    state.problems.clear();
   }
 
   async function start() {
@@ -780,5 +790,6 @@ export function createQualificationsController({
 
 if (typeof window !== 'undefined' && $('qualificationsView')) {
   const controller = createQualificationsController();
+  window.qualificationsController = controller;
   if (!$('qualificationsView').hidden) controller.start();
 }
