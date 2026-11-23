@@ -669,6 +669,38 @@ body.dock { background:var(--bg); font-size:12px; }
   color: var(--muted);
 }
 
+.qualifications-view .qualifications-problems {
+  grid-column: 1 / -1;
+  border: 1px solid var(--warn-line);
+  border-radius: 8px;
+  background: var(--warn);
+  color: var(--warn-ink);
+  padding: 12px 16px;
+  margin-top: 8px;
+}
+.qualifications-view .qualifications-problems h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.qualifications-view .qualifications-problems details {
+  margin-bottom: 6px;
+}
+.qualifications-view .qualifications-problems summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--warn-ink);
+}
+.qualifications-view .qualifications-problems ul {
+  margin: 6px 0 0 16px;
+  padding: 0;
+}
+.qualifications-view .qualifications-problems li {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
 /* Collapsible API key field */
 .qualifications-view .qkey-more summary {
   cursor: pointer;

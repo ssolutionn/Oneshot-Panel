@@ -35,6 +35,10 @@ const setsEqual = (a, b) => a.size === b.size && [...a].every(value => b.has(val
 const identityKey = value => String(value || '').normalize('NFKD')
   .replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
 
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+}[c]));
+
 // `allTeams` is window.oneshotPanel.teams(): every team parsed from the sheet,
 // so a 32-match championship is not limited to the two teams picked for air.
 export function matchQualificationPlayers(teams, snapshot, allTeams = []) {
@@ -117,7 +121,8 @@ export function createQualificationsController({
     client: null, timer: null, generation: 0, inFlight: null, matches: new Map(),
     connects: new Map(), watcher: null, online: new Set(), checking: new Set(),
     stopped: true, lastError: '', championshipId: '', degraded: false, down: false, rosterCache: new Map(),
-    filter: 'all', notifiedStarts: new Set(), lastNotified: '', unreadStarts: 0
+    filter: 'all', notifiedStarts: new Set(), lastNotified: '', unreadStarts: 0,
+    notifiedProblems: new Set(), problems: new Map()
   };
 
   const badge = () => {
@@ -127,6 +132,67 @@ export function createQualificationsController({
     el.hidden = !unread;
     el.textContent = String(unread);
   };
+  const badgeProblems = () => {
+    const btn = $('qualificationsNavBtn');
+    if (!btn) return;
+    let total = 0;
+    for (const p of state.problems.values()) total += p.size;
+    const badge = btn.querySelector('.problems-badge');
+    if (total > 0) {
+      if (!badge) {
+        const span = document.createElement('span');
+        span.className = 'tab-badge problems-badge';
+        span.style.background = 'var(--warn)';
+        span.style.color = 'var(--warn-ink)';
+        btn.append(span);
+      }
+      badge.textContent = String(total);
+      badge.hidden = false;
+    } else if (badge) {
+      badge.hidden = true;
+    }
+  };
+  // Compute per-match camera problems for live matches only.
+  const computeProblems = () => {
+    const problems = new Map();
+    const now = Date.now();
+    for (const record of state.matches.values()) {
+      const match = record.match;
+      if (!match.live) continue;
+      const matchProblems = new Map();
+      for (const team of record.teams || []) {
+        for (const player of team.players || []) {
+          const stream = streamOf(player);
+          if (!stream) continue;
+          const online = state.online.has(stream);
+          const checking = state.checking.has(stream);
+          if (!online && !checking) {
+            matchProblems.set(player.nickname, {
+              type: player.camera?.source === 'oneshot' ? 'offline' : 'missing-camera',
+              since: now,
+              team: team.name,
+              matchId: match.id
+            });
+          }
+        }
+      }
+      if (matchProblems.size) problems.set(match.id, matchProblems);
+    }
+    for (const [matchId, probs] of problems) {
+      const prev = state.notifiedProblems.get(matchId) || new Set();
+      for (const nick of probs.keys()) {
+        if (!prev.has(nick)) {
+          const info = probs.get(nick);
+          void showNotification('Oneshot · Проблема с камерой',
+            escapeHtml(info.team) + ' / ' + escapeHtml(nick) + ' — ' + (info.type === 'offline' ? 'офлайн' : 'нет камеры'),
+            { tag: 'oneshot-qual-problem-' + matchId + '|' + nick, section: 'qualifications' });
+        }
+      }
+      state.notifiedProblems.set(matchId, new Set(probs.keys()));
+    }
+    state.problems = problems;
+    badgeProblems();
+  };
   // The player object already carries the resolved camera; a global map keyed
   // by FACEIT id let the same id in two matches overwrite itself.
   const streamOf = player => (player?.camera?.id ? vdoId(player.camera.id) : '');
@@ -134,6 +200,7 @@ export function createQualificationsController({
   function render() {
     if (!list || typeof document === 'undefined') return;
     if (inputFocusedIn(list)) return;
+    computeProblems();
     paintFilters();
     const sorted = sortQualificationMatches([...state.matches.values()]);
     const visible = filterQualificationMatches(sorted, state.filter);
@@ -327,7 +394,35 @@ export function createQualificationsController({
       fragment.append(empty);
     }
     list.replaceChildren(fragment);
+    renderProblemsPanel();
   }
+
+  const renderProblemsPanel = () => {
+    const container = $('qualificationsProblems');
+    if (!container) return;
+    const problems = state.problems;
+    let total = 0;
+    for (const p of problems.values()) total += p.size;
+    if (!total) {
+      container.hidden = true;
+      container.innerHTML = '';
+      return;
+    }
+    container.hidden = false;
+    const parts = ['<h3>Проблемы с камерами</h3>'];
+    for (const [matchId, probs] of problems) {
+      const record = state.matches.get(matchId);
+      if (!record) continue;
+      const match = record.match;
+      parts.push('<details open><summary>' + escapeHtml(match.teams.join(' vs ')) + ' (' + escapeHtml(match.statusText) + ') — ' + probs.size + ' игроков</summary><ul>');
+      for (const [nick, info] of probs) {
+        const label = info.type === 'offline' ? 'офлайн' : 'нет камеры';
+        parts.push('<li>' + escapeHtml(nick) + ' (' + escapeHtml(info.team) + ') — ' + label + '</li>');
+      }
+      parts.push('</ul></details>');
+    }
+    container.innerHTML = parts.join('');
+  };
 
   // Only watch live matches and upcoming matches starting within 1 hour.
 // Otherwise 32 matches × 10 players = 320 hidden iframes, and CamWatch reconnects waste resources.
@@ -375,6 +470,7 @@ export function createQualificationsController({
     // one signalling session across polls instead of reconnecting every tick.
     if (!state.watcher && safeGroups.length) {
       state.watcher = watchFactory((online, checking) => {
+        computeProblems();
         const same = setsEqual(state.online, online) && setsEqual(state.checking, checking);
         state.online = online;
         state.checking = checking;
@@ -443,6 +539,8 @@ export function createQualificationsController({
           state.down = false;
           state.degraded = false;
           state.lastNotified = '';
+          state.notifiedProblems.clear();
+          state.problems.clear();
           render();
         }
         state.championshipId = target.id;
