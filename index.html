@@ -754,21 +754,17 @@
         <button class="icon-button" type="button" id="closeSettings" aria-label="Закрыть">×</button>
       </div>
       <div id="sourceError" class="error-box" role="alert" hidden></div>
-      <p>Таблицы должны быть доступны на просмотр по ссылке. Составы: ID, команда, слот, ник, ID потока, room, PUSH, VIEW, роль.</p>
-      <label>Таблица составов<input id="sourceUrl" type="url" required></label>
-      <label>GID листа «Все игроки»<input id="sourceGid" inputmode="numeric" pattern="[0-9]+" required></label>
-      <label>Таблица расписания (необязательно)<input id="scheduleUrl" type="url"></label>
+      <p>Вставь ссылку на нужную вкладку Google Sheets. GID из ссылки подставится сам. Таблица должна быть доступна на просмотр по ссылке.</p>
+      <label>Ссылка на вкладку составов<input id="sourceUrl" type="url" required></label>
+      <label>GID вкладки составов<input id="sourceGid" inputmode="numeric" pattern="[0-9]+"></label>
+      <label>Ссылка на вкладку расписания (необязательно)<input id="scheduleUrl" type="url"></label>
       <label>GID расписания<input id="scheduleGid" inputmode="numeric" pattern="[0-9]+"></label>
       <label>Ключи выданных VDO-ссылок сезона 3 (.json)<input id="season3Access" type="file" accept=".json,application/json"></label>
       <p class="muted">
-        Расписание: лист организатора «Schedule (...)» (Stage, Date, MSK,
-        Team 1, Team 2 — матчи на сегодня и дальше) или дневной лист
-        «Матчи ДД.ММ» (B — время, C/D — команды, E — стадия).
-        Таблица организатора:
-        <a href="https://docs.google.com/spreadsheets/d/1GtwcpVnyxY1YOs6ZTrXwJr5mjZqI0QxjLSKjimn9G2o/edit" target="_blank" rel="noreferrer">открыть</a>.
+        Для своих таблиц используй формат «Все игроки» для составов и Stage, Date, MSK, Team 1, Team 2 для расписания.
       </p>
       <div class="dialog-actions">
-        <button type="button" class="button" id="resetSource">Исходная таблица</button>
+        <button type="button" class="button" id="resetSource">CyberClash Season 2</button>
         <button type="button" class="button" id="season3Source">CyberClash Season 3</button>
         <button type="submit" class="button primary">Подключить</button>
       </div>

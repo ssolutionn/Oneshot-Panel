@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from playwright.async_api import async_playwright, expect
-from qa_browser import sample_roster, gviz
+from qa_browser import sample_roster, gviz, season2_url
 from qa_live import MockObs, OBS_URL, FAKE_VDO
 
 # A known landscape input. The video poster follows the same object-fit and
@@ -77,7 +77,7 @@ async def run(args):
         page.on("request",lambda req:previews.append(req.url) if req.url.startswith("https://vdo.ninja/") and "&cover" in req.url else None)
         obs=MockObs()
         await page.route_web_socket(OBS_URL,obs.handler)
-        await page.goto(args.url)
+        await page.goto(season2_url(args.url))
         await expect(page.locator("#syncTitle")).to_contain_text("команд из таблицы")
         options=await page.locator("#matchSelect option").evaluate_all("els=>els.filter(e=>e.value).map(e=>e.value)")
         await page.select_option("#matchSelect",options[0])

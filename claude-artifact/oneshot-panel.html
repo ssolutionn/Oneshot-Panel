@@ -2299,8 +2299,13 @@ if (EVENT_LAN !== state.lan.on) {
     prefix: state.lan.prefix || newLanPrefix(crypto.getRandomValues(new Uint8Array(4))) });
   writeStorage(LAN_STORE, state.lan);
 }
-const seasonPage = new URL(location.href).searchParams.get('season') === '3';
-if (seasonPage && !state.lan.on) state.source = { ...SEASON3_SOURCE };
+const seasonShortcut = new URL(location.href).searchParams.get('season');
+const useSeason3ByDefault = globalThis.oneshotEvent?.slug === 'cyberclash' && savedSource?.selected !== true &&
+  ['id', 'gid', 'scheduleId', 'scheduleGid'].every(key => state.source[key] === DEFAULT_SOURCE[key]);
+if (!state.lan.on) {
+  if (seasonShortcut === '2') state.source = { ...DEFAULT_SOURCE };
+  else if (seasonShortcut === '3' || useSeason3ByDefault) state.source = { ...SEASON3_SOURCE };
+}
 function isSeason3(source = state.source) {
   return !state.lan.on && source.id === SEASON3_SOURCE.id && source.gid === SEASON3_SOURCE.gid;
 }

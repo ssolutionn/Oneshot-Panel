@@ -5,7 +5,7 @@
 // their own and views the other's, spectators view both. Same-browser tabs
 // also talk over a BroadcastChannel. Rules live in veto-room.js. English by
 // default, Russian with the flag (localStorage oneshot-veto-lang).
-import { MAP_POOL, teamLogo, teamHltv, DEFAULT_SOURCE, decodeGviz, parseSchedule } from './core.js';
+import { MAP_POOL, teamLogo, teamHltv, DEFAULT_SOURCE, SEASON3_SOURCE, scheduleRange, personKey, decodeGviz, parseSchedule } from './core.js';
 import { seal, unseal, VDO_CONNECT_TIMEOUT, VDO_CONNECT_MAX_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
 import { ServerRoomLink } from './assets/veto-relay-links.js';
 import { checkRelay } from './assets/veto-relay-client.js';
@@ -49,7 +49,8 @@ const WORDS = {
     title: 'Map veto', createHeading: "New captains' veto",
     createNote: 'The site makes a personal link for each captain, a spectator link and an admin link. By default the captains toss a fair coin; you can instead assign the first pick (first ban in BO1).',
     settings: 'Veto settings', match: 'Match from the schedule', loadingSchedule: 'Loading the schedule…',
-    pickMatch: 'Pick a match — the teams fill in', noMatches: 'No upcoming matches in the schedule',
+    pickMatch: 'Pick a match — the teams fill in', noMatches: 'No matches in the schedule',
+    pendingTeam: 'Team TBC', pendingTime: 'Time TBC', partialSchedule: 'Only part of the schedule is available',
     scheduleFailed: 'The schedule did not load — type the teams below', today: 'today', tomorrow: 'tomorrow', noDate: 'No date',
     team1: 'Team 1', team2: 'Team 2', format: 'Format', timer: 'Timer',
     min5: '5 minutes', min3: '3 minutes', min7: '7 minutes', min10: '10 minutes', min15: '15 minutes', noTimer: 'No timer',
@@ -113,7 +114,8 @@ const WORDS = {
     title: 'Вето карт', createHeading: 'Новое вето для капитанов',
     createNote: 'Сайт сделает личную ссылку каждому капитану, ссылку зрителей и ссылку админа. По умолчанию капитаны бросают честную монетку; вместо неё можно сразу назначить команду на первый пик (в BO1 — первый бан).',
     settings: 'Настройки вето', match: 'Матч из расписания', loadingSchedule: 'Загружаем расписание…',
-    pickMatch: 'Выбери матч — команды подставятся сами', noMatches: 'В расписании нет предстоящих матчей',
+    pickMatch: 'Выбери матч — команды подставятся сами', noMatches: 'В расписании нет матчей',
+    pendingTeam: 'Команда уточняется', pendingTime: 'Время уточняется', partialSchedule: 'Доступна только часть расписания',
     scheduleFailed: 'Расписание не загрузилось — впиши команды ниже', today: 'сегодня', tomorrow: 'завтра', noDate: 'Без даты',
     team1: 'Команда 1', team2: 'Команда 2', format: 'Формат', timer: 'Таймер',
     min5: '5 минут', min3: '3 минуты', min7: '7 минут', min10: '10 минут', min15: '15 минут', noTimer: 'Без таймера',
@@ -243,18 +245,24 @@ function showLinks(made) {
 }
 relabel.add(() => { if (shownLinks) showLinks(shownLinks); });
 const RESTORE_FOR = 6 * 3600000;
-// The schedule sheet the panel reads (its own source if changed there):
-// matches from today (MSK) on fill the teams, nobody types them.
+// Use the panel's Season 3 schedule unless an operator set a custom source.
 const mskDay = (shift = 0) => new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit' })
   .format(new Date(Date.now() + shift * 86400000));
 async function scheduleRows(id, gid) {
   const url = new URL(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq`);
-  url.search = new URLSearchParams({ gid, range: 'A1:Z300', headers: '1', tqx: 'out:json', _t: String(Date.now()) });
+  const range = id === SEASON3_SOURCE.scheduleId ? scheduleRange(id, gid) : 'A1:Z300';
+  url.search = new URLSearchParams({ gid, range, headers: '1', tqx: 'out:json', _t: String(Date.now()) });
   const response = await fetch(url, { credentials: 'omit', cache: 'no-store', signal: AbortSignal.timeout(20000) });
   if (!response.ok) throw new Error(`Google Sheets ${response.status}`);
   return decodeGviz(await response.text());
 }
 let matches = null;
+let partialSchedule = false;
+const scheduledTeam = name => !/^(?:tbd|tba|tbc|winner|loser|уточняется)(?:\s|$)/i.test(name) && personKey(name);
+function canChooseMatch(match) {
+  const a = scheduledTeam(match.team1), b = scheduledTeam(match.team2);
+  return Boolean(a && b && a !== b);
+}
 function fillMatches() {
   const select = $('vtMatch');
   const kept = select.value;
@@ -264,36 +272,44 @@ function fillMatches() {
     select.title = matches.message;
     return;
   }
+  select.title = partialSchedule ? t('partialSchedule') : '';
   const label = date => date === mskDay() ? `${date} · ${t('today')}` : date === mskDay(1) ? `${date} · ${t('tomorrow')}` : date || t('noDate');
   const groups = new Map();
   for (const m of matches) {
     if (!groups.has(m.date)) groups.set(m.date, Object.assign(document.createElement('optgroup'), { label: label(m.date) }));
     groups.get(m.date).append(Object.assign(document.createElement('option'), {
-      value: JSON.stringify([m.team1, m.team2]),
-      textContent: `${m.time} · ${m.team1} vs ${m.team2}${m.stage ? ` · ${m.stage}` : ''}`
+      value: m.key, disabled: !canChooseMatch(m),
+      textContent: `${m.time || t('pendingTime')} · ${scheduledTeam(m.team1) ? m.team1 : t('pendingTeam')} vs ${scheduledTeam(m.team2) ? m.team2 : t('pendingTeam')}${m.stage ? ` · ${m.stage}` : ''}`
     }));
   }
-  const first = Object.assign(document.createElement('option'), { value: '', textContent: matches.length ? t('pickMatch') : t('noMatches') });
+  const first = Object.assign(document.createElement('option'), { value: '',
+    textContent: t(partialSchedule ? 'partialSchedule' : matches.length ? 'pickMatch' : 'noMatches') });
   select.replaceChildren(first, ...groups.values());
   // The panel's teams (#new&a=&b=) pick their match in the list.
-  const asked = kept || JSON.stringify([$('vtTeamA').value, $('vtTeamB').value]);
-  if ([...select.options].some(o => o.value === asked)) select.value = asked;
+  const asked = matches.find(m => canChooseMatch(m) &&
+    personKey(m.team1) === personKey($('vtTeamA').value) && personKey(m.team2) === personKey($('vtTeamB').value));
+  select.value = matches.some(m => m.key === kept && canChooseMatch(m)) ? kept : asked?.key || '';
 }
 relabel.add(fillMatches);
 async function loadMatches() {
-  let source = DEFAULT_SOURCE;
-  try { source = { ...DEFAULT_SOURCE, ...(JSON.parse(localStorage.getItem('webcam-desk-source')) || {}) }; } catch { /* default */ }
+  let source = SEASON3_SOURCE;
+  try {
+    const saved = JSON.parse(localStorage.getItem('webcam-desk-source'));
+    const sheet = saved?.scheduleId || saved?.id;
+    if (/^[\w-]{20,100}$/.test(sheet || '') && /^\d+$/.test(saved.scheduleGid || '') &&
+        (saved.selected === true || sheet !== DEFAULT_SOURCE.scheduleId || saved.scheduleGid !== DEFAULT_SOURCE.scheduleGid)) source = saved;
+  } catch { /* use the current season */ }
   const id = source.scheduleId || source.id, gid = source.scheduleGid;
   try {
-    if (!gid) throw new Error('no schedule sheet');
-    const tabs = [scheduleRows(id, gid)];
-    if (id === DEFAULT_SOURCE.scheduleId && gid === DEFAULT_SOURCE.scheduleGid) {
-      tabs.push(scheduleRows(id, DEFAULT_SOURCE.playoffsGid).catch(() => []));
-    }
-    const rows = (await Promise.all(tabs)).flat();
+    const season3 = id === SEASON3_SOURCE.scheduleId && [SEASON3_SOURCE.scheduleGid, SEASON3_SOURCE.playoffsGid].includes(gid);
+    const tabs = season3 && gid === SEASON3_SOURCE.scheduleGid ? [gid, SEASON3_SOURCE.playoffsGid] : [gid];
+    const reads = await Promise.allSettled(tabs.map(tab => scheduleRows(id, tab)));
+    if (reads.every(read => read.status === 'rejected')) throw reads[0].reason;
+    partialSchedule = reads.some(read => read.status === 'rejected');
+    const rows = reads.flatMap(read => read.status === 'fulfilled' ? read.value : []);
     const key = date => Number(date.slice(3, 5)) * 100 + Number(date.slice(0, 2));
     const today = key(mskDay());
-    matches = parseSchedule(rows).filter(m => !m.date || key(m.date) >= today);
+    matches = parseSchedule(rows, { includePending: season3 }).filter(m => season3 || !m.date || key(m.date) >= today);
   } catch (error) { matches = error; }
   fillMatches();
 }
@@ -337,10 +353,10 @@ async function setupCreate() {
     } catch (error) { showError(errorText(error.message)); }
   });
   $('vtMatch').addEventListener('change', () => {
-    if (!$('vtMatch').value) return;
-    const [a, b] = JSON.parse($('vtMatch').value);
-    $('vtTeamA').value = a;
-    $('vtTeamB').value = b;
+    const match = Array.isArray(matches) && matches.find(m => m.key === $('vtMatch').value);
+    if (!match || !canChooseMatch(match)) return;
+    $('vtTeamA').value = match.team1;
+    $('vtTeamB').value = match.team2;
     choiceOptions();
   });
   const params = new URLSearchParams(location.hash.slice(1));

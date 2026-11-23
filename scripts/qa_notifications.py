@@ -4,7 +4,7 @@ import asyncio
 from pathlib import Path
 
 from playwright.async_api import async_playwright,expect
-from qa_browser import sample_roster,gviz
+from qa_browser import sample_roster,gviz, season2_url
 
 
 async def run(args):
@@ -38,7 +38,7 @@ async def run(args):
         # defer first installation behind the panel's external image loads.
         await page.goto(args.url.rstrip('/')+'/notification-worker.js')
         await page.evaluate("async()=>{await navigator.serviceWorker.register('/notification-worker.js');await navigator.serviceWorker.ready;}")
-        await page.goto(args.url.rstrip('/')+'/#lobby')
+        await page.goto(season2_url(args.url.rstrip('/')+'/#lobby'))
         await context.grant_permissions(['notifications'],origin=await page.evaluate('location.origin'))
         actual=await page.evaluate("async()=>({notification:Notification.permission,query:(await navigator.permissions.query({name:'notifications'})).state,origin:location.origin})")
         assert actual['notification']=='granted',actual

@@ -8,7 +8,7 @@ from pathlib import Path
 from playwright.async_api import async_playwright, expect
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from qa_browser import sample_roster, gviz
+from qa_browser import sample_roster, gviz, season2_url
 from qa_live import FAKE_VDO, MockObs, OBS_URL as OBS_ROUTE
 
 OBS_URL = 'ws://127.0.0.1:4455'
@@ -58,7 +58,7 @@ async def run(args):
             page = await context.new_page()
             page.on("pageerror", lambda error: errors.append(str(error)))
             await page.route_web_socket(OBS_ROUTE, MockObs().handler)
-            await page.goto(base)
+            await page.goto(season2_url(base))
             await expect(page.locator("#syncTitle")).to_contain_text("команд из таблицы")
             await page.evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))")
             # Mobile WebKit reports its native select shadow styles at the

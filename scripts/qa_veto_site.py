@@ -21,7 +21,7 @@ from pathlib import Path
 from playwright.async_api import async_playwright, expect
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from qa_browser import gviz, sample_roster  # noqa: E402
+from qa_browser import gviz, sample_roster  # noqa: E402, season2_url
 from urllib.parse import parse_qs, urlsplit  # noqa: E402
 
 FAKE_VDO = """<!doctype html><script>
@@ -128,6 +128,10 @@ async def run(args):
                          ["Group B2", day(1), "16:00", "Rune Eaters", "HyperSpirit"]],
                         ["Stage", "Date", "MSK (GMT +3)", "Team 1", "Team 2"])
 
+        playoffs = gviz([["Semifinal 1", day(1), "", "UPGRADE", "Lavked"],
+                         ["Grand Final", day(2), "", "", ""]],
+                        ["Stage", "Date", "MSK", "Team 1", "Team 2"])
+
         async def open_context(width=1280, height=900, english=False):
             context = await browser.new_context(viewport={"width": width, "height": height}, locale="ru-RU")
             contexts.append(context)
@@ -139,10 +143,10 @@ async def run(args):
             # The site is English by default; most scenarios read the Russian texts.
             if not english:
                 await context.add_init_script("try { localStorage.setItem('oneshot-veto-lang', '\"ru\"') } catch {}")
-            # The group stage tab has the matches, the playoffs tab is empty.
+            # The Season 3 group and playoff tabs have separate data.
             await context.route("https://docs.google.com/**/gviz/**", lambda route: route.fulfill(
                 content_type="application/javascript",
-                body=gviz([], ["Stage"]) if "gid=1212769715" in route.request.url else schedule))
+                body=playoffs if "gid=1361112809" in route.request.url else schedule))
             if not args.real_vdo:
                 await context.route("https://vdo.ninja/**",
                                     lambda route: route.fulfill(content_type="text/html", body=FAKE_VDO))
@@ -467,7 +471,13 @@ async def run(args):
         await expect(admin.locator("#vtMade")).to_contain_text("Ссылки созданы в")
         # The match from the schedule sheet fills the teams.
         await admin.goto(base + "/veto.html")
-        await expect(admin.locator("#vtMatch option")).to_have_count(3, timeout=wait)
+        await expect(admin.locator("#vtMatch option")).to_have_count(5, timeout=wait)
+        assert await admin.locator("#vtMatch option", has_text="Гранд-финал").evaluate("option => option.disabled")
+        semifinal = admin.locator("#vtMatch option", has_text="Полуфинал")
+        await expect(semifinal).to_contain_text("Время уточняется")
+        await admin.select_option("#vtMatch", await semifinal.get_attribute("value"))
+        await expect(admin.locator("#vtTeamA")).to_have_value("UPGRADE")
+        await expect(admin.locator("#vtTeamB")).to_have_value("Lavked")
         await expect(admin.locator("#vtMatch optgroup").first).to_have_attribute("label", re.compile("сегодня"))
         option = admin.locator("#vtMatch option", has_text="PRIVATE vs UPGRADE")
         await admin.select_option("#vtMatch", await option.get_attribute("value"))
@@ -738,7 +748,7 @@ async def run(args):
                     else sample_roster(("UPGRADE", "Lavked")))
             await route.fulfill(content_type="application/javascript", body=body)
         await panel_ctx.route("https://docs.google.com/**/gviz/**", panel_sheets)
-        panel = await open_page(base + "/", context=panel_ctx)
+        panel = await open_page(season2_url(base + "/"), context=panel_ctx)
         await expect(panel.locator("#syncTitle")).to_contain_text("команд из таблицы", timeout=wait)
         await panel.click("#vetoNavBtn")
         await expect(panel.locator("#cvLiveEmpty")).to_be_visible()

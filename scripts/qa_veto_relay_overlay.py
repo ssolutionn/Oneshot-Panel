@@ -6,7 +6,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 from playwright.async_api import async_playwright, expect
-from qa_browser import gviz, sample_roster
+from qa_browser import gviz, sample_roster, season2_url
 
 async def main(args):
     base=args.url.rstrip('/')
@@ -34,7 +34,7 @@ async def main(args):
         await source_ctx.route("https://cdn-backup.vdo.ninja/**",lambda r:r.abort())
         panel=await panel_ctx.new_page()
         panel.on("pageerror",lambda e:errors.append(str(e)))
-        await panel.goto(base)
+        await panel.goto(season2_url(base))
         await expect(panel.locator("#syncTitle")).to_contain_text("команд из таблицы",timeout=15000)
         await panel.click("#vetoNavBtn")
         await panel.fill("#cvSite",args.veto_site or base+"/veto.html")

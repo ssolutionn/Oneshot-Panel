@@ -5,9 +5,16 @@ import json
 import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from playwright.async_api import async_playwright, expect
+
+
+def season2_url(url):
+    parts=urlsplit(url)
+    query=parse_qs(parts.query,keep_blank_values=True)
+    query["season"]=["2"]
+    return parts._replace(query=urlencode(query,doseq=True)).geturl()
 
 
 def gviz(rows, labels=None):
@@ -121,7 +128,7 @@ async def run(args):
         await context.route("https://docs.google.com/**/gviz/**", sheets)
         page = await context.new_page()
         page.on("pageerror", lambda error: errors.append(str(error)))
-        await page.goto(args.url)
+        await page.goto(season2_url(args.url))
         await expect(page.locator("#syncTitle")).to_contain_text(
             "команд из таблицы"
         )
@@ -515,7 +522,7 @@ async def run(args):
         )
         bad_page = await bad.new_page()
         bad_page.on("pageerror", lambda error: errors.append(str(error)))
-        await bad_page.goto(args.url)
+        await bad_page.goto(season2_url(args.url))
         await expect(bad_page.locator("#syncTitle")).to_contain_text(
             "команд из таблицы"
         )
@@ -554,7 +561,7 @@ async def run(args):
 
         await missing.route("**/assets/obs-template.json", template_route)
         missing_page = await missing.new_page()
-        await missing_page.goto(args.url)
+        await missing_page.goto(season2_url(args.url))
         await expect(missing_page.locator("#syncTitle")).to_contain_text(
             "команд из таблицы"
         )
@@ -602,7 +609,7 @@ async def run(args):
             "https://docs.google.com/**/gviz/**", hostile_sheets
         )
         hostile_page = await hostile.new_page()
-        await hostile_page.goto(args.url)
+        await hostile_page.goto(season2_url(args.url))
         await expect(hostile_page.locator("#syncTitle")).to_contain_text(
             "команд из таблицы"
         )
@@ -632,7 +639,7 @@ async def run(args):
 
         await old_day.route("https://docs.google.com/**/gviz/**", old_schedule)
         old_page = await old_day.new_page()
-        await old_page.goto(args.url)
+        await old_page.goto(season2_url(args.url))
         await expect(old_page.locator("#errorBox")).to_contain_text(
             "Расписание в таблице на 01.01"
         )
@@ -672,7 +679,7 @@ async def run(args):
             "https://docs.google.com/**/gviz/**", organizer_schedule
         )
         organizer_page = await organizer.new_page()
-        await organizer_page.goto(args.url)
+        await organizer_page.goto(season2_url(args.url))
         await expect(organizer_page.locator("#syncTitle")).to_contain_text(
             "команд из таблицы"
         )
@@ -746,7 +753,7 @@ async def run(args):
         await night.route("https://docs.google.com/**/gviz/**", sheets)
         night_page = await night.new_page()
         night_page.on("pageerror", lambda error: errors.append(str(error)))
-        await night_page.goto(args.url)
+        await night_page.goto(season2_url(args.url))
         await expect(night_page.locator("#syncTitle")).to_contain_text(
             "команд из таблицы"
         )

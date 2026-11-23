@@ -34,6 +34,7 @@ core = core.replace(/^ {2}id: '[^']*',\n {2}gid: '[^']*',\n/m, match => {
   return "  id: '',\n  gid: '',\n";
 });
 if (/^ {2}id: '[^']+'/m.test(core)) throw new Error('core.js: roster sheet id is still there');
+core = core.replace(/^ {2}id: SEASON3_SHEET_ID,\n {2}gid: '\d+',\n/m, '');
 core = replaceOnce(core, "export const DEFAULT_CARD_BASE = 'https://oneshot-panel.pages.dev';",
   "export const DEFAULT_CARD_BASE = '';", 'core.js');
 await writeFile(to('core.js'), core);

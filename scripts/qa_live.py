@@ -20,7 +20,7 @@ from urllib.parse import parse_qs, urlsplit
 from playwright.async_api import async_playwright, expect
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from qa_browser import gviz, sample_roster  # noqa: E402
+from qa_browser import gviz, sample_roster  # noqa: E402, season2_url
 
 OBS_URL = re.compile(r"^ws://127\.0\.0\.1:4455/?$")
 CHAMP = "8f2a5c1e-1234-4abc-9def-0123456789ab"
@@ -215,7 +215,7 @@ async def run(args):
         page.on("pageerror", lambda error: errors.append(str(error)))
         obs = MockObs()
         await page.route_web_socket(OBS_URL, obs.handler)
-        await page.goto(base + "/")
+        await page.goto(season2_url(base + "/"))
         await expect(page.locator("#syncTitle")).to_contain_text("команд из таблицы")
 
         # Tabs and webcam status.
@@ -564,7 +564,7 @@ async def run(args):
               register:async()=>({active:{state:'activated'},showNotification:async(title,options)=>window.__notes.push({title,...options})})
             }});""")
         await lobby.route("https://open.faceit.com/**", faceit)
-        await lobby.goto(base + "/#lobby")
+        await lobby.goto(season2_url(base + "/#lobby"))
         await expect(lobby.locator("#lobbyView")).to_be_visible()
         await expect(lobby.locator("#notifyBtn")).to_have_text("Проверить уведомления")
         await lobby.click('#notifyBtn')

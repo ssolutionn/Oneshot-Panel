@@ -65,8 +65,13 @@ if (EVENT_LAN !== state.lan.on) {
     prefix: state.lan.prefix || newLanPrefix(crypto.getRandomValues(new Uint8Array(4))) });
   writeStorage(LAN_STORE, state.lan);
 }
-const seasonPage = new URL(location.href).searchParams.get('season') === '3';
-if (seasonPage && !state.lan.on) state.source = { ...SEASON3_SOURCE };
+const seasonShortcut = new URL(location.href).searchParams.get('season');
+const useSeason3ByDefault = globalThis.oneshotEvent?.slug === 'cyberclash' && savedSource?.selected !== true &&
+  ['id', 'gid', 'scheduleId', 'scheduleGid'].every(key => state.source[key] === DEFAULT_SOURCE[key]);
+if (!state.lan.on) {
+  if (seasonShortcut === '2') state.source = { ...DEFAULT_SOURCE };
+  else if (seasonShortcut === '3' || useSeason3ByDefault) state.source = { ...SEASON3_SOURCE };
+}
 function isSeason3(source = state.source) {
   return !state.lan.on && source.id === SEASON3_SOURCE.id && source.gid === SEASON3_SOURCE.gid;
 }
@@ -1271,20 +1276,22 @@ $('exportCopy').addEventListener('click', async () => {
 
 function fillSource(source) {
   $('sourceUrl').value =
-    `https://docs.google.com/spreadsheets/d/${source.id}/edit`;
+    `https://docs.google.com/spreadsheets/d/${source.id}/edit#gid=${source.gid}`;
   $('sourceGid').value = source.gid;
   $('scheduleUrl').value = source.scheduleGid ?
-    `https://docs.google.com/spreadsheets/d/${source.scheduleId || source.id}/edit` : '';
+    `https://docs.google.com/spreadsheets/d/${source.scheduleId || source.id}/edit#gid=${source.scheduleGid}` : '';
   $('scheduleGid').value = source.scheduleGid || '';
 }
-function sheetId(value) {
-  const url = new URL(value);
+function sheetLink(value) {
+  let url;
+  try { url = new URL(value); } catch { throw new Error('Вставь ссылку на Google Sheets.'); }
   const match = url.pathname.match(/^\/spreadsheets\/d\/([\w-]{20,100})(?:\/|$)/);
   if (url.protocol !== 'https:' || url.hostname !== 'docs.google.com' ||
       url.username || url.password || !match) {
     throw new Error('Вставь ссылку на Google Sheets.');
   }
-  return match[1];
+  const gid = new URLSearchParams(url.hash.slice(1)).get('gid') || url.searchParams.get('gid') || '';
+  return { id: match[1], gid: /^\d+$/.test(gid) ? gid : '' };
 }
 $('settingsBtn').addEventListener('click', () => {
   fillSource(state.source);
@@ -1294,8 +1301,17 @@ $('settingsBtn').addEventListener('click', () => {
 $('closeSettings').addEventListener('click', () => $('settingsDialog').close());
 $('closeCopy').addEventListener('click', () => $('copyDialog').close());
 $('resetSource').addEventListener('click', () => fillSource(DEFAULT_SOURCE));
+for (const [urlField, gidField] of [['sourceUrl', 'sourceGid'], ['scheduleUrl', 'scheduleGid']]) {
+  $(urlField).addEventListener('input', event => {
+    try { $(gidField).value = sheetLink(event.currentTarget.value.trim()).gid; }
+    catch { $(gidField).value = ''; }
+  });
+}
 $('season3Source').addEventListener('click', () => {
-  if (isSeason3()) return $('settingsDialog').close();
+  if (isSeason3() && state.source.scheduleId === SEASON3_SOURCE.scheduleId && state.source.scheduleGid === SEASON3_SOURCE.scheduleGid) {
+    $('settingsDialog').close();
+    return;
+  }
   fillSource(SEASON3_SOURCE);
   $('settingsForm').requestSubmit();
 });
@@ -1323,24 +1339,32 @@ $('season3Access').addEventListener('change', async event => {
 $('settingsForm').addEventListener('submit', event => {
   event.preventDefault();
   try {
-    const id = sheetId($('sourceUrl').value.trim());
-    const gid = $('sourceGid').value.trim();
+    const roster = sheetLink($('sourceUrl').value.trim());
+    const gid = $('sourceGid').value.trim() || roster.gid;
     const scheduleUrl = $('scheduleUrl').value.trim();
-    const scheduleGid = $('scheduleGid').value.trim();
+    const schedule = scheduleUrl ? sheetLink(scheduleUrl) : null;
+    const scheduleGid = $('scheduleGid').value.trim() || schedule?.gid;
     if (!/^\d+$/.test(gid) ||
         (scheduleUrl && !/^\d+$/.test(scheduleGid))) {
       throw new Error('Укажи числовой GID нужного листа.');
     }
-    state.source = {
-      id, gid, scheduleId: scheduleUrl ? sheetId(scheduleUrl) : null,
-      scheduleGid: scheduleUrl ? scheduleGid : null
+    const source = {
+      id: roster.id, gid, scheduleId: schedule?.id || null,
+      scheduleGid: schedule ? scheduleGid : null
     };
-    if (seasonPage && !isSeason3()) {
+    const sameSource = Object.keys(source).every(key => source[key] === state.source[key]);
+    if (!sameSource) state.source = source;
+    if (seasonShortcut === '2' || seasonShortcut === '3') {
       const url = new URL(location.href);
       url.searchParams.delete('season');
       history.replaceState(history.state, '', url);
     }
-    const stored = writeStorage('webcam-desk-source', state.source);
+    const stored = writeStorage('webcam-desk-source', { ...state.source, selected: true });
+    if (sameSource) {
+      $('settingsDialog').close();
+      refresh();
+      return;
+    }
     state.streamIds = readStorage(streamStorageKey()) || {};
     state.teams = [];
     state.schedule = [];

@@ -13,7 +13,7 @@ import websockets
 from playwright.async_api import async_playwright, expect
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from qa_browser import gviz, sample_roster
+from qa_browser import gviz, sample_roster, season2_url
 
 OUT = Path("artifacts/obs-runtime")
 BASE = "http://127.0.0.1:3000"
@@ -85,7 +85,7 @@ async def run():
             await context.route("https://docs.google.com/**/gviz/**", sheets)
             panel = await context.new_page()
             activate = panel.tap if mobile else panel.click
-            await panel.goto(BASE)
+            await panel.goto(season2_url(BASE))
             await expect(panel.locator("#syncTitle")).to_contain_text("команд из таблицы")
             if mobile:
                 menu = await panel.locator("#obsNavBtn").bounding_box()

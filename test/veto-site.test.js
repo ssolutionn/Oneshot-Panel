@@ -29,6 +29,7 @@ test('veto site build: veto pages and assets only, no roster sheet, no panel add
     const core = await readFile(path.join(out, 'core.js'), 'utf8');
     assert.match(core, /^ {2}id: '',\n {2}gid: '',$/m);
     assert.match(core, /scheduleId: '1GtwcpVnyxY1YOs6ZTrXwJr5mjZqI0QxjLSKjimn9G2o'/, 'the public schedule stays for the form');
+    assert.doesNotMatch(core, /1118827901/, 'Season 3 roster tab stays on the panel');
     assert.doesNotMatch(core, /oneshot-panel\.pages\.dev/);
     const headers = await readFile(path.join(out, '_headers'), 'utf8');
     assert.match(headers, /connect-src 'self' https:\/\/docs\.google\.com https:\/\/oneshot-veto\.cyberclash\.workers\.dev;/);

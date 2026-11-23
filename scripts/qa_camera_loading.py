@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PIL import Image
 from playwright.async_api import async_playwright, expect
-from qa_browser import gviz, sample_roster
+from qa_browser import gviz, sample_roster, season2_url
 
 
 PROVIDER = """<!doctype html><style>
@@ -59,7 +59,7 @@ async def run(args):
         page=await context.new_page()
         errors=[]
         page.on('pageerror',lambda error:errors.append(str(error)))
-        await page.goto(args.url)
+        await page.goto(season2_url(args.url))
         await expect(page.locator('#syncTitle')).to_contain_text('команд из таблицы')
         values=await page.locator('#matchSelect option').evaluate_all('els=>els.filter(e=>e.value).map(e=>e.value)')
         await page.select_option('#matchSelect',values[0])
