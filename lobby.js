@@ -18,7 +18,9 @@ const lobby = {
   matches: new Map(), pauses: new Map(), finished: null,
   alert: null, repeats: 0, repeatTimer: null, flashTimer: null, unread: 0, view: 'prep',
   // Per-map scores "Mirage 13:9" from /stats, keyed by match id.
-  mapScores: new Map()
+  mapScores: new Map(),
+  // Lobby notes from external sources (userscript).
+  lastNoteAt: 0
 };
 const title = document.title;
 
@@ -366,6 +368,21 @@ async function finalScores(match) {
   } catch { /* the series score is already in the journal */ }
 }
 
+// Poll lobby notes from server (userscript sends them via POST /api/lobby-note).
+async function pollLobbyNotes() {
+  try {
+    const res = await fetch(`/api/lobby-note?since=${lobby.lastNoteAt}`);
+    if (!res.ok) return;
+    const { notes } = await res.json();
+    if (!Array.isArray(notes) || !notes.length) return;
+    for (const note of notes) {
+      log(note.text, 'bookie'); // reuse 'bookie' kind for styling
+      alertAdmins(note.text, `note:${note.id}:${note.source || 'ext'}`, { loud: true });
+    }
+    lobby.lastNoteAt = notes[notes.length - 1].at;
+  } catch {}
+}
+
 async function poll() {
   const client = lobby.client, champ = lobby.champ, rooms = lobby.rooms || [];
   if (!client || (!champ && !rooms.length)) return;
@@ -406,6 +423,8 @@ async function poll() {
     // The live block's per-map scores refresh once in three polls (full tick).
     const shown = pickLiveMatch();
     if (shown && shown.live && full) fetchMapScores(shown);
+    // Poll lobby notes from server every poll.
+    await pollLobbyNotes();
     lobby.interval = POLL;
     const live = [...lobby.matches.values()].filter(m => m.live).length;
     const soon = [...lobby.matches.values()].filter(m => !m.live && !m.done).length;
