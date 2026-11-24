@@ -42,6 +42,22 @@ test('Season 3 keeps every organizer fixture and reuses imported camera access',
   assert.equal(pushUrl(teams[0].players[0]), push);
 });
 
+test('Season 3 reads both team blocks after a SteamID column shifts the second block', () => {
+  const teams = parseSeason3Roster([
+    ['', 'TEAM 01', '', 'OzemPEEK', '', '', 'SteamID', '', 'TEAM 02', '', 'EC2-DW', '', '', 'SteamID'],
+    ['', 'ROLE', 'NICKNAME', '', '', 'HLTV PROFILE', '', '', 'ROLE', 'NICKNAME', '', '', 'HLTV PROFILE'],
+    ['', '1', 'zAAz', '', '', '', '76561197960265729', '', '1', 'Monkey D. Julie', '', '', '', '76561197960265730']
+  ]);
+  assert.deepEqual(teams.map(team => [team.name, team.players[0].key]), [
+    ['OzemPEEK', 'ozempeek:zaaz'], ['EC2-DW', 'ec2dw:monkeydjulie']
+  ]);
+  const [match] = season3Schedule([
+    ['STAGE', 'DATE', 'MSK', 'TEAM 1', 'TEAM 2'],
+    ['Opening Match A1', '24 Nov', '18:00', 'EC2-DW', 'OzemPEEK']
+  ], teams);
+  assert.equal(match.unavailable, false);
+});
+
 const fixture = () => {
   const [a, b] = parseTeams(makeRows());
   return [a, b, defaultLineup(a), defaultLineup(b)];

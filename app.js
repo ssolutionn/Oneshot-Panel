@@ -548,7 +548,7 @@ async function refresh() {
     const [roster, schedule, playoffs] = lan ? [
       { status: 'fulfilled', value: null }, { status: 'fulfilled', value: [] }, { status: 'fulfilled', value: [] }
     ] : await Promise.allSettled([
-      sheetRows(source, source.gid, season3 ? 'A7:L2000' : 'A1:L2000', signal),
+      sheetRows(source, source.gid, season3 ? 'A7:R2000' : 'A1:L2000', signal),
       source.scheduleGid ?
         // Header row as labels: the organizer's columns are found by name.
         sheetRows(source, source.scheduleGid, season3 ? scheduleRange(scheduleId, source.scheduleGid) : 'A1:Z300',

@@ -94,12 +94,19 @@ export function parseTeams(rows) {
 
 // Season 3 has two team blocks per row. Room credentials are assigned locally.
 export function parseSeason3Roster(rows) {
+  const heading = /^TEAM \d+$/i;
+  const columns = new Set();
+  for (const row of rows) {
+    row.forEach((value, index) => {
+      if (heading.test(line(value))) columns.add(index);
+    });
+  }
   const teams = [];
-  for (const column of [1, 7]) {
+  for (const column of [...columns].sort((a, b) => a - b)) {
     let team;
     for (const row of rows) {
       const role = line(row[column]);
-      if (/^TEAM \d+$/i.test(role)) {
+      if (heading.test(role)) {
         const name = line(row[column + 2]);
         team = name ? { name, players: [] } : null;
         if (team) teams.push(team);
