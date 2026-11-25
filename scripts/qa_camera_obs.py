@@ -217,13 +217,15 @@ async def run():
 
         manifest=OUT/"players.json"
         manifest.write_text(json.dumps(data["players"]))
-        async def live(frame,rotation):
+        async def live(frame,rotation,full_source=False):
             script="""
               import fs from 'node:fs';
               import {ObsClient,applyMatch} from './obs.js';
               const client=await new ObsClient().connect();
               const players=JSON.parse(fs.readFileSync(process.env.QA_CAMERA_PLAYERS,'utf8'));
               players[0].camera={rotation:Number(process.env.QA_CAMERA_ROTATION),panX:20,panY:80,zoom:1.5};
+              const fullSource=process.env.QA_CAMERA_FULL_SOURCE==='yes';
+              if(fullSource)players[0].camera={rotation:0,placement:{x:-282,y:0,width:1920,height:960}};
               const proxy={request:(kind,data={})=>{
                 if(kind==='SetInputSettings'&&data.inputSettings?.url?.startsWith('https://vdo.ninja/')){
                   data={...data,inputSettings:{...data.inputSettings,
@@ -231,12 +233,13 @@ async def run():
                 }
                 return client.request(kind,data);
               }};
-              try{await applyMatch(proxy,{players,cameraFrame:process.env.QA_CAMERA_FRAME});}
+              try{await applyMatch(proxy,{players,cameraFrame:process.env.QA_CAMERA_FRAME,fullSource});}
               finally{client.close();}
             """
             command=await asyncio.create_subprocess_exec("node","--input-type=module","-e",script,cwd=ROOT,
                 env=dict(os.environ,QA_CAMERA_ORIGIN=origin,QA_CAMERA_PLAYERS=str(manifest),
-                         QA_CAMERA_ROTATION=str(rotation),QA_CAMERA_FRAME=frame),
+                         QA_CAMERA_ROTATION=str(rotation),QA_CAMERA_FRAME=frame,
+                         QA_CAMERA_FULL_SOURCE='yes' if full_source else 'no'),
                 stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.STDOUT)
             output,_=await command.communicate()
             assert command.returncode==0,output.decode()
@@ -249,6 +252,9 @@ async def run():
             transform=(await request("GetSceneItemTransform",{"sceneName":"Игрок 1","sceneItemId":camera["sceneItemId"]}))["sceneItemTransform"]
             assert transform["rotation"]==rotation,transform
         print("PASS: real applyMatch and CEF resize/rotate the same sources for 1320×1080, full-height 4:3 and full canvas",flush=True)
+        await live('wide',0,full_source=True)
+        await picture(1,'live-layout-negative-x',(0,0,1638,960))
+        print('PASS: real OBS clips the canvas at its edge and leaves space beside a moved 16:9 source',flush=True)
     finally:
         if ws: await ws.close()
         process.terminate()

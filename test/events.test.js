@@ -5,7 +5,7 @@ import {
   validateEvent, loadEvent, enabledModules, assetPathValid, contrast, brandWarnings,
   MODULES, COLOR_KEYS, DEFAULT_BRAND, EVENT_VERSION
 } from '../events/schema.js';
-import { DEFAULT_SOURCE, MAP_POOL, CAMERA_FRAMES, DEFAULT_CAMERA_FRAME } from '../core.js';
+import { DEFAULT_SOURCE, MAP_POOL, CAMERA_FRAMES, DEFAULT_CAMERA_LAYOUT_FRAME } from '../core.js';
 import { TIMERS } from '../veto-room.js';
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
@@ -52,7 +52,7 @@ test('contract: pool, timers, frame and files of the manifest exist in the code'
   const event = loadEvent(cyberclash());
   assert.deepEqual(event.veto.pool, MAP_POOL);
   assert.ok(TIMERS.includes(event.veto.timerMinutes));
-  assert.equal(event.cameras.frame, DEFAULT_CAMERA_FRAME);
+  assert.equal(event.cameras.frame, DEFAULT_CAMERA_LAYOUT_FRAME);
   assert.ok(Object.hasOwn(CAMERA_FRAMES, event.cameras.frame));
   for (const key of ['logo', 'backdrop']) assert.ok(fs.existsSync(new URL('../' + event.brand[key], import.meta.url)), `${key}: ${event.brand[key]}`);
   assert.ok(fs.existsSync(new URL('../' + event.brand.font.display, import.meta.url)));

@@ -336,6 +336,7 @@ export function directorUrl(team) {
   return `https://vdo.ninja/?director=${encodeURIComponent(team.room)}${roomPassword(team)}&mute&mutespeaker`;
 }
 export const DEFAULT_CAMERA_FRAME = 'inner43';
+export const DEFAULT_CAMERA_LAYOUT_FRAME = 'wide';
 const CAMERA_EDGE_BLEED = 20;
 export const CAMERA_FRAMES = {
   // Keep the preset key for saved settings. The 300 px side margins frame
@@ -347,24 +348,37 @@ export const CAMERA_FRAMES = {
   // source anywhere later without stretching it.
   square: { x:420, y:0, width:1080, height:1080 }
 };
+export function cameraRect(value) {
+  if (!value || !['x', 'y', 'width', 'height'].every(key => Number.isFinite(value[key]))) return null;
+  const clamp = (n, min, max) => Math.round(Math.max(min, Math.min(max, n)));
+  return {
+    x: clamp(value.x, -7680, 7680), y: clamp(value.y, -4320, 4320),
+    width: clamp(value.width, 16, 7680), height: clamp(value.height, 16, 4320)
+  };
+}
 export function cameraFrame(value = DEFAULT_CAMERA_FRAME) {
-  return { ...CAMERA_FRAMES[typeof value==='string' && Object.hasOwn(CAMERA_FRAMES,value) ? value : DEFAULT_CAMERA_FRAME] };
+  return cameraRect(value) || { ...CAMERA_FRAMES[typeof value==='string' && Object.hasOwn(CAMERA_FRAMES,value) ? value : DEFAULT_CAMERA_FRAME] };
 }
 export function normalizeCamera(value) {
   const percent = number => Number.isFinite(number) ? Math.max(0,Math.min(100,number)) : 50;
+  const placement = cameraRect(value?.placement);
   return {rotation:[0,90,180,270].includes(value?.rotation) ? value.rotation : 0,
     panX:percent(value?.panX),panY:percent(value?.panY),
-    zoom:Number.isFinite(value?.zoom) ? Math.round(Math.max(1,Math.min(3,value.zoom))*100)/100 : 1};
+    zoom:Number.isFinite(value?.zoom) ? Math.round(Math.max(1,Math.min(3,value.zoom))*100)/100 : 1,
+    ...(placement ? { placement } : {})};
 }
 // VDO's supported cover/base64css URL options and style iframe message use
 // this same CSS. Only normalized numbers enter it. Pan follows screen axes
 // after rotation, rather than making "left" move up on a sideways camera.
-export function cameraCss(value, frame = DEFAULT_CAMERA_FRAME) {
+export function cameraCss(value, frame = DEFAULT_CAMERA_FRAME, fullSource = false) {
   const c=normalizeCamera(value);
   let x=c.panX,y=c.panY;
   if(c.rotation===90)[x,y]=[y,100-x];
   else if(c.rotation===180)[x,y]=[100-x,100-y];
   else if(c.rotation===270)[x,y]=[100-y,x];
+  if (fullSource) return 'html,body{background:transparent!important;overflow:hidden!important;}' +
+    `video{width:100%!important;height:100%!important;object-fit:contain!important;object-position:${x}% ${y}%!important;` +
+    `scale:${c.zoom}!important;transform-origin:${x}% ${y}%!important;}`;
   const {width, height} = cameraFrame(frame);
   const bleed = 1 + 2 * CAMERA_EDGE_BLEED / Math.min(width, height);
   const scale = Number((c.zoom * bleed).toFixed(6));
@@ -381,28 +395,32 @@ export function normalizeVdoOptions(options = {}) {
   // enabled: the LAN mode switch — tuning parameters reach the URL only then.
   return { enabled: options.enabled === true, bitrate, fps, codec, lowLatency: options.lowLatency !== false };
 }
-export function cameraViewUrl(player, vdoOptions = {}, frame = DEFAULT_CAMERA_FRAME) {
+export function cameraViewUrl(player, vdoOptions = {}, frame = DEFAULT_CAMERA_FRAME, fullSource = false) {
   const c=normalizeCamera(player?.camera);
   const options=normalizeVdoOptions(vdoOptions);
   const base=viewUrl(player).replace('&codec=h264', `&codec=${options.codec}`);
-  const url=base+'&cover';
+  const url=fullSource ? base : base+'&cover';
   const tuned=options.enabled === true ? `&bitrate=${options.bitrate}&fps=${options.fps}${options.lowLatency ? '&lowlatency' : ''}` : '';
-  return url+tuned+'&b64css='+encodeURIComponent(btoa(cameraCss(c, frame)));
+  return url+tuned+'&b64css='+encodeURIComponent(btoa(cameraCss(c, frame, fullSource)));
 }
-export function cameraGeometry(player, frame = DEFAULT_CAMERA_FRAME) {
-  const rect=cameraFrame(frame),{rotation}=normalizeCamera(player?.camera);
+export function cameraGeometry(player, frame = DEFAULT_CAMERA_FRAME, fullSource = false) {
+  const {rotation, placement}=normalizeCamera(player?.camera);
+  const rect=(fullSource && placement) || cameraFrame(frame);
   const quarter=rotation===90 || rotation===270;
-  if (frame === 'square') return {
-    rotation,
-    x: rect.x + (rotation === 90 || rotation === 180 ? rect.width : 0),
-    y: rect.y + (rotation === 180 || rotation === 270 ? rect.height : 0),
-    width: rect.width, height: rect.height
-  };
   return {rotation,
     x:rect.x+(rotation===90 || rotation===180 ? rect.width : 0),
     y:rect.y+(rotation===180 || rotation===270 ? rect.height : 0),
     width:quarter ? rect.height : rect.width,
     height:quarter ? rect.width : rect.height};
+}
+
+export function cameraInput(player, frame, vdoOptions = {}, fullSource = false) {
+  const geometry = cameraGeometry(player, frame, fullSource);
+  return { geometry, settings: {
+    url: cameraViewUrl(player, vdoOptions, frame, fullSource),
+    width: fullSource ? 1920 : geometry.width,
+    height: fullSource ? 1080 : geometry.height
+  } };
 }
 // A fresh stream ID for one player when their link leaked: nick letters
 // (VDO.Ninja keeps only letters, digits and _) plus 6 random characters.
@@ -726,7 +744,7 @@ function sceneUuid() {
 }
 export function buildObs(template, a, b, ka, kb,
                          uuidFn = sceneUuid,
-                         { cardBase = DEFAULT_CARD_BASE, includeCards = false, cameraFrame: frame = DEFAULT_CAMERA_FRAME, cardDocs = {}, vdoOptions = {} } = {}) {
+                         { cardBase = DEFAULT_CARD_BASE, includeCards = false, cameraFrame: frame = DEFAULT_CAMERA_FRAME, cardDocs = {}, vdoOptions = {}, fullSource = false } = {}) {
   const error = validateMatch(a, b, ka, kb);
   if (error) throw new Error(error);
   if (!Array.isArray(template?.sources)) {
@@ -765,14 +783,13 @@ export function buildObs(template, a, b, ka, kb,
     used.add(browser.uuid);
     item.source_uuid = browser.uuid;
     item.name = browser.name;
-    const geometry=cameraGeometry(p,frame);
-    Object.assign(browser.settings, {
-      url: cameraViewUrl(p, vdoOptions, frame), width:geometry.width, height:geometry.height
-    });
+    const { geometry, settings } = cameraInput(p, frame, vdoOptions, fullSource);
+    Object.assign(browser.settings, settings);
     const slot = String(i + 1).padStart(2, '0');
     names.set(browser.name, `CAM ${slot} | ${p.team} | ${p.nick}`);
     fitItem(item,geometry.x,geometry.y,geometry.width,geometry.height);
     item.rot=geometry.rotation;
+    if (fullSource) item.bounds_type = 1; // OBS_BOUNDS_STRETCH
 
     if (includeCards) {
       // The player card sits right under the camera: it is seen whenever

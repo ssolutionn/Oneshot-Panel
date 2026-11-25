@@ -204,16 +204,37 @@ h2 { font-size:17px; line-height:1.4; letter-spacing:-.3px; margin-bottom:0; }
 .camera-frame-setting { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:8px; color:var(--muted); font-size:11px; }
 .camera-frame-setting select { max-width:100%; padding:6px 8px; background:var(--field); color:var(--ink); border:1px solid var(--field-line); border-radius:5px; }
 .camera-frame-setting > span { flex-basis:100%; font-size:10px; }
-.camera-dialog { width:min(780px,calc(100% - 24px)); }
-.camera-preview-stage { position:relative; width:100%; aspect-ratio:16/9; overflow:hidden; background:var(--camera-stage) var(--camera-preview-image) center/cover no-repeat; }
-.camera-preview-box { position:absolute; left:var(--camera-left); top:var(--camera-top); width:var(--camera-width); height:var(--camera-height); overflow:hidden; outline:1px solid var(--red); }
-.camera-preview-box iframe { position:absolute; inset:0; width:100%; height:100%; border:0; transform-origin:0 0; }
-.camera-preview-box iframe { background:transparent; }
+.camera-dialog { width:min(1050px,calc(100% - 24px)); }
+.camera-mouse-hint { margin:8px 0; }
+.camera-workspace { padding:clamp(12px,3vw,36px); overflow:hidden; background:var(--soft); }
+.camera-preview-stage { position:relative; isolation:isolate; width:min(100%,max(320px,calc(135vh - 480px))); margin-inline:auto; aspect-ratio:16/9; outline:1px solid var(--focus); background:var(--camera-stage); }
+.camera-preview-stage::before { content:''; position:absolute; inset:0; z-index:3; box-shadow:0 0 0 100vmax var(--backdrop); pointer-events:none; }
+.camera-preview-box,.camera-placement,.camera-guide { position:absolute; left:var(--camera-left); top:var(--camera-top); width:var(--camera-width); height:var(--camera-height); }
+.camera-preview-box { overflow:hidden; }
+.camera-preview-box iframe { position:absolute; left:0; top:0; width:1920px; height:1080px; max-width:none; max-height:none; border:0; transform-origin:0 0; background:transparent; pointer-events:none; }
 .camera-preview-box[data-loading="true"] iframe { opacity:0; }
-.camera-preview-stage[data-loading="true"]::after { content:'Ожидаем видео…'; display:flex; align-items:flex-end; justify-content:center; padding-bottom:18px; position:absolute; inset:0; z-index:2; background:var(--camera-stage) var(--camera-preview-image) center/cover no-repeat; color:var(--camera-loading-ink); font-size:12px; }
-.camera-preview-box[data-rotation="90"] iframe { inset:auto; left:100%; top:0; width:var(--camera-rotated-width); height:var(--camera-rotated-height); transform:rotate(90deg); }
-.camera-preview-box[data-rotation="180"] iframe { inset:auto; left:100%; top:100%; transform:rotate(180deg); }
-.camera-preview-box[data-rotation="270"] iframe { inset:auto; left:0; top:100%; width:var(--camera-rotated-width); height:var(--camera-rotated-height); transform:rotate(270deg); }
+.camera-preview-stage[data-loading="true"]::after { content:'Ожидаем видео…'; display:flex; align-items:flex-end; justify-content:center; padding-bottom:18px; position:absolute; inset:0; z-index:2; pointer-events:none; background:var(--camera-stage) var(--camera-preview-image) center/cover no-repeat; color:var(--camera-loading-ink); font-size:12px; }
+.camera-guide { z-index:4; outline:1px dashed var(--on-accent); pointer-events:none; }
+.camera-guide-two { outline-style:dotted; outline-color:var(--camera-loading-ink); }
+.camera-placement { z-index:5; outline:2px solid var(--red); cursor:move; touch-action:none; }
+.camera-placement i { position:absolute; width:18px; height:18px; transform:translate(-50%,-50%); display:grid; place-items:center; }
+.camera-placement i::before { content:''; width:8px; height:8px; background:var(--red); outline:1px solid var(--on-accent); }
+.camera-placement [data-camera-grip^="n"] { top:0; }
+.camera-placement [data-camera-grip^="s"] { top:100%; }
+.camera-placement [data-camera-grip$="w"] { left:0; }
+.camera-placement [data-camera-grip$="e"] { left:100%; }
+.camera-placement [data-camera-grip="e"],.camera-placement [data-camera-grip="w"] { top:50%; cursor:ew-resize; }
+.camera-placement [data-camera-grip="n"],.camera-placement [data-camera-grip="s"] { left:50%; cursor:ns-resize; }
+.camera-placement [data-camera-grip="nw"],.camera-placement [data-camera-grip="se"] { cursor:nwse-resize; }
+.camera-placement [data-camera-grip="ne"],.camera-placement [data-camera-grip="sw"] { cursor:nesw-resize; }
+.camera-preset-settings { grid-column:1/-1; }
+.camera-preset-settings summary { cursor:pointer; }
+.camera-preset-grid,.camera-preset-actions,.camera-placement-controls { display:flex; flex-wrap:wrap; gap:8px; align-items:end; margin-top:8px; }
+.camera-preset-grid fieldset { display:flex; gap:8px; flex-wrap:wrap; min-width:0; border:1px solid var(--line); }
+.camera-preset-grid label,.camera-preset-actions label,.camera-placement-controls label { display:grid; gap:4px; color:var(--muted); font-size:12px; }
+.camera-preset-grid label.check { display:flex; align-self:center; }
+.camera-preset-grid input[type=number],.camera-placement-controls input { width:11ch; padding:7px 8px; font-variant-numeric:tabular-nums; }
+.camera-placement-controls output { align-self:center; font-variant-numeric:tabular-nums; }
 .camera-tools { display:flex; flex-wrap:wrap; align-items:end; gap:10px; margin-top:14px; }
 .camera-tools label { display:grid; gap:4px; color:var(--muted); font-size:12px; }
 .camera-tools select { padding:7px; background:var(--field); color:var(--ink); border:1px solid var(--field-line); border-radius:5px; }
@@ -1116,9 +1137,30 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
       <label class="camera-frame-setting">Режим вебок<select id="webcamMode"><option value="online">Онлайн</option><option value="lan">ЛАН</option></select><span>ЛАН — для камер в одной сети; онлайн — для удалённых игроков.</span></label>
       <div id="vdoLanSettings" class="camera-frame-setting"><b>Оптимизация VDO для ЛАН</b><label>Кодек<select id="vdoCodec"><option value="h264">H.264</option><option value="vp8">VP8</option><option value="vp9">VP9</option></select></label><label>Битрейт<input id="vdoBitrate" type="number" min="500" max="8000" step="100" value="2500"> кбит/с</label><label>FPS<select id="vdoFps"><option>24</option><option selected>30</option><option>60</option></select></label><label class="check"><input id="vdoLowLatency" type="checkbox" checked> Минимальная задержка</label><span>Параметры добавляются только в LAN-ссылки камер.</span></div>
       <label class="camera-frame-setting">Рамка вебок
-        <select id="cameraFrame"><option value="inner43">1320×1080 на всю высоту</option><option value="full43">1440×1080 (4:3)</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option></select>
-        <span>Заполнение с обрезкой краёв. «Кадр» под ником — поворот и положение игрока.</span>
+        <select id="cameraFrame"><option value="inner43">1320×1080 на всю высоту</option><option value="full43">1440×1080 (4:3)</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option><option value="custom">Своя рамка</option></select>
+        <span>Общий пресет для камер. Открой «Кадр» под ником, чтобы поправить вебку игрока.</span>
       </label>
+      <details class="camera-preset-settings" id="cameraPresetSettings">
+        <summary>Своя рамка и сейф-зоны</summary>
+        <div class="camera-preset-grid">
+          <fieldset><legend>Своя рамка</legend>
+            <label>Ширина<input id="cameraCustomWidth" type="number" min="16" max="1920" step="1"></label>
+            <label>Высота<input id="cameraCustomHeight" type="number" min="16" max="1080" step="1"></label>
+          </fieldset>
+          <fieldset><legend>Сейф-зона</legend>
+            <label class="check"><input id="cameraGuideEnabled" type="checkbox"> Показывать</label>
+            <label>Ширина<input id="cameraGuideWidth" type="number" min="16" max="1920" step="1"></label>
+            <label>Высота<input id="cameraGuideHeight" type="number" min="16" max="1080" step="1"></label>
+          </fieldset>
+          <fieldset><legend>Вторая сейф-зона</legend>
+            <label class="check"><input id="cameraGuideTwoEnabled" type="checkbox"> Показывать</label>
+            <label>Ширина<input id="cameraGuideTwoWidth" type="number" min="16" max="1920" step="1"></label>
+            <label>Высота<input id="cameraGuideTwoHeight" type="number" min="16" max="1080" step="1"></label>
+          </fieldset>
+        </div>
+        <p class="muted">Размеры в пикселях. Сейф-зоны центрируются и отображаются в редакторе.</p>
+
+      </details>
       <div class="export-meta">
         <p id="exportHint">10 вебок, сцены «Игрок 1–10» и «Матрица»</p>
         <p id="filenamePreview"></p>
@@ -1584,6 +1626,7 @@ function directorUrl(team) {
   return `https://vdo.ninja/?director=${encodeURIComponent(team.room)}${roomPassword(team)}&mute&mutespeaker`;
 }
 const DEFAULT_CAMERA_FRAME = 'inner43';
+const DEFAULT_CAMERA_LAYOUT_FRAME = 'wide';
 const CAMERA_EDGE_BLEED = 20;
 const CAMERA_FRAMES = {
   // Keep the preset key for saved settings. The 300 px side margins frame
@@ -1595,24 +1638,37 @@ const CAMERA_FRAMES = {
   // source anywhere later without stretching it.
   square: { x:420, y:0, width:1080, height:1080 }
 };
+function cameraRect(value) {
+  if (!value || !['x', 'y', 'width', 'height'].every(key => Number.isFinite(value[key]))) return null;
+  const clamp = (n, min, max) => Math.round(Math.max(min, Math.min(max, n)));
+  return {
+    x: clamp(value.x, -7680, 7680), y: clamp(value.y, -4320, 4320),
+    width: clamp(value.width, 16, 7680), height: clamp(value.height, 16, 4320)
+  };
+}
 function cameraFrame(value = DEFAULT_CAMERA_FRAME) {
-  return { ...CAMERA_FRAMES[typeof value==='string' && Object.hasOwn(CAMERA_FRAMES,value) ? value : DEFAULT_CAMERA_FRAME] };
+  return cameraRect(value) || { ...CAMERA_FRAMES[typeof value==='string' && Object.hasOwn(CAMERA_FRAMES,value) ? value : DEFAULT_CAMERA_FRAME] };
 }
 function normalizeCamera(value) {
   const percent = number => Number.isFinite(number) ? Math.max(0,Math.min(100,number)) : 50;
+  const placement = cameraRect(value?.placement);
   return {rotation:[0,90,180,270].includes(value?.rotation) ? value.rotation : 0,
     panX:percent(value?.panX),panY:percent(value?.panY),
-    zoom:Number.isFinite(value?.zoom) ? Math.round(Math.max(1,Math.min(3,value.zoom))*100)/100 : 1};
+    zoom:Number.isFinite(value?.zoom) ? Math.round(Math.max(1,Math.min(3,value.zoom))*100)/100 : 1,
+    ...(placement ? { placement } : {})};
 }
 // VDO's supported cover/base64css URL options and style iframe message use
 // this same CSS. Only normalized numbers enter it. Pan follows screen axes
 // after rotation, rather than making "left" move up on a sideways camera.
-function cameraCss(value, frame = DEFAULT_CAMERA_FRAME) {
+function cameraCss(value, frame = DEFAULT_CAMERA_FRAME, fullSource = false) {
   const c=normalizeCamera(value);
   let x=c.panX,y=c.panY;
   if(c.rotation===90)[x,y]=[y,100-x];
   else if(c.rotation===180)[x,y]=[100-x,100-y];
   else if(c.rotation===270)[x,y]=[100-y,x];
+  if (fullSource) return 'html,body{background:transparent!important;overflow:hidden!important;}' +
+    `video{width:100%!important;height:100%!important;object-fit:contain!important;object-position:${x}% ${y}%!important;` +
+    `scale:${c.zoom}!important;transform-origin:${x}% ${y}%!important;}`;
   const {width, height} = cameraFrame(frame);
   const bleed = 1 + 2 * CAMERA_EDGE_BLEED / Math.min(width, height);
   const scale = Number((c.zoom * bleed).toFixed(6));
@@ -1629,28 +1685,32 @@ function normalizeVdoOptions(options = {}) {
   // enabled: the LAN mode switch — tuning parameters reach the URL only then.
   return { enabled: options.enabled === true, bitrate, fps, codec, lowLatency: options.lowLatency !== false };
 }
-function cameraViewUrl(player, vdoOptions = {}, frame = DEFAULT_CAMERA_FRAME) {
+function cameraViewUrl(player, vdoOptions = {}, frame = DEFAULT_CAMERA_FRAME, fullSource = false) {
   const c=normalizeCamera(player?.camera);
   const options=normalizeVdoOptions(vdoOptions);
   const base=viewUrl(player).replace('&codec=h264', `&codec=${options.codec}`);
-  const url=base+'&cover';
+  const url=fullSource ? base : base+'&cover';
   const tuned=options.enabled === true ? `&bitrate=${options.bitrate}&fps=${options.fps}${options.lowLatency ? '&lowlatency' : ''}` : '';
-  return url+tuned+'&b64css='+encodeURIComponent(btoa(cameraCss(c, frame)));
+  return url+tuned+'&b64css='+encodeURIComponent(btoa(cameraCss(c, frame, fullSource)));
 }
-function cameraGeometry(player, frame = DEFAULT_CAMERA_FRAME) {
-  const rect=cameraFrame(frame),{rotation}=normalizeCamera(player?.camera);
+function cameraGeometry(player, frame = DEFAULT_CAMERA_FRAME, fullSource = false) {
+  const {rotation, placement}=normalizeCamera(player?.camera);
+  const rect=(fullSource && placement) || cameraFrame(frame);
   const quarter=rotation===90 || rotation===270;
-  if (frame === 'square') return {
-    rotation,
-    x: rect.x + (rotation === 90 || rotation === 180 ? rect.width : 0),
-    y: rect.y + (rotation === 180 || rotation === 270 ? rect.height : 0),
-    width: rect.width, height: rect.height
-  };
   return {rotation,
     x:rect.x+(rotation===90 || rotation===180 ? rect.width : 0),
     y:rect.y+(rotation===180 || rotation===270 ? rect.height : 0),
     width:quarter ? rect.height : rect.width,
     height:quarter ? rect.width : rect.height};
+}
+
+function cameraInput(player, frame, vdoOptions = {}, fullSource = false) {
+  const geometry = cameraGeometry(player, frame, fullSource);
+  return { geometry, settings: {
+    url: cameraViewUrl(player, vdoOptions, frame, fullSource),
+    width: fullSource ? 1920 : geometry.width,
+    height: fullSource ? 1080 : geometry.height
+  } };
 }
 // A fresh stream ID for one player when their link leaked: nick letters
 // (VDO.Ninja keeps only letters, digits and _) plus 6 random characters.
@@ -1974,7 +2034,7 @@ function sceneUuid() {
 }
 function buildObs(template, a, b, ka, kb,
                          uuidFn = sceneUuid,
-                         { cardBase = DEFAULT_CARD_BASE, includeCards = false, cameraFrame: frame = DEFAULT_CAMERA_FRAME, cardDocs = {}, vdoOptions = {} } = {}) {
+                         { cardBase = DEFAULT_CARD_BASE, includeCards = false, cameraFrame: frame = DEFAULT_CAMERA_FRAME, cardDocs = {}, vdoOptions = {}, fullSource = false } = {}) {
   const error = validateMatch(a, b, ka, kb);
   if (error) throw new Error(error);
   if (!Array.isArray(template?.sources)) {
@@ -2013,14 +2073,13 @@ function buildObs(template, a, b, ka, kb,
     used.add(browser.uuid);
     item.source_uuid = browser.uuid;
     item.name = browser.name;
-    const geometry=cameraGeometry(p,frame);
-    Object.assign(browser.settings, {
-      url: cameraViewUrl(p, vdoOptions, frame), width:geometry.width, height:geometry.height
-    });
+    const { geometry, settings } = cameraInput(p, frame, vdoOptions, fullSource);
+    Object.assign(browser.settings, settings);
     const slot = String(i + 1).padStart(2, '0');
     names.set(browser.name, `CAM ${slot} | ${p.team} | ${p.nick}`);
     fitItem(item,geometry.x,geometry.y,geometry.width,geometry.height);
     item.rot=geometry.rotation;
+    if (fullSource) item.bounds_type = 1; // OBS_BOUNDS_STRETCH
 
     if (includeCards) {
       // The player card sits right under the camera: it is seen whenever
@@ -2300,7 +2359,7 @@ const state = {
   scheduleDay: '',
   source: { ...DEFAULT_SOURCE }, template: null, templateError: '', logos: {},
   veto: { format: 'BO3', first: 0, actions: [], matchKey: '' },
-  cameras: readStorage('oneshot-camera-settings-v1') || {}, cameraFrame: DEFAULT_CAMERA_FRAME,
+  cameras: readStorage('oneshot-camera-settings-v1') || {}, cameraFrame: DEFAULT_CAMERA_LAYOUT_FRAME,
   pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false, cache: null,
   webcamMode: readStorage('oneshot-webcam-mode-v1') || 'online',
   vdoOptions: readStorage('oneshot-vdo-options-v1') || { bitrate: 2500, fps: 30 }
@@ -2411,8 +2470,30 @@ function sourceTag() {
 }
 const savedMatch = readStorage(matchStorageKey());
 const savedCameraFrame=readStorage('oneshot-camera-frame-v1');
-if(typeof savedCameraFrame==='string' && Object.hasOwn(CAMERA_FRAMES,savedCameraFrame))state.cameraFrame=savedCameraFrame;
+const validCameraFrame = value => typeof value === 'string' && (value === 'custom' || Object.hasOwn(CAMERA_FRAMES, value));
+if(validCameraFrame(savedCameraFrame))state.cameraFrame=savedCameraFrame;
 else if(Object.hasOwn(CAMERA_FRAMES,globalThis.oneshotEvent?.cameras?.frame))state.cameraFrame=globalThis.oneshotEvent.cameras.frame;
+const CAMERA_LAYOUT_STORE = 'oneshot-camera-layout-v1';
+const cameraSizes = {
+  custom: { width: 1440, height: 1080 },
+  guide: { width: 1350, height: 1080, enabled: true },
+  guideTwo: { width: 1200, height: 960, enabled: false }
+};
+function normalizeCameraLayout(value) {
+  return Object.fromEntries(Object.entries(cameraSizes).map(([key, defaults]) => {
+    const row = value?.[key];
+    const size = (axis, max) => Number.isFinite(row?.[axis]) ? Math.round(Math.min(max, Math.max(16, row[axis]))) : defaults[axis];
+    return [key, { width: size('width', 1920), height: size('height', 1080),
+      ...('enabled' in defaults ? { enabled: typeof row?.enabled === 'boolean' ? row.enabled : defaults.enabled } : {}) }];
+  }));
+}
+let cameraLayout = normalizeCameraLayout(readStorage(CAMERA_LAYOUT_STORE));
+function centeredCameraRect({width, height}) {
+  return { x: Math.floor((1920 - width) / 2), y: Math.floor((1080 - height) / 2), width, height };
+}
+function selectedCameraFrame() {
+  return state.cameraFrame === 'custom' ? centeredCameraRect(cameraLayout.custom) : state.cameraFrame;
+}
 $('cameraFrame').value=state.cameraFrame;
 if (savedMatch && savedMatch.source === sourceTag()) {
   for (const key of ['a', 'b', 'matchKey']) {
@@ -2488,7 +2569,7 @@ function editorPlayer() {
 }
 function cameraPreviewStyle(camera) {
   // Only the video paints above our backdrop, including while VDO connects.
-  return cameraCss(camera, state.cameraFrame)+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
+  return cameraCss(camera, selectedCameraFrame(), true)+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
 }
 function cameraPreviewLoading(loading) {
   $('cameraPreviewBox').dataset.loading=String(loading);
@@ -2526,18 +2607,30 @@ window.addEventListener('message',event=>{
         track._frameWidth>0 && track._frameHeight>0));
   cameraPreviewLoading(!ready);
 });
+function placeCameraElement(element, rect) {
+  const bounds = { left: rect.x/1920, top: rect.y/1080, width: rect.width/1920, height: rect.height/1080 };
+  for (const [name, ratio] of Object.entries(bounds)) element.style.setProperty('--camera-'+name, ratio*100+'%');
+}
 function updateCameraPreview() {
   const player=editorPlayer();
   if(!player){$('cameraDialog').close();return;}
-  const config=normalizeCamera(player.camera),rect=cameraFrame(state.cameraFrame);
+  const config=normalizeCamera(player.camera);
+  const rect=cameraEditor.draft || config.placement || cameraFrame(selectedCameraFrame());
+  const geometry = cameraGeometry({camera:{...config, placement:rect}}, selectedCameraFrame(), true);
   $('cameraRotation').value=String(config.rotation);
   $('cameraZoom').value=String(Math.round(config.zoom*100));
   $('cameraZoomValue').value=Math.round(config.zoom*100)+'%';
-  $('cameraPreviewBox').dataset.rotation=String(config.rotation);
-  for(const [name,value] of Object.entries({left:rect.x/1920*100,top:rect.y/1080*100,
-    width:rect.width/1920*100,height:rect.height/1080*100,
-    'rotated-width':rect.height/rect.width*100,'rotated-height':rect.width/rect.height*100})) {
-    $('cameraPreviewBox').style.setProperty('--camera-'+name,value+'%');
+  placeCameraElement($('cameraPreviewBox'), rect);
+  placeCameraElement($('cameraPlacement'), rect);
+  const scale = $('cameraPreviewStage').getBoundingClientRect().width / 1920;
+  cameraPreview.style.transform = `translate(${(geometry.x-rect.x)*scale}px, ${(geometry.y-rect.y)*scale}px) ` +
+    `rotate(${geometry.rotation}deg) scale(${geometry.width*scale/1920}, ${geometry.height*scale/1080})`;
+  for (const [key, id] of Object.entries(cameraPlacementFields)) $(id).value = String(rect[key]);
+  $('cameraEdgeDistance').textContent = `Слева ${rect.x} · сверху ${rect.y} · справа ${1920-rect.x-rect.width} · снизу ${1080-rect.y-rect.height} px`;
+  for (const [key, id] of [['guide','cameraGuide'], ['guideTwo','cameraGuideTwo']]) {
+    const guide = $(id);
+    guide.hidden = !cameraLayout[key].enabled;
+    placeCameraElement(guide, centeredCameraRect(cameraLayout[key]));
   }
   if(!cameraPreviewTimer)cameraPreviewTimer=setTimeout(()=>{
     cameraPreviewTimer=null;
@@ -2570,7 +2663,7 @@ function openCamera(side,slot) {
   cameraPreview.title='Предпросмотр камеры '+player.nick;
   cameraPreview.allow='autoplay';
   cameraPreview.referrerPolicy='no-referrer';
-  const url=new URL(cameraViewUrl(player, {}, state.cameraFrame));
+  const url=new URL(cameraViewUrl(player, {}, selectedCameraFrame(), true));
   url.searchParams.set('b64css',btoa(cameraPreviewStyle(player.camera)));
   url.searchParams.set('darkmode','');url.searchParams.set('noaudio','');
   cameraPreview.src=url.href;
@@ -2594,11 +2687,63 @@ $('cameraDialog').addEventListener('close',()=>{
   cameraPreviewTimer=null;
   cameraPreview?.remove();cameraPreview=null;cameraEditor=null;
 });
+const cameraPlacementFields = { x:'cameraPlaceX', y:'cameraPlaceY', width:'cameraPlaceWidth', height:'cameraPlaceHeight' };
+const cameraOverlay = $('cameraPlacement');
+new ResizeObserver(() => { if (cameraEditor) updateCameraPreview(); }).observe($('cameraPreviewStage'));
+for (const [key, id] of Object.entries(cameraPlacementFields)) $(id).addEventListener('change', () => {
+  const player=editorPlayer();
+  if(!player)return;
+  const rect=player.camera.placement || cameraFrame(selectedCameraFrame());
+  const value=$(id).valueAsNumber;
+  if(!Number.isFinite(value))return updateCameraPreview();
+  saveCamera({placement:{...rect,[key]:value}});
+});
+cameraOverlay.addEventListener('pointerdown', event => {
+  const player=editorPlayer();
+  if(!player || event.button!==0 || !event.isPrimary)return;
+  const rect=player.camera.placement || cameraFrame(selectedCameraFrame());
+  cameraEditor.drag={ rect, grip:event.target.dataset.cameraGrip || '', id:event.pointerId,
+    x:event.clientX, y:event.clientY, scale:1920/$('cameraPreviewStage').getBoundingClientRect().width };
+  cameraOverlay.setPointerCapture(event.pointerId);
+  event.preventDefault();
+});
+cameraOverlay.addEventListener('pointermove', event => {
+  const drag=cameraEditor?.drag;
+  if(drag?.id!==event.pointerId)return;
+  const dx=(event.clientX-drag.x)*drag.scale,dy=(event.clientY-drag.y)*drag.scale;
+  const {rect,grip}=drag;
+  const snap=(value, anchors) => {
+    const anchor=anchors.find(point=>Math.abs(value-point)<=8);
+    return !event.altKey && anchor!==undefined ? anchor : value;
+  };
+  let {x,y,width,height}=rect;
+  if(!grip){
+    x=snap(x+dx,[0,(1920-width)/2,1920-width]);
+    y=snap(y+dy,[0,(1080-height)/2,1080-height]);
+  }
+  if(grip.includes('w')){x=Math.min(x+width-16,snap(x+dx,[0,960,1920]));width+=rect.x-x;}
+  if(grip.includes('n')){y=Math.min(y+height-16,snap(y+dy,[0,540,1080]));height+=rect.y-y;}
+  if(grip.includes('e'))width=Math.max(16,snap(x+width+dx,[0,960,1920])-x);
+  if(grip.includes('s'))height=Math.max(16,snap(y+height+dy,[0,540,1080])-y);
+  cameraEditor.draft=cameraRect({x,y,width,height});
+  updateCameraPreview();
+});
+function finishCameraDrag(event, commit) {
+  if(cameraEditor?.drag?.id!==event.pointerId)return;
+  const placement=cameraEditor.draft;
+  delete cameraEditor.drag;
+  delete cameraEditor.draft;
+  if(commit && placement)saveCamera({placement});
+  else updateCameraPreview();
+}
+cameraOverlay.addEventListener('pointerup', event=>finishCameraDrag(event,true));
+cameraOverlay.addEventListener('pointercancel', event=>finishCameraDrag(event,false));
+cameraOverlay.addEventListener('lostpointercapture', event=>finishCameraDrag(event,false));
 $('cameraRotation').addEventListener('change',()=>saveCamera({rotation:Number($('cameraRotation').value)}));
 $('cameraRotate').addEventListener('click',()=>{
   const player=editorPlayer();if(player)saveCamera({rotation:(normalizeCamera(player.camera).rotation+90)%360});
 });
-$('cameraReset').addEventListener('click',()=>saveCamera({rotation:0,panX:50,panY:50,zoom:1}));
+$('cameraReset').addEventListener('click',()=>saveCamera({rotation:0,panX:50,panY:50,zoom:1,placement:null}));
 $('cameraZoom').addEventListener('input',()=>saveCamera({zoom:Number($('cameraZoom').value)/100}));
 for(const button of document.querySelectorAll('[data-camera-zoom]'))button.addEventListener('click',()=>{
   const player=editorPlayer();if(player)saveCamera({zoom:normalizeCamera(player.camera).zoom+Number(button.dataset.cameraZoom)/100});
@@ -2620,11 +2765,114 @@ if ($('vdoLowLatency')) $('vdoLowLatency').checked = state.vdoOptions.lowLatency
 $('webcamMode')?.addEventListener('change', () => { state.webcamMode = $('webcamMode').value === 'lan' ? 'lan' : 'online'; writeStorage('oneshot-webcam-mode-v1', state.webcamMode); });
 for (const id of ['vdoCodec','vdoBitrate','vdoFps','vdoLowLatency']) $(id)?.addEventListener('change', () => { state.vdoOptions = { codec: $('vdoCodec').value, bitrate: Number($('vdoBitrate').value), fps: Number($('vdoFps').value), lowLatency: $('vdoLowLatency').checked }; writeStorage('oneshot-vdo-options-v1', state.vdoOptions); });
 $('cameraFrame').addEventListener('change',()=>{
-  state.cameraFrame=Object.hasOwn(CAMERA_FRAMES,$('cameraFrame').value) ? $('cameraFrame').value : DEFAULT_CAMERA_FRAME;
+  state.cameraFrame=validCameraFrame($('cameraFrame').value) ? $('cameraFrame').value : DEFAULT_CAMERA_LAYOUT_FRAME;
+  if(state.cameraFrame==='custom')$('cameraPresetSettings').open=true;
   writeStorage('oneshot-camera-frame-v1',state.cameraFrame);
   renderOutput();
   if(cameraEditor)updateCameraPreview();
 });
+const cameraLayoutFields = { custom:'cameraCustom', guide:'cameraGuide', guideTwo:'cameraGuideTwo' };
+function displayCameraLayout() {
+  for (const [key,prefix] of Object.entries(cameraLayoutFields)) {
+    const row=cameraLayout[key];
+    $(prefix+'Width').value=String(row.width);
+    $(prefix+'Height').value=String(row.height);
+    if(key!=='custom')$(prefix+'Enabled').checked=row.enabled;
+  }
+  $('cameraFrame').value=state.cameraFrame;
+}
+function setCameraLayout(layout, frame) {
+  cameraLayout=normalizeCameraLayout(layout);
+  state.cameraFrame=validCameraFrame(frame) ? frame : DEFAULT_CAMERA_LAYOUT_FRAME;
+  const layoutSaved=writeStorage(CAMERA_LAYOUT_STORE,cameraLayout);
+  const frameSaved=writeStorage('oneshot-camera-frame-v1',state.cameraFrame);
+  displayCameraLayout();
+  renderOutput();
+  if(cameraEditor)updateCameraPreview();
+  return layoutSaved && frameSaved;
+}
+displayCameraLayout();
+for (const [key, prefix] of Object.entries(cameraLayoutFields)) {
+  const update = () => {
+    const row={ width:$(prefix+'Width').valueAsNumber, height:$(prefix+'Height').valueAsNumber };
+    if(!Number.isFinite(row.width) || !Number.isFinite(row.height))return displayCameraLayout();
+    if(key!=='custom')row.enabled=$(prefix+'Enabled').checked;
+    setCameraLayout({...cameraLayout,[key]:row},key==='custom' ? 'custom' : state.cameraFrame);
+  };
+  $(prefix+'Width').addEventListener('change',update);
+  $(prefix+'Height').addEventListener('change',update);
+  $(prefix+'Enabled')?.addEventListener('change',update);
+}
+
+if ($('cameraPresetSave')) {
+  const libraryKey='oneshot-camera-presets-v1', slug='camera-layout_preset';
+  const tokenPattern=/^[A-Za-z0-9_-]{21}[AQgw]$/;
+  const presetHash='#camera-preset=';
+  const cached=readStorage(libraryKey);
+  let presets=Array.isArray(cached) ? cached.filter(row=>typeof row?.name==='string' && tokenPattern.test(row?.token)) : [];
+  const list=$('cameraPresetList'), status=$('cameraPresetStatus');
+  let busy=false;
+  function showPresets(selected='') {
+    list.replaceChildren(new Option('Выбери пресет',''), ...presets.map(row=>new Option(row.name,row.token)));
+    list.value=selected;
+    $('cameraPresetCopy').disabled=!list.value;
+    $('cameraPresetLoad').disabled=busy || !list.value;
+    $('cameraPresetSave').disabled=busy;
+  }
+  function rememberPreset(name, token) {
+    presets=[{name,token},...presets.filter(row=>row.token!==token)].slice(0,30);
+    writeStorage(libraryKey,presets);
+    showPresets(token);
+  }
+  async function openCameraPreset(token) {
+    if(!tokenPattern.test(token) || busy)return;
+    busy=true;showPresets(token);
+    status.textContent='Загружаем пресет…';
+    try {
+      const {fetchShortDocument}=await import('/assets/veto-short-links.js');
+      const preset=await fetchShortDocument(location.origin,slug,token);
+      if(preset?.v!==1 || typeof preset.name!=='string' || !validCameraFrame(preset.frame) || !preset.layout)throw Error('preset');
+      const name=preset.name.trim().slice(0,48);
+      if(!name)throw Error('preset');
+      const kept=setCameraLayout(preset.layout,preset.frame);
+      rememberPreset(name,token);
+      $('cameraPresetName').value=name;
+      status.textContent=kept ? `Применён пресет «${name}».` : `Пресет «${name}» применён в этой вкладке.`;
+    }catch{status.textContent='Не удалось загрузить пресет. Проверь ссылку и повтори.';}
+    finally{busy=false;showPresets(list.value);}
+  }
+  list.addEventListener('change',()=>showPresets(list.value));
+  $('cameraPresetLoad').addEventListener('click',()=>openCameraPreset(list.value));
+  $('cameraPresetCopy').addEventListener('click',()=>{
+    if(tokenPattern.test(list.value))copy(new URL('/'+presetHash+list.value,location.origin).href);
+  });
+  $('cameraPresetSave').addEventListener('click', async ()=>{
+    if(busy)return;
+    const name=$('cameraPresetName').value.trim().slice(0,48);
+    if(!name){status.textContent='Укажи имя пресета.';$('cameraPresetName').focus();return;}
+    const preset={v:1,name,frame:state.cameraFrame,layout:cameraLayout};
+    busy=true;showPresets(list.value);
+    status.textContent='Сохраняем на сервер…';
+    try {
+      const {storeShortDocument}=await import('/assets/veto-short-links.js');
+      const token=await storeShortDocument(location.origin,slug,preset);
+      rememberPreset(name,token);
+      status.textContent=`Пресет «${name}» сохранён на сервере.`;
+    }catch{status.textContent='Сервер не сохранил пресет. Текущие размеры доступны в панели.';}
+    finally{busy=false;showPresets(list.value);}
+  });
+  function openPresetHash() {
+    if(!location.hash.startsWith(presetHash))return;
+    const token=location.hash.slice(presetHash.length);
+    $('cameraPresetSettings').open=true;
+    if(!tokenPattern.test(token)){status.textContent='Ссылка на пресет неполная.';return;}
+    history.replaceState(history.state,'',location.pathname+location.search+'#prep');
+    openCameraPreset(token);
+  }
+  showPresets();
+  window.addEventListener('hashchange',openPresetHash);
+  openPresetHash();
+}
 // ↻ next to a player: a new stream ID, so a leaked link stops being theirs.
 // The new message for the player is copied right away.
 function regenerate(side, slot) {
@@ -2696,7 +2944,8 @@ function snapshot() {
     keysA: [...state.keysA], keysB: [...state.keysB],
     matchError: valid(), template: state.template, templateError: state.templateError,
     includeCards: $('includeCards').checked, season3: isSeason3(), logos: state.logos,
-    cameraFrame:state.cameraFrame,
+    cameraFrame:selectedCameraFrame(),
+    vdoOptions:state.webcamMode==='lan' ? { enabled:true, ...state.vdoOptions } : { enabled:false },
     veto: { ...state.veto, actions: [...state.veto.actions] }, pending: state.pending,
     schedule: state.schedule.filter(match => !match.unavailable), matchKey: state.matchKey,
     time: $('matchTime').value, stage: $('matchStage').value
@@ -3485,7 +3734,7 @@ function obsFile() {
     $('matchTime').value, $('matchStage').value);
   const text = JSON.stringify(buildObs(state.template,
     getTeam('a'), getTeam('b'), state.keysA, state.keysB, undefined,
-    { includeCards: $('includeCards').checked, cameraFrame:state.cameraFrame,
+    { includeCards: $('includeCards').checked, cameraFrame:selectedCameraFrame(), fullSource:true,
       vdoOptions: state.webcamMode === 'lan' ? { enabled: true, ...state.vdoOptions } : { enabled: false } }), null, 2) + '\n';
   return { filename, text };
 }

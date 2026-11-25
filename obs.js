@@ -1,7 +1,7 @@
 // obs-websocket v5 (built into OBS 28+) and the steps that point an already
 // imported Oneshot collection at a new match. No DOM: the panel, the OBS dock
 // (obs-bridge.html) and the tests share it.
-import { viewUrl, cameraViewUrl, cameraGeometry, cameraFrame, DEFAULT_CAMERA_FRAME, cardUrl, cardKey, readyCard, DEFAULT_CARD_BASE } from './core.js';
+import { viewUrl, cameraInput, DEFAULT_CAMERA_FRAME, cardUrl, cardKey, readyCard, DEFAULT_CARD_BASE } from './core.js';
 
 export const OBS_DEFAULT_URL = 'ws://127.0.0.1:4455';
 export const VETO_EVENT = 'oneshot-veto';
@@ -120,22 +120,24 @@ export class ObsClient {
 
 // What one "Игрок N" scene needs. Cameras keep their source; the card (CARD)
 // sits right under the camera when cards are on and is hidden when they are off.
-export function slotPlan(sceneItems, player, { includeCards = false, cardBase = DEFAULT_CARD_BASE, cameraFrame: frame = DEFAULT_CAMERA_FRAME, legacyCamera = false, cardDocs = {}, vdoOptions = {} } = {}) {
+export function slotPlan(sceneItems, player, { includeCards = false, cardBase = DEFAULT_CARD_BASE, cameraFrame: frame = DEFAULT_CAMERA_FRAME, legacyCamera = false, cardDocs = {}, vdoOptions = {}, fullSource = false } = {}) {
   const scene = `Игрок ${player.slot}`;
   const browsers = (sceneItems || []).filter(it => it.inputKind === 'browser_source');
   const card = browsers.find(it => /^CARD /.test(it.sourceName));
   const camera = browsers.find(it => !/^CARD /.test(it.sourceName));
   if (!camera) throw new Error(`В сцене «${scene}» нет камеры. Импортируй коллекцию из JSON один раз.`);
   const slot = String(player.slot).padStart(2, '0');
-  if(legacyCamera){frame='wide';player={...player,camera:null};}
-  const geometry=cameraGeometry(player,frame),rect=cameraFrame(frame);
+  if(legacyCamera){frame='wide';player={...player,camera:null};fullSource=false;}
+  const { geometry, settings } = cameraInput(player, frame, vdoOptions, fullSource);
+  if (legacyCamera) settings.url = viewUrl(player);
   return {
     scene,
     camera: {
       item: camera, name: `CAM ${slot} | ${player.team} | ${player.nick}`,
-      settings: {url:legacyCamera ? viewUrl(player) : cameraViewUrl(player, vdoOptions, frame),width:geometry.width,height:geometry.height},
+      settings,
       transform:{...FIT,positionX:geometry.x,positionY:geometry.y,rotation:geometry.rotation,
-        boundsWidth:geometry.width,boundsHeight:geometry.height}
+        boundsWidth:geometry.width,boundsHeight:geometry.height,
+        ...(fullSource ? { boundsType: 'OBS_BOUNDS_STRETCH' } : {})}
     },
     card: includeCards ? {
       item: card || null, name: `CARD ${slot} | ${player.team} | ${player.nick}`,

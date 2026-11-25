@@ -5,7 +5,7 @@ import {
   validatePlayers, validateMatch, viewUrl, directorUrl,
   newStreamId, applyStreamIds, playerLine, vdoId, vdoPushId, rosterMatch,
   observerText, playerText, buildObs, safeFilename, validateMetadata,
-  CAMERA_FRAMES, DEFAULT_CAMERA_FRAME, cameraFrame, normalizeCamera, cameraCss, cameraViewUrl,
+  CAMERA_FRAMES, DEFAULT_CAMERA_LAYOUT_FRAME, cameraFrame, cameraRect, cameraGeometry, normalizeCamera, cameraCss, cameraViewUrl,
   MAP_POOL, VETO_RULES, validateVeto, appendVeto, vetoText,
   lanConfig, lanTeams, lanSchedule, newLanPrefix, seatTeam, personKey
 } from './core.js';
@@ -20,7 +20,7 @@ const state = {
   scheduleDay: '',
   source: { ...DEFAULT_SOURCE }, template: null, templateError: '', logos: {},
   veto: { format: 'BO3', first: 0, actions: [], matchKey: '' },
-  cameras: readStorage('oneshot-camera-settings-v1') || {}, cameraFrame: DEFAULT_CAMERA_FRAME,
+  cameras: readStorage('oneshot-camera-settings-v1') || {}, cameraFrame: DEFAULT_CAMERA_LAYOUT_FRAME,
   pending: null, sheetTeams: [], streamIds: {}, regenAsk: '', exporting: false,
   webcamMode: readStorage('oneshot-webcam-mode-v1') || 'online',
   vdoOptions: readStorage('oneshot-vdo-options-v1') || { bitrate: 2500, fps: 30 }
@@ -131,8 +131,30 @@ function sourceTag() {
 }
 const savedMatch = readStorage(matchStorageKey());
 const savedCameraFrame=readStorage('oneshot-camera-frame-v1');
-if(typeof savedCameraFrame==='string' && Object.hasOwn(CAMERA_FRAMES,savedCameraFrame))state.cameraFrame=savedCameraFrame;
+const validCameraFrame = value => typeof value === 'string' && (value === 'custom' || Object.hasOwn(CAMERA_FRAMES, value));
+if(validCameraFrame(savedCameraFrame))state.cameraFrame=savedCameraFrame;
 else if(Object.hasOwn(CAMERA_FRAMES,globalThis.oneshotEvent?.cameras?.frame))state.cameraFrame=globalThis.oneshotEvent.cameras.frame;
+const CAMERA_LAYOUT_STORE = 'oneshot-camera-layout-v1';
+const cameraSizes = {
+  custom: { width: 1440, height: 1080 },
+  guide: { width: 1350, height: 1080, enabled: true },
+  guideTwo: { width: 1200, height: 960, enabled: false }
+};
+function normalizeCameraLayout(value) {
+  return Object.fromEntries(Object.entries(cameraSizes).map(([key, defaults]) => {
+    const row = value?.[key];
+    const size = (axis, max) => Number.isFinite(row?.[axis]) ? Math.round(Math.min(max, Math.max(16, row[axis]))) : defaults[axis];
+    return [key, { width: size('width', 1920), height: size('height', 1080),
+      ...('enabled' in defaults ? { enabled: typeof row?.enabled === 'boolean' ? row.enabled : defaults.enabled } : {}) }];
+  }));
+}
+let cameraLayout = normalizeCameraLayout(readStorage(CAMERA_LAYOUT_STORE));
+function centeredCameraRect({width, height}) {
+  return { x: Math.floor((1920 - width) / 2), y: Math.floor((1080 - height) / 2), width, height };
+}
+function selectedCameraFrame() {
+  return state.cameraFrame === 'custom' ? centeredCameraRect(cameraLayout.custom) : state.cameraFrame;
+}
 $('cameraFrame').value=state.cameraFrame;
 if (savedMatch && savedMatch.source === sourceTag()) {
   for (const key of ['a', 'b', 'matchKey']) {
@@ -208,7 +230,7 @@ function editorPlayer() {
 }
 function cameraPreviewStyle(camera) {
   // Only the video paints above our backdrop, including while VDO connects.
-  return cameraCss(camera, state.cameraFrame)+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
+  return cameraCss(camera, selectedCameraFrame(), true)+'body *{visibility:hidden!important;}body video{visibility:visible!important;}';
 }
 function cameraPreviewLoading(loading) {
   $('cameraPreviewBox').dataset.loading=String(loading);
@@ -246,18 +268,30 @@ window.addEventListener('message',event=>{
         track._frameWidth>0 && track._frameHeight>0));
   cameraPreviewLoading(!ready);
 });
+function placeCameraElement(element, rect) {
+  const bounds = { left: rect.x/1920, top: rect.y/1080, width: rect.width/1920, height: rect.height/1080 };
+  for (const [name, ratio] of Object.entries(bounds)) element.style.setProperty('--camera-'+name, ratio*100+'%');
+}
 function updateCameraPreview() {
   const player=editorPlayer();
   if(!player){$('cameraDialog').close();return;}
-  const config=normalizeCamera(player.camera),rect=cameraFrame(state.cameraFrame);
+  const config=normalizeCamera(player.camera);
+  const rect=cameraEditor.draft || config.placement || cameraFrame(selectedCameraFrame());
+  const geometry = cameraGeometry({camera:{...config, placement:rect}}, selectedCameraFrame(), true);
   $('cameraRotation').value=String(config.rotation);
   $('cameraZoom').value=String(Math.round(config.zoom*100));
   $('cameraZoomValue').value=Math.round(config.zoom*100)+'%';
-  $('cameraPreviewBox').dataset.rotation=String(config.rotation);
-  for(const [name,value] of Object.entries({left:rect.x/1920*100,top:rect.y/1080*100,
-    width:rect.width/1920*100,height:rect.height/1080*100,
-    'rotated-width':rect.height/rect.width*100,'rotated-height':rect.width/rect.height*100})) {
-    $('cameraPreviewBox').style.setProperty('--camera-'+name,value+'%');
+  placeCameraElement($('cameraPreviewBox'), rect);
+  placeCameraElement($('cameraPlacement'), rect);
+  const scale = $('cameraPreviewStage').getBoundingClientRect().width / 1920;
+  cameraPreview.style.transform = `translate(${(geometry.x-rect.x)*scale}px, ${(geometry.y-rect.y)*scale}px) ` +
+    `rotate(${geometry.rotation}deg) scale(${geometry.width*scale/1920}, ${geometry.height*scale/1080})`;
+  for (const [key, id] of Object.entries(cameraPlacementFields)) $(id).value = String(rect[key]);
+  $('cameraEdgeDistance').textContent = `Слева ${rect.x} · сверху ${rect.y} · справа ${1920-rect.x-rect.width} · снизу ${1080-rect.y-rect.height} px`;
+  for (const [key, id] of [['guide','cameraGuide'], ['guideTwo','cameraGuideTwo']]) {
+    const guide = $(id);
+    guide.hidden = !cameraLayout[key].enabled;
+    placeCameraElement(guide, centeredCameraRect(cameraLayout[key]));
   }
   if(!cameraPreviewTimer)cameraPreviewTimer=setTimeout(()=>{
     cameraPreviewTimer=null;
@@ -290,7 +324,7 @@ function openCamera(side,slot) {
   cameraPreview.title='Предпросмотр камеры '+player.nick;
   cameraPreview.allow='autoplay';
   cameraPreview.referrerPolicy='no-referrer';
-  const url=new URL(cameraViewUrl(player, {}, state.cameraFrame));
+  const url=new URL(cameraViewUrl(player, {}, selectedCameraFrame(), true));
   url.searchParams.set('b64css',btoa(cameraPreviewStyle(player.camera)));
   url.searchParams.set('darkmode','');url.searchParams.set('noaudio','');
   cameraPreview.src=url.href;
@@ -314,11 +348,63 @@ $('cameraDialog').addEventListener('close',()=>{
   cameraPreviewTimer=null;
   cameraPreview?.remove();cameraPreview=null;cameraEditor=null;
 });
+const cameraPlacementFields = { x:'cameraPlaceX', y:'cameraPlaceY', width:'cameraPlaceWidth', height:'cameraPlaceHeight' };
+const cameraOverlay = $('cameraPlacement');
+new ResizeObserver(() => { if (cameraEditor) updateCameraPreview(); }).observe($('cameraPreviewStage'));
+for (const [key, id] of Object.entries(cameraPlacementFields)) $(id).addEventListener('change', () => {
+  const player=editorPlayer();
+  if(!player)return;
+  const rect=player.camera.placement || cameraFrame(selectedCameraFrame());
+  const value=$(id).valueAsNumber;
+  if(!Number.isFinite(value))return updateCameraPreview();
+  saveCamera({placement:{...rect,[key]:value}});
+});
+cameraOverlay.addEventListener('pointerdown', event => {
+  const player=editorPlayer();
+  if(!player || event.button!==0 || !event.isPrimary)return;
+  const rect=player.camera.placement || cameraFrame(selectedCameraFrame());
+  cameraEditor.drag={ rect, grip:event.target.dataset.cameraGrip || '', id:event.pointerId,
+    x:event.clientX, y:event.clientY, scale:1920/$('cameraPreviewStage').getBoundingClientRect().width };
+  cameraOverlay.setPointerCapture(event.pointerId);
+  event.preventDefault();
+});
+cameraOverlay.addEventListener('pointermove', event => {
+  const drag=cameraEditor?.drag;
+  if(drag?.id!==event.pointerId)return;
+  const dx=(event.clientX-drag.x)*drag.scale,dy=(event.clientY-drag.y)*drag.scale;
+  const {rect,grip}=drag;
+  const snap=(value, anchors) => {
+    const anchor=anchors.find(point=>Math.abs(value-point)<=8);
+    return !event.altKey && anchor!==undefined ? anchor : value;
+  };
+  let {x,y,width,height}=rect;
+  if(!grip){
+    x=snap(x+dx,[0,(1920-width)/2,1920-width]);
+    y=snap(y+dy,[0,(1080-height)/2,1080-height]);
+  }
+  if(grip.includes('w')){x=Math.min(x+width-16,snap(x+dx,[0,960,1920]));width+=rect.x-x;}
+  if(grip.includes('n')){y=Math.min(y+height-16,snap(y+dy,[0,540,1080]));height+=rect.y-y;}
+  if(grip.includes('e'))width=Math.max(16,snap(x+width+dx,[0,960,1920])-x);
+  if(grip.includes('s'))height=Math.max(16,snap(y+height+dy,[0,540,1080])-y);
+  cameraEditor.draft=cameraRect({x,y,width,height});
+  updateCameraPreview();
+});
+function finishCameraDrag(event, commit) {
+  if(cameraEditor?.drag?.id!==event.pointerId)return;
+  const placement=cameraEditor.draft;
+  delete cameraEditor.drag;
+  delete cameraEditor.draft;
+  if(commit && placement)saveCamera({placement});
+  else updateCameraPreview();
+}
+cameraOverlay.addEventListener('pointerup', event=>finishCameraDrag(event,true));
+cameraOverlay.addEventListener('pointercancel', event=>finishCameraDrag(event,false));
+cameraOverlay.addEventListener('lostpointercapture', event=>finishCameraDrag(event,false));
 $('cameraRotation').addEventListener('change',()=>saveCamera({rotation:Number($('cameraRotation').value)}));
 $('cameraRotate').addEventListener('click',()=>{
   const player=editorPlayer();if(player)saveCamera({rotation:(normalizeCamera(player.camera).rotation+90)%360});
 });
-$('cameraReset').addEventListener('click',()=>saveCamera({rotation:0,panX:50,panY:50,zoom:1}));
+$('cameraReset').addEventListener('click',()=>saveCamera({rotation:0,panX:50,panY:50,zoom:1,placement:null}));
 $('cameraZoom').addEventListener('input',()=>saveCamera({zoom:Number($('cameraZoom').value)/100}));
 for(const button of document.querySelectorAll('[data-camera-zoom]'))button.addEventListener('click',()=>{
   const player=editorPlayer();if(player)saveCamera({zoom:normalizeCamera(player.camera).zoom+Number(button.dataset.cameraZoom)/100});
@@ -340,11 +426,114 @@ if ($('vdoLowLatency')) $('vdoLowLatency').checked = state.vdoOptions.lowLatency
 $('webcamMode')?.addEventListener('change', () => { state.webcamMode = $('webcamMode').value === 'lan' ? 'lan' : 'online'; writeStorage('oneshot-webcam-mode-v1', state.webcamMode); });
 for (const id of ['vdoCodec','vdoBitrate','vdoFps','vdoLowLatency']) $(id)?.addEventListener('change', () => { state.vdoOptions = { codec: $('vdoCodec').value, bitrate: Number($('vdoBitrate').value), fps: Number($('vdoFps').value), lowLatency: $('vdoLowLatency').checked }; writeStorage('oneshot-vdo-options-v1', state.vdoOptions); });
 $('cameraFrame').addEventListener('change',()=>{
-  state.cameraFrame=Object.hasOwn(CAMERA_FRAMES,$('cameraFrame').value) ? $('cameraFrame').value : DEFAULT_CAMERA_FRAME;
+  state.cameraFrame=validCameraFrame($('cameraFrame').value) ? $('cameraFrame').value : DEFAULT_CAMERA_LAYOUT_FRAME;
+  if(state.cameraFrame==='custom')$('cameraPresetSettings').open=true;
   writeStorage('oneshot-camera-frame-v1',state.cameraFrame);
   renderOutput();
   if(cameraEditor)updateCameraPreview();
 });
+const cameraLayoutFields = { custom:'cameraCustom', guide:'cameraGuide', guideTwo:'cameraGuideTwo' };
+function displayCameraLayout() {
+  for (const [key,prefix] of Object.entries(cameraLayoutFields)) {
+    const row=cameraLayout[key];
+    $(prefix+'Width').value=String(row.width);
+    $(prefix+'Height').value=String(row.height);
+    if(key!=='custom')$(prefix+'Enabled').checked=row.enabled;
+  }
+  $('cameraFrame').value=state.cameraFrame;
+}
+function setCameraLayout(layout, frame) {
+  cameraLayout=normalizeCameraLayout(layout);
+  state.cameraFrame=validCameraFrame(frame) ? frame : DEFAULT_CAMERA_LAYOUT_FRAME;
+  const layoutSaved=writeStorage(CAMERA_LAYOUT_STORE,cameraLayout);
+  const frameSaved=writeStorage('oneshot-camera-frame-v1',state.cameraFrame);
+  displayCameraLayout();
+  renderOutput();
+  if(cameraEditor)updateCameraPreview();
+  return layoutSaved && frameSaved;
+}
+displayCameraLayout();
+for (const [key, prefix] of Object.entries(cameraLayoutFields)) {
+  const update = () => {
+    const row={ width:$(prefix+'Width').valueAsNumber, height:$(prefix+'Height').valueAsNumber };
+    if(!Number.isFinite(row.width) || !Number.isFinite(row.height))return displayCameraLayout();
+    if(key!=='custom')row.enabled=$(prefix+'Enabled').checked;
+    setCameraLayout({...cameraLayout,[key]:row},key==='custom' ? 'custom' : state.cameraFrame);
+  };
+  $(prefix+'Width').addEventListener('change',update);
+  $(prefix+'Height').addEventListener('change',update);
+  $(prefix+'Enabled')?.addEventListener('change',update);
+}
+
+if ($('cameraPresetSave')) {
+  const libraryKey='oneshot-camera-presets-v1', slug='camera-layout_preset';
+  const tokenPattern=/^[A-Za-z0-9_-]{21}[AQgw]$/;
+  const presetHash='#camera-preset=';
+  const cached=readStorage(libraryKey);
+  let presets=Array.isArray(cached) ? cached.filter(row=>typeof row?.name==='string' && tokenPattern.test(row?.token)) : [];
+  const list=$('cameraPresetList'), status=$('cameraPresetStatus');
+  let busy=false;
+  function showPresets(selected='') {
+    list.replaceChildren(new Option('Выбери пресет',''), ...presets.map(row=>new Option(row.name,row.token)));
+    list.value=selected;
+    $('cameraPresetCopy').disabled=!list.value;
+    $('cameraPresetLoad').disabled=busy || !list.value;
+    $('cameraPresetSave').disabled=busy;
+  }
+  function rememberPreset(name, token) {
+    presets=[{name,token},...presets.filter(row=>row.token!==token)].slice(0,30);
+    writeStorage(libraryKey,presets);
+    showPresets(token);
+  }
+  async function openCameraPreset(token) {
+    if(!tokenPattern.test(token) || busy)return;
+    busy=true;showPresets(token);
+    status.textContent='Загружаем пресет…';
+    try {
+      const {fetchShortDocument}=await import('/assets/veto-short-links.js');
+      const preset=await fetchShortDocument(location.origin,slug,token);
+      if(preset?.v!==1 || typeof preset.name!=='string' || !validCameraFrame(preset.frame) || !preset.layout)throw Error('preset');
+      const name=preset.name.trim().slice(0,48);
+      if(!name)throw Error('preset');
+      const kept=setCameraLayout(preset.layout,preset.frame);
+      rememberPreset(name,token);
+      $('cameraPresetName').value=name;
+      status.textContent=kept ? `Применён пресет «${name}».` : `Пресет «${name}» применён в этой вкладке.`;
+    }catch{status.textContent='Не удалось загрузить пресет. Проверь ссылку и повтори.';}
+    finally{busy=false;showPresets(list.value);}
+  }
+  list.addEventListener('change',()=>showPresets(list.value));
+  $('cameraPresetLoad').addEventListener('click',()=>openCameraPreset(list.value));
+  $('cameraPresetCopy').addEventListener('click',()=>{
+    if(tokenPattern.test(list.value))copy(new URL('/'+presetHash+list.value,location.origin).href);
+  });
+  $('cameraPresetSave').addEventListener('click', async ()=>{
+    if(busy)return;
+    const name=$('cameraPresetName').value.trim().slice(0,48);
+    if(!name){status.textContent='Укажи имя пресета.';$('cameraPresetName').focus();return;}
+    const preset={v:1,name,frame:state.cameraFrame,layout:cameraLayout};
+    busy=true;showPresets(list.value);
+    status.textContent='Сохраняем на сервер…';
+    try {
+      const {storeShortDocument}=await import('/assets/veto-short-links.js');
+      const token=await storeShortDocument(location.origin,slug,preset);
+      rememberPreset(name,token);
+      status.textContent=`Пресет «${name}» сохранён на сервере.`;
+    }catch{status.textContent='Сервер не сохранил пресет. Текущие размеры доступны в панели.';}
+    finally{busy=false;showPresets(list.value);}
+  });
+  function openPresetHash() {
+    if(!location.hash.startsWith(presetHash))return;
+    const token=location.hash.slice(presetHash.length);
+    $('cameraPresetSettings').open=true;
+    if(!tokenPattern.test(token)){status.textContent='Ссылка на пресет неполная.';return;}
+    history.replaceState(history.state,'',location.pathname+location.search+'#prep');
+    openCameraPreset(token);
+  }
+  showPresets();
+  window.addEventListener('hashchange',openPresetHash);
+  openPresetHash();
+}
 // ↻ next to a player: a new stream ID, so a leaked link stops being theirs.
 // The new message for the player is copied right away.
 function regenerate(side, slot) {
@@ -416,7 +605,8 @@ function snapshot() {
     keysA: [...state.keysA], keysB: [...state.keysB],
     matchError: valid(), template: state.template, templateError: state.templateError,
     includeCards: $('includeCards').checked, season3: isSeason3(), logos: state.logos,
-    cameraFrame:state.cameraFrame,
+    cameraFrame:selectedCameraFrame(),
+    vdoOptions:state.webcamMode==='lan' ? { enabled:true, ...state.vdoOptions } : { enabled:false },
     veto: { ...state.veto, actions: [...state.veto.actions] }, pending: state.pending,
     schedule: state.schedule.filter(match => !match.unavailable), matchKey: state.matchKey,
     time: $('matchTime').value, stage: $('matchStage').value
@@ -1184,9 +1374,8 @@ $('copyAllBtn').addEventListener('click', () => copy($('output').value));
 async function exportObsFile() {
   const s = snapshot();
   const filename = safeFilename(s.a.name, s.b.name, s.time, s.stage);
-  const vdoOptions = state.webcamMode === 'lan' ? { enabled: true, ...state.vdoOptions } : { enabled: false };
   const data = buildObs(s.template, s.a, s.b, s.keysA, s.keysB, undefined, {
-    includeCards: s.includeCards, cameraFrame: s.cameraFrame, vdoOptions, cardDocs: await cardDocsNow(s),
+    includeCards: s.includeCards, cameraFrame: s.cameraFrame, fullSource: true, vdoOptions: s.vdoOptions, cardDocs: await cardDocsNow(s),
     ...(/^https?:$/.test(location.protocol) ? { cardBase: location.origin } : {})
   });
   return { filename, text: JSON.stringify(data, null, 2) + '\n' };

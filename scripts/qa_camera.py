@@ -29,14 +29,10 @@ addEventListener('message',e=>{
 </script>"""
 
 
-def camera_scale(zoom, short_side=1080):
-    return zoom * (1 + 40 / short_side)
-
-
 async def expect_camera_zoom(video, zoom, timeout=5):
     loop = asyncio.get_running_loop()
     deadline = loop.time() + timeout
-    expected = camera_scale(zoom)
+    expected = zoom
     while True:
         actual = await video.evaluate('el => parseFloat(getComputedStyle(el).scale)')
         if actual is not None and abs(actual - expected) < 0.00001:
@@ -68,20 +64,22 @@ async def run(args):
         preview_release=asyncio.Event()
         if not args.real_provider:
             async def preview_route(route):
-                if '&cover' in route.request.url: await preview_release.wait()
-                await route.fulfill(content_type='text/html',body=CAMERA_HTML if '&cover' in route.request.url else FAKE_VDO)
+                is_preview = 'b64css=' in route.request.url
+                if is_preview: await preview_release.wait()
+                await route.fulfill(content_type='text/html',body=CAMERA_HTML if is_preview else FAKE_VDO)
             await context.route("https://vdo.ninja/**",preview_route)
         page=await context.new_page()
         errors,previews=[],[]
         page.on("pageerror",lambda error:errors.append(str(error)))
-        page.on("request",lambda req:previews.append(req.url) if req.url.startswith("https://vdo.ninja/") and "&cover" in req.url else None)
+        page.on("request",lambda req:previews.append(req.url) if req.url.startswith("https://vdo.ninja/") and "b64css=" in req.url else None)
         obs=MockObs()
         await page.route_web_socket(OBS_URL,obs.handler)
         await page.goto(season2_url(args.url))
         await expect(page.locator("#syncTitle")).to_contain_text("команд из таблицы")
         options=await page.locator("#matchSelect option").evaluate_all("els=>els.filter(e=>e.value).map(e=>e.value)")
         await page.select_option("#matchSelect",options[0])
-        await expect(page.locator("#cameraFrame")).to_have_value("inner43")
+        await expect(page.locator("#cameraFrame")).to_have_value("wide")
+        await page.select_option("#cameraFrame","inner43")
         await page.locator('[data-camera="a"][data-slot="0"]').click()
         await expect(page.locator("#cameraDialog")).to_be_visible()
         frame_span=await page.locator('#cameraPreviewBox').evaluate("el => [el.style.getPropertyValue('--camera-top'), el.style.getPropertyValue('--camera-height')]")
@@ -96,13 +94,13 @@ async def run(args):
             frame=await handle.content_frame()
             await frame.wait_for_url("https://vdo.ninja/**",wait_until="domcontentloaded",timeout=60000)
             await frame.wait_for_function("() => typeof window.onmessage==='function'",timeout=60000)
-            assert await frame.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--fit-style').trim()")=="cover"
             await frame.evaluate("""poster=>{
               const video=document.createElement('video');
               video.id='cameraQaMedia';video.poster=poster;
               document.body.append(video);
             }""","data:image/svg+xml;base64,"+base64.b64encode(POSTER.encode()).decode())
             await page.locator('[data-camera-pan="panX:-10"]').click()
+            await expect(frame.locator("#cameraQaMedia")).to_have_css("object-fit","contain",timeout=15000)
             await expect(frame.locator("#cameraQaMedia")).to_have_css("object-position","40% 50%",timeout=15000)
             await page.click("#cameraRotate")
             await expect(frame.locator("#cameraQaMedia")).to_have_css("object-position","50% 60%",timeout=15000)
@@ -160,7 +158,34 @@ async def run(args):
         video=page.frame_locator("#cameraPreviewBox iframe").locator("video")
         await expect(video).to_be_visible()
         await expect(page.locator('#cameraPreviewBox')).to_have_attribute('data-loading','false')
-        await expect(video).to_have_css("object-fit","cover")
+        await expect(video).to_have_css("object-fit","contain")
+        guide = page.locator('#cameraGuide')
+        assert await guide.evaluate("el=>el.style.getPropertyValue('--camera-width')") == '70.3125%'
+        overlay = await page.locator('#cameraPlacement').bounding_box()
+        stage = await page.locator('#cameraPreviewStage').bounding_box()
+        scale = stage['width'] / 1920
+        mouse_x = overlay['x'] + overlay['width'] / 2
+        mouse_y = overlay['y'] + overlay['height'] / 2
+        await page.mouse.move(mouse_x, mouse_y)
+        await page.mouse.down()
+        await page.mouse.move(mouse_x - 400 * scale, mouse_y - 60 * scale, steps=5)
+        await page.mouse.up()
+        x = int(await page.locator('#cameraPlaceX').input_value())
+        y = int(await page.locator('#cameraPlaceY').input_value())
+        assert abs(x - (-100)) <= 2 and abs(y - (-60)) <= 2, (x, y)
+        grip = await page.locator('[data-camera-grip="e"]').bounding_box()
+        mouse_x = grip['x'] + grip['width'] / 2
+        mouse_y = grip['y'] + grip['height'] / 2
+        await page.mouse.move(mouse_x, mouse_y)
+        await page.mouse.down()
+        await page.mouse.move(mouse_x + 200 * scale, mouse_y, steps=5)
+        await page.mouse.up()
+        width = int(await page.locator('#cameraPlaceWidth').input_value())
+        assert abs(width - 1520) <= 2
+        await expect(page.locator('#cameraPlaceHeight')).to_have_value('1080')
+        for field, value in [('X','-282'),('Y','20'),('Width','1777'),('Height','950')]:
+            await page.locator('#cameraPlace'+field).fill(value)
+            await page.locator('#cameraPlace'+field).press('Tab')
         await page.locator('[data-camera-pan="panX:-10"]').click()
         await expect(video).to_have_css("object-position","40% 50%")
         await page.click("#cameraRotate")
@@ -189,24 +214,26 @@ async def run(args):
         await page.locator('[data-camera="a"][data-slot="1"]').click()
         await expect(page.locator("#cameraRotation")).to_have_value("90")
         await expect(page.locator('#cameraZoom')).to_have_value('150')
+        await expect(page.locator('#cameraPlaceX')).to_have_value('-282')
         await page.click("#cameraApplyObs")
         await expect(page.locator("#toast")).to_contain_text("OBS обновлён")
         transforms=[r["requestData"] for r in obs.requests if r["requestType"]=="SetSceneItemTransform"]
         transform=next(r["sceneItemTransform"] for r in transforms if r["sceneName"]=="Игрок 2")
         assert {k:transform[k] for k in ("positionX","positionY","rotation","boundsWidth","boundsHeight")}=={
-            "positionX":1620,"positionY":0,"rotation":90,"boundsWidth":1080,"boundsHeight":1320}
+            "positionX":1495,"positionY":20,"rotation":90,"boundsWidth":950,"boundsHeight":1777}
         async with page.expect_download() as info:
             await page.click("#downloadBtn")
         data=json.loads((await (await info.value).path()).read_text())
         scene=next(s for s in data["sources"] if s["name"]=="Игрок 2")
         item=next(i for i in scene["settings"]["items"] if i["name"].startswith("CAM "))
         source=next(s for s in data["sources"] if s["uuid"]==item["source_uuid"])
-        assert item["rot"]==90 and item["pos"]=={"x":1620,"y":0}
-        assert source["settings"]["width"]==1080 and source["settings"]["height"]==1320
+        assert item["rot"]==90 and item["pos"]=={"x":1495,"y":20}
+        assert item['bounds_type']==1 and item['bounds']=={'x':950,'y':1777}
+        assert source["settings"]["width"]==1920 and source["settings"]["height"]==1080
         assert "&b64css=" in source["settings"]["url"]
         from urllib.parse import parse_qs,urlsplit
         css=base64.b64decode(parse_qs(urlsplit(source['settings']['url']).query)['b64css'][0]).decode()
-        assert f'scale:{camera_scale(1.5):.6f}!important' in css
+        assert 'scale:1.5!important' in css
         await page.select_option("#cameraFrame","wide")
         await page.reload()
         await expect(page.locator("#cameraFrame")).to_have_value("wide")
@@ -233,7 +260,7 @@ async def run(args):
         before=len(obs.requests)
         await page.click("#sendObsBtn")
         await expect(page.locator("#errorBox")).to_contain_text("Окно Oneshot у обсервера устарело",timeout=20000)
-        assert "apply-camera-zoom" in await old_dock.evaluate("window.__legacyCommands")
+        assert "apply-camera-layout" in await old_dock.evaluate("window.__legacyCommands")
         assert len(obs.requests)==before,"An incompatible dock must not partially modify cameras"
         await old_dock.evaluate("""code=>localStorage.setItem('oneshot-obs-bridge',JSON.stringify({code,url:'ws://127.0.0.1:4455',password:'pw'}))""",code)
         await old_dock.close()
@@ -247,12 +274,33 @@ async def run(args):
         await expect(page.locator('#errorBox')).to_be_hidden()
         urls=[r['requestData']['inputSettings'].get('url','') for r in dock_obs.requests
               if r['requestType']=='SetInputSettings']
-        assert any(f'scale:{camera_scale(1.5,1080):.6f}!important' in base64.b64decode(parse_qs(urlsplit(url).query)['b64css'][0]).decode()
+        assert any('scale:1.5!important' in base64.b64decode(parse_qs(urlsplit(url).query)['b64css'][0]).decode()
                    for url in urls if 'b64css=' in url),'Updated dock lost zoom'
         await dock.close()
+        if urlsplit(args.url).hostname in ('127.0.0.1', 'localhost'):
+            await page.locator('#cameraPresetSettings summary').click()
+            for field, value in [('CustomWidth','1500'),('CustomHeight','900'),('GuideWidth','1234')]:
+                control = page.locator('#camera'+field)
+                await control.fill(value)
+                await control.press('Tab')
+            await page.locator('#cameraGuideTwoEnabled').check()
+            await page.locator('#cameraPresetName').fill('Кадр турнира')
+            await page.locator('#cameraPresetSave').click()
+            await expect(page.locator('#cameraPresetStatus')).to_have_text('Пресет «Кадр турнира» сохранён на сервере.')
+            token = await page.locator('#cameraPresetList').input_value()
+            clean = await browser.new_page()
+            await clean.route('https://docs.google.com/**',lambda route:route.abort())
+            await clean.goto(args.url.rstrip('/')+'/#camera-preset='+token)
+            await expect(clean.locator('#cameraPresetStatus')).to_have_text('Применён пресет «Кадр турнира».')
+            await expect(clean.locator('#cameraFrame')).to_have_value('custom')
+            await expect(clean.locator('#cameraCustomWidth')).to_have_value('1500')
+            await expect(clean.locator('#cameraCustomHeight')).to_have_value('900')
+            await expect(clean.locator('#cameraGuideWidth')).to_have_value('1234')
+            await expect(clean.locator('#cameraGuideTwoEnabled')).to_be_checked()
+            await clean.close()
         assert not errors,errors
         await browser.close()
-        print("PASS: "+args.browser+" camera cover/pan/rotation preview, one connection, player persistence across slots/reload, JSON/live parity, mobile, frame setting and outdated-dock rejection",flush=True)
+        print("PASS: "+args.browser+" full source preview, mouse placement, safe zones, per-player persistence, JSON/live parity and shared presets",flush=True)
 
 
 if __name__=="__main__":

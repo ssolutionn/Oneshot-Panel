@@ -445,7 +445,7 @@ DOWNLOAD = r'''function obsFile() {
     $('matchTime').value, $('matchStage').value);
   const text = JSON.stringify(buildObs(state.template,
     getTeam('a'), getTeam('b'), state.keysA, state.keysB, undefined,
-    { includeCards: $('includeCards').checked, cameraFrame:state.cameraFrame,
+    { includeCards: $('includeCards').checked, cameraFrame:selectedCameraFrame(), fullSource:true,
       vdoOptions: state.webcamMode === 'lan' ? { enabled: true, ...state.vdoOptions } : { enabled: false } }), null, 2) + '\n';
   return { filename, text };
 }

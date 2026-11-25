@@ -37,28 +37,52 @@ function endpoint(input) {
     throw Error('short-link-unavailable');
   return url;
 }
+async function sealShortDocument(slug, value) {
+  const token=b64(crypto.getRandomValues(new Uint8Array(16))),id=await identity(token);
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const data=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:aad(id,slug)},await cipherKey(token),
+    enc.encode(JSON.stringify(value)));
+  const record={v:1,id,slug,box:{iv:b64(iv),data:b64(data)}};
+  if(!shortRecordValid(record))throw Error('short-link-invalid');
+  return {token,record};
+}
+async function openShortDocument(slug, token, record) {
+  const id=await identity(token);
+  if(!shortRecordValid(record)||record.id!==id||record.slug!==slug)throw Error('short-link-invalid');
+  const plaintext=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes(record.box.iv),additionalData:aad(id,slug)},
+    await cipherKey(token),bytes(record.box.data));
+  return JSON.parse(dec.decode(plaintext));
+}
+export async function storeShortDocument(base, slug, value) {
+  const {token,record}=await sealShortDocument(slug,value);
+  const response=await fetch(endpoint(base).href,{method:'POST',credentials:'omit',cache:'no-store',
+    headers:{'content-type':'application/json'},body:JSON.stringify(record),signal:AbortSignal.timeout(8000)});
+  if(!response.ok)throw Error('short-link-unavailable');
+  const saved=await response.json();
+  if(saved.id!==record.id || saved.accepted!==true)throw Error('short-link-unavailable');
+  return token;
+}
+export async function fetchShortDocument(base, slug, token) {
+  const api=endpoint(base);
+  api.searchParams.set('id',await identity(token));
+  const response=await fetch(api.href,{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(8000)});
+  if(!response.ok)throw Error('short-link-unavailable');
+  return openShortDocument(slug,token,await response.json());
+}
 export async function packCaptainLink(link, tournament = DEFAULT_TOURNAMENT) {
   const original=new URL(link),room=decodeLink(original.hash);
   if(!room || !['a','b'].includes(room.me))throw Error('short-link-invalid');
-  const token=b64(crypto.getRandomValues(new Uint8Array(16))),id=await identity(token);
   const slug=captainSlug(tournament,room.t[room.me==='a'?0:1]);
-  const iv=crypto.getRandomValues(new Uint8Array(12));
-  const data=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:aad(id,slug)},await cipherKey(token),
-    enc.encode(JSON.stringify({v:1,hash:original.hash})));
-  const record={v:1,id,slug,box:{iv:b64(iv),data:b64(data)}};
-  if(!shortRecordValid(record))throw Error('short-link-invalid');
+  const {token,record}=await sealShortDocument(slug,{v:1,hash:original.hash});
   const pretty=new URL('/'+slug,original);pretty.search='';pretty.hash='k='+token;
   return {link:pretty.href,record};
 }
 export async function unpackCaptainLink(link, record) {
   const url=new URL(link),params=new URLSearchParams(url.hash.slice(1)),token=params.get('k');
   if([...params.keys()].length!==1 || !shortPathValid(url.pathname) || !shortTokenValid(token))throw Error('short-link-invalid');
-  const id=await identity(token),slug=url.pathname.slice(1);
-  if(!shortRecordValid(record)||record.id!==id||record.slug!==slug)throw Error('short-link-invalid');
+  const slug=url.pathname.slice(1);
   try {
-    const plaintext=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes(record.box.iv),additionalData:aad(id,slug)},
-      await cipherKey(token),bytes(record.box.data));
-    const value=JSON.parse(dec.decode(plaintext)),room=decodeLink(value.hash);
+    const value=await openShortDocument(slug,token,record),room=decodeLink(value.hash);
     if(value.v!==1 || !room || !['a','b'].includes(room.me))throw Error('room');
     const canonical=new URL('/veto.html',url);canonical.hash=value.hash;
     return {room,canonical:canonical.href};

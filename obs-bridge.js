@@ -122,7 +122,7 @@ async function run(message) {
       return reply({ ok: true });
     }
     const client = await connectObs();
-    if (['apply', 'apply-camera', 'apply-camera-zoom'].includes(message.type)) {
+    if (['apply', 'apply-camera', 'apply-camera-zoom', 'apply-camera-layout'].includes(message.type)) {
       const match = matchWithCards(message.match);
       const summary = await applyMatch(client, message.type==='apply' ? {...match,legacyCamera:true} : match);
       log(`Матч отправлен: ${message.title || 'без названия'}`, 'good');

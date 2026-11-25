@@ -9,6 +9,34 @@ const team=(name)=>({name,players:Array.from({length:5},(_,i)=>({
   key:name+i,nick:'Player'+i,id:name+i,room:name,role:'Основной'
 }))});
 
+test('full 16:9 source can be stretched and moved past the scene edge with JSON and live parity',()=>{
+  const a=team('A'),b=team('B');
+  const camera={rotation:270,placement:{x:-282,y:15,width:1690,height:910}};
+  const player=a.players[0];
+  player.camera=camera;
+  const options={fullSource:true,cameraFrame:{x:240,y:0,width:1440,height:1080}};
+  const doc=buildObs(template,a,b,a.players.map(p=>p.key),b.players.map(p=>p.key),undefined,options);
+  const scene=doc.sources.find(s=>s.name==='Игрок 1');
+  const item=scene.settings.items.find(it=>it.name.startsWith('CAM '));
+  const source=doc.sources.find(s=>s.uuid===item.source_uuid);
+  const plan=slotPlan([{inputKind:'browser_source',sourceName:'CAM old',sceneItemId:1}],
+    {...player,team:a.name,slot:1},options);
+  assert.equal(item.bounds_type,1);
+  assert.equal(plan.camera.transform.boundsType,'OBS_BOUNDS_STRETCH');
+  assert.deepEqual(item.pos,{x:-282,y:925});
+  assert.deepEqual(item.bounds,{x:910,y:1690});
+  assert.deepEqual(plan.camera.transform.positionX,item.pos.x);
+  assert.deepEqual(plan.camera.transform.positionY,item.pos.y);
+  assert.deepEqual(plan.camera.transform.boundsWidth,item.bounds.x);
+  assert.deepEqual(plan.camera.transform.boundsHeight,item.bounds.y);
+  assert.deepEqual([plan.camera.settings.width,plan.camera.settings.height],[1920,1080]);
+  assert.equal(source.settings.url,plan.camera.settings.url);
+  const url=new URL(source.settings.url);
+  assert.equal(url.searchParams.has('cover'),false);
+  assert.match(atob(url.searchParams.get('b64css')),/object-fit:contain!important/);
+  assert.equal(cameraGeometry({camera:null},options.cameraFrame,true).width,1440);
+});
+
 test('camera rotation keeps all four corners exactly inside the chosen frame',()=>{
   const expected=[
     {rotation:0,x:300,y:0,width:1320,height:1080},

@@ -53,7 +53,7 @@ async def run(args):
         await context.route('**/api/bookmakers?**',lambda r:r.fulfill(content_type='application/json',body='{"ok":true,"events":[]}'))
         count=[]
         async def provider(route):
-            if '&cover' in route.request.url: count.append(route.request.url)
+            if 'b64css=' in route.request.url: count.append(route.request.url)
             await route.fulfill(content_type='text/html',body=PROVIDER)
         await context.route('https://vdo.ninja/**',provider)
         page=await context.new_page()

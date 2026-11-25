@@ -100,9 +100,36 @@
       <label class="camera-frame-setting">Режим вебок<select id="webcamMode"><option value="online">Онлайн</option><option value="lan">ЛАН</option></select><span>ЛАН — для камер в одной сети; онлайн — для удалённых игроков.</span></label>
       <div id="vdoLanSettings" class="camera-frame-setting"><b>Оптимизация VDO для ЛАН</b><label>Кодек<select id="vdoCodec"><option value="h264">H.264</option><option value="vp8">VP8</option><option value="vp9">VP9</option></select></label><label>Битрейт<input id="vdoBitrate" type="number" min="500" max="8000" step="100" value="2500"> кбит/с</label><label>FPS<select id="vdoFps"><option>24</option><option selected>30</option><option>60</option></select></label><label class="check"><input id="vdoLowLatency" type="checkbox" checked> Минимальная задержка</label><span>Параметры добавляются только в LAN-ссылки камер.</span></div>
       <label class="camera-frame-setting">Рамка вебок
-        <select id="cameraFrame"><option value="inner43">1320×1080 на всю высоту</option><option value="full43">1440×1080 (4:3)</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option></select>
-        <span>Заполнение с обрезкой краёв. «Кадр» под ником — поворот и положение игрока.</span>
+        <select id="cameraFrame"><option value="inner43">1320×1080 на всю высоту</option><option value="full43">1440×1080 (4:3)</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option><option value="custom">Своя рамка</option></select>
+        <span>Общий пресет для камер. Открой «Кадр» под ником, чтобы поправить вебку игрока.</span>
       </label>
+      <details class="camera-preset-settings" id="cameraPresetSettings">
+        <summary>Своя рамка и сейф-зоны</summary>
+        <div class="camera-preset-grid">
+          <fieldset><legend>Своя рамка</legend>
+            <label>Ширина<input id="cameraCustomWidth" type="number" min="16" max="1920" step="1"></label>
+            <label>Высота<input id="cameraCustomHeight" type="number" min="16" max="1080" step="1"></label>
+          </fieldset>
+          <fieldset><legend>Сейф-зона</legend>
+            <label class="check"><input id="cameraGuideEnabled" type="checkbox"> Показывать</label>
+            <label>Ширина<input id="cameraGuideWidth" type="number" min="16" max="1920" step="1"></label>
+            <label>Высота<input id="cameraGuideHeight" type="number" min="16" max="1080" step="1"></label>
+          </fieldset>
+          <fieldset><legend>Вторая сейф-зона</legend>
+            <label class="check"><input id="cameraGuideTwoEnabled" type="checkbox"> Показывать</label>
+            <label>Ширина<input id="cameraGuideTwoWidth" type="number" min="16" max="1920" step="1"></label>
+            <label>Высота<input id="cameraGuideTwoHeight" type="number" min="16" max="1080" step="1"></label>
+          </fieldset>
+        </div>
+        <p class="muted">Размеры в пикселях. Сейф-зоны центрируются и отображаются в редакторе.</p>
+        <!-- web-only --><div class="camera-preset-actions">
+          <label>Имя пресета<input id="cameraPresetName" type="text" maxlength="48" autocomplete="off"></label>
+          <button id="cameraPresetSave" class="button" type="button">Сохранить на сервер</button>
+          <label>Сохранённые<select id="cameraPresetList"><option value="">Выбери пресет</option></select></label>
+          <button id="cameraPresetLoad" class="button" type="button" disabled>Загрузить</button>
+          <button id="cameraPresetCopy" class="button" type="button" disabled>Копировать ссылку</button>
+        </div><p id="cameraPresetStatus" class="muted" role="status"></p><!-- /web-only -->
+      </details>
       <div class="export-meta">
         <p id="exportHint">10 вебок, сцены «Игрок 1–10» и «Матрица»</p>
         <p id="filenamePreview"></p>
@@ -801,7 +828,26 @@
 
   <dialog id="cameraDialog" class="camera-dialog" aria-labelledby="cameraHeading">
     <div class="dialog-head"><h2 id="cameraHeading">Кадр камеры</h2><button id="closeCamera" class="icon-button" type="button" aria-label="Закрыть">×</button></div>
-    <div class="camera-preview-stage"><div id="cameraPreviewBox" class="camera-preview-box" data-rotation="0"></div></div>
+    <div class="camera-workspace">
+      <div id="cameraPreviewStage" class="camera-preview-stage">
+        <div id="cameraPreviewBox" class="camera-preview-box" data-rotation="0"></div>
+        <div id="cameraGuide" class="camera-guide" hidden></div>
+        <div id="cameraGuideTwo" class="camera-guide camera-guide-two" hidden></div>
+        <div id="cameraPlacement" class="camera-placement" aria-hidden="true">
+          <i data-camera-grip="nw"></i><i data-camera-grip="n"></i><i data-camera-grip="ne"></i>
+          <i data-camera-grip="w"></i><i data-camera-grip="e"></i>
+          <i data-camera-grip="sw"></i><i data-camera-grip="s"></i><i data-camera-grip="se"></i>
+        </div>
+      </div>
+    </div>
+    <p class="muted camera-mouse-hint">Перетащи вебку или потяни за маркер на краю. Alt отключает привязку.</p>
+    <div class="camera-placement-controls">
+      <label>X<input id="cameraPlaceX" type="number" min="-7680" max="7680" step="1"></label>
+      <label>Y<input id="cameraPlaceY" type="number" min="-4320" max="4320" step="1"></label>
+      <label>Ширина<input id="cameraPlaceWidth" type="number" min="16" max="7680" step="1"></label>
+      <label>Высота<input id="cameraPlaceHeight" type="number" min="16" max="4320" step="1"></label>
+      <output id="cameraEdgeDistance" class="muted"></output>
+    </div>
     <div class="camera-tools">
       <label>Поворот<select id="cameraRotation"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></label>
       <button id="cameraRotate" class="button" type="button">Повернуть ↻ 90°</button>

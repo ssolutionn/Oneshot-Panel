@@ -2,7 +2,7 @@
 // match to OBS (directly or through the OBS dock), copying the JSON, webcam
 // status from VDO.Ninja and the live veto overlay. app.js keeps working
 // without this file (the Claude artifact has none of it).
-import { buildObs, DEFAULT_CARD_BASE, normalizeCamera } from './core.js';
+import { buildObs, DEFAULT_CARD_BASE } from './core.js';
 import { ObsClient, OBS_DEFAULT_URL, applyMatch, emitVeto } from './obs.js';
 import { VdoLink, CamWatch, bridgeSecrets, newBridgeCode, normalizeCode, VDO_CONNECT_TIMEOUT, VDO_CONNECT_MAX_TIMEOUT, VDO_IDLE_TIMEOUT } from './vdo.js';
 import { mountQrReader, parseObsQr, parsePairingQr } from './assets/obs-qr.js';
@@ -85,13 +85,14 @@ function matchPayload(s) {
     ...s.playersA.map(p => ({ ...p, team: s.a.name })),
     ...s.playersB.map(p => ({ ...p, team: s.b.name }))
   ].map((p, i) => ({ slot: i + 1, team: p.team, nick: p.nick, id: p.id, room: p.room, password: p.password || '', camera:p.camera }));
-  return { title: `${s.a.name} vs ${s.b.name}`, match: { players, includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame } };
+  return { title: `${s.a.name} vs ${s.b.name}`, match: { players, includeCards: s.includeCards, cardBase: cardBase(), cameraFrame: s.cameraFrame, fullSource: true, vdoOptions: s.vdoOptions } };
 }
 async function obsJson() {
   const s = panel.snapshot();
   if (!s.template) throw new Error(s.templateError || 'Шаблон OBS ещё загружается.');
   return JSON.stringify(buildObs(s.template, s.a, s.b, s.keysA, s.keysB, undefined,
-    { includeCards: s.includeCards, cardBase: cardBase(),cameraFrame:s.cameraFrame, cardDocs: await panel.cardDocs(s) }), null, 2) + '\n';
+    { includeCards: s.includeCards, cardBase: cardBase(), cameraFrame: s.cameraFrame, fullSource: true,
+      vdoOptions: s.vdoOptions, cardDocs: await panel.cardDocs(s) }), null, 2) + '\n';
 }
 
 // ---------- OBS link ----------
@@ -201,7 +202,7 @@ async function obsCommand(message, timeout = 30000) {
   if (settings.mode === 'direct') {
     const client = await new ObsClient(settings.url, settings.password).connect();
     try {
-      if (['apply', 'apply-camera', 'apply-camera-zoom'].includes(message.type)) return { ok: true, summary: await applyMatch(client, message.match) };
+      if (message.type === 'apply-camera-layout') return { ok: true, summary: await applyMatch(client, message.match) };
       if (message.type === 'veto') { await emitVeto(client, message.state); return { ok: true }; }
       return { ok: true, obs: `OBS подключён${client.version ? ` · WebSocket ${client.version}` : ''}` };
     } finally { client.close(); }
@@ -251,7 +252,7 @@ function bridgeCall(link, message, timeout) {
       clearTimeout(timer);
       clearInterval(resend);
       bridge.waiting.delete(id);
-      reply.ok ? resolve(reply) : reject(Object.assign(new Error(reply.error==='Неизвестная команда.' && ['apply-camera','apply-camera-zoom','cards-have','blob'].includes(message.type) ?
+      reply.ok ? resolve(reply) : reject(Object.assign(new Error(reply.error==='Неизвестная команда.' && ['apply-camera-layout','cards-have','blob'].includes(message.type) ?
         'Окно Oneshot у обсервера устарело. В OBS нажми по нему правой кнопкой → Обновить, затем повтори отправку.' :
         reply.error || 'OBS не принял команду.'), { cards: reply.cards }));
     });
@@ -466,8 +467,7 @@ $('sendObsBtn').addEventListener('click', async () => {
   obsBadge('Отправляем в OBS…', 'wait');
   try {
     payload.match.cardDocs = await panel.cardDocs(s);
-    const type = payload.match.players.some(p=>normalizeCamera(p.camera).zoom!==1) ? 'apply-camera-zoom' : 'apply-camera';
-    const { summary } = await obsCommand({ type, ...payload });
+    const { summary } = await obsCommand({ type: 'apply-camera-layout', ...payload });
     delete button.dataset.attention;
     button.title = '';
     panel.toast(`OBS обновлён: ${summary.slots} камер${summary.cards ? `, ${summary.cards} карточек` : ''}.`);
