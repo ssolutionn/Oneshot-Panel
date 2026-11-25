@@ -80,7 +80,10 @@
       "exit_code": 1,
       "seconds": 5.0,
       "tail": "Traceback (most recent call last):\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/scripts/qa_camera.py\", line 263, in <module>\n    asyncio.run(run(parser.parse_args()))\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/asyncio/runners.py\", line 195, in run\n    return runner.run(main)\n           ^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/asyncio/runners.py\", line 118, in run\n    return self._loop.run_until_complete(task)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/asyncio/base_events.py\", line 691, in run_until_complete\n    return future.result()\n           ^^^^^^^^^^^^^^^\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/scripts/qa_camera.py\", line 251, in run\n    assert not errors,errors\n           ^^^^^^^^^^\nAssertionError: ['can\\'t access property \"addEventListener\", $(...) is null', 'can\\'t access property \"addEventListener\", $(...) is null', 'can\\'t access property \"addEventListener\", $(...) is null', 'can\\'t access property \"addEventListener\", $(...) is null']\n"
+    },
+    "editor_chromium": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-11-25T00:05:36.624693+00:00"
+  "updated_at": "2026-11-25T00:05:38.597613+00:00"
 }
