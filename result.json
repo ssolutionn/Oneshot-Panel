@@ -38,7 +38,10 @@
       "exit_code": 0,
       "seconds": 0.1,
       "tail": "Traceback (most recent call last):\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/claude-artifact/build_oneshot_artifact.py\", line 642, in <module>\n    app = cut(app, \"async function exportObsFile() {\", \"function fillSource(source) {\", DOWNLOAD)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/claude-artifact/build_oneshot_artifact.py\", line 37, in cut\n    a = text.index(start)\n        ^^^^^^^^^^^^^^^^^\nValueError: substring not found\n"
+    },
+    "real_obs": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-11-25T00:04:27.951681+00:00"
+  "updated_at": "2026-11-25T00:04:30.213757+00:00"
 }
