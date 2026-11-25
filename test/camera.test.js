@@ -1,13 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {buildObs,cameraGeometry,cameraFrame,cameraViewUrl,cameraCss,normalizeCamera} from '../core.js';
+import {buildObs,cameraGeometry,cameraInput,cameraPlacement,turnCameraPlacement,cameraFrame,cameraViewUrl,cameraCss,normalizeCamera} from '../core.js';
 import {slotPlan} from '../obs.js';
 
 const template=JSON.parse(fs.readFileSync(new URL('../assets/obs-template.json',import.meta.url),'utf8'));
 const team=(name)=>({name,players:Array.from({length:5},(_,i)=>({
   key:name+i,nick:'Player'+i,id:name+i,room:name,role:'Основной'
 }))});
+
+test('portrait and sideways sources fit the frame without stretching when turned',()=>{
+  const vertical={id:'p',room:'room',camera:{portrait:true}};
+  assert.deepEqual(cameraPlacement(vertical.camera,'wide',true),{x:656,y:0,width:608,height:1080});
+  vertical.camera.rotation=90;
+  assert.deepEqual(cameraPlacement(vertical.camera,'full43',true),{x:240,y:135,width:1440,height:810});
+  const {settings,geometry}=cameraInput(vertical,'wide',{},true);
+  assert.deepEqual([settings.width,settings.height],[1080,1920]);
+  assert.deepEqual(geometry,{rotation:90,x:1920,y:0,width:1080,height:1920});
+  assert.deepEqual(cameraPlacement({rotation:270},'wide',true),{x:656,y:0,width:608,height:1080});
+  const placed={x:-25,y:0,width:609,height:1080};
+  const turned=turnCameraPlacement(placed,0,90);
+  assert.deepEqual([turned.width,turned.height],[1080,609]);
+  assert.deepEqual(turnCameraPlacement(turned,90,180),placed);
+});
 
 test('full 16:9 source can be stretched and moved past the scene edge with JSON and live parity',()=>{
   const a=team('A'),b=team('B');

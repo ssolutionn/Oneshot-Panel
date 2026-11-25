@@ -5,7 +5,7 @@ import {
   validatePlayers, validateMatch, viewUrl, directorUrl,
   newStreamId, applyStreamIds, playerLine, vdoId, vdoPushId, rosterMatch,
   observerText, playerText, buildObs, safeFilename, validateMetadata,
-  CAMERA_FRAMES, DEFAULT_CAMERA_LAYOUT_FRAME, cameraFrame, cameraRect, cameraGeometry, normalizeCamera, cameraCss, cameraViewUrl,
+  CAMERA_FRAMES, DEFAULT_CAMERA_LAYOUT_FRAME, cameraPlacement, cameraSourceSize, cameraRect, cameraGeometry, turnCameraPlacement, normalizeCamera, cameraCss, cameraViewUrl,
   MAP_POOL, VETO_RULES, validateVeto, appendVeto, vetoText,
   lanConfig, lanTeams, lanSchedule, newLanPrefix, seatTeam, personKey
 } from './core.js';
@@ -211,17 +211,28 @@ function applyIds() {
   // untouched (pruning them against LAN keys would lose them for good).
   const applied = state.lan.on ? { teams: state.sheetTeams } : applyStreamIds(state.sheetTeams, state.streamIds);
   state.teams = applied.teams.map(team=>({...team,players:team.players.map(player=>({
-    ...player,camera:normalizeCamera(state.cameras[cameraKey(player)])
+    ...player,camera:playerCamera(player)
   }))}));
   if (state.lan.on) return;
   state.streamIds = applied.saved;
   writeStorage(streamStorageKey(), state.streamIds);
 }
 const CAMERA_STORE='oneshot-camera-settings-v1';
+const CAMERA_FORMAT_STORE='oneshot-camera-portrait-v1';
+const savedPortraitStreams=readStorage(CAMERA_FORMAT_STORE);
+const portraitStreams=savedPortraitStreams && typeof savedPortraitStreams==='object' && !Array.isArray(savedPortraitStreams) ? savedPortraitStreams : {};
 function cameraKey(player) {
   // On a LAN the framing belongs to the seat's webcam, whoever sits there.
   if(state.lan.on)return JSON.stringify(['lan',player.id]);
   return JSON.stringify([state.source.id,state.source.gid,player.key]);
+}
+function cameraSettingsKey(player, portrait) {
+  const key=cameraKey(player);
+  return portrait ? key+':portrait' : key;
+}
+function playerCamera(player) {
+  const portrait=!!player.id && portraitStreams[cameraKey(player)]===player.id;
+  return normalizeCamera({ ...state.cameras[cameraSettingsKey(player,portrait)], portrait });
 }
 let cameraEditor=null,cameraPreview=null,cameraPreviewTimer,cameraPreviewPoll,cameraPreviewCss='',cameraPreviewAck=false,cameraPreviewRequest='',cameraPreviewSequence=0;
 function editorPlayer() {
@@ -261,12 +272,25 @@ window.addEventListener('message',event=>{
   }
   if(!cameraPreviewRequest || data.cib!==cameraPreviewRequest || !Object.hasOwn(data,'stats'))return;
   cameraPreviewAck=true;
-  const ready=data.stats && typeof data.stats==='object' && Object.values(data.stats).some(track=>
+  const tracks=data.stats && typeof data.stats==='object' ? Object.values(data.stats) : [];
+  const ready=tracks.some(track=>
     track && typeof track==='object' && (
       [track._framesDecoded,track._decodeFrames,track.framesDecoded].some(n=>Number.isFinite(n) && n>0) ||
       (track._type==='video' || /video/i.test(track.type || '')) && Number.isFinite(track.FPS) && track.FPS>0 &&
         track._frameWidth>0 && track._frameHeight>0));
   cameraPreviewLoading(!ready);
+  const player=editorPlayer();
+  if(!ready || !player || cameraEditor.drag || Object.values(cameraPlacementFields).includes(document.activeElement?.id))return;
+  const media=tracks.find(track=> (track?._frameWidth ?? track?.frameWidth)>0 && (track?._frameHeight ?? track?.frameHeight)>0);
+  if(!media)return;
+  const portrait=Number(media._frameHeight ?? media.frameHeight)>Number(media._frameWidth ?? media.frameWidth);
+  if(portrait===!!player.camera.portrait)return;
+  const key=cameraKey(player);
+  if(portrait)portraitStreams[key]=player.id;
+  else delete portraitStreams[key];
+  writeStorage(CAMERA_FORMAT_STORE,portraitStreams);
+  applyIds();
+  updateCameraPreview();
 });
 function placeCameraElement(element, rect) {
   const bounds = { left: rect.x/1920, top: rect.y/1080, width: rect.width/1920, height: rect.height/1080 };
@@ -276,16 +300,19 @@ function updateCameraPreview() {
   const player=editorPlayer();
   if(!player){$('cameraDialog').close();return;}
   const config=normalizeCamera(player.camera);
-  const rect=cameraEditor.draft || config.placement || cameraFrame(selectedCameraFrame());
-  const geometry = cameraGeometry({camera:{...config, placement:rect}}, selectedCameraFrame(), true);
+  const rect=cameraEditor.draft || cameraPlacement(config, selectedCameraFrame(), true);
+  const geometry = cameraGeometry(cameraEditor.draft ? {camera:{...config, placement:rect}} : player, selectedCameraFrame(), true);
+  const source=cameraSourceSize(config);
   $('cameraRotation').value=String(config.rotation);
   $('cameraZoom').value=String(Math.round(config.zoom*100));
   $('cameraZoomValue').value=Math.round(config.zoom*100)+'%';
   placeCameraElement($('cameraPreviewBox'), rect);
   placeCameraElement($('cameraPlacement'), rect);
   const scale = $('cameraPreviewStage').getBoundingClientRect().width / 1920;
+  cameraPreview.style.width = source.width+'px';
+  cameraPreview.style.height = source.height+'px';
   cameraPreview.style.transform = `translate(${(geometry.x-rect.x)*scale}px, ${(geometry.y-rect.y)*scale}px) ` +
-    `rotate(${geometry.rotation}deg) scale(${geometry.width*scale/1920}, ${geometry.height*scale/1080})`;
+    `rotate(${geometry.rotation}deg) scale(${geometry.width*scale/source.width}, ${geometry.height*scale/source.height})`;
   for (const [key, id] of Object.entries(cameraPlacementFields)) $(id).value = String(rect[key]);
   $('cameraEdgeDistance').textContent = `Слева ${rect.x} · сверху ${rect.y} · справа ${1920-rect.x-rect.width} · снизу ${1080-rect.y-rect.height} px`;
   for (const [key, id] of [['guide','cameraGuide'], ['guideTwo','cameraGuideTwo']]) {
@@ -301,9 +328,13 @@ function updateCameraPreview() {
 function saveCamera(patch) {
   const player=editorPlayer();
   if(!player)return;
+  const config=normalizeCamera({...player.camera,...patch});
+  if(config.placement && 'rotation' in patch && !('placement' in patch)) {
+    config.placement=turnCameraPlacement(config.placement,player.camera.rotation,config.rotation);
+  }
   const stored=readStorage(CAMERA_STORE);
   state.cameras={...state.cameras,...(stored && typeof stored==='object' ? stored : {}),
-    [cameraKey(player)]:normalizeCamera({...player.camera,...patch})};
+    [cameraSettingsKey(player,player.camera.portrait)]:config};
   const kept=writeStorage(CAMERA_STORE,state.cameras);
   applyIds();
   render();
@@ -354,7 +385,7 @@ new ResizeObserver(() => { if (cameraEditor) updateCameraPreview(); }).observe($
 for (const [key, id] of Object.entries(cameraPlacementFields)) $(id).addEventListener('change', () => {
   const player=editorPlayer();
   if(!player)return;
-  const rect=player.camera.placement || cameraFrame(selectedCameraFrame());
+  const rect=cameraPlacement(player.camera, selectedCameraFrame(), true);
   const value=$(id).valueAsNumber;
   if(!Number.isFinite(value))return updateCameraPreview();
   saveCamera({placement:{...rect,[key]:value}});
@@ -362,7 +393,7 @@ for (const [key, id] of Object.entries(cameraPlacementFields)) $(id).addEventLis
 cameraOverlay.addEventListener('pointerdown', event => {
   const player=editorPlayer();
   if(!player || event.button!==0 || !event.isPrimary)return;
-  const rect=player.camera.placement || cameraFrame(selectedCameraFrame());
+  const rect=cameraPlacement(player.camera, selectedCameraFrame(), true);
   cameraEditor.drag={ rect, grip:event.target.dataset.cameraGrip || '', id:event.pointerId,
     x:event.clientX, y:event.clientY, scale:1920/$('cameraPreviewStage').getBoundingClientRect().width };
   cameraOverlay.setPointerCapture(event.pointerId);
@@ -587,7 +618,7 @@ function getTeam(side) {
   if (!state.lan.on || !team) return team;
   const seated = seatTeam(team, side, state[side === 'a' ? 'keysA' : 'keysB'], state.lan);
   return { ...seated, players: seated.players.map(p => p.id ?
-    { ...p, camera: normalizeCamera(state.cameras[cameraKey(p)]) } : p) };
+    { ...p, camera: playerCamera(p) } : p) };
 }
 function chosen(side) {
   return selectedPlayers(getTeam(side),

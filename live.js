@@ -202,7 +202,7 @@ async function obsCommand(message, timeout = 30000) {
   if (settings.mode === 'direct') {
     const client = await new ObsClient(settings.url, settings.password).connect();
     try {
-      if (message.type === 'apply-camera-layout') return { ok: true, summary: await applyMatch(client, message.match) };
+      if (['apply-camera-layout','apply-camera-orientation'].includes(message.type)) return { ok: true, summary: await applyMatch(client, message.match) };
       if (message.type === 'veto') { await emitVeto(client, message.state); return { ok: true }; }
       return { ok: true, obs: `OBS подключён${client.version ? ` · WebSocket ${client.version}` : ''}` };
     } finally { client.close(); }
@@ -252,7 +252,7 @@ function bridgeCall(link, message, timeout) {
       clearTimeout(timer);
       clearInterval(resend);
       bridge.waiting.delete(id);
-      reply.ok ? resolve(reply) : reject(Object.assign(new Error(reply.error==='Неизвестная команда.' && ['apply-camera-layout','cards-have','blob'].includes(message.type) ?
+      reply.ok ? resolve(reply) : reject(Object.assign(new Error(reply.error==='Неизвестная команда.' && ['apply-camera-layout','apply-camera-orientation','cards-have','blob'].includes(message.type) ?
         'Окно Oneshot у обсервера устарело. В OBS нажми по нему правой кнопкой → Обновить, затем повтори отправку.' :
         reply.error || 'OBS не принял команду.'), { cards: reply.cards }));
     });
@@ -482,7 +482,8 @@ async function sendMatchToObs(event) {
   obsBadge('Отправляем в OBS…', 'wait');
   try {
     payload.match.cardDocs = await panel.cardDocs(s);
-    const { summary } = await obsCommand({ type: 'apply-camera-layout', ...payload });
+    const type = payload.match.players.some(({camera})=>camera?.portrait || camera?.rotation%180===90) ? 'apply-camera-orientation' : 'apply-camera-layout';
+    const { summary } = await obsCommand({ type, ...payload });
     delete button.dataset.attention;
     button.title = '';
     const message = `OBS обновлён: ${summary.slots} камер${summary.cards ? `, ${summary.cards} карточек` : ''}.`;

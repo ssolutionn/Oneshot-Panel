@@ -29,9 +29,11 @@ class CameraHandler(BaseHTTPRequestHandler):
     requests=0
     def do_GET(self):
         type(self).requests+=1
-        movie=self.path.split('?',1)[0]=='/camera.webm'
-        data=(OUT/'camera.webm').read_bytes() if movie else CAMERA_HTML.replace(
-            '<video poster=', '<video autoplay muted loop playsinline src="/camera.webm" poster=').encode()
+        path=self.path.split('?',1)[0]
+        movie=path in ('/camera.webm','/camera-portrait.webm')
+        clip='/camera-portrait.webm' if '&qaPortrait=1' in self.path else '/camera.webm'
+        data=(OUT/path.lstrip('/')).read_bytes() if movie else CAMERA_HTML.replace(
+            '<video poster=', f'<video autoplay muted loop playsinline src="{clip}" poster=').encode()
         self.send_response(200)
         self.send_header("Content-Type","video/webm" if movie else "text/html; charset=utf-8")
         self.send_header("Content-Length",str(len(data)))
@@ -87,6 +89,9 @@ async def run():
     subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-loop','1',
         '-i',str(OUT/'camera.png'),'-t','2','-r','5','-c:v','libvpx',
         '-deadline','realtime','-cpu-used','8','-pix_fmt','yuv420p','-an',str(OUT/'camera.webm')],check=True)
+    subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(OUT/'camera.webm'),
+        '-vf','transpose=1','-c:v','libvpx','-deadline','realtime','-cpu-used','8',
+        str(OUT/'camera-portrait.webm')],check=True)
     server=ThreadingHTTPServer(("127.0.0.1",0),CameraHandler)
     threading.Thread(target=server.serve_forever,daemon=True).start()
     origin="http://127.0.0.1:"+str(server.server_address[1])
@@ -138,7 +143,7 @@ async def run():
                     assert reply["d"]["requestStatus"]["result"],reply
                     return reply["d"].get("responseData",{})
 
-        async def picture(slot,label,expected=(300,0,1620,1080)):
+        async def picture(slot,label,expected=(300,0,1620,1080),video_size=(1600,900)):
             await request("SetCurrentProgramScene",{"sceneName":"Игрок "+str(slot)})
             camera_name=next(p['name'] for p in data['document']['sources'] if p['name'].startswith(f'CAM {slot:02} '))
             print('CAMERA_ACTIVITY',slot,await request('GetSourceActive',{'sourceName':camera_name}),flush=True)
@@ -157,7 +162,7 @@ async def run():
                                 'expression':"(async()=>{for(let n=0;n<100;n++){const v=document.querySelector('video');if(v){v.muted=true;await v.play();return {paused:v.paused,width:v.videoWidth,height:v.videoHeight}}await new Promise(r=>setTimeout(r,50))}throw Error('Controlled video document did not load')})()",
                                 'awaitPromise':True,'returnByValue':True}}))
                             playback=json.loads(await asyncio.wait_for(cdp.recv(),timeout=7))
-                        if playback.get('result',{}).get('result',{}).get('value')=={'paused':False,'width':1600,'height':900}:
+                        if playback.get('result',{}).get('result',{}).get('value')=={'paused':False,'width':video_size[0],'height':video_size[1]}:
                             print('CAMERA_PLAYBACK',slot,json.dumps(playback),flush=True)
                             break
                 except (OSError, TimeoutError, ConnectionClosed, InvalidStatus):
@@ -217,7 +222,7 @@ async def run():
 
         manifest=OUT/"players.json"
         manifest.write_text(json.dumps(data["players"]))
-        async def live(frame,rotation,full_source=False):
+        async def live(frame,rotation,full_source=False,portrait=False):
             script="""
               import fs from 'node:fs';
               import {ObsClient,applyMatch} from './obs.js';
@@ -225,11 +230,14 @@ async def run():
               const players=JSON.parse(fs.readFileSync(process.env.QA_CAMERA_PLAYERS,'utf8'));
               players[0].camera={rotation:Number(process.env.QA_CAMERA_ROTATION),panX:20,panY:80,zoom:1.5};
               const fullSource=process.env.QA_CAMERA_FULL_SOURCE==='yes';
+              const portrait=process.env.QA_CAMERA_PORTRAIT==='yes';
               if(fullSource)players[0].camera={rotation:0,placement:{x:-282,y:0,width:1920,height:960}};
+              if(portrait)players[0].camera={rotation:Number(process.env.QA_CAMERA_ROTATION),portrait:true};
               const proxy={request:(kind,data={})=>{
                 if(kind==='SetInputSettings'&&data.inputSettings?.url?.startsWith('https://vdo.ninja/')){
                   data={...data,inputSettings:{...data.inputSettings,
-                    url:data.inputSettings.url.replace('https://vdo.ninja/',process.env.QA_CAMERA_ORIGIN+'/')}};
+                    url:data.inputSettings.url.replace('https://vdo.ninja/',process.env.QA_CAMERA_ORIGIN+'/')+
+                      (portrait && data.inputName.startsWith('CAM 01 ') ? '&qaPortrait=1' : '')}};
                 }
                 return client.request(kind,data);
               }};
@@ -239,7 +247,8 @@ async def run():
             command=await asyncio.create_subprocess_exec("node","--input-type=module","-e",script,cwd=ROOT,
                 env=dict(os.environ,QA_CAMERA_ORIGIN=origin,QA_CAMERA_PLAYERS=str(manifest),
                          QA_CAMERA_ROTATION=str(rotation),QA_CAMERA_FRAME=frame,
-                         QA_CAMERA_FULL_SOURCE='yes' if full_source else 'no'),
+                         QA_CAMERA_FULL_SOURCE='yes' if full_source else 'no',
+                         QA_CAMERA_PORTRAIT='yes' if portrait else 'no'),
                 stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.STDOUT)
             output,_=await command.communicate()
             assert command.returncode==0,output.decode()
@@ -255,6 +264,11 @@ async def run():
         await live('wide',0,full_source=True)
         await picture(1,'live-layout-negative-x',(0,0,1638,960))
         print('PASS: real OBS clips the canvas at its edge and leaves space beside a moved 16:9 source',flush=True)
+        await live('wide',0,full_source=True,portrait=True)
+        await picture(1,'live-portrait',(656,0,1264,1080),(900,1600))
+        await live('wide',270,full_source=True,portrait=True)
+        await picture(1,'live-portrait-turned',(0,0,1920,1080),(900,1600))
+        print('PASS: real OBS fits a 9:16 video upright and fills 16:9 when it is turned',flush=True)
     finally:
         if ws: await ws.close()
         process.terminate()

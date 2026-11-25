@@ -365,7 +365,29 @@ export function normalizeCamera(value) {
   return {rotation:[0,90,180,270].includes(value?.rotation) ? value.rotation : 0,
     panX:percent(value?.panX),panY:percent(value?.panY),
     zoom:Number.isFinite(value?.zoom) ? Math.round(Math.max(1,Math.min(3,value.zoom))*100)/100 : 1,
+    ...(value?.portrait === true ? { portrait: true } : {}),
     ...(placement ? { placement } : {})};
+}
+export function cameraSourceSize(camera) {
+  return camera?.portrait === true ? { width:1080, height:1920 } : { width:1920, height:1080 };
+}
+export function cameraPlacement(camera, frame, fullSource = false) {
+  const bounds=cameraFrame(frame);
+  if(!fullSource)return bounds;
+  const { placement, portrait, rotation }=normalizeCamera(camera);
+  if(placement)return placement;
+  const quarter=rotation===90 || rotation===270;
+  if(!portrait && !quarter)return bounds;
+  const ratio=!!portrait!==quarter ? 9/16 : 16/9;
+  const height=Math.min(bounds.height,Math.round(bounds.width/ratio));
+  const width=Math.min(bounds.width,Math.round(height*ratio));
+  return { x:bounds.x+Math.floor((bounds.width-width)/2), y:bounds.y+Math.floor((bounds.height-height)/2), width, height };
+}
+export function turnCameraPlacement(placement, from, to) {
+  if(!placement || (from%180===0)===(to%180===0))return placement;
+  const {x,y,width,height}=placement;
+  const offset=Math.trunc((width-height)/2);
+  return cameraRect({ x:x+offset, y:y-offset, width:height, height:width });
 }
 // VDO's supported cover/base64css URL options and style iframe message use
 // this same CSS. Only normalized numbers enter it. Pan follows screen axes
@@ -404,8 +426,8 @@ export function cameraViewUrl(player, vdoOptions = {}, frame = DEFAULT_CAMERA_FR
   return url+tuned+'&b64css='+encodeURIComponent(btoa(cameraCss(c, frame, fullSource)));
 }
 export function cameraGeometry(player, frame = DEFAULT_CAMERA_FRAME, fullSource = false) {
-  const {rotation, placement}=normalizeCamera(player?.camera);
-  const rect=(fullSource && placement) || cameraFrame(frame);
+  const {rotation}=normalizeCamera(player?.camera);
+  const rect=cameraPlacement(player?.camera, frame, fullSource);
   const quarter=rotation===90 || rotation===270;
   return {rotation,
     x:rect.x+(rotation===90 || rotation===180 ? rect.width : 0),
@@ -418,8 +440,7 @@ export function cameraInput(player, frame, vdoOptions = {}, fullSource = false) 
   const geometry = cameraGeometry(player, frame, fullSource);
   return { geometry, settings: {
     url: cameraViewUrl(player, vdoOptions, frame, fullSource),
-    width: fullSource ? 1920 : geometry.width,
-    height: fullSource ? 1080 : geometry.height
+    ...(fullSource ? cameraSourceSize(player?.camera) : { width:geometry.width, height:geometry.height })
   } };
 }
 // A fresh stream ID for one player when their link leaked: nick letters
