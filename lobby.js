@@ -275,15 +275,17 @@ function renderMatches() {
   const shown = [...live, ...upcoming, ...finished];
   // One-line tournament summary above the list.
   const sum = $('lobbySummary');
-  if (lobby.champ) {
-    const nLive = list.filter(m => m.live).length;
-    const nSoon = list.filter(m => !m.live && !m.done).length;
-    const nDone = list.filter(m => m.done).length;
-    sum.hidden = false;
-    $('lobbySummaryLive').textContent = `Идёт: ${nLive}`;
-    $('lobbySummarySoon').textContent = `Скоро: ${nSoon}`;
-    $('lobbySummaryDone').textContent = `Завершено: ${nDone}`;
-  } else sum.hidden = true;
+  if (sum) {
+    if (lobby.champ) {
+      const nLive = list.filter(m => m.live).length;
+      const nSoon = list.filter(m => !m.live && !m.done).length;
+      const nDone = list.filter(m => m.done).length;
+      sum.hidden = false;
+      $('lobbySummaryLive').textContent = `Идёт: ${nLive}`;
+      $('lobbySummarySoon').textContent = `Скоро: ${nSoon}`;
+      $('lobbySummaryDone').textContent = `Завершено: ${nDone}`;
+    } else sum.hidden = true;
+  }
   if (!shown.length) {
     $('lobbyMatches').innerHTML = `<div class="empty-panel">${lobby.champ ?
       'В турнире пока нет текущих и ближайших матчей.' : 'Матчи появятся после подключения турнира.'}</div>`;
