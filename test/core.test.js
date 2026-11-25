@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   decodeGviz, parseTeams, parseSchedule, scheduleDay, defaultLineup, observerText,
-  selectedPlayers, validateMatch, playerText, viewUrl, pushUrl, directorUrl, applyFemaleStreamIds,
+  parseSeason3Roster, season3Schedule, season3VdoAccess, validateSeason3VdoAccess,
+  selectedPlayers, validateMatch, playerText, viewUrl, pushUrl, directorUrl,
   safeFilename, buildObs, cardUrl, personKey, DEFAULT_CARD_BASE, MAP_POOL, VETO_RULES,
   validateVeto, appendVeto, vetoText, photoMatches, playerPhoto, teamLogo, cameraViewUrl
 } from '../core.js';
@@ -15,6 +16,48 @@ const makeRows = () => ['HYPERSPIRIT', '6yuBoJlbl'].flatMap((team, t) =>
     `stream${t}-${i}`, t === 0 ? 'hyperspirit' : 'team-b',
     '', '', i < 5 ? 'Основной' : i === 5 ? 'Запасной' : 'Тренер'
   ]));
+
+test('Season 3 keeps every organizer fixture and reuses imported camera access', () => {
+  const teams = parseSeason3Roster([
+    ['', 'TEAM 01', '', 'El macaron', '', '', '', 'TEAM 02', '', 'idk'],
+    ['', '1', 'Alpha', '', '', '', '', '1', 'Beta'],
+    ['', 'S', 'Reserve']
+  ]);
+  const [today, pending, semifinal] = season3Schedule([
+    ['STAGE', 'DATE', 'MSK', 'TEAM 1', 'TEAM 2'],
+    ['Opening Match A1', '23 Nov', '18:00', 'El Macaron', 'idk'],
+    ['Losers Match A3', '25 Nov', '18:00', '', ''],
+    ['Semifinal 1', '28 Nov', '', 'idk', 'El macaron']
+  ], teams);
+  assert.deepEqual([today, pending, semifinal].map(m => [m.date, m.time, m.team1, m.unavailable]), [
+    ['23.11', '18:00', 'El macaron', false], ['25.11', '18:00', '', true], ['28.11', '', 'idk', false]
+  ]);
+  assert.equal(teams[0].players[1].role, 'Запасной');
+  const access = season3VdoAccess(teams);
+  assert.equal(validateSeason3VdoAccess(access), true);
+  const director = directorUrl(teams[0]);
+  const push = pushUrl(teams[0].players[0]);
+  assert.deepEqual(season3VdoAccess(teams, access), access);
+  assert.equal(directorUrl(teams[0]), director);
+  assert.equal(pushUrl(teams[0].players[0]), push);
+});
+
+test('Season 3 reads both team blocks after a SteamID column shifts the second block', () => {
+  const teams = parseSeason3Roster([
+    ['', 'TEAM 01', '', 'OzemPEEK', '', '', 'SteamID', '', 'TEAM 02', '', 'EC2-DW', '', '', 'SteamID'],
+    ['', 'ROLE', 'NICKNAME', '', '', 'HLTV PROFILE', '', '', 'ROLE', 'NICKNAME', '', '', 'HLTV PROFILE'],
+    ['', '1', 'zAAz', '', '', '', '76561197960265729', '', '1', 'Monkey D. Julie', '', '', '', '76561197960265730']
+  ]);
+  assert.deepEqual(teams.map(team => [team.name, team.players[0].key]), [
+    ['OzemPEEK', 'ozempeek:zaaz'], ['EC2-DW', 'ec2dw:monkeydjulie']
+  ]);
+  const [match] = season3Schedule([
+    ['STAGE', 'DATE', 'MSK', 'TEAM 1', 'TEAM 2'],
+    ['Opening Match A1', '24 Nov', '18:00', 'EC2-DW', 'OzemPEEK']
+  ], teams);
+  assert.equal(match.unavailable, false);
+});
+
 const fixture = () => {
   const [a, b] = parseTeams(makeRows());
   return [a, b, defaultLineup(a), defaultLineup(b)];
@@ -488,19 +531,6 @@ test('newStreamId: nick letters plus a random tail VDO.Ninja keeps as is', async
   assert.equal(newStreamId('', fixed), 'cam_bbbbbb');
   assert.match(newStreamId('synyx'), /^synyx_[a-z2-9]{6}$/);
   assert.notEqual(newStreamId('synyx'), newStreamId('synyx'));
-});
-
-test('female stream IDs are stable, unique and separate from sheet IDs', () => {
-  const teams = [{ name: 'HAZE', players: [
-    { key: 'female|HAZE|1', nick: 'Madam', id: 'Madam' },
-    { key: 'female|HAZE|2', nick: 'Madam', id: 'Madam' }
-  ]}];
-  let next = 0;
-  const makeId = () => `cam_${++next}`;
-  const first = applyFemaleStreamIds(teams, {}, makeId);
-  assert.deepEqual(first.teams[0].players.map(p => p.id), ['cam_1', 'cam_2']);
-  const second = applyFemaleStreamIds(teams, first.saved, makeId);
-  assert.deepEqual(second.teams[0].players.map(p => p.id), ['cam_1', 'cam_2']);
 });
 
 test('vdoId: the stream ID as VDO.Ninja keeps it, links and status use it', async () => {
