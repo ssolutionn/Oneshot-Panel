@@ -273,6 +273,17 @@ function renderMatches() {
   const finished = list.filter(m => m.done)
     .sort((x, y) => (y.finishedAt || 0) - (x.finishedAt || 0)).slice(0, 3);
   const shown = [...live, ...upcoming, ...finished];
+  // One-line tournament summary above the list.
+  const sum = $('lobbySummary');
+  if (lobby.champ) {
+    const nLive = list.filter(m => m.live).length;
+    const nSoon = list.filter(m => !m.live && !m.done).length;
+    const nDone = list.filter(m => m.done).length;
+    sum.hidden = false;
+    $('lobbySummaryLive').textContent = `Идёт: ${nLive}`;
+    $('lobbySummarySoon').textContent = `Скоро: ${nSoon}`;
+    $('lobbySummaryDone').textContent = `Завершено: ${nDone}`;
+  } else sum.hidden = true;
   if (!shown.length) {
     $('lobbyMatches').innerHTML = `<div class="empty-panel">${lobby.champ ?
       'В турнире пока нет текущих и ближайших матчей.' : 'Матчи появятся после подключения турнира.'}</div>`;
@@ -287,6 +298,7 @@ function renderMatches() {
         <span class="lm-meta">${escapeHtml([m.bestOf ? `BO${m.bestOf}` : '',
           m.scheduledAt && !m.live && !m.done ? clock(m.scheduledAt).slice(0, 5) : ''].filter(Boolean).join(' · '))}</span>
         ${m.url ? `<a class="text-button" href="${escapeHtml(m.url)}" target="_blank" rel="noreferrer">Матчрум ↗</a>` : ''}
+        ${m.done ? `<button class="text-button" type="button" data-gg="${escapeHtml(m.id)}">Копировать GG</button>` : ''}
       </div>
       <div class="lm-teams">
         <span class="lm-team ${m.winner === 0 ? 'won' : ''}">${escapeHtml(m.teams[0])}</span>
@@ -310,6 +322,16 @@ function renderMatches() {
 $('lobbyMatches').addEventListener('click', event => {
   const pauseBtn = event.target.closest('[data-pause]');
   const resumeBtn = event.target.closest('[data-resume]');
+  const ggBtn = event.target.closest('[data-gg]');
+  if (ggBtn) {
+    const match = lobby.matches.get(ggBtn.dataset.gg);
+    if (!match) return;
+    const maps = (match.mapScores?.length ? ` · ${match.mapScores.join(', ')}` : '');
+    const text = `${match.teams[0]} ${match.score[0]} : ${match.score[1]} ${match.teams[1]}${maps}`;
+    panel.copy(text);
+    log(`GG: ${text}`, 'match');
+    return;
+  }
   if (pauseBtn) {
     const match = lobby.matches.get(pauseBtn.dataset.pause);
     if (!match) return;
