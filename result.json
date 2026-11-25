@@ -68,7 +68,10 @@
       "exit_code": 0,
       "seconds": 4.0,
       "tail": "PASS: chromium white document after load, delayed API, zero decoded frames, video readiness, disconnect/reconnect and cleanup\n"
+    },
+    "loading_webkit": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-11-25T00:45:37.101454+00:00"
+  "updated_at": "2026-11-25T00:45:39.143535+00:00"
 }
