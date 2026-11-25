@@ -11,10 +11,10 @@ const team=(name)=>({name,players:Array.from({length:5},(_,i)=>({
 
 test('camera rotation keeps all four corners exactly inside the chosen frame',()=>{
   const expected=[
-    {rotation:0,x:300,y:36,width:1320,height:1008},
-    {rotation:90,x:1620,y:36,width:1008,height:1320},
-    {rotation:180,x:1620,y:1044,width:1320,height:1008},
-    {rotation:270,x:300,y:1044,width:1008,height:1320}
+    {rotation:0,x:300,y:0,width:1320,height:1080},
+    {rotation:90,x:1620,y:0,width:1080,height:1320},
+    {rotation:180,x:1620,y:1080,width:1320,height:1080},
+    {rotation:270,x:300,y:1080,width:1080,height:1320}
   ];
   for(const geometry of expected){
     const actual=cameraGeometry({camera:{rotation:geometry.rotation}});
@@ -25,8 +25,8 @@ test('camera rotation keeps all four corners exactly inside the chosen frame',()
         actual.y+x*Math.sin(radians)+y*Math.cos(radians)]);
     assert.ok(Math.abs(Math.min(...points.map(p=>p[0]))-300)<1e-8);
     assert.ok(Math.abs(Math.max(...points.map(p=>p[0]))-1620)<1e-8);
-    assert.ok(Math.abs(Math.min(...points.map(p=>p[1]))-36)<1e-8);
-    assert.ok(Math.abs(Math.max(...points.map(p=>p[1]))-1044)<1e-8);
+    assert.ok(Math.abs(Math.min(...points.map(p=>p[1])))<1e-8);
+    assert.ok(Math.abs(Math.max(...points.map(p=>p[1]))-1080)<1e-8);
   }
   assert.deepEqual(cameraFrame('full43'),{x:240,y:0,width:1440,height:1080});
   assert.deepEqual(cameraFrame('wide'),{x:0,y:0,width:1920,height:1080});
@@ -64,8 +64,8 @@ test('cover and pan use VDO options with numeric CSS, and screen directions surv
     {rotation:0,panX:50,panY:50,zoom:1});
   assert.deepEqual(normalizeCamera({rotation:90,panX:-50,panY:400}),
     {rotation:90,panX:0,panY:100,zoom:1});
-  assert.deepEqual(cameraFrame('__proto__'),{x:300,y:36,width:1320,height:1008});
-  assert.deepEqual(cameraFrame({toString:null}),{x:300,y:36,width:1320,height:1008});
+  assert.deepEqual(cameraFrame('__proto__'),{x:300,y:0,width:1320,height:1080});
+  assert.deepEqual(cameraFrame({toString:null}),{x:300,y:0,width:1320,height:1080});
 });
 
 test('zoom is bounded, remains per player, and reaches preview/export/live URLs',()=>{
@@ -77,9 +77,9 @@ test('zoom is bounded, remains per player, and reaches preview/export/live URLs'
   const css=atob(url.searchParams.get('b64css'));
   assert.equal(url.searchParams.has('darkmode'),false,'OBS keeps its existing transparent output');
   assert.match(css,/html,body\{background:transparent!important/);
-  assert.ok(Math.abs(Number(css.match(/scale:([\d.]+)/)[1])-1.5*(1+40/1008))<1e-6);
+  assert.ok(Math.abs(Number(css.match(/scale:([\d.]+)/)[1])-1.5*(1+40/1080))<1e-6);
   assert.match(css,/transform-origin:100% 50%/);
-  assert.deepEqual(cameraGeometry({camera:{zoom:3}}),{rotation:0,x:300,y:36,width:1320,height:1008});
+  assert.deepEqual(cameraGeometry({camera:{zoom:3}}),{rotation:0,x:300,y:0,width:1320,height:1080});
 });
 
 test('default framing extends at least 20 px on all sides, even with edge panning',()=>{

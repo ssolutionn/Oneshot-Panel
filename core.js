@@ -338,8 +338,9 @@ export function directorUrl(team) {
 export const DEFAULT_CAMERA_FRAME = 'inner43';
 const CAMERA_EDGE_BLEED = 20;
 export const CAMERA_FRAMES = {
-  // Key kept for saved settings: fields 300 px left/right and 36 px top/bottom.
-  inner43: { x:300, y:36, width:1320, height:1008 },
+  // Keep the preset key for saved settings. The 300 px side margins frame
+  // the camera, which runs from the top to the bottom of the canvas.
+  inner43: { x:300, y:0, width:1320, height:1080 },
   full43: { x:240, y:0, width:1440, height:1080 },
   wide: { x:0, y:0, width:1920, height:1080 },
   // A square crop is centered on the 1920×1080 canvas. OBS can place this

@@ -1116,7 +1116,7 @@ body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inse
       <label class="camera-frame-setting">Режим вебок<select id="webcamMode"><option value="online">Онлайн</option><option value="lan">ЛАН</option></select><span>ЛАН — для камер в одной сети; онлайн — для удалённых игроков.</span></label>
       <div id="vdoLanSettings" class="camera-frame-setting"><b>Оптимизация VDO для ЛАН</b><label>Кодек<select id="vdoCodec"><option value="h264">H.264</option><option value="vp8">VP8</option><option value="vp9">VP9</option></select></label><label>Битрейт<input id="vdoBitrate" type="number" min="500" max="8000" step="100" value="2500"> кбит/с</label><label>FPS<select id="vdoFps"><option>24</option><option selected>30</option><option>60</option></select></label><label class="check"><input id="vdoLowLatency" type="checkbox" checked> Минимальная задержка</label><span>Параметры добавляются только в LAN-ссылки камер.</span></div>
       <label class="camera-frame-setting">Рамка вебок
-        <select id="cameraFrame"><option value="inner43">Внутренняя рамка 1320×1008</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option></select>
+        <select id="cameraFrame"><option value="inner43">1320×1080 на всю высоту</option><option value="full43">4:3 на всю высоту</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option></select>
         <span>Заполнение с обрезкой краёв. «Кадр» под ником — поворот и положение игрока.</span>
       </label>
       <div class="export-meta">
@@ -1586,8 +1586,9 @@ function directorUrl(team) {
 const DEFAULT_CAMERA_FRAME = 'inner43';
 const CAMERA_EDGE_BLEED = 20;
 const CAMERA_FRAMES = {
-  // Key kept for saved settings: fields 300 px left/right and 36 px top/bottom.
-  inner43: { x:300, y:36, width:1320, height:1008 },
+  // Keep the preset key for saved settings. The 300 px side margins frame
+  // the camera, which runs from the top to the bottom of the canvas.
+  inner43: { x:300, y:0, width:1320, height:1080 },
   full43: { x:240, y:0, width:1440, height:1080 },
   wide: { x:0, y:0, width:1920, height:1080 },
   // A square crop is centered on the 1920×1080 canvas. OBS can place this

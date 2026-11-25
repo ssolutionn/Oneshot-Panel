@@ -29,7 +29,7 @@ addEventListener('message',e=>{
 </script>"""
 
 
-def camera_scale(zoom, short_side=1008):
+def camera_scale(zoom, short_side=1080):
     return zoom * (1 + 40 / short_side)
 
 
@@ -84,6 +84,8 @@ async def run(args):
         await expect(page.locator("#cameraFrame")).to_have_value("inner43")
         await page.locator('[data-camera="a"][data-slot="0"]').click()
         await expect(page.locator("#cameraDialog")).to_be_visible()
+        frame_span=await page.locator('#cameraPreviewBox').evaluate("el => [el.style.getPropertyValue('--camera-top'), el.style.getPropertyValue('--camera-height')]")
+        assert frame_span == ['0%', '100%']
         if not args.real_provider:
             await expect(page.locator('#cameraPreviewBox')).to_have_attribute('data-loading','true')
             assert await page.locator('#cameraPreviewBox').evaluate("el=>getComputedStyle(el.parentElement,'::after').backgroundColor")=='rgb(0, 0, 0)'
@@ -192,15 +194,15 @@ async def run(args):
         transforms=[r["requestData"] for r in obs.requests if r["requestType"]=="SetSceneItemTransform"]
         transform=next(r["sceneItemTransform"] for r in transforms if r["sceneName"]=="Игрок 2")
         assert {k:transform[k] for k in ("positionX","positionY","rotation","boundsWidth","boundsHeight")}=={
-            "positionX":1620,"positionY":36,"rotation":90,"boundsWidth":1008,"boundsHeight":1320}
+            "positionX":1620,"positionY":0,"rotation":90,"boundsWidth":1080,"boundsHeight":1320}
         async with page.expect_download() as info:
             await page.click("#downloadBtn")
         data=json.loads((await (await info.value).path()).read_text())
         scene=next(s for s in data["sources"] if s["name"]=="Игрок 2")
         item=next(i for i in scene["settings"]["items"] if i["name"].startswith("CAM "))
         source=next(s for s in data["sources"] if s["uuid"]==item["source_uuid"])
-        assert item["rot"]==90 and item["pos"]=={"x":1620,"y":36}
-        assert source["settings"]["width"]==1008 and source["settings"]["height"]==1320
+        assert item["rot"]==90 and item["pos"]=={"x":1620,"y":0}
+        assert source["settings"]["width"]==1080 and source["settings"]["height"]==1320
         assert "&b64css=" in source["settings"]["url"]
         from urllib.parse import parse_qs,urlsplit
         css=base64.b64decode(parse_qs(urlsplit(source['settings']['url']).query)['b64css'][0]).decode()

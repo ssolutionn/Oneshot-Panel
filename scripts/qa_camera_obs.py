@@ -137,7 +137,7 @@ async def run():
                     assert reply["d"]["requestStatus"]["result"],reply
                     return reply["d"].get("responseData",{})
 
-        async def picture(slot,label,expected=(300,36,1620,1044)):
+        async def picture(slot,label,expected=(300,0,1620,1080)):
             await request("SetCurrentProgramScene",{"sceneName":"Игрок "+str(slot)})
             camera_name=next(p['name'] for p in data['document']['sources'] if p['name'].startswith(f'CAM {slot:02} '))
             print('CAMERA_ACTIVITY',slot,await request('GetSourceActive',{'sourceName':camera_name}),flush=True)
@@ -208,7 +208,7 @@ async def run():
             # The independent oracle is the bar's color category and location,
             # not byte-identical RGB after decoding/compositing.
             assert all(a>=150 if b==255 else a<=70 for a,b in zip(actual,color)),(slot,actual,color)
-        print("PASS: real OBS imports JSON; 0/90/180/270 cameras cover exactly the inner frame; crop/pan colors match",flush=True)
+        print("PASS: real OBS imports JSON; 0/90/180/270 cameras fill the height; crop/pan colors match",flush=True)
 
         manifest=OUT/"players.json"
         manifest.write_text(json.dumps(data["players"]))
@@ -235,7 +235,7 @@ async def run():
                 stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.STDOUT)
             output,_=await command.communicate()
             assert command.returncode==0,output.decode()
-        for frame,rotation,bounds in [("inner43",270,(300,36,1620,1044)),
+        for frame,rotation,bounds in [("inner43",270,(300,0,1620,1080)),
                                      ("full43",180,(240,0,1680,1080)),("wide",90,(0,0,1920,1080))]:
             await live(frame,rotation)
             await picture(1,"live-"+frame,bounds)
@@ -243,7 +243,7 @@ async def run():
             camera=next(i for i in items["sceneItems"] if i["sourceName"].startswith("CAM "))
             transform=(await request("GetSceneItemTransform",{"sceneName":"Игрок 1","sceneItemId":camera["sceneItemId"]}))["sceneItemTransform"]
             assert transform["rotation"]==rotation,transform
-        print("PASS: real applyMatch and CEF resize/rotate the same sources for inner 4:3, full-height 4:3 and full canvas",flush=True)
+        print("PASS: real applyMatch and CEF resize/rotate the same sources for 1320×1080, full-height 4:3 and full canvas",flush=True)
     finally:
         if ws: await ws.close()
         process.terminate()

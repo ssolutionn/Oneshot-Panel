@@ -262,10 +262,10 @@ test('OBS repairs cameras and remaps references without mutating template', () =
     refs.add(item.source_uuid);
     assert.equal(browser.settings.url, cameraViewUrl(players[i]));
     assert.equal(browser.settings.width, 1320);
-    assert.equal(browser.settings.height, 1008);
+    assert.equal(browser.settings.height, 1080);
     assert.equal(item.rot, 0);
-    assert.deepEqual(item.pos, { x: 300, y: 36 });
-    assert.deepEqual(item.bounds, { x: 1320, y: 1008 });
+    assert.deepEqual(item.pos, { x: 300, y: 0 });
+    assert.deepEqual(item.bounds, { x: 1320, y: 1080 });
     assert.equal(item.bounds_type, 2);
     for (const key of ['crop_left', 'crop_right', 'crop_top', 'crop_bottom']) {
       assert.equal(item[key], 0);
@@ -325,7 +325,7 @@ test('OBS omits all player cards by default and when disabled', () => {
       assert.equal(cameras.length, 1);
       assert.ok(!scene.settings.items.some(it => it.name.startsWith('CARD ')));
       assert.equal(byId.get(cameras[0].source_uuid).settings.width, 1320);
-      assert.equal(byId.get(cameras[0].source_uuid).settings.height, 1008);
+      assert.equal(byId.get(cameras[0].source_uuid).settings.height, 1080);
       for (const item of scene.settings.items) assert.ok(byId.has(item.source_uuid));
     }
     assert.ok(result.sources.some(s => s.name === 'Матрица'));

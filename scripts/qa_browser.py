@@ -252,8 +252,8 @@ async def run(args):
             items = scene["settings"]["items"]
             item = next(it for it in items if it["name"].startswith("CAM "))
             assert item["rot"] == 0
-            assert item["bounds"] == {"x": 1320, "y": 1008}
-            assert item["pos"] == {"x":300,"y":36}
+            assert item["bounds"] == {"x": 1320, "y": 1080}
+            assert item["pos"] == {"x":300,"y":0}
             assert by_id[item["source_uuid"]]["settings"]["width"] == 1320
             assert "&transparent" in by_id[item["source_uuid"]]["settings"]["url"]
             # The player card is right under the camera, served by this site.
@@ -434,7 +434,7 @@ async def run(args):
         await page.click('[data-give="a"][data-slot="0"]')
         await expect(page.locator("#copyDialog")).to_be_visible()
         give = await page.input_value("#manualCopy")
-        assert re.fullmatch(r"\*\*[^*]+\*\* https://vdo\.ninja/\?room=[^ ]+&broadcast&do&push=" + re.escape(old_id), give), give
+        assert re.fullmatch(r"\*\*[^*]+\*\* https://vdo\.ninja/\?room=[^ ]+&broadcast&do&mute&mutespeaker&push=" + re.escape(old_id), give), give
         await page.click("#closeCopy")
         passed("player link regenerated on the right of the row, kept, reverted; «Игроку» copies the PUSH line")
 
