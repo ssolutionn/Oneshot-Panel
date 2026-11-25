@@ -2,70 +2,70 @@
   "version": 1,
   "day": "2026-11-25",
   "startedAt": 1795570432149,
-  "updatedAt": 1795570432217,
+  "updatedAt": 1795602268568,
   "books": {
     "fonbet": {
-      "checkedAt": 1795570432187,
+      "checkedAt": 1795602268568,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "pari": {
-      "checkedAt": 1795570432162,
+      "checkedAt": 1795602268536,
       "status": "error",
       "coverage": "line-and-live",
       "events": []
     },
     "bettery": {
-      "checkedAt": 1795570432149,
+      "checkedAt": 1795602268562,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "bet24": {
-      "checkedAt": 1795570432217,
+      "checkedAt": 1795602268523,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "olimp": {
-      "checkedAt": 1795570432168,
-      "status": "partial",
+      "checkedAt": 1795602268530,
+      "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "marathon": {
-      "checkedAt": 1795570432186,
+      "checkedAt": 1795602268538,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "betcity": {
-      "checkedAt": 1795570432155,
-      "status": "partial",
+      "checkedAt": 1795602268528,
+      "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "sportbet": {
-      "checkedAt": 1795570432194,
+      "checkedAt": 1795602268546,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "baltbet": {
-      "checkedAt": 1795570432158,
+      "checkedAt": 1795602268542,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "winline": {
-      "checkedAt": 1795570432183,
+      "checkedAt": 1795602268558,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "leon": {
-      "checkedAt": 1795570432215,
+      "checkedAt": 1795602268560,
       "status": "ok",
       "coverage": "prematch",
       "events": []
