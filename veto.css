@@ -44,7 +44,9 @@ h1,h2,h3 { font-family:var(--vt-display); font-weight:600; letter-spacing:.02em;
 .vt-clock { text-align:right; flex:none; }
 .vt-clock-label { display:block; color:var(--vt-muted); font-size:12px; text-transform:uppercase; letter-spacing:.1em; }
 .vt-clock-time { font:600 clamp(28px,5vw,44px)/1 var(--vt-display); font-variant-numeric:tabular-nums; }
-.vt-clock[data-state=low] .vt-clock-time { color:var(--vt-warn); }
+.vt-clock[data-state=low] .vt-clock-time,
+.vt-clock[data-state=low] .vt-clock-label { color:var(--vt-ban); }
+.vt-clock[data-state=low] .vt-clock-time { animation:vt-timer-pulse 1s ease-in-out infinite; }
 .vt-clock[data-state=over] .vt-clock-time,.vt-clock[data-state=over] .vt-clock-label { color:var(--vt-ban); }
 .vt-clock[data-state=done] .vt-clock-time { color:var(--vt-pick); }
 /* EN / RU: flags in the header, English by default. */
@@ -257,7 +259,38 @@ h1,h2,h3 { font-family:var(--vt-display); font-weight:600; letter-spacing:.02em;
   .vt-alert { animation:none; }
   .vt-coin.is-flipping { animation:none; }
   .vt-map,.vt-coin { transition:none; }
+  .vt-clock[data-state=low] .vt-clock-time { animation:none; }
 }
+
+/* Large BAN/PICK stamp in the map corner — readable in grayscale, unlike the small tag. */
+.vt-map-stamp {
+  position:absolute; top:10px; left:10px; z-index:3;
+  font:700 clamp(16px,2vw,26px)/1 var(--vt-display);
+  letter-spacing:.08em; text-transform:uppercase;
+  color:#fff; padding:4px 9px;
+  border:2px solid currentColor; border-radius:7px;
+  background:var(--vt-shade);
+  transform:rotate(-6deg);
+  pointer-events:none;
+  animation:vt-stamp-in .2s ease-out;
+}
+.vt-map-stamp[data-status=ban] { color:var(--vt-ban); }
+.vt-map-stamp[data-status=pick] { color:var(--vt-pick); }
+@keyframes vt-stamp-in {
+  from { transform:rotate(-6deg) scale(1.4); opacity:0; }
+  to   { transform:rotate(-6deg) scale(1);   opacity:1; }
+}
+@media (prefers-reduced-motion:reduce) { .vt-map-stamp { animation:none; } }
+
+/* Mobile (veto-mobile.html shares this stylesheet). */
+body { -webkit-tap-highlight-color:transparent; }
+.vt-mobile-banner {
+  background:var(--vt-panel); border:1px solid var(--vt-line);
+  border-radius:10px; padding:12px 16px; margin-bottom:12px; text-align:center;
+}
+.vt-mobile-banner h2 { font-size:16px; margin:0 0 4px; }
+.vt-mobile-banner p { font-size:13px; color:var(--vt-muted); margin:0; }
+@media (max-width:620px) { .vt-main { padding-bottom:env(safe-area-inset-bottom,40px); } }
 
 /* CyberClash appearance: independent from room/authentication logic. */
 :root{--vt-bg:#050e12;--vt-bg-2:#081b23;--vt-panel:#061b23e8;--vt-accent:#00d9ed;--vt-pick:#63dba5;--vt-ban:#ff4d55;--vt-decider:#edc05b}
@@ -343,3 +376,11 @@ body{position:relative;isolation:isolate;background:var(--vt-bg)}
 :where([data-veto-season="3"]) .vt-progress-step[data-state=active]:before {
   background:linear-gradient(90deg,var(--vt-accent) 0 38%,var(--vt-progress-track) 38%);
 }
+/* Mobile veto page overrides (veto-mobile.html, no inline styles allowed by CSP). */
+.mobile-veto-view .vt-top { min-height:64px; padding:12px 16px; }
+.mobile-veto-view .vt-heading h1 { font-size:20px; }
+.mobile-veto-view .vt-clock-time { font-size:18px; }
+.mobile-veto-view .vt-main { padding:12px 16px 40px; max-width:100%; }
+.vt-map-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:12px; }
+@media (min-width:600px) { .vt-map-grid { grid-template-columns:repeat(3,1fr); } }
+.mobile-veto-view .vt-map { aspect-ratio:16/10; }

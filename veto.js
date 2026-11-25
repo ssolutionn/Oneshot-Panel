@@ -1039,6 +1039,13 @@ async function enterRoom(room) {
         side.append(`${names[card.sideTeam]} · `, mark);
       }
       else if (card.status === 'pick') side.textContent = t('choosingShort');
+      // Large BAN/PICK stamp in the corner — readable in grayscale.
+      if (card.status === 'ban' || card.status === 'pick') {
+        el.append(Object.assign(document.createElement('span'), {
+          className: 'vt-map-stamp', dataset: { status: card.status },
+          textContent: card.status.toUpperCase()
+        }));
+      }
       const num = Object.assign(document.createElement('span'), { className: 'vt-map-num', textContent: order.get(card.map) || '' });
       el.append(...[img, num, name, tag, side].filter(Boolean));
       el.addEventListener('click', () => {
