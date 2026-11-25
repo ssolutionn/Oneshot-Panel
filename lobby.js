@@ -3,10 +3,10 @@
 // Tech pauses are logged by hand: FACEIT's API does not report them.
 import {
   FaceitClient, FACEIT_PROXY, parseFaceitTargets, summarizeMatch, matchEvents, eventText,
-  nextStart, fillTemplate, DEFAULT_TEMPLATES, scoreLine, mapScores
+  nextStart, fillTemplate, DEFAULT_TEMPLATES, scoreLine, mapScores, mapPointTeam
 } from './faceit.js';
 import { personKey } from './core.js';
-import {notificationPermission,enableNotifications,showNotification,unlockAudio,beep} from './notifications.js';
+import {notificationPermission,enableNotifications,showNotification} from './notifications.js';
 
 const $ = id => document.getElementById(id);
 const panel = window.oneshotPanel;
@@ -16,7 +16,11 @@ const POLL = 20000, REPEAT = 20000, REPEAT_LIMIT = 3;
 const lobby = {
   client: null, champ: '', timer: null, tick: 0, interval: POLL,
   matches: new Map(), pauses: new Map(), finished: null,
-  alert: null, repeats: 0, repeatTimer: null, flashTimer: null, unread: 0, view: 'prep'
+  alert: null, repeats: 0, repeatTimer: null, flashTimer: null, unread: 0, view: 'prep',
+  // Per-map scores "Mirage 13:9" from /stats, keyed by match id.
+  mapScores: new Map(),
+  // Lobby notes from external sources (userscript).
+  lastNoteAt: 0
 };
 const title = document.title;
 
@@ -57,6 +61,27 @@ function renderLog() {
 }
 
 // ---------- alerts ----------
+let audio = null;
+function unlockAudio() {
+  try {
+    audio ||= new AudioContext();
+    if (audio.state === 'suspended') audio.resume();
+  } catch { audio = null; }
+}
+function beep() {
+  if (!audio) return;
+  const now = audio.currentTime;
+  [[880, 0], [660, 0.22], [880, 0.44]].forEach(([freq, at]) => {
+    const osc = audio.createOscillator(), gain = audio.createGain();
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, now + at);
+    gain.gain.exponentialRampToValueAtTime(0.35, now + at + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.2);
+    osc.connect(gain).connect(audio.destination);
+    osc.start(now + at);
+    osc.stop(now + at + 0.21);
+  });
+}
 function notifyState() {
   const state=notificationPermission(),supported=state!=='unsupported';
   const granted = state==='granted';
@@ -172,6 +197,73 @@ function saveTemplates() {
   renderMessages();
 }
 
+// ---------- live score block ----------
+// The pinned match (localStorage) wins, then the first live one, then the
+// first upcoming. A match the operator pinned stays on top across reloads.
+function pickLiveMatch() {
+  const list = [...lobby.matches.values()];
+  const pin = read(STORE, {}).pinned;
+  return list.find(m => m.id === pin) ||
+    list.find(m => m.live) ||
+    list.filter(m => !m.done).sort((x, y) => (x.scheduledAt || Infinity) - (y.scheduledAt || Infinity))[0] || null;
+}
+// splitScore("Mirage 13:9") → {map:"Mirage", score:[13,9]}
+const splitScore = text => {
+  const m = /^(.*?)\s+(\d+):(\d+)$/.exec(text || '');
+  return m ? { map: m[1], score: [Number(m[2]), Number(m[3])] } : null;
+};
+function renderLive() {
+  const m = pickLiveMatch();
+  const box = $('lobbyLive');
+  box.hidden = !m;
+  if (!m) return;
+  const pin = read(STORE, {}).pinned;
+  $('llPin').textContent = pin === m.id ? 'Открепить' : 'Закрепить';
+  $('llPin').dataset.match = m.id;
+  $('llLiveBadge').hidden = !m.live;
+  $('llTeam0').textContent = m.teams[0] || '—';
+  $('llTeam1').textContent = m.teams[1] || '—';
+  $('llWins0').textContent = m.score[0];
+  $('llWins1').textContent = m.score[1];
+  $('llStatus').textContent = m.done ? m.statusText : m.live ? '' : m.scheduledAt ? `Старт в ${clock(m.scheduledAt).slice(0, 5)}` : '';
+
+  // The whole series, one card per map. Finished maps show the per-map score
+  // when FACEIT stats have them, else the winner; the live map shows rounds.
+  const picks = (m.picks && m.picks.length) ? m.picks : m.maps.map((_, i) => `Карта ${i + 1}`);
+  const statsScore = (lobby.mapScores.get(m.id) || []);
+  const cards = picks.map((name, i) => {
+    const winner = m.maps[i]?.winner ?? null;
+    const used = splitScore(statsScore[i]);
+    const isLive = m.live && i + 1 === m.liveMap;
+    let detail = '', state = winner === null && !isLive ? 'future' : 'done';
+    if (isLive && m.rounds) { detail = `${m.rounds[0]} : ${m.rounds[1]}`; state = 'live'; }
+    else if (used) detail = `${used.score[0]} : ${used.score[1]}`;
+    else if (winner !== null) detail = m.teams[winner];
+    return { name, detail, state, winner };
+  });
+  $('llCards').replaceChildren(...cards.map(c => {
+    const card = Object.assign(document.createElement('div'), { className: `ll-card ${c.state}` });
+    if (c.winner !== null) card.dataset.winner = c.winner;
+    card.append(
+      Object.assign(document.createElement('span'), { className: 'll-card-name', textContent: String(name0(c.name)) }),
+      Object.assign(document.createElement('b'), { className: 'll-card-score', textContent: c.detail })
+    );
+    return card;
+  }));
+  // Map point on the live map: a pulsing badge with the team one round away.
+  const point = m.live && m.rounds ? mapPointTeam(m.rounds[0], m.rounds[1]) : null;
+  $('llPoint').hidden = point === null;
+  if (point !== null) $('llPoint').textContent = `МАП-ПОИНТ · ${m.teams[point]}`;
+  box.dataset.state = m.live ? 'live' : m.done ? 'done' : 'soon';
+}
+const name0 = name => String(name || '').replace(/^de_/, '');
+$('llPin').addEventListener('click', () => {
+  const match = $('llPin').dataset.match, saved = read(STORE, {});
+  write(STORE, { ...saved, pinned: saved.pinned === match ? '' : match });
+  renderLive();
+  renderMatches();
+});
+
 // ---------- matches ----------
 function renderMatches() {
   const list = [...lobby.matches.values()];
@@ -256,7 +348,16 @@ function handle(event) {
     alertAdmins(text, `${event.match.id}:point:${event.map}`, { loud: false });
   }
 }
-// Round scores per map come from /stats once FACEIT has them.
+// Round scores per map come from /stats — FACEIT fills them in as maps end,
+// so the live block can show "Mirage 13:9" for played maps, not only winners.
+async function fetchMapScores(match) {
+  try {
+    const scores = mapScores(await lobby.client.stats(match.id), match.teams);
+    if (!scores.length) return;
+    lobby.mapScores.set(match.id, scores);
+    renderLive();
+  } catch { /* the series score is already on the cards */ }
+}
 async function finalScores(match) {
   try {
     const scores = mapScores(await lobby.client.stats(match.id), match.teams);
@@ -265,6 +366,21 @@ async function finalScores(match) {
     log(`Карты ${match.teams[0]} vs ${match.teams[1]}: ${scores.join(', ')}`, 'match');
     renderMessages();
   } catch { /* the series score is already in the journal */ }
+}
+
+// Poll lobby notes from server (userscript sends them via POST /api/lobby-note).
+async function pollLobbyNotes() {
+  try {
+    const res = await fetch(`/api/lobby-note?since=${lobby.lastNoteAt}`);
+    if (!res.ok) return;
+    const { notes } = await res.json();
+    if (!Array.isArray(notes) || !notes.length) return;
+    for (const note of notes) {
+      log(note.text, 'bookie'); // reuse 'bookie' kind for styling
+      alertAdmins(note.text, `note:${note.id}:${note.source || 'ext'}`, { loud: true });
+    }
+    lobby.lastNoteAt = notes[notes.length - 1].at;
+  } catch {}
 }
 
 async function poll() {
@@ -304,6 +420,11 @@ async function poll() {
       lobby.finished = [...lobby.matches.values()].filter(m => m.status === 'FINISHED')
         .sort((x, y) => (y.finishedAt || 0) - (x.finishedAt || 0))[0] || null;
     }
+    // The live block's per-map scores refresh once in three polls (full tick).
+    const shown = pickLiveMatch();
+    if (shown && shown.live && full) fetchMapScores(shown);
+    // Poll lobby notes from server every poll.
+    await pollLobbyNotes();
     lobby.interval = POLL;
     const live = [...lobby.matches.values()].filter(m => m.live).length;
     const soon = [...lobby.matches.values()].filter(m => !m.live && !m.done).length;
@@ -312,6 +433,7 @@ async function poll() {
     $('lobbyError').hidden = !failed;
     renderMatches();
     renderMessages();
+    renderLive();
   } catch (error) {
     if (client !== lobby.client) return;
     $('lobbyError').textContent = error.message + (champ && !rooms.length && /ошибкой 4\d\d/.test(error.message) ?
@@ -402,4 +524,5 @@ notifyState();
 renderLog();
 renderMatches();
 renderMessages();
+renderLive();
 start();

@@ -936,3 +936,36 @@ div.event-guide { border-style:solid; margin:0 0 14px; }
 .seat-settings .text-button { justify-self:start; }
 
 .player-row[draggable="true"]{cursor:grab}.player-row.dragging{opacity:.45}.player-row.drag-over{outline:2px dashed var(--red);outline-offset:-2px}
+
+/* Live score block: the pinned or first live match, shown prominently. */
+.lobby-live { display:grid; gap:10px; margin-bottom:12px; padding:16px 18px; background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--btn-line); border-radius:8px; }
+.lobby-live[data-state=live] { border-left-color:var(--red); }
+.lobby-live[data-state=done] { border-left-color:var(--success); }
+.ll-top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.ll-eyebrow { color:var(--muted); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.14em; }
+.ll-actions { display:flex; align-items:center; gap:8px; }
+.ll-live-badge { color:var(--red); font-size:11px; font-weight:700; letter-spacing:.08em; }
+.ll-teams { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:14px; }
+.ll-team { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:17px; font-weight:700; }
+.ll-team.right { text-align:right; }
+.ll-score { display:inline-flex; align-items:baseline; gap:8px; font-variant-numeric:tabular-nums; }
+.ll-wins { font-size:34px; line-height:1; letter-spacing:-1px; }
+.ll-colon { color:var(--muted); font-size:22px; font-style:normal; }
+.ll-cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.ll-card { display:grid; gap:3px; justify-items:center; padding:10px 8px; border:1px solid var(--line); border-radius:6px; background:var(--surface-2); text-align:center; }
+.ll-card[data-winner="0"] { box-shadow:inset 3px 0 0 var(--success); }
+.ll-card[data-winner="1"] { box-shadow:inset -3px 0 0 var(--success); }
+.ll-card.live { border-color:var(--red); }
+.ll-card-name { color:var(--muted); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+.ll-card-score { font-size:16px; font-variant-numeric:tabular-nums; }
+.ll-card.live .ll-card-score { animation:ll-pulse 1.6s ease-in-out infinite; }
+@keyframes ll-pulse { 0%,100% { opacity:1; } 50% { opacity:.55; } }
+.ll-game { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; min-height:20px; }
+.ll-status { color:var(--muted); font-size:12px; }
+.ll-point { padding:3px 8px; border-radius:4px; background:var(--red); color:var(--on-accent); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; animation:ll-pulse 1.2s ease-in-out infinite; }
+@media(max-width:620px) {
+  .ll-cards { grid-template-columns:1fr; }
+  .ll-wins { font-size:28px; }
+  .ll-team { white-space:normal; }
+}
+@media(prefers-reduced-motion:reduce) { .ll-card.live .ll-card-score, .ll-point { animation:none; } }

@@ -12,15 +12,13 @@ import { createCs2, handleCs2, loadToken } from './server/cs2-api.js';
 import { eventScript, eventSlug } from './events/event-script.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-// Lobby notes from external sources (userscript).
+// Lobby notes from external sources (the Tampermonkey userscript).
 const lobbyNotes = [];
 function addLobbyNote(note) {
   lobbyNotes.push({ ...note, id: Date.now() + Math.random() });
   if (lobbyNotes.length > 200) lobbyNotes.shift();
 }
-function getLobbyNotes(since) {
-  return lobbyNotes.filter(n => n.at > since);
-}
+const getLobbyNotes = since => lobbyNotes.filter(n => (n.at || 0) > since);
 const publicFiles = new Set([
   'index.html', 'app.js', 'core.js', 'style.css', 'theme.js',
   'card.html', 'card.js', 'card.css', 'live.js', 'obs.js', 'vdo.js',
@@ -74,7 +72,28 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
       }
       return;
     }
-    // Lobby notes from userscript (FACEIT issues).
+    // The Netlify function, served here too so the lobby works locally.
+    if (request.url.startsWith('/api/faceit?') && request.method === 'GET') {
+      // An upstream that fails mid-body must answer 502, not stop the server.
+      try {
+        const reply = await proxyFaceit(new Request('http://localhost' + request.url, {
+          headers: {
+            authorization: request.headers.authorization || '',
+            'sec-fetch-site': request.headers['sec-fetch-site'] || '',
+            // Local Origin is http://<host>; compare it to the server's own.
+            origin: request.headers.origin === `http://${request.headers.host}` ? 'http://localhost' : ''
+          }
+        }), process.env.FACEIT_API_KEY);
+        const body = Buffer.from(await reply.arrayBuffer());
+        response.writeHead(reply.status, Object.fromEntries(reply.headers));
+        response.end(body);
+      } catch {
+        if (!response.headersSent) response.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify({ error: 'upstream', message: 'FACEIT не ответил.' }));
+      }
+      return;
+    }
+    // Lobby notes: POST from the userscript, GET polled by lobby.js.
     if (request.url.startsWith('/api/lobby-note') && request.method === 'POST') {
       let body = '';
       request.on('data', chunk => { body += chunk; });
@@ -98,30 +117,8 @@ export function createServer({cs2 = null, event = eventFile(process.env.EVENT ||
     }
     if (request.url.startsWith('/api/lobby-note') && request.method === 'GET') {
       const url = new URL(request.url, 'http://localhost');
-      const since = Number(url.searchParams.get('since') || '0');
       response.writeHead(200, { 'Content-Type': 'application/json' });
-      response.end(JSON.stringify({ notes: getLobbyNotes(since) }));
-      return;
-    }
-    // The Netlify function, served here too so the lobby works locally.
-    if (request.url.startsWith('/api/faceit?') && request.method === 'GET') {
-      // An upstream that fails mid-body must answer 502, not stop the server.
-      try {
-        const reply = await proxyFaceit(new Request('http://localhost' + request.url, {
-          headers: {
-            authorization: request.headers.authorization || '',
-            'sec-fetch-site': request.headers['sec-fetch-site'] || '',
-            // Local Origin is http://<host>; compare it to the server's own.
-            origin: request.headers.origin === `http://${request.headers.host}` ? 'http://localhost' : ''
-          }
-        }), process.env.FACEIT_API_KEY);
-        const body = Buffer.from(await reply.arrayBuffer());
-        response.writeHead(reply.status, Object.fromEntries(reply.headers));
-        response.end(body);
-      } catch {
-        if (!response.headersSent) response.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
-        response.end(JSON.stringify({ error: 'upstream', message: 'FACEIT не ответил.' }));
-      }
+      response.end(JSON.stringify({ notes: getLobbyNotes(Number(url.searchParams.get('since') || '0')) }));
       return;
     }
     try {
