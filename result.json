@@ -58,8 +58,11 @@
       "tail": "VDO_DECODED_VIDEO [{'type': None, 'decoded': None, 'fps': None}, {'type': 'video', 'decoded': 1, 'fps': 0}]\nVDO_CANVAS {'darkRequested': True, 'backgrounds': ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)']}\nPASS: current real VDO accepts cover URL and live style messages for camera pan/rotation; controlled media, no player stream\n"
     },
     "loading_firefox": {
-      "status": "running"
+      "status": "failed",
+      "exit_code": 1,
+      "seconds": 5.4,
+      "tail": "Traceback (most recent call last):\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/scripts/qa_camera_loading.py\", line 136, in <module>\n    asyncio.run(run(parser.parse_args()))\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/asyncio/runners.py\", line 195, in run\n    return runner.run(main)\n           ^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/asyncio/runners.py\", line 118, in run\n    return self._loop.run_until_complete(task)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/asyncio/base_events.py\", line 691, in run_until_complete\n    return future.result()\n           ^^^^^^^^^^^^^^^\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/scripts/qa_camera_loading.py\", line 125, in run\n    assert not errors,errors\n           ^^^^^^^^^^\nAssertionError: ['can\\'t access property \"addEventListener\", $(...) is null']\n"
     }
   },
-  "updated_at": "2026-11-25T00:05:00.598315+00:00"
+  "updated_at": "2026-11-25T00:05:08.161784+00:00"
 }
