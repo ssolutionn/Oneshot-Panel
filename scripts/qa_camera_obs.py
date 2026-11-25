@@ -18,6 +18,7 @@ import urllib.request
 
 from PIL import Image, ImageChops, ImageDraw
 import websockets
+from websockets.exceptions import ConnectionClosed, InvalidStatus
 from qa_camera import CAMERA_HTML
 
 ROOT=Path(__file__).resolve().parent.parent
@@ -143,24 +144,28 @@ async def run():
             print('CAMERA_ACTIVITY',slot,await request('GetSourceActive',{'sourceName':camera_name}),flush=True)
             # Drive the controlled input explicitly. A paused poster is not a
             # playing webcam; OSR autoplay policy is outside this geometry test.
-            for attempt in range(40):
-                with urllib.request.urlopen('http://127.0.0.1:9223/json/list',timeout=3) as targets:
-                    pages=json.load(targets)
-                target=next((p for p in pages if p.get('url','').startswith(origin+'/') and
-                    ('?view=qa'+str(slot-1)+'&') in p['url']),None)
-                if target: break
+            settings=await request('GetInputSettings',{'inputName':camera_name})
+            expected_url=settings['inputSettings']['url']
+            deadline=time.monotonic()+20
+            while time.monotonic()<deadline:
+                try:
+                    with urllib.request.urlopen('http://127.0.0.1:9223/json/list',timeout=3) as targets:
+                        target=next((p for p in json.load(targets) if p.get('url')==expected_url),None)
+                    if target:
+                        async with websockets.connect(target['webSocketDebuggerUrl'],open_timeout=3) as cdp:
+                            await cdp.send(json.dumps({'id':1,'method':'Runtime.evaluate','params':{
+                                'expression':"(async()=>{for(let n=0;n<100;n++){const v=document.querySelector('video');if(v){v.muted=true;await v.play();return {paused:v.paused,width:v.videoWidth,height:v.videoHeight}}await new Promise(r=>setTimeout(r,50))}throw Error('Controlled video document did not load')})()",
+                                'awaitPromise':True,'returnByValue':True}}))
+                            playback=json.loads(await asyncio.wait_for(cdp.recv(),timeout=7))
+                        if playback.get('result',{}).get('result',{}).get('value')=={'paused':False,'width':1600,'height':900}:
+                            print('CAMERA_PLAYBACK',slot,json.dumps(playback),flush=True)
+                            break
+                except (OSError, TimeoutError, ConnectionClosed, InvalidStatus):
+                    # Applying a new URL can destroy the previous CEF target.
+                    pass
                 await asyncio.sleep(.25)
-            assert target,'Controlled media browser target unavailable'
-            async with websockets.connect(target['webSocketDebuggerUrl']) as cdp:
-                await cdp.send(json.dumps({'id':1,'method':'Runtime.evaluate','params':{
-                    'expression':"(async()=>{for(let n=0;n<100;n++){const v=document.querySelector('video');if(v){v.muted=true;await v.play();return {paused:v.paused,width:v.videoWidth,height:v.videoHeight}}await new Promise(r=>setTimeout(r,50))}throw Error('Controlled video document did not load')})()",
-                    'awaitPromise':True,'returnByValue':True}}))
-                while True:
-                    playback=json.loads(await asyncio.wait_for(cdp.recv(),timeout=15))
-                    if playback.get('id')==1:
-                        print('CAMERA_PLAYBACK',slot,json.dumps(playback),flush=True)
-                        assert 'exceptionDetails' not in playback.get('result',{}),playback
-                        break
+            else:
+                raise AssertionError(f'{label}: controlled video did not start in the current CEF target')
             started=time.monotonic()
             while True:
                 response=await request("GetSourceScreenshot",{"sourceName":"Игрок "+str(slot),
