@@ -1,7 +1,7 @@
 {
   "source_sha": "696ab35ce2ae1c9518fcf1eb5ce60c9a9c6cbe33",
   "run_url": "https://github.com/ssolutionn/Oneshot-Panel/actions/runs/45646197653",
-  "status": "running",
+  "status": "failed",
   "steps": {
     "python_tools": {
       "status": "passed",
@@ -130,5 +130,5 @@
       "tail": "Traceback (most recent call last):\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/scripts/qa_live.py\", line 747, in <module>\n    asyncio.run(run(parser.parse_args()))\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/asyncio/runners.py\", line 195, in run\n    return runner.run(main)\n           ^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/asyncio/runners.py\", line 118, in run\n    return self._loop.run_until_complete(task)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/asyncio/base_events.py\", line 691, in run_until_complete\n    return future.result()\n           ^^^^^^^^^^^^^^^\n  File \"/home/runner/work/Oneshot-Panel/Oneshot-Panel/scripts/qa_live.py\", line 218, in run\n    await page.goto(season2_url(base + \"/\"))\n                    ^^^^^^^^^^^\nNameError: name 'season2_url' is not defined\n"
     }
   },
-  "updated_at": "2026-11-25T15:38:03.637047+00:00"
+  "updated_at": "2026-11-25T15:38:05.757296+00:00"
 }
