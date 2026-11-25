@@ -163,7 +163,7 @@ test('sortQualificationMatches: live first, then upcoming by time, finished at t
 
 test('qualificationDirectorLink opens the VDO director, not a plain room', () => {
   assert.equal(qualificationDirectorLink('teama_teamb_ab12cd'),
-    'https://vdo.ninja/?director=teama_teamb_ab12cd');
+    'https://vdo.ninja/?director=teama_teamb_ab12cd&mute&mutespeaker');
   assert.ok(!qualificationDirectorLink('room').includes('room='));
 });
 

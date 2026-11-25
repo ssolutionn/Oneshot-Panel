@@ -56,7 +56,7 @@ test('LAN seats: fixed stream per seat, the team keeps no streams of its own', (
     ['A1', 'nick2', 'k7qza1', 'k7qz'], ['A2', 'nick1', 'k7qza2', 'k7qz'], ['A3', 'nick3', 'k7qza3', 'k7qz'],
     ['A4', 'nick4', 'k7qza4', 'k7qz'], ['A5', 'nick5', 'k7qza5', 'k7qz']]);
   assert.equal(a.players.find(p => p.nick === 'sub1').id, '');
-  assert.equal(directorUrl(a), 'https://vdo.ninja/?director=k7qz');
+  assert.equal(directorUrl(a), 'https://vdo.ninja/?director=k7qz&mute&mutespeaker');
 });
 
 test('LAN seats: the same team can sit on either side of the stage', () => {
@@ -83,9 +83,9 @@ test('LAN seat links: ten links to type on the PCs, password included when set',
   const links = lanSeatLinks(LAN);
   assert.equal(links.length, 2 * LAN_SEATS);
   assert.deepEqual(links.map(l => l.seat), ['A1', 'A2', 'A3', 'A4', 'A5', 'B1', 'B2', 'B3', 'B4', 'B5']);
-  assert.equal(links[0].push, 'https://vdo.ninja/?room=k7qz&broadcast&do&push=k7qza1');
+  assert.equal(links[0].push, 'https://vdo.ninja/?room=k7qz&broadcast&do&mute&mutespeaker&push=k7qza1');
   const locked = lanSeatLinks(lanConfig({ on: true, prefix: 'k7qz', password: 'p w' }));
-  assert.equal(locked[9].push, 'https://vdo.ninja/?room=k7qz&password=p%20w&broadcast&do&push=k7qzb5');
+  assert.equal(locked[9].push, 'https://vdo.ninja/?room=k7qz&password=p%20w&broadcast&do&mute&mutespeaker&push=k7qzb5');
 });
 
 test('event profile: a name and three hex colours, nothing else gets through', () => {

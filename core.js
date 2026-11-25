@@ -327,13 +327,13 @@ function roomPassword(x) {
   return x?.password ? `&password=${encodeURIComponent(x.password)}` : '';
 }
 export function viewUrl(p) {
-  return `https://vdo.ninja/?view=${encodeURIComponent(p.id)}&solo=1&room=${encodeURIComponent(p.room)}${roomPassword(p)}&codec=h264&cleanoutput&transparent`;
+  return `https://vdo.ninja/?view=${encodeURIComponent(p.id)}&solo=1&room=${encodeURIComponent(p.room)}${roomPassword(p)}&mutespeaker&codec=h264&cleanoutput&transparent`;
 }
 export function pushUrl(p) {
-  return `https://vdo.ninja/?room=${encodeURIComponent(p.room)}${roomPassword(p)}&broadcast&do&push=${encodeURIComponent(p.id)}`;
+  return `https://vdo.ninja/?room=${encodeURIComponent(p.room)}${roomPassword(p)}&broadcast&do&mute&mutespeaker&push=${encodeURIComponent(p.id)}`;
 }
 export function directorUrl(team) {
-  return `https://vdo.ninja/?director=${encodeURIComponent(team.room)}${roomPassword(team)}`;
+  return `https://vdo.ninja/?director=${encodeURIComponent(team.room)}${roomPassword(team)}&mute&mutespeaker`;
 }
 export const DEFAULT_CAMERA_FRAME = 'inner43';
 const CAMERA_EDGE_BLEED = 20;

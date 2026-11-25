@@ -1,4 +1,5 @@
 import { summarizeMatch } from './faceit.js';
+import { directorUrl } from './core.js';
 
 export function safeQualificationUrl(value) {
   try {
@@ -107,9 +108,8 @@ export function canonicalTeamOrder(record) {
 }
 
 // The director view lets the operator mute/reposition/see every stream of the room.
-// Same shape as core.directorUrl, without the sheet-only password branch.
 export function qualificationDirectorLink(room) {
-  return `https://vdo.ninja/?director=${encodeURIComponent(room)}`;
+  return directorUrl({ room });
 }
 
 // Pure filter so the toolbar behaviour is testable without the DOM.

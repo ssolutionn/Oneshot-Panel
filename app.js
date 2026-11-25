@@ -12,7 +12,8 @@ import {
 
 const $ = id => document.getElementById(id);
 const SEASON3_ACCESS_KEY = 'oneshot-season3-vdo-access';
-const SEASON3_ACCESS_HINT = 'Импортируй файл ключей VDO в «Источнике данных», чтобы открыть выданные ссылки и скачать OBS JSON.';
+const SEASON3_ACCESS_HASH = '#vdo-season3=';
+const SEASON3_ACCESS_HINT = 'Открой закрытую ссылку оператора сезона 3. Панель загрузит ключи VDO и откроет камеры и OBS JSON.';
 const state = {
   teams: [], schedule: [], a: '', b: '', keysA: [], keysB: [],
   matchKey: '', tab: 'observer', lastSync: null, stale: false,
@@ -75,27 +76,46 @@ if (!state.lan.on) {
 function isSeason3(source = state.source) {
   return !state.lan.on && source.id === SEASON3_SOURCE.id && source.gid === SEASON3_SOURCE.gid;
 }
+let season3Access = readStorage(SEASON3_ACCESS_KEY);
+function saveSeason3Access(access) {
+  season3Access = access;
+  return writeStorage(SEASON3_ACCESS_KEY, access);
+}
 function activateSeason3Access() {
-  const prefix = '#vdo-season3=';
-  if (!isSeason3() || !location.hash.startsWith(prefix)) return '';
+  if (state.lan.on || !location.hash.startsWith(SEASON3_ACCESS_HASH)) return '';
   const url = new URL(location.href);
-  const token = url.hash.slice(prefix.length);
+  const token = url.hash.slice(SEASON3_ACCESS_HASH.length);
   // This fragment is a private setup link. Keep it out of the address bar and
   // browser history after consuming it, even if browser storage is blocked.
-  url.hash = '';
+  url.hash = 'prep';
   history.replaceState(history.state, '', url);
-  if (validateSeason3VdoAccess(readStorage(SEASON3_ACCESS_KEY))) return '';
   try {
-    if (!/^[A-Za-z0-9_-]{1,4096}$/.test(token)) throw new Error('Invalid VDO link');
+    if (!/^[A-Za-z0-9_-]{1,16384}$/.test(token)) throw new Error('Invalid VDO link');
     const bytes = Uint8Array.from(atob(token.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
     const access = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
     if (!validateSeason3VdoAccess(access)) throw new Error('Invalid VDO access');
-    return writeStorage(SEASON3_ACCESS_KEY, access) ? '' : 'Браузер не разрешил сохранить доступ VDO.';
+    // Preserve IDs created later for substitutes if they belong to the same
+    // room. The invitation supplies the authoritative IDs it already knows.
+    const merged = Object.fromEntries(Object.entries(access).map(([name, team]) => {
+      const saved = season3Access?.[name];
+      return [name, saved?.room === team.room && saved?.password === team.password ?
+        { ...team, ids: { ...saved.ids, ...team.ids } } : team];
+    }));
+    state.source = { ...SEASON3_SOURCE };
+    url.searchParams.delete('season');
+    history.replaceState(history.state, '', url);
+    writeStorage('webcam-desk-source', { ...state.source, selected: true });
+    return saveSeason3Access(validateSeason3VdoAccess(merged) ? merged : access) ? '' :
+      'Ключи VDO подключены в этой вкладке. Браузер не разрешил сохранить их для следующего входа.';
   } catch {
     return 'Ссылка подключения VDO неполная или повреждена.';
   }
 }
 const season3LinkError = activateSeason3Access();
+// Pasting the private link into the current panel tab can change only the fragment.
+window.addEventListener('hashchange', () => {
+  if (!state.lan.on && location.hash.startsWith(SEASON3_ACCESS_HASH)) location.reload();
+});
 function matchStorageKey() {
   return isSeason3() ? 'oneshot-season3-match' : 'oneshot-webcam-match-v1';
 }
@@ -566,10 +586,10 @@ async function refresh() {
     let accessHint = '';
     if (season3) {
       const teams = parseSeason3Roster(roster.value);
-      const saved = readStorage(SEASON3_ACCESS_KEY);
+      const saved = season3Access;
       if (validateSeason3VdoAccess(saved) && teams.every(team => Object.hasOwn(saved, personKey(team.name)))) {
         const access = season3VdoAccess(teams, saved);
-        if (!writeStorage(SEASON3_ACCESS_KEY, access)) throw new Error('Браузер не смог сохранить ключи VDO.');
+        if (!saveSeason3Access(access)) accessHint = season3LinkError || 'Ключи VDO подключены в этой вкладке. Браузер не разрешил их сохранить.';
       } else {
         accessHint = season3LinkError || SEASON3_ACCESS_HINT;
       }
@@ -760,7 +780,7 @@ function render() {
               (player.sheetId ? `<b class="new-id">${player.manualId ? 'Свой ID' : 'Новый ID'}</b> <button type="button" class="link-button"
                 data-unregen="${side}" data-slot="${i}"
                 title="Вернуть ID из таблицы (${escapeHtml(player.sheetId)})">вернуть</button> · ` : '') +
-              (cameraReady ? escapeHtml(viewUrl(player)) : 'Импортируй ключи VDO') :
+              (cameraReady ? escapeHtml(viewUrl(player)) : 'Открой закрытую ссылку оператора') :
               'Место не заполнено'}</span>
             <button class="link-button camera-adjust" type="button" id="camera-${side}-${i}" data-camera="${side}" data-slot="${i}" ${!cameraReady ? 'disabled' : ''}>Кадр${player?.camera?.rotation ? ' · '+player.camera.rotation+'°' : ''}</button>
           </div>
@@ -1298,8 +1318,20 @@ function sheetLink(value) {
 }
 $('settingsBtn').addEventListener('click', () => {
   fillSource(state.source);
+  $('copySeason3Entry').hidden = !validateSeason3VdoAccess(season3Access);
   $('sourceError').hidden = true;
   $('settingsDialog').showModal();
+});
+$('copySeason3Entry').addEventListener('click', () => {
+  if (!validateSeason3VdoAccess(season3Access)) return;
+  const bytes = new TextEncoder().encode(JSON.stringify(season3Access));
+  const token = btoa(Array.from(bytes, byte => String.fromCharCode(byte)).join(''))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const home = /^https?:$/.test(location.protocol) ? location.origin : 'https://oneshot-panel.pages.dev';
+  const url = new URL('/', home);
+  url.hash = SEASON3_ACCESS_HASH + token;
+  $('settingsDialog').close();
+  copy(url.href);
 });
 $('closeSettings').addEventListener('click', () => $('settingsDialog').close());
 $('closeCopy').addEventListener('click', () => $('copyDialog').close());
@@ -1326,7 +1358,7 @@ $('season3Access').addEventListener('change', async event => {
   try {
     const access = JSON.parse(await file.text());
     if (!validateSeason3VdoAccess(access)) throw new Error('Проверь, что выбран JSON с ключами VDO сезона 3.');
-    if (!writeStorage(SEASON3_ACCESS_KEY, access)) throw new Error('Браузер не смог сохранить ключи VDO.');
+    saveSeason3Access(access);
     if (isSeason3()) {
       $('settingsDialog').close();
       refresh();

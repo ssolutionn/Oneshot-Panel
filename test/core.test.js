@@ -181,7 +181,7 @@ test('Player output has bold nickname and separate PUSH URL', () => {
   const [a, , ka] = fixture();
   const text = playerText(a, selectedPlayers(a, ka));
   assert.ok(text.startsWith('## HYPERSPIRIT\n'));
-  assert.ok(text.includes('**Ciocardau** https://vdo.ninja/?room=hyperspirit&broadcast&do&push=stream0_0'));
+  assert.ok(text.includes('**Ciocardau** https://vdo.ninja/?room=hyperspirit&broadcast&do&mute&mutespeaker&push=stream0_0'));
   assert.equal((text.match(/https:\/\/vdo\.ninja\//g) || []).length, 5);
   assert.ok(!text.includes('[**'));
   assert.ok(!text.includes('director='));
@@ -192,14 +192,14 @@ test('Room password from column L goes into every link of that team only', () =>
   const [a, b] = parseTeams(rows);
   assert.equal(a.password, 'k3y 7&x');
   const [p] = selectedPlayers(a, defaultLineup(a));
-  assert.equal(pushUrl(p), 'https://vdo.ninja/?room=hyperspirit&password=k3y%207%26x&broadcast&do&push=stream0_0');
-  assert.equal(viewUrl(p), 'https://vdo.ninja/?view=stream0_0&solo=1&room=hyperspirit&password=k3y%207%26x&codec=h264&cleanoutput&transparent');
-  assert.equal(directorUrl(a), 'https://vdo.ninja/?director=hyperspirit&password=k3y%207%26x');
-  assert.ok(playerText(a, selectedPlayers(a, defaultLineup(a))).includes('**Ciocardau** https://vdo.ninja/?room=hyperspirit&password=k3y%207%26x&broadcast&do&push=stream0_0'));
+  assert.equal(pushUrl(p), 'https://vdo.ninja/?room=hyperspirit&password=k3y%207%26x&broadcast&do&mute&mutespeaker&push=stream0_0');
+  assert.equal(viewUrl(p), 'https://vdo.ninja/?view=stream0_0&solo=1&room=hyperspirit&password=k3y%207%26x&mutespeaker&codec=h264&cleanoutput&transparent');
+  assert.equal(directorUrl(a), 'https://vdo.ninja/?director=hyperspirit&password=k3y%207%26x&mute&mutespeaker');
+  assert.ok(playerText(a, selectedPlayers(a, defaultLineup(a))).includes('**Ciocardau** https://vdo.ninja/?room=hyperspirit&password=k3y%207%26x&broadcast&do&mute&mutespeaker&push=stream0_0'));
   // A team without a password keeps the old links.
   const [q] = selectedPlayers(b, defaultLineup(b));
-  assert.equal(pushUrl(q), 'https://vdo.ninja/?room=team-b&broadcast&do&push=stream1_0');
-  assert.equal(directorUrl(b), 'https://vdo.ninja/?director=team-b');
+  assert.equal(pushUrl(q), 'https://vdo.ninja/?room=team-b&broadcast&do&mute&mutespeaker&push=stream1_0');
+  assert.equal(directorUrl(b), 'https://vdo.ninja/?director=team-b&mute&mutespeaker');
 });
 
 test('Observer text is the slot order only, without links', () => {
