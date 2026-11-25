@@ -80,7 +80,10 @@
       "exit_code": 0,
       "seconds": 7.9,
       "tail": "PASS: firefox full source preview, mouse placement, safe zones, per-player persistence, JSON/live parity and shared presets\n"
+    },
+    "editor_chromium": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-11-25T16:21:35.013273+00:00"
+  "updated_at": "2026-11-25T16:21:37.280765+00:00"
 }
