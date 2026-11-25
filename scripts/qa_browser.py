@@ -212,6 +212,7 @@ async def run(args):
         modes["roster_error"] = False
         passed("roster outage retains substitutions and marks stale data")
 
+        await page.locator("#cameraSettings > summary").click()
         cards_option = page.get_by_label("Добавлять карточки и заглушки под камеры")
         await expect(cards_option).not_to_be_checked()
 

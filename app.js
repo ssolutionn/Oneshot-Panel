@@ -417,13 +417,17 @@ for(const button of document.querySelectorAll('[data-camera-pan]')) {
     saveCamera(axis==='center' ? {panX:50,panY:50} : {[axis]:c[axis]+Number(delta)});
   });
 }
-$('webcamMode')?.setAttribute('value', state.webcamMode);
-if ($('webcamMode')) $('webcamMode').value = state.webcamMode;
+$('webcamMode').value = state.webcamMode === 'lan' ? 'lan' : 'online';
+$('vdoLanSettings').hidden = state.webcamMode !== 'lan';
 if ($('vdoCodec')) $('vdoCodec').value = state.vdoOptions.codec || 'h264';
 if ($('vdoBitrate')) $('vdoBitrate').value = state.vdoOptions.bitrate || 2500;
 if ($('vdoFps')) $('vdoFps').value = state.vdoOptions.fps || 30;
 if ($('vdoLowLatency')) $('vdoLowLatency').checked = state.vdoOptions.lowLatency !== false;
-$('webcamMode')?.addEventListener('change', () => { state.webcamMode = $('webcamMode').value === 'lan' ? 'lan' : 'online'; writeStorage('oneshot-webcam-mode-v1', state.webcamMode); });
+$('webcamMode').addEventListener('change', () => {
+  state.webcamMode = $('webcamMode').value;
+  $('vdoLanSettings').hidden = state.webcamMode !== 'lan';
+  writeStorage('oneshot-webcam-mode-v1', state.webcamMode);
+});
 for (const id of ['vdoCodec','vdoBitrate','vdoFps','vdoLowLatency']) $(id)?.addEventListener('change', () => { state.vdoOptions = { codec: $('vdoCodec').value, bitrate: Number($('vdoBitrate').value), fps: Number($('vdoFps').value), lowLatency: $('vdoLowLatency').checked }; writeStorage('oneshot-vdo-options-v1', state.vdoOptions); });
 $('cameraFrame').addEventListener('change',()=>{
   state.cameraFrame=validCameraFrame($('cameraFrame').value) ? $('cameraFrame').value : DEFAULT_CAMERA_LAYOUT_FRAME;
@@ -525,6 +529,7 @@ if ($('cameraPresetSave')) {
   function openPresetHash() {
     if(!location.hash.startsWith(presetHash))return;
     const token=location.hash.slice(presetHash.length);
+    $('cameraSettings').open=true;
     $('cameraPresetSettings').open=true;
     if(!tokenPattern.test(token)){status.textContent='Ссылка на пресет неполная.';return;}
     history.replaceState(history.state,'',location.pathname+location.search+'#prep');

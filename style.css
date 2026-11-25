@@ -134,6 +134,17 @@ h2 { font-size:17px; line-height:1.4; letter-spacing:-.3px; margin-bottom:0; }
 .camera-frame-setting select { max-width:100%; padding:6px 8px; background:var(--field); color:var(--ink); border:1px solid var(--field-line); border-radius:5px; }
 .camera-frame-setting > span { flex-basis:100%; font-size:10px; }
 .camera-dialog { width:min(1050px,calc(100% - 24px)); }
+.camera-toolbar { position:sticky; top:0; z-index:6; background:var(--surface); box-shadow:0 -24px 0 var(--surface); padding-block:4px 10px; }
+.camera-toolbar h2 { flex:1; min-width:0; overflow-wrap:anywhere; }
+.camera-toolbar .button { flex-shrink:0; }
+.camera-toolbar .camera-obs-status { margin:4px 0 0; }
+.camera-toolbar .camera-obs-status[data-state="success"] { color:var(--success-ink); }
+.camera-toolbar .camera-obs-status[data-state="error"] { color:var(--red); }
+@media (max-width:480px) {
+  .camera-toolbar .dialog-head { gap:7px; }
+  .camera-toolbar h2 { font-size:14px; }
+  .camera-toolbar .button { padding-inline:10px; }
+}
 .camera-mouse-hint { margin:8px 0; }
 .camera-workspace { padding:clamp(12px,3vw,36px); overflow:hidden; background:var(--soft); }
 .camera-preview-stage { position:relative; isolation:isolate; width:min(100%,max(320px,calc(135vh - 480px))); margin-inline:auto; aspect-ratio:16/9; outline:1px solid var(--focus); background:var(--camera-stage); }
@@ -192,6 +203,9 @@ a.text-button { display:inline-flex; align-items:center; }
 .card-bottom { display:flex; align-items:center; gap:4px; }
 .roster-action { width:28px; padding:5px; font-size:17px; text-align:center; }
 .export-bar { margin:12px 0 16px; }
+.camera-settings { width:fit-content; max-width:100%; margin-top:10px; }
+.camera-settings > summary { width:fit-content; padding:6px 9px; border-radius:5px; color:var(--muted); font-size:12px; cursor:pointer; }
+.camera-settings > summary:hover, .camera-settings[open] > summary { background:var(--soft); color:var(--ink); }
 .check.export-option { margin-top:10px; font-size:12px; line-height:1.5; cursor:pointer; }
 .check.export-option input { flex:none; width:16px; height:16px; }
 .export-actions { display:flex; align-items:center; gap:10px; }

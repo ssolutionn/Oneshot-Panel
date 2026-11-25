@@ -313,6 +313,7 @@ async def run(args):
         passed("OBS tab: instructions, password check, save, reload, focus and 375px layout")
 
         # Send to OBS on this computer.
+        await page.locator("#cameraSettings > summary").click()
         await page.check("#includeCards")
         await page.click("#sendObsBtn")
         await expect(page.locator("#toast")).to_contain_text("OBS обновлён: 10 камер, 10 карточек")
@@ -410,6 +411,8 @@ async def run(args):
         await expect(page.locator("#obsBridgeStatus")).to_contain_text("Всё подключено ✓")
         await page.locator("#obsDialog").screenshot(path=str(output / "obs-connection-phone-config.png"))
         await page.click("#closeObs")
+        if not await page.locator("#includeCards").is_visible():
+            await page.locator("#cameraSettings > summary").click()
         await page.check("#includeCards")
         await page.click("#sendObsBtn")
         await expect(page.locator("#toast")).to_contain_text("OBS обновлён: 10 камер, 10 карточек", timeout=15000)

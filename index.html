@@ -96,39 +96,42 @@
         <!-- web-only --><button class="button" id="copyJsonBtn" type="button" disabled><span aria-hidden="true">⧉</span> Копировать JSON</button>
         <button class="button small obs-setup" id="obsSetupBtn" type="button" aria-controls="obsDialog" title="Открыть вкладку OBS: подключение и инструкция"><i id="obsDot" aria-hidden="true"></i><span id="obsState">OBS не настроен</span></button><!-- /web-only -->
       </div>
-      <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
-      <label class="camera-frame-setting">Режим вебок<select id="webcamMode"><option value="online">Онлайн</option><option value="lan">ЛАН</option></select><span>ЛАН — для камер в одной сети; онлайн — для удалённых игроков.</span></label>
-      <div id="vdoLanSettings" class="camera-frame-setting"><b>Оптимизация VDO для ЛАН</b><label>Кодек<select id="vdoCodec"><option value="h264">H.264</option><option value="vp8">VP8</option><option value="vp9">VP9</option></select></label><label>Битрейт<input id="vdoBitrate" type="number" min="500" max="8000" step="100" value="2500"> кбит/с</label><label>FPS<select id="vdoFps"><option>24</option><option selected>30</option><option>60</option></select></label><label class="check"><input id="vdoLowLatency" type="checkbox" checked> Минимальная задержка</label><span>Параметры добавляются только в LAN-ссылки камер.</span></div>
-      <label class="camera-frame-setting">Рамка вебок
-        <select id="cameraFrame"><option value="inner43">1320×1080 на всю высоту</option><option value="full43">1440×1080 (4:3)</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option><option value="custom">Своя рамка</option></select>
-        <span>Общий пресет для камер. Открой «Кадр» под ником, чтобы поправить вебку игрока.</span>
-      </label>
-      <details class="camera-preset-settings" id="cameraPresetSettings">
-        <summary>Своя рамка и сейф-зоны</summary>
-        <div class="camera-preset-grid">
-          <fieldset><legend>Своя рамка</legend>
-            <label>Ширина<input id="cameraCustomWidth" type="number" min="16" max="1920" step="1"></label>
-            <label>Высота<input id="cameraCustomHeight" type="number" min="16" max="1080" step="1"></label>
-          </fieldset>
-          <fieldset><legend>Сейф-зона</legend>
-            <label class="check"><input id="cameraGuideEnabled" type="checkbox"> Показывать</label>
-            <label>Ширина<input id="cameraGuideWidth" type="number" min="16" max="1920" step="1"></label>
-            <label>Высота<input id="cameraGuideHeight" type="number" min="16" max="1080" step="1"></label>
-          </fieldset>
-          <fieldset><legend>Вторая сейф-зона</legend>
-            <label class="check"><input id="cameraGuideTwoEnabled" type="checkbox"> Показывать</label>
-            <label>Ширина<input id="cameraGuideTwoWidth" type="number" min="16" max="1920" step="1"></label>
-            <label>Высота<input id="cameraGuideTwoHeight" type="number" min="16" max="1080" step="1"></label>
-          </fieldset>
-        </div>
-        <p class="muted">Размеры в пикселях. Сейф-зоны центрируются и отображаются в редакторе.</p>
-        <!-- web-only --><div class="camera-preset-actions">
-          <label>Имя пресета<input id="cameraPresetName" type="text" maxlength="48" autocomplete="off"></label>
-          <button id="cameraPresetSave" class="button" type="button">Сохранить на сервер</button>
-          <label>Сохранённые<select id="cameraPresetList"><option value="">Выбери пресет</option></select></label>
-          <button id="cameraPresetLoad" class="button" type="button" disabled>Загрузить</button>
-          <button id="cameraPresetCopy" class="button" type="button" disabled>Копировать ссылку</button>
-        </div><p id="cameraPresetStatus" class="muted" role="status"></p><!-- /web-only -->
+      <details class="camera-settings" id="cameraSettings">
+        <summary>Настройки вебок и экспорта</summary>
+        <label class="check export-option"><input id="includeCards" type="checkbox" autocomplete="off"><span>Добавлять карточки и заглушки под камеры</span></label>
+        <label class="camera-frame-setting">Режим вебок<select id="webcamMode"><option value="online">Онлайн</option><option value="lan">ЛАН</option></select></label>
+        <div id="vdoLanSettings" class="camera-frame-setting" hidden><label>Кодек<select id="vdoCodec"><option value="h264">H.264</option><option value="vp8">VP8</option><option value="vp9">VP9</option></select></label><label>Битрейт<input id="vdoBitrate" type="number" min="500" max="8000" step="100" value="2500"> кбит/с</label><label>FPS<select id="vdoFps"><option>24</option><option selected>30</option><option>60</option></select></label><label class="check"><input id="vdoLowLatency" type="checkbox" checked> Минимальная задержка</label></div>
+        <label class="camera-frame-setting">Рамка вебок
+          <select id="cameraFrame"><option value="inner43">1320×1080 на всю высоту</option><option value="full43">1440×1080 (4:3)</option><option value="wide">На весь холст 16:9</option><option value="square">Квадрат 1080×1080 (центр холста)</option><option value="custom">Своя рамка</option></select>
+          <span>Общий пресет для камер. Открой «Кадр» под ником, чтобы поправить вебку игрока.</span>
+        </label>
+        <details class="camera-preset-settings" id="cameraPresetSettings">
+          <summary>Своя рамка и сейф-зоны</summary>
+          <div class="camera-preset-grid">
+            <fieldset><legend>Своя рамка</legend>
+              <label>Ширина<input id="cameraCustomWidth" type="number" min="16" max="1920" step="1"></label>
+              <label>Высота<input id="cameraCustomHeight" type="number" min="16" max="1080" step="1"></label>
+            </fieldset>
+            <fieldset><legend>Сейф-зона</legend>
+              <label class="check"><input id="cameraGuideEnabled" type="checkbox"> Показывать</label>
+              <label>Ширина<input id="cameraGuideWidth" type="number" min="16" max="1920" step="1"></label>
+              <label>Высота<input id="cameraGuideHeight" type="number" min="16" max="1080" step="1"></label>
+            </fieldset>
+            <fieldset><legend>Вторая сейф-зона</legend>
+              <label class="check"><input id="cameraGuideTwoEnabled" type="checkbox"> Показывать</label>
+              <label>Ширина<input id="cameraGuideTwoWidth" type="number" min="16" max="1920" step="1"></label>
+              <label>Высота<input id="cameraGuideTwoHeight" type="number" min="16" max="1080" step="1"></label>
+            </fieldset>
+          </div>
+          <p class="muted">Размеры в пикселях. Сейф-зоны центрируются и отображаются в редакторе.</p>
+          <!-- web-only --><div class="camera-preset-actions">
+            <label>Имя пресета<input id="cameraPresetName" type="text" maxlength="48" autocomplete="off"></label>
+            <button id="cameraPresetSave" class="button" type="button">Сохранить на сервер</button>
+            <label>Сохранённые<select id="cameraPresetList"><option value="">Выбери пресет</option></select></label>
+            <button id="cameraPresetLoad" class="button" type="button" disabled>Загрузить</button>
+            <button id="cameraPresetCopy" class="button" type="button" disabled>Копировать ссылку</button>
+          </div><p id="cameraPresetStatus" class="muted" role="status"></p><!-- /web-only -->
+        </details>
       </details>
       <div class="export-meta">
         <p id="exportHint">10 вебок, сцены «Игрок 1–10» и «Матрица»</p>
@@ -827,7 +830,14 @@
 
 
   <dialog id="cameraDialog" class="camera-dialog" aria-labelledby="cameraHeading">
-    <div class="dialog-head"><h2 id="cameraHeading">Кадр камеры</h2><button id="closeCamera" class="icon-button" type="button" aria-label="Закрыть">×</button></div>
+    <div class="camera-toolbar">
+      <div class="dialog-head">
+        <h2 id="cameraHeading">Кадр камеры</h2>
+        <!-- web-only --><button id="cameraApplyObs" class="button primary" type="button" disabled>Отправить в OBS</button><!-- /web-only -->
+        <button id="closeCamera" class="icon-button" type="button" aria-label="Закрыть">×</button>
+      </div>
+      <!-- web-only --><p id="cameraObsStatus" class="camera-obs-status" role="status" hidden></p><!-- /web-only -->
+    </div>
     <div class="camera-workspace">
       <div id="cameraPreviewStage" class="camera-preview-stage">
         <div id="cameraPreviewBox" class="camera-preview-box" data-rotation="0"></div>
@@ -865,7 +875,7 @@
       </div>
     </div>
     <p id="cameraSaveHint" class="muted" role="status"></p>
-    <div class="dialog-actions"><button id="cameraReset" class="button" type="button">Сбросить кадр</button><!-- web-only --><button id="cameraApplyObs" class="button primary" type="button">Применить в OBS</button><!-- /web-only --></div>
+    <div class="dialog-actions"><button id="cameraReset" class="button" type="button">Сбросить кадр</button></div>
   </dialog>
 
   <!-- web-only --><dialog id="exportDialog" aria-labelledby="exportHeading">

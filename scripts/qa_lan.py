@@ -221,6 +221,7 @@ async def event_address(browser, base, out):
     assert (await page.locator('[data-player="a"][data-slot="1"] option:checked').inner_text()).startswith("sub1")
     await expect(page.locator("#teamGrid [data-lan-logo] canvas")).to_have_count(1)
     # OBS JSON: seats in the cameras, the cards with their photos inside.
+    await page.locator("#cameraSettings > summary").click()
     await page.check("#includeCards")
     async with page.expect_download() as info:
         await page.click("#downloadBtn")
@@ -236,6 +237,7 @@ async def event_address(browser, base, out):
     await page.evaluate("localStorage.setItem('oneshot-obs', JSON.stringify({mode: 'bridge', code: '%s'}))" % CODE)
     await page.reload()
     await page.click("#viewPrep")
+    await page.locator("#cameraSettings > summary").click()
     await page.check("#includeCards")
     dock_obs = MockObs()
 

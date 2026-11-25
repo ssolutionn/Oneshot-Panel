@@ -447,39 +447,59 @@ $('sendObsConfig').addEventListener('click', async () => {
 });
 
 let sendingMatch = false, lastObsError = '';
-$('cameraApplyObs').addEventListener('click',()=>{
-  $('cameraDialog').close();
-  $('sendObsBtn').click();
-});
-$('sendObsBtn').addEventListener('click', async () => {
+const cameraDialog = $('cameraDialog');
+const cameraObsStatus = $('cameraObsStatus');
+function setCameraObsStatus(message, state) {
+  cameraObsStatus.textContent = message;
+  cameraObsStatus.dataset.state = state;
+  cameraObsStatus.hidden = !message;
+}
+function syncObsSendButtons(matchError) {
+  $('sendObsBtn').disabled = sendingMatch || !!matchError;
+  $('cameraApplyObs').disabled = sendingMatch || !!matchError;
+}
+cameraDialog.addEventListener('close', () => setCameraObsStatus('', ''));
+async function sendMatchToObs(event) {
   if (sendingMatch) return;
+  const fromCamera = event.currentTarget === $('cameraApplyObs');
+  const editing = document.activeElement;
+  if (fromCamera && editing?.matches('input') && cameraDialog.contains(editing)) editing.blur();
   const s = panel.snapshot();
   let payload;
-  try { payload = matchPayload(s); } catch (error) { return panel.toast(error.message); }
+  try { payload = matchPayload(s); } catch (error) {
+    return fromCamera ? setCameraObsStatus(error.message, 'error') : panel.toast(error.message);
+  }
   if (!obsSettings().configured) {
+    if (fromCamera) cameraDialog.close();
     return openObsSettings();
   }
   const button = $('sendObsBtn');
   if (lastObsError && $('errorBox').textContent === lastObsError) panel.showError('');
   lastObsError = '';
   sendingMatch = true;
-  button.disabled = true;
+  syncObsSendButtons(s.matchError);
+  if (fromCamera) setCameraObsStatus('Отправляем в OBS…', 'pending');
   obsBadge('Отправляем в OBS…', 'wait');
   try {
     payload.match.cardDocs = await panel.cardDocs(s);
     const { summary } = await obsCommand({ type: 'apply-camera-layout', ...payload });
     delete button.dataset.attention;
     button.title = '';
-    panel.toast(`OBS обновлён: ${summary.slots} камер${summary.cards ? `, ${summary.cards} карточек` : ''}.`);
+    const message = `OBS обновлён: ${summary.slots} камер${summary.cards ? `, ${summary.cards} карточек` : ''}.`;
+    if (fromCamera && cameraDialog.open) setCameraObsStatus(message, 'success');
+    else panel.toast(message);
   } catch (error) {
     lastObsError = `${error.message} JSON для импорта можно скачать или скопировать рядом.`;
     panel.showError(lastObsError);
+    if (fromCamera && cameraDialog.open) setCameraObsStatus(error.message, 'error');
   } finally {
     sendingMatch = false;
-    button.disabled = !!panel.snapshot().matchError;
+    syncObsSendButtons(panel.snapshot().matchError);
     renderObsState();
   }
-});
+}
+$('cameraApplyObs').addEventListener('click', sendMatchToObs);
+$('sendObsBtn').addEventListener('click', sendMatchToObs);
 // ↻ next to a player made a new stream ID: the camera in OBS still has the
 // old one until the match is sent again.
 document.addEventListener('oneshot:stream-id', event => {
@@ -716,8 +736,7 @@ setInterval(() => {
 // ---------- follow the panel ----------
 function onChange() {
   const s = panel.snapshot();
-  $('sendObsBtn').disabled = sendingMatch || !!s.matchError;
-  $('cameraApplyObs').disabled = sendingMatch || !!s.matchError;
+  syncObsSendButtons(s.matchError);
   $('copyJsonBtn').disabled = !!s.matchError || !s.template;
   syncWatcher();
   sendVeto();

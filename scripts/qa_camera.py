@@ -78,6 +78,13 @@ async def run(args):
         await expect(page.locator("#syncTitle")).to_contain_text("команд из таблицы")
         options=await page.locator("#matchSelect option").evaluate_all("els=>els.filter(e=>e.value).map(e=>e.value)")
         await page.select_option("#matchSelect",options[0])
+        await expect(page.locator("#webcamMode")).to_be_hidden()
+        await page.locator("#cameraSettings > summary").click()
+        await expect(page.locator("#vdoLanSettings")).to_be_hidden()
+        await page.select_option("#webcamMode","lan")
+        await expect(page.locator("#vdoLanSettings")).to_be_visible()
+        await page.select_option("#webcamMode","online")
+        await expect(page.locator("#vdoLanSettings")).to_be_hidden()
         await expect(page.locator("#cameraFrame")).to_have_value("wide")
         await page.select_option("#cameraFrame","inner43")
         await page.locator('[data-camera="a"][data-slot="0"]').click()
@@ -215,25 +222,33 @@ async def run(args):
         await expect(page.locator("#cameraRotation")).to_have_value("90")
         await expect(page.locator('#cameraZoom')).to_have_value('150')
         await expect(page.locator('#cameraPlaceX')).to_have_value('-282')
-        await page.click("#cameraApplyObs")
-        await expect(page.locator("#toast")).to_contain_text("OBS обновлён")
+        send = page.locator('#cameraApplyObs')
+        await expect(send).to_be_in_viewport()
+        await page.locator('#cameraReset').scroll_into_view_if_needed()
+        await expect(send).to_be_in_viewport()
+        await page.locator('#cameraPlaceY').fill('28')
+        await send.click()
+        await expect(page.locator("#cameraObsStatus")).to_contain_text("OBS обновлён")
+        await expect(page.locator("#cameraDialog")).to_be_visible()
         transforms=[r["requestData"] for r in obs.requests if r["requestType"]=="SetSceneItemTransform"]
         transform=next(r["sceneItemTransform"] for r in transforms if r["sceneName"]=="Игрок 2")
         assert {k:transform[k] for k in ("positionX","positionY","rotation","boundsWidth","boundsHeight")}=={
-            "positionX":1495,"positionY":20,"rotation":90,"boundsWidth":950,"boundsHeight":1777}
+            "positionX":1495,"positionY":28,"rotation":90,"boundsWidth":950,"boundsHeight":1777}
+        await page.click('#closeCamera')
         async with page.expect_download() as info:
             await page.click("#downloadBtn")
         data=json.loads((await (await info.value).path()).read_text())
         scene=next(s for s in data["sources"] if s["name"]=="Игрок 2")
         item=next(i for i in scene["settings"]["items"] if i["name"].startswith("CAM "))
         source=next(s for s in data["sources"] if s["uuid"]==item["source_uuid"])
-        assert item["rot"]==90 and item["pos"]=={"x":1495,"y":20}
+        assert item["rot"]==90 and item["pos"]=={"x":1495,"y":28}
         assert item['bounds_type']==1 and item['bounds']=={'x':950,'y':1777}
         assert source["settings"]["width"]==1920 and source["settings"]["height"]==1080
         assert "&b64css=" in source["settings"]["url"]
         from urllib.parse import parse_qs,urlsplit
         css=base64.b64decode(parse_qs(urlsplit(source['settings']['url']).query)['b64css'][0]).decode()
         assert 'scale:1.5!important' in css
+        await page.locator("#cameraSettings > summary").click()
         await page.select_option("#cameraFrame","wide")
         await page.reload()
         await expect(page.locator("#cameraFrame")).to_have_value("wide")
@@ -278,6 +293,7 @@ async def run(args):
                    for url in urls if 'b64css=' in url),'Updated dock lost zoom'
         await dock.close()
         if urlsplit(args.url).hostname in ('127.0.0.1', 'localhost'):
+            await page.locator('#cameraSettings > summary').click()
             await page.locator('#cameraPresetSettings summary').click()
             for field, value in [('CustomWidth','1500'),('CustomHeight','900'),('GuideWidth','1234')]:
                 control = page.locator('#camera'+field)
