@@ -86,7 +86,10 @@
       "exit_code": 0,
       "seconds": 7.1,
       "tail": "PASS: chromium full source preview, mouse placement, safe zones, per-player persistence, JSON/live parity and shared presets\n"
+    },
+    "editor_webkit": {
+      "status": "running"
     }
   },
-  "updated_at": "2026-11-25T18:01:27.088761+00:00"
+  "updated_at": "2026-11-25T18:01:29.561537+00:00"
 }
