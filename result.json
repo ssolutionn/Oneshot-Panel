@@ -76,8 +76,11 @@
       "tail": "PASS: webkit white document after load, delayed API, zero decoded frames, video readiness, disconnect/reconnect and cleanup\n"
     },
     "editor_firefox": {
-      "status": "running"
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 7.9,
+      "tail": "PASS: firefox full source preview, mouse placement, safe zones, per-player persistence, JSON/live parity and shared presets\n"
     }
   },
-  "updated_at": "2026-11-25T16:21:24.859537+00:00"
+  "updated_at": "2026-11-25T16:21:35.013273+00:00"
 }
