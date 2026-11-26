@@ -1028,8 +1028,8 @@ async function enterRoom(room) {
       const name = Object.assign(document.createElement('span'), { className: 'vt-map-name', textContent: card.map });
       const tag = document.createElement('span');
       tag.className = 'vt-map-tag';
-      if (card.status === 'ban') tag.textContent = `BAN · ${names[card.team]}`;
-      else if (card.status === 'pick') tag.textContent = `PICK · ${names[card.team]}`;
+      const decided = card.status === 'ban' || card.status === 'pick';
+      if (decided) tag.textContent = names[card.team];
       else if (card.status === 'decider') tag.textContent = room.f === 'BO1' ? t('tagPlay') : room.f === 'BO2' ? t('tagMap2') : 'DECIDER';
       const side = document.createElement('span');
       side.className = 'vt-map-side';
@@ -1040,7 +1040,14 @@ async function enterRoom(room) {
       }
       else if (card.status === 'pick') side.textContent = t('choosingShort');
       const num = Object.assign(document.createElement('span'), { className: 'vt-map-num', textContent: order.get(card.map) || '' });
-      el.append(...[img, num, name, tag, side].filter(Boolean));
+      if (decided) {
+        num.classList.add('vt-map-action');
+        const action = Object.assign(document.createElement('span'), {
+          className: 'vt-map-action-label', textContent: card.status.toUpperCase()
+        });
+        num.append(' ', action);
+      }
+      el.append(img, num, name, tag, side);
       el.addEventListener('click', () => {
         selected = selected === card.map ? '' : card.map;
         focusConfirm = !!selected;

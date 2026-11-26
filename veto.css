@@ -208,12 +208,21 @@ h1,h2,h3 { font-family:var(--vt-display); font-weight:600; letter-spacing:.02em;
   position:absolute !important; top:10px; left:10px; width:26px; height:26px; border-radius:50%;
   display:grid; place-items:center; background:var(--vt-shade); font:600 13px var(--vt-display);
 }
-.vt-map[data-status=ban] { border-color:var(--vt-ban); }
+/* The move number and action share a single chip on used maps. */
+.vt-map-num.vt-map-action {
+  display:inline-flex; align-items:center; gap:7px; width:max-content; height:auto;
+  padding:5px 9px; border:1px solid var(--vt-map-action); border-radius:999px;
+  background:var(--vt-shade); color:var(--vt-ink); text-shadow:none;
+  font:650 14px/1 var(--vt-display); font-variant-numeric:tabular-nums;
+}
+.vt-map-action-label {
+  padding-inline-start:7px; border-inline-start:1px solid var(--vt-line);
+  color:var(--vt-map-action); letter-spacing:.065em;
+}
+.vt-map[data-status=ban] { --vt-map-action:var(--vt-ban); border-color:var(--vt-ban); }
 .vt-map[data-status=ban] img { filter:grayscale(1) brightness(.45); }
-.vt-map[data-status=ban] .vt-map-tag { color:var(--vt-ban); }
 .vt-map[data-status=ban] .vt-map-name { text-decoration:line-through; text-decoration-color:var(--vt-ban); text-decoration-thickness:3px; }
-.vt-map[data-status=pick] { border-color:var(--vt-pick); box-shadow:0 0 22px var(--vt-pick-soft); }
-.vt-map[data-status=pick] .vt-map-tag { color:var(--vt-pick); }
+.vt-map[data-status=pick] { --vt-map-action:var(--vt-pick); border-color:var(--vt-pick); box-shadow:0 0 22px var(--vt-pick-soft); }
 .vt-map[data-status=decider] { border-color:var(--vt-decider); }
 .vt-map[data-status=decider] .vt-map-tag { color:var(--vt-decider); }
 .vt-maps:has(.vt-map:not(:disabled)) .vt-map[data-status=open]:disabled { opacity:.6; }

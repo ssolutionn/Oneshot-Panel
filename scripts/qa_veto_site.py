@@ -507,6 +507,12 @@ async def run(args):
         await expect(spectator.locator(".vt-map[data-status=ban]")).to_have_count(4)
         await expect(spectator.locator(".vt-map[data-status=pick]")).to_have_count(2)
         await expect(spectator.locator(".vt-map[data-status=decider]")).to_have_count(1)
+        for page in (spectator, cap_b):
+            actions = page.locator(".vt-map .vt-map-action")
+            await expect(actions).to_have_text(["1 BAN", "2 BAN", "3 PICK", "4 PICK", "5 BAN", "6 BAN"])
+            for tag in await page.locator(".vt-map[data-status=ban] .vt-map-tag, .vt-map[data-status=pick] .vt-map-tag").all():
+                await expect(tag).to_have_text(re.compile(r"^(UPGRADE|Lavked)$"))
+            await expect(page.locator(".vt-map[data-status=decider] .vt-map-action")).to_have_count(0)
         await expect(spectator.locator("#vtClock")).to_be_visible()
         await expect(spectator.locator("#vtClock .vt-clock-label")).to_have_text("вето за")
         # Cards in veto order: the six moves, then the decider on the right.
