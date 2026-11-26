@@ -42,6 +42,23 @@ test('Season 3 keeps every organizer fixture and reuses imported camera access',
   assert.equal(pushUrl(teams[0].players[0]), push);
 });
 
+test('Season 3 uses the issued EC2-DW camera when SIAA is renamed in the roster', () => {
+  const saved = { ec2dw: {
+    room: 'cc3_0123456789abcd', password: '0123456789abcdef0123',
+    ids: { siaa: 'issued_stream', sia: 'generated_after_rename' }
+  } };
+  const renamed = { nick: 'SiA' };
+  const access = season3VdoAccess([{ name: 'EC2-DW', players: [renamed] }], saved);
+  assert.equal(renamed.id, 'issued_stream');
+  assert.equal(renamed.room, saved.ec2dw.room);
+  assert.deepEqual(access, saved);
+  assert.equal(validateSeason3VdoAccess(access), true);
+
+  const both = [{ nick: 'SiA' }, { nick: 'SIAA' }];
+  season3VdoAccess([{ name: 'EC2-DW', players: both }], saved);
+  assert.deepEqual(both.map(player => player.id), ['generated_after_rename', 'issued_stream']);
+});
+
 test('Season 3 reads both team blocks after a SteamID column shifts the second block', () => {
   const teams = parseSeason3Roster([
     ['', 'TEAM 01', '', 'OzemPEEK', '', '', 'SteamID', '', 'TEAM 02', '', 'EC2-DW', '', '', 'SteamID'],

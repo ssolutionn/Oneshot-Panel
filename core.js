@@ -124,6 +124,9 @@ export function parseSeason3Roster(rows) {
   return teams.filter(team => team.players.length);
 }
 
+// Roster names can change after camera links have already gone to the players.
+const SEASON3_VDO_NICK_ALIASES = { 'ec2dw:sia': 'siaa' };
+
 export function season3VdoAccess(teams, saved = {}) {
   const token = size => Array.from(crypto.getRandomValues(new Uint8Array(size)), byte =>
     byte.toString(16).padStart(2, '0')).join('');
@@ -134,10 +137,13 @@ export function season3VdoAccess(teams, saved = {}) {
     const room = existing?.room || `cc3_${token(7)}`;
     const password = existing?.password || token(10);
     const ids = { ...existing?.ids };
+    const rosterNicks = new Set(team.players.map(player => personKey(player.nick)));
     for (const player of team.players) {
       const nick = personKey(player.nick);
-      if (!Object.hasOwn(ids, nick)) ids[nick] = `${vdoId(player.nick).slice(0, 40)}_${token(4)}`;
-      Object.assign(player, { room, password, id: ids[nick] });
+      const alias = SEASON3_VDO_NICK_ALIASES[`${name}:${nick}`];
+      const accessNick = alias && !rosterNicks.has(alias) && Object.hasOwn(ids, alias) ? alias : nick;
+      if (!Object.hasOwn(ids, accessNick)) ids[accessNick] = `${vdoId(player.nick).slice(0, 40)}_${token(4)}`;
+      Object.assign(player, { room, password, id: ids[accessNick] });
     }
     Object.assign(team, { room, password });
     access[name] = { room, password, ids };
