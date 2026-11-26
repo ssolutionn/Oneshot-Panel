@@ -262,26 +262,6 @@ h1,h2,h3 { font-family:var(--vt-display); font-weight:600; letter-spacing:.02em;
   .vt-clock[data-state=low] .vt-clock-time { animation:none; }
 }
 
-/* Large BAN/PICK stamp in the map corner — readable in grayscale, unlike the small tag. */
-.vt-map-stamp {
-  position:absolute; top:10px; left:10px; z-index:3;
-  font:700 clamp(16px,2vw,26px)/1 var(--vt-display);
-  letter-spacing:.08em; text-transform:uppercase;
-  color:#fff; padding:4px 9px;
-  border:2px solid currentColor; border-radius:7px;
-  background:var(--vt-shade);
-  transform:rotate(-6deg);
-  pointer-events:none;
-  animation:vt-stamp-in .2s ease-out;
-}
-.vt-map-stamp[data-status=ban] { color:var(--vt-ban); }
-.vt-map-stamp[data-status=pick] { color:var(--vt-pick); }
-@keyframes vt-stamp-in {
-  from { transform:rotate(-6deg) scale(1.4); opacity:0; }
-  to   { transform:rotate(-6deg) scale(1);   opacity:1; }
-}
-@media (prefers-reduced-motion:reduce) { .vt-map-stamp { animation:none; } }
-
 /* Mobile (veto-mobile.html shares this stylesheet). */
 body { -webkit-tap-highlight-color:transparent; }
 .vt-mobile-banner {
