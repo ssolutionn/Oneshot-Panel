@@ -2,70 +2,70 @@
   "version": 1,
   "day": "2026-11-27",
   "startedAt": 1795749073399,
-  "updatedAt": 1795749073431,
+  "updatedAt": 1795781938606,
   "books": {
     "fonbet": {
-      "checkedAt": 1795749073431,
+      "checkedAt": 1795781938595,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "pari": {
-      "checkedAt": 1795749073416,
+      "checkedAt": 1795781938582,
       "status": "error",
       "coverage": "line-and-live",
       "events": []
     },
     "bettery": {
-      "checkedAt": 1795749073412,
+      "checkedAt": 1795781938602,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "bet24": {
-      "checkedAt": 1795749073399,
+      "checkedAt": 1795781938596,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "olimp": {
-      "checkedAt": 1795749073414,
+      "checkedAt": 1795781938600,
       "status": "partial",
       "coverage": "line-and-live",
       "events": []
     },
     "marathon": {
-      "checkedAt": 1795749073420,
+      "checkedAt": 1795781938598,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "betcity": {
-      "checkedAt": 1795749073426,
+      "checkedAt": 1795781938598,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "sportbet": {
-      "checkedAt": 1795749073425,
+      "checkedAt": 1795781938604,
       "status": "ok",
       "coverage": "line-and-live",
       "events": []
     },
     "baltbet": {
-      "checkedAt": 1795749073417,
+      "checkedAt": 1795781938605,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "winline": {
-      "checkedAt": 1795749073429,
+      "checkedAt": 1795781938603,
       "status": "ok",
       "coverage": "prematch",
       "events": []
     },
     "leon": {
-      "checkedAt": 1795749073423,
+      "checkedAt": 1795781938606,
       "status": "ok",
       "coverage": "prematch",
       "events": []
